@@ -3,7 +3,7 @@
   "_comment_2": "Allowed status values: not_started | partial | done | out_of_scope. Every row should carry implementationRefs and testRefs once status >= partial. followupRefs link to F-NNN entries in FOLLOWUPS.md.",
   "_comment_3": "gddRef paths may not yet exist when a row is seeded; the slice that picks the row creates the section file.",
   "updatedAt": "2026-05-03",
-  "_comment_4": "REQ-001 / REQ-002 / REQ-005 landed together as the bootstrap slice. REQ-008 (slug zod schema) landed next. See PROGRESS_LOG.md.",
+  "_comment_4": "REQ-001 / REQ-002 / REQ-005 landed together as the bootstrap slice. REQ-008 (slug zod schema) landed next. REQ-004 (kv.ts) landed after that. See PROGRESS_LOG.md.",
   "rows": [
     {
       "id": "REQ-001",
@@ -44,9 +44,9 @@
       "id": "REQ-004",
       "requirement": "Project bootstrap: @upstash/redis client module ported as src/lib/kv.ts with city: key namespace",
       "gddRef": "docs/gdd/03-persistence.md",
-      "status": "not_started",
-      "implementationRefs": [],
-      "testRefs": [],
+      "status": "done",
+      "implementationRefs": ["src/lib/kv.ts", "package.json"],
+      "testRefs": ["tests/lib/kv.test.ts"],
       "followupRefs": []
     },
     {

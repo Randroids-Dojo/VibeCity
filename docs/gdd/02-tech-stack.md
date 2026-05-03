@@ -11,7 +11,7 @@ This file is the canonical spec for VibeCity's technology choices and the bootst
 - **TypeScript 5** in strict mode. `noEmit: true`. Path alias `@/*` resolves to `src/*`.
 - **Vitest 2** for unit tests. Tests live under `tests/`. Smoke test at `tests/smoke.test.ts` is the canary.
 - **Playwright** for end-to-end smoke tests at the route level. Wired in a follow-up slice (REQ-003).
-- **@upstash/redis** for slug-keyed persistence. Wired in a follow-up slice (REQ-004) under `src/lib/kv.ts` with the `city:` namespace.
+- **@upstash/redis** for slug-keyed persistence. Wired in `src/lib/kv.ts` under the `city:` namespace (REQ-004). See `docs/gdd/03-persistence.md` for the keyspace and read / write paths.
 - **raw three** (no R3F) once the scene is added.
 - **zod** for schema validation once the city schema lands.
 - **Web Audio API** directly; no audio framework.
@@ -39,7 +39,7 @@ docs/              GDD, plan, ledgers.
 - **REQ-001 (this file):** Next.js 15 App Router + React 19 + TypeScript 5 scaffold matching VibeRacer's package.json. Done.
 - **REQ-002:** Vitest unit test runner with one passing smoke test. Done.
 - **REQ-003:** Playwright E2E runner with one passing smoke test against `/`. Pending follow-up slice.
-- **REQ-004:** `@upstash/redis` client module ported as `src/lib/kv.ts` with `city:` namespace. Pending follow-up slice.
+- **REQ-004:** `@upstash/redis` client module ported as `src/lib/kv.ts` with `city:` namespace. Done. See `docs/gdd/03-persistence.md`.
 - **REQ-005:** Production build (`next build`) green. Done.
 
 ## Dev script contract
@@ -64,4 +64,5 @@ Future slices add `npm run test:e2e` for Playwright when REQ-003 lands.
 
 ### Build log
 
+- 2026-05-03: REQ-004 landed. Added `@upstash/redis ^1.37.0` to dependencies. Files: `src/lib/kv.ts`, `tests/lib/kv.test.ts`, `docs/gdd/03-persistence.md` (new canonical spec). Verified `npm run type-check`, `npm run test`, `npm run build` all green. Dash check clean. PR #N.
 - 2026-05-03: REQ-001, REQ-002, REQ-005 landed. Files: `package.json`, `tsconfig.json`, `next.config.mjs`, `.eslintrc.json`, `.gitignore`, `vitest.config.ts`, `src/app/layout.tsx`, `src/app/page.tsx`, `tests/smoke.test.ts`, `src/AGENTS.md` (symlink to slice-discipline rule), `tests/AGENTS.md` (symlink to slice-discipline rule). Verified `npm run type-check`, `npm run test`, `npm run build` all green. Dash check clean. PR #1.
