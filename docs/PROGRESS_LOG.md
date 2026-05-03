@@ -16,6 +16,16 @@ Format for each slice:
 - Followups: any new `F-NNN` entries created. Link to them.
 ```
 
+## 2026-05-03, Editor Snap Grid: REQ-016
+
+- Branch: `feature/req-016-snap-grid`
+- PR: #N (when known)
+- Changed: gave the editor route a visible canvas. Added `src/app/[slug]/edit/snapGrid.ts` exporting the grid configuration constants (`GRID_RADIUS = 8`, `GRID_DIAMETER = 17`, `CELL_PIXELS = 32`, `GRID_PIXEL_SIZE = 544`) and the helper functions (`cellKey`, `pieceFootprintCells`, `occupiedPieceCells`, `gridCells`, `cellToPixel`). Added `src/app/[slug]/edit/SnapGridView.tsx`, a presentational React server component that renders an SVG grid (one `<rect>` per cell, origin cell highlighted, occupied footprint cells filled). Updated `src/app/[slug]/edit/page.tsx` to render `<SnapGrid city={EMPTY_CITY} />` between the heading and the Drive CTA so the editor route now shows a real surface instead of the placeholder shell. Added `tests/app/snapGrid.test.ts` with 22 cases covering constant invariants, `cellKey` shape, `gridCells` enumeration / order / origin uniqueness, `cellToPixel` anchor cases (top-left, center, bottom-right), `pieceFootprintCells` single / explicit / multi-cell expansion, and `occupiedPieceCells` empty / aggregate / dedupe semantics. Drafted `docs/gdd/07-editor.md` as the canonical editor spec covering REQ-016 plus forward-looking notes on REQ-017 onward. Indexed the new GDD file in `docs/gdd/README.md`.
+- Verification: `npm run check:dashes` exited 0. `npx tsc --noEmit` exited 0. `npm test` reported 174/174 pass (152 prior + 22 snapGrid cases). `npm run build` produced a green production build with `/[slug]/edit` still a dynamic server-rendered route. `git diff --check` clean. JSON syntax of GDD_COVERAGE.json validated.
+- Assumptions: Grid radius is 8 (a 17 by 17 visible window), large enough for a starter city loop without forcing pan / zoom (REQ-024) into this slice. Cell pixel size is 32 px, the smallest comfortable touch target without forcing horizontal scroll on common viewports. Coordinate convention mirrors VibeRacer: row indices grow downward, column indices grow rightward, negative cells are legitimate. The grid renders as SVG rather than a `<canvas>` so the React server component can emit static markup without a client runtime; the place / rotate / erase tools (REQ-020 onward) will add their own client surface when they land. The grid only renders pieces, not buildings, this slice; v1 buildings are single-cell so a future slice that wires building placement can extend `occupiedPieceCells` symmetrically. The `data-cell-row` / `data-cell-col` / `data-cell-occupied` attributes on each `<rect>` are deliberate hooks for the future click-to-place E2E smoke (REQ-020). The editor route still seeds with `EMPTY_CITY` directly; loading a saved city into the editor lands with REQ-025 (autosave) so the read and write paths can ship together.
+- GDD coverage: REQ-016 flipped `not_started` to `done`. `docs/gdd/07-editor.md` drafted with `Status: partial` (REQ-017 onward still pending in this section's coverage scope) and a Build log entry for REQ-016.
+- Followups: none new.
+
 ## 2026-05-03, Playwright E2E Smoke: REQ-003
 
 - Branch: `feature/20260503-175745-req-003-playwright`
