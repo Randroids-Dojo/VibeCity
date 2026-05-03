@@ -34,3 +34,148 @@ export function normalizeSlug(raw: string): string {
     .replace(/^-+/, '')
     .slice(0, 128)
 }
+
+/**
+ * Street piece taxonomy (REQ-017, REQ-018, REQ-019, REQ-058, REQ-060).
+ *
+ * Mirrors VibeRacer's `PieceTypeSchema` (the editor vocabulary), plus
+ * `intersection` which is VibeCity-specific (4-way junction extending
+ * VibeRacer's planned 3-connector junction; see REQ-019).
+ *
+ * The schema accepts every piece in the planned v1 taxonomy. Hiding a
+ * piece from the palette UI is a separate concern; the schema does not
+ * gate placeability beyond the type enum.
+ */
+export const PieceTypeSchema = z.enum([
+  'straight',
+  'left90',
+  'right90',
+  'scurve',
+  'scurveLeft',
+  'sweepRight',
+  'sweepLeft',
+  'megaSweepRight',
+  'megaSweepLeft',
+  'hairpin',
+  'intersection',
+])
+export type PieceType = z.infer<typeof PieceTypeSchema>
+
+/**
+ * Rotation in 90deg increments. Matches VibeRacer's `RotationSchema`.
+ */
+export const RotationSchema = z.union([
+  z.literal(0),
+  z.literal(90),
+  z.literal(180),
+  z.literal(270),
+])
+export type Rotation = z.infer<typeof RotationSchema>
+
+/**
+ * Multi-cell footprint cell offset (REQ-059). When omitted, callers
+ * treat the piece as a single-cell footprint at `(row, col)`.
+ */
+export const PieceFootprintCellSchema = z
+  .object({
+    dr: z.number().int(),
+    dc: z.number().int(),
+  })
+  .strict()
+export type PieceFootprintCell = z.infer<typeof PieceFootprintCellSchema>
+
+/**
+ * One street piece placed on the city grid (REQ-012, REQ-059).
+ */
+export const PieceSchema = z
+  .object({
+    type: PieceTypeSchema,
+    row: z.number().int(),
+    col: z.number().int(),
+    rotation: RotationSchema,
+    footprint: z.array(PieceFootprintCellSchema).min(1).optional(),
+  })
+  .strict()
+export type Piece = z.infer<typeof PieceSchema>
+
+/**
+ * Building taxonomy for v1 (Q-004 default B).
+ *
+ * Four placeholder primitive types render as extruded boxes with
+ * distinct silhouettes (REQ-028, REQ-046). v1 buildings have no
+ * simulation behavior; they are visual variety for the drive view.
+ */
+export const BuildingTypeSchema = z.enum([
+  'small-house',
+  'mid-house',
+  'shop',
+  'factory',
+])
+export type BuildingType = z.infer<typeof BuildingTypeSchema>
+
+/**
+ * One building placed on the city grid (REQ-012, REQ-028, REQ-029).
+ */
+export const BuildingSchema = z
+  .object({
+    type: BuildingTypeSchema,
+    row: z.number().int(),
+    col: z.number().int(),
+    rotation: RotationSchema,
+  })
+  .strict()
+export type Building = z.infer<typeof BuildingSchema>
+
+/**
+ * Optional per-city author "preferred mood": a time-of-day and / or
+ * weather preset baked into the saved city version. Both fields are
+ * optional so a city author can pick one, both, or neither. Mood is
+ * NOT included in the version hash (REQ-013), so adding or changing
+ * the mood on an existing city keeps every prior version reference
+ * intact.
+ *
+ * The actual TimeOfDay / Weather enums live in their own slice when
+ * the lighting module is ported. v1 treats them as opaque short
+ * strings to keep the schema landing now without dragging the
+ * lighting port forward.
+ */
+export const CityMoodSchema = z
+  .object({
+    timeOfDay: z.string().min(1).max(32).optional(),
+    weather: z.string().min(1).max(32).optional(),
+  })
+  .strict()
+export type CityMood = z.infer<typeof CityMoodSchema>
+
+export const MAX_PIECES_PER_CITY = 256
+export const MAX_BUILDINGS_PER_CITY = 512
+
+/**
+ * The canonical city payload (REQ-012).
+ *
+ * Strict on unknown fields: any extra key fails validation. Pieces
+ * and buildings are arrays so an empty city (`pieces: [], buildings: []`)
+ * is the v1 starting state for a fresh slug.
+ *
+ * `mood` is excluded from the version hash (REQ-013), so changing
+ * mood does not produce a new version. Persistence rules are in
+ * `docs/gdd/03-persistence.md`.
+ */
+export const CitySchema = z
+  .object({
+    pieces: z.array(PieceSchema).max(MAX_PIECES_PER_CITY),
+    buildings: z.array(BuildingSchema).max(MAX_BUILDINGS_PER_CITY),
+    mood: CityMoodSchema.optional(),
+  })
+  .strict()
+export type City = z.infer<typeof CitySchema>
+
+/**
+ * The empty city. Exported so callers (REQ-015 fallback path, fresh-slug
+ * landing per REQ-010) can return a known-good payload without
+ * reconstructing it.
+ */
+export const EMPTY_CITY: City = {
+  pieces: [],
+  buildings: [],
+}
