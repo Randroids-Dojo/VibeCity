@@ -16,6 +16,16 @@ Format for each slice:
 - Followups: any new `F-NNN` entries created. Link to them.
 ```
 
+## 2026-05-03, arc45 + diagonal Piece Schema: REQ-061, REQ-062
+
+- Branch: `feature/req-061-062-arc45-diagonal`
+- PR: #N (when known)
+- Changed: ported VibeRacer's 2026-05-03 piece taxonomy expansion (arc45, diagonal) into VibeCity's `PieceTypeSchema`. Extended the enum from 11 to 13 members. Updated the PieceTypeSchema doc comment to describe arc45 as the cardinal-to-corner bridge and diagonal as the corner-to-corner straight, and to flag REQ-063 (8-direction connectors) as the runtime dependency that lands later. Extended `tests/lib/schemas.test.ts` from 50 to 57 cases: PieceTypeSchema accepts both new types, PieceSchema accepts arc45 / diagonal at every cardinal rotation, arc45 with explicit single-cell footprint, both reject non-cardinal rotations (45, 135), and a CitySchema scenario chains `straight -> arc45 -> diagonal -> diagonal -> arc45`. Updated `docs/gdd/06-city-schema.md` Piece type taxonomy section to enumerate arc45 / diagonal with their connector roles, and appended a Build log entry. Flipped REQ-061 and REQ-062 in `docs/GDD_COVERAGE.json` from `not_started` to `partial` (schema landed; runtime parts deferred). Refreshed F-002 watch list to mark arc45 and diagonal merged upstream. Opened F-003 (sampled path geometry), F-004 (wheel contact), F-005 (pace notes), F-006 (difficulty scoring), F-007 (editor palette UI) for the deferred runtime work.
+- Verification: `npm run type-check` exited 0. `npm run test` reported 106/106 pass (99 prior + 7 new arc45 / diagonal cases). `npm run build` produced a green production build. Em-dash grep clean. `git diff --check` clean. JSON syntax of GDD_COVERAGE.json validated.
+- Assumptions: VibeCity ports the schema entry now even though the editor, sampled path, wheel contact, pace notes, and difficulty scoring are not yet wired. Saved cities containing arc45 / diagonal placements will validate and round-trip through the schema, but they will not render or drive correctly until the runtime port lands. This matches the existing pattern for hairpin / mega-sweep schema entries: the type enum has been ahead of the runtime port since the PieceTypeSchema landed. Per Q-006 default A, every Phase 1 piece that merges upstream is in scope for VibeCity, with city-merit re-evaluation deferred to the editor palette landing slice (F-007).
+- GDD coverage: REQ-061 flipped `not_started` to `partial`. REQ-062 flipped `not_started` to `partial`. `docs/gdd/06-city-schema.md` Build log gained an entry for arc45 / diagonal.
+- Followups: F-003 (sampled path geometry), F-004 (wheel contact), F-005 (pace notes), F-006 (difficulty scoring), F-007 (editor palette UI) opened.
+
 ## 2026-05-03, Builder Id: REQ-009
 
 - Branch: `feature/req-009-builder-id`

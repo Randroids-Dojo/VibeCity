@@ -115,11 +115,18 @@ describe('PieceTypeSchema', () => {
       'megaSweepRight',
       'megaSweepLeft',
       'hairpin',
+      'arc45',
+      'diagonal',
       'intersection',
     ]
     for (const t of types) {
       expect(PieceTypeSchema.safeParse(t).success).toBe(true)
     }
+  })
+
+  it('accepts the 45-degree connector piece types', () => {
+    expect(PieceTypeSchema.safeParse('arc45').success).toBe(true)
+    expect(PieceTypeSchema.safeParse('diagonal').success).toBe(true)
   })
 
   it('rejects unknown piece types', () => {
@@ -190,6 +197,54 @@ describe('PieceSchema', () => {
       PieceSchema.safeParse({
         ...valid,
         footprint: [{ dr: 0, dc: 0, weight: 1 }],
+      }).success,
+    ).toBe(false)
+  })
+
+  it('accepts an arc45 piece at every cardinal rotation', () => {
+    for (const rotation of [0, 90, 180, 270] as const) {
+      const piece = { type: 'arc45', row: 2, col: 3, rotation }
+      expect(PieceSchema.safeParse(piece).success).toBe(true)
+    }
+  })
+
+  it('accepts a diagonal piece at every cardinal rotation', () => {
+    for (const rotation of [0, 90, 180, 270] as const) {
+      const piece = { type: 'diagonal', row: 4, col: 5, rotation }
+      expect(PieceSchema.safeParse(piece).success).toBe(true)
+    }
+  })
+
+  it('accepts an arc45 piece with an explicit single-cell footprint', () => {
+    expect(
+      PieceSchema.safeParse({
+        type: 'arc45',
+        row: 0,
+        col: 0,
+        rotation: 0,
+        footprint: [{ dr: 0, dc: 0 }],
+      }).success,
+    ).toBe(true)
+  })
+
+  it('rejects an arc45 piece with a non-cardinal rotation', () => {
+    expect(
+      PieceSchema.safeParse({
+        type: 'arc45',
+        row: 0,
+        col: 0,
+        rotation: 45,
+      }).success,
+    ).toBe(false)
+  })
+
+  it('rejects a diagonal piece with a non-cardinal rotation', () => {
+    expect(
+      PieceSchema.safeParse({
+        type: 'diagonal',
+        row: 0,
+        col: 0,
+        rotation: 135,
       }).success,
     ).toBe(false)
   })
@@ -332,6 +387,20 @@ describe('CitySchema', () => {
       buildings: [],
     }
     expect(CitySchema.safeParse(city).success).toBe(false)
+  })
+
+  it('accepts a city using arc45 to bridge into a diagonal run', () => {
+    const city: City = {
+      pieces: [
+        { type: 'straight', row: 0, col: 0, rotation: 0 },
+        { type: 'arc45', row: 1, col: 0, rotation: 0 },
+        { type: 'diagonal', row: 2, col: 1, rotation: 0 },
+        { type: 'diagonal', row: 3, col: 2, rotation: 0 },
+        { type: 'arc45', row: 4, col: 3, rotation: 180 },
+      ],
+      buildings: [],
+    }
+    expect(CitySchema.safeParse(city).success).toBe(true)
   })
 })
 

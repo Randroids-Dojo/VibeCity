@@ -3,7 +3,7 @@
   "_comment_2": "Allowed status values: not_started | partial | done | out_of_scope. Every row should carry implementationRefs and testRefs once status >= partial. followupRefs link to F-NNN entries in FOLLOWUPS.md.",
   "_comment_3": "gddRef paths may not yet exist when a row is seeded; the slice that picks the row creates the section file.",
   "updatedAt": "2026-05-03",
-  "_comment_4": "REQ-001 / REQ-002 / REQ-005 landed together as the bootstrap slice. REQ-008 (slug zod schema) landed next. REQ-004 (kv.ts) landed after that. REQ-012 (CitySchema) and REQ-013 (hashCity) followed. REQ-009 (builderId) landed next. See PROGRESS_LOG.md.",
+  "_comment_4": "REQ-001 / REQ-002 / REQ-005 landed together as the bootstrap slice. REQ-008 (slug zod schema) landed next. REQ-004 (kv.ts) landed after that. REQ-012 (CitySchema) and REQ-013 (hashCity) followed. REQ-009 (builderId) landed next. REQ-061 / REQ-062 (arc45 + diagonal piece schema entries) flipped to partial after the schema port; runtime pieces (sampled centerline, wheel contact, pace notes, difficulty scoring, editor palette UI) tracked under F-003..F-007. See PROGRESS_LOG.md.",
   "rows": [
     {
       "id": "REQ-001",
@@ -214,20 +214,20 @@
     {
       "id": "REQ-061",
       "requirement": "Editor: 45-arc piece type (2x2 footprint, cardinal-to-corner connector bridge) per VibeRacer Phase 1c. Required if diagonal pieces are adopted. Adopt once VibeRacer ships it.",
-      "gddRef": "docs/gdd/07-editor.md",
-      "status": "not_started",
-      "implementationRefs": [],
-      "testRefs": [],
-      "followupRefs": ["F-002"]
+      "gddRef": "docs/gdd/06-city-schema.md",
+      "status": "partial",
+      "implementationRefs": ["src/lib/schemas.ts"],
+      "testRefs": ["tests/lib/schemas.test.ts"],
+      "followupRefs": ["F-002", "F-003", "F-004", "F-005", "F-006", "F-007"]
     },
     {
       "id": "REQ-062",
       "requirement": "Editor: diagonal piece type (1x1 footprint, two corner connectors NE-SW or NW-SE, length CELL_SIZE * sqrt(2)) per VibeRacer Phase 1d. Adopt once VibeRacer ships it.",
-      "gddRef": "docs/gdd/07-editor.md",
-      "status": "not_started",
-      "implementationRefs": [],
-      "testRefs": [],
-      "followupRefs": ["F-002"]
+      "gddRef": "docs/gdd/06-city-schema.md",
+      "status": "partial",
+      "implementationRefs": ["src/lib/schemas.ts"],
+      "testRefs": ["tests/lib/schemas.test.ts"],
+      "followupRefs": ["F-002", "F-003", "F-004", "F-005", "F-006", "F-007"]
     },
     {
       "id": "REQ-063",

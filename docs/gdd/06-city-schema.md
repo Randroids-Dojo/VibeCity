@@ -22,12 +22,14 @@ An empty city (`{ pieces: [], buildings: [] }`) is the v1 starting state for a f
 
 Street pieces describe the drivable grid. Each piece has a `type`, a `(row, col)` anchor, a 90deg `rotation`, and an optional multi-cell `footprint` (REQ-059, defaults to single-cell).
 
-Piece type taxonomy in v1 (REQ-017, REQ-018, REQ-019, REQ-058, REQ-060):
+Piece type taxonomy in v1 (REQ-017, REQ-018, REQ-019, REQ-058, REQ-060, REQ-061, REQ-062):
 
 - `straight`, `left90`, `right90` (REQ-017)
 - `scurve`, `scurveLeft`, `sweepRight`, `sweepLeft` (REQ-018)
 - `megaSweepRight`, `megaSweepLeft` (REQ-058, ported from VibeRacer PR #80)
 - `hairpin` (REQ-060, ported from VibeRacer PR #81)
+- `arc45` (REQ-061, ported from VibeRacer): bridges a cardinal connector to a corner connector. At rotation 0, connector ports are S (cardinal) and NE (corner). Four cardinal rotations supported. This is the transition piece that lets cardinal-only runs hand off to diagonal runs and back.
+- `diagonal` (REQ-062, ported from VibeRacer): chains corner-to-corner across one cell. At rotation 0, connector ports are SW and NE. Four cardinal rotations supported (180deg rotations are geometrically equivalent but accepted for consistency). Length is `CELL_SIZE * sqrt(2)` once geometry lands.
 - `intersection` (REQ-019, VibeCity-specific 4-way junction extending VibeRacer's planned 3-connector junction)
 
 The schema accepts every piece type in the planned v1 taxonomy. Hiding a piece from the palette UI is a separate concern; the schema does not gate placeability beyond the type enum.
@@ -79,5 +81,6 @@ VibeRacer's `MAX_PIECES_PER_TRACK` is 64 because a track is a closed loop. VibeC
 
 ### Build log
 
+- 2026-05-03: REQ-061 (`arc45`) and REQ-062 (`diagonal`) piece types added to `PieceTypeSchema`. Files: `src/lib/schemas.ts` (extended `PieceTypeSchema` enum from 11 to 13 members; comment block expanded to describe the cardinal-to-corner bridge role of arc45 and the corner-to-corner role of diagonal), `tests/lib/schemas.test.ts` (added cases for both new types at every cardinal rotation, optional single-cell footprint on arc45, rejection of non-cardinal rotations, and a CitySchema scenario chaining `straight -> arc45 -> diagonal -> diagonal -> arc45`). Mirrors the VibeRacer 2026-05-03 port. Connector validation, sampled centerlines, wheel contact, pace notes, and difficulty scoring stay deferred to FOLLOWUPS (no driving in VibeCity yet); the schema lands first so saved cities can record arc45 / diagonal placements ahead of the runtime port. PR #N.
 - 2026-05-03: REQ-013 landed. Files: `src/lib/hashCity.ts` (`hashCity`, `canonicalCityJson`, internal `normalizedFootprint` / `isDefaultFootprint`), `tests/lib/hashCity.test.ts` (18 cases covering format, determinism, mood exclusion, footprint canonicalization, change detection). Mood is excluded from the digest. Footprint canonicalization dedupes, collapses `-0` to `0`, sorts by `(dr, dc)`, and omits the field when it resolves to the single-cell default. PR #N.
 - 2026-05-03: REQ-012 landed. Files: `src/lib/schemas.ts` (`PieceTypeSchema`, `RotationSchema`, `PieceFootprintCellSchema`, `PieceSchema`, `BuildingTypeSchema`, `BuildingSchema`, `CityMoodSchema`, `CitySchema`, `EMPTY_CITY`, `MAX_PIECES_PER_CITY`, `MAX_BUILDINGS_PER_CITY`), `tests/lib/schemas.test.ts` (city / piece / building / mood cases). Verified `npm run type-check`, `npm run test`, `npm run build` all green. Dash check clean. PR #N.
