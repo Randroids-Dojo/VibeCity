@@ -163,9 +163,13 @@
       "id": "REQ-016",
       "requirement": "Editor: render snap-grid with default empty city",
       "gddRef": "docs/gdd/07-editor.md",
-      "status": "not_started",
-      "implementationRefs": [],
-      "testRefs": [],
+      "status": "done",
+      "implementationRefs": [
+        "src/app/[slug]/edit/snapGrid.ts",
+        "src/app/[slug]/edit/SnapGridView.tsx",
+        "src/app/[slug]/edit/page.tsx"
+      ],
+      "testRefs": ["tests/app/snapGrid.test.ts"],
       "followupRefs": []
     },
     {

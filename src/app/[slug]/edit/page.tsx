@@ -1,16 +1,21 @@
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
+import { EMPTY_CITY } from '@/lib/schemas'
 import { parseSlugParam } from '../slugRoute'
+import { SnapGrid } from './SnapGridView'
 
 /**
  * Editor route at `/<slug>/edit` (REQ-007).
  *
- * v1 scope: validate the slug, render the editor placeholder shell with
- * a Drive CTA linking back to `/<slug>`. The actual editor surface
- * (snap grid, piece palette, place / rotate / erase, autosave) lands in
- * its own slices (REQ-016 onward); until then this route exists so the
- * fresh-slug landing's "Create this city" CTA has a valid target instead
- * of producing a 404.
+ * v1 scope: validate the slug, render the snap-grid surface (REQ-016)
+ * seeded with the default empty city plus a Drive CTA linking back to
+ * `/<slug>`. Piece palette and place / rotate / erase (REQ-017
+ * onward) land in their own slices; this slice gives those slices a
+ * visible canvas to attach to.
+ *
+ * The grid is seeded with `EMPTY_CITY` directly. Loading a saved
+ * city (REQ-015) into the editor lands with REQ-025 (autosave) so
+ * the read and write paths can ship together.
  *
  * Invalid slugs return 404 via `notFound()` so unsharable URLs do not
  * leak into the editor.
@@ -33,7 +38,6 @@ export default async function EditCityPage({
         display: 'flex',
         flexDirection: 'column',
         alignItems: 'center',
-        justifyContent: 'center',
         gap: 16,
         fontFamily: 'system-ui, sans-serif',
         background: '#f7f4ee',
@@ -44,15 +48,16 @@ export default async function EditCityPage({
       <p style={{ fontSize: 14, margin: 0, opacity: 0.55, letterSpacing: 1 }}>
         VIBECITY EDITOR
       </p>
-      <h1 style={{ fontSize: 48, margin: 0, wordBreak: 'break-all' }}>{slug}</h1>
-      <p style={{ fontSize: 18, margin: 0, opacity: 0.75, textAlign: 'center' }}>
-        Editor surface lands in its own slice. Place pieces, build a city,
-        drive it.
+      <h1 style={{ fontSize: 32, margin: 0, wordBreak: 'break-all' }}>{slug}</h1>
+      <p style={{ fontSize: 14, margin: 0, opacity: 0.65, textAlign: 'center' }}>
+        Place pieces, build a city, drive it. Palette and tools land
+        next.
       </p>
+      <SnapGrid city={EMPTY_CITY} />
       <Link
         href={`/${slug}`}
         style={{
-          marginTop: 16,
+          marginTop: 8,
           padding: '12px 24px',
           background: '#222',
           color: '#f7f4ee',

@@ -28,6 +28,7 @@ Add entries below as sections are drafted. Each entry: filename + one-line descr
 - `04-slug-routing.md`: slug shape, validation, and the planned `/`, `/<slug>`, `/<slug>/edit` routes.
 - `05-identity.md`: anonymous builder id (cookie-issued UUID) used to gate city overwrites.
 - `06-city-schema.md`: city payload zod schema, piece / building taxonomy, mood, version-hash contract.
+- `07-editor.md`: editor surface (snap grid, piece palette, place / rotate / erase, autosave, footprint validation).
 - `99-out-of-scope.md`: the explicit v1 fence. SimCity layers, racing layers, multiplayer, auth, polish.
 
 ## Out of scope
