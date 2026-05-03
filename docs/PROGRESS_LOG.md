@@ -16,6 +16,16 @@ Format for each slice:
 - Followups: any new `F-NNN` entries created. Link to them.
 ```
 
+## 2026-05-03, Em-Dash CI Check: REQ-051
+
+- Branch: `feature/req-051-em-dash-ci`
+- PR: #N (when known)
+- Changed: enforced AGENTS.md Rule 1 in CI. Added `scripts/check-no-dashes.sh` (portable bash + perl scanner that reads tracked files via `git ls-files` and fails with a non-zero exit when U+2014 EM DASH or U+2013 EN DASH appears). Added `.github/workflows/ci.yml` with four jobs (`dash-check`, `type-check`, `unit-tests`, `build`) so every push to main and every PR runs the dash check, `tsc --noEmit`, vitest, and `next build`. Added `npm run check:dashes` so the same check runs locally with one command. Added `tests/scripts/checkNoDashes.test.ts` with 5 cases that drive the script against ephemeral git repos (em-dash fixture rejects, en-dash fixture rejects, hyphens-only fixture passes, gitignored node_modules is skipped, the live VibeCity tree is currently clean). Added `scripts/AGENTS.md` symlink to slice-discipline so Codex picks up the rule under the new directory.
+- Verification: `npm run check:dashes` exited 0. `npx tsc --noEmit` exited 0. `npm test` reported 132/132 pass (127 prior + 5 dash-check cases). `npm run build` produced a green production build. `git diff --check` clean. JSON syntax of GDD_COVERAGE.json validated.
+- Assumptions: The script targets tracked files via `git ls-files` rather than walking the working tree with `--exclude-dir=node_modules`. This is intentional: it inherits gitignore for free and skips build output (`.next`, `dist`, `coverage`) without per-directory excludes, which matters because Next.js writes em-dashes into its own minified runtime. Perl is available on every Ubuntu runner image and on macOS by default, so the script does not depend on GNU grep's `-P` (BSD grep on macOS rejects it). The workflow uses Node 20 to match Vercel's default Next.js 15 runtime; bumping to a newer LTS is a separate concern. The new CI workflow does not gate merging by default until repo branch protection is configured; that is owner-side configuration and out of scope for this slice.
+- GDD coverage: REQ-051 flipped `not_started` to `done`. AGENTS.md Rule 1 has not been a GDD section file (the `gddRef` is `AGENTS.md#rule-1`); no GDD section build log entry needed.
+- Followups: none new.
+
 ## 2026-05-03, Edit Route: REQ-007
 
 - Branch: `feature/req-007-edit-route`
