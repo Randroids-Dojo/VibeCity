@@ -179,3 +179,15 @@ export const EMPTY_CITY: City = {
   pieces: [],
   buildings: [],
 }
+
+/**
+ * Anonymous builder identity (REQ-009).
+ *
+ * UUID v4 issued on first visit and persisted in a long-lived cookie.
+ * Mirrors VibeRacer's `RacerIdSchema`. Used by the persistence layer
+ * (REQ-014) to gate writes: only the builder whose id matches the
+ * `createdByBuilderId` recorded on a city version may overwrite that
+ * city's `:latest`.
+ */
+export const BuilderIdSchema = z.string().uuid()
+export type BuilderId = z.infer<typeof BuilderIdSchema>

@@ -16,6 +16,16 @@ Format for each slice:
 - Followups: any new `F-NNN` entries created. Link to them.
 ```
 
+## 2026-05-03, Builder Id: REQ-009
+
+- Branch: `feature/req-009-builder-id`
+- PR: #N (when known)
+- Changed: ported VibeRacer's `src/lib/racerId.ts` into VibeCity as `src/lib/builderId.ts`. New exports: `BUILDER_ID_COOKIE` (`vibecity.builderId`), `BUILDER_ID_COOKIE_MAX_AGE_SEC` (1 year), `readBuilderId()` (Next.js App Router cookie reader), `isValidBuilderId(value)` (UUID v4 regex matching VibeRacer's), `newBuilderId()` (`crypto.randomUUID()`). Added `BuilderIdSchema` (zod `string().uuid()`) and `BuilderId` type to `src/lib/schemas.ts`. Added `tests/lib/builderId.test.ts` with 18 cases covering minting, regex validation (accept v4, reject empty / non-UUID / v1 / bad variant / uppercase / extra chars), cookie constants, and BuilderIdSchema accept/reject. Drafted `docs/gdd/05-identity.md` as the canonical identity spec covering REQ-009 plus forward-looking notes on REQ-014 ownership gating. Indexed the new GDD file in `docs/gdd/README.md`.
+- Verification: `npm run type-check` exited 0. `npm run test` reported 99/99 pass (81 prior + 18 builderId cases). `npm run build` produced a green production build. Em-dash grep clean. `git diff --check` clean. JSON syntax of GDD_COVERAGE.json validated.
+- Assumptions: Cookie namespace uses `vibecity.` prefix (separate from VibeRacer's `viberacer.`) so a player visiting both projects in one browser gets distinct ids. UUID v4 regex mirrors VibeRacer's lowercase-only hex pattern (matches the canonical `crypto.randomUUID()` output) so callers that move ids between projects do not need to renormalize. The cookie is NOT set by this slice; setting / refreshing the cookie lives in the route layer that issues it on first visit (REQ-006 / REQ-007 fresh-slug landings) and in REQ-014's PUT handler. v1 does not offer a "claim cities on a new device" flow; losing the cookie loses edit rights to that browser's cities, by design.
+- GDD coverage: REQ-009 flipped `not_started` to `done`. `docs/gdd/05-identity.md` drafted with `Status: partial` (REQ-014 ownership-gating still pending in this section's coverage scope).
+- Followups: none new.
+
 ## 2026-05-03, City Hash: REQ-013
 
 - Branch: `feature/req-013-city-hash`
