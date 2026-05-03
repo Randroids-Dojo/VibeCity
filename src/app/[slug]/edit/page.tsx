@@ -1,22 +1,22 @@
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
-import { EMPTY_CITY } from '@/lib/schemas'
+import { loadCity } from '@/lib/loadCity'
 import { parseSlugParam } from '../slugRoute'
 import { EditorClient } from './EditorClient'
 
 /**
  * Editor route at `/<slug>/edit` (REQ-007).
  *
- * v1 scope: validate the slug, render the editor client surface
- * (REQ-016 grid + REQ-017 palette + REQ-020 click-to-place +
- * REQ-021 rotate + REQ-022 erase) seeded with the default empty city
- * plus a Drive CTA linking back to `/<slug>`. Undo / redo (REQ-023),
- * pan / zoom (REQ-024), and autosave (REQ-025) land in follow-up
- * slices.
+ * v1 scope: validate the slug, load the saved city via `loadCity`
+ * (REQ-015), then render the editor client surface (REQ-016 grid +
+ * REQ-017 palette + REQ-020 click-to-place + REQ-021 rotate +
+ * REQ-022 erase + REQ-025 autosave) seeded with that city plus a
+ * Drive CTA linking back to `/<slug>`. Undo / redo (REQ-023) and pan /
+ * zoom (REQ-024) land in their own slices.
  *
- * The grid is seeded with `EMPTY_CITY` directly. Loading a saved
- * city (REQ-015) into the editor lands with REQ-025 (autosave) so
- * the read and write paths can ship together.
+ * `loadCity` returns `EMPTY_CITY` when no save exists or KV is
+ * unconfigured, so the editor opens cleanly on a fresh slug. The
+ * builder id cookie is issued by `src/middleware.ts`.
  *
  * Invalid slugs return 404 via `notFound()` so unsharable URLs do not
  * leak into the editor.
@@ -31,6 +31,8 @@ export default async function EditCityPage({
   if (!slug) {
     notFound()
   }
+
+  const { city } = await loadCity(slug)
 
   return (
     <main
@@ -53,9 +55,9 @@ export default async function EditCityPage({
       <p style={{ fontSize: 14, margin: 0, opacity: 0.65, textAlign: 'center' }}>
         Pick a piece, click the grid to place it. Press R or click
         Rotate to spin the next placement. Press E or click Erase to
-        clear a placed piece. Autosave lands next.
+        clear a placed piece. Edits autosave.
       </p>
-      <EditorClient initialCity={EMPTY_CITY} />
+      <EditorClient slug={slug} initialCity={city} />
       <Link
         href={`/${slug}`}
         style={{

@@ -1,7 +1,7 @@
 'use client'
 
-import { useCallback, useEffect, useState } from 'react'
-import type { City, PieceType, Rotation } from '@/lib/schemas'
+import { useCallback, useEffect, useRef, useState } from 'react'
+import type { City, PieceType, Rotation, Slug } from '@/lib/schemas'
 import {
   DEFAULT_PALETTE_TYPE,
   DEFAULT_ROTATION,
@@ -12,18 +12,22 @@ import {
   nextRotation,
   placePiece,
 } from './editorState'
+import {
+  AUTOSAVE_STATUS_LABEL,
+  DEFAULT_AUTOSAVE_DEBOUNCE_MS,
+  isCityContentEqual,
+  type AutosaveStatus,
+} from './autosaveStatus'
 import { SnapGrid } from './SnapGridView'
 
 /**
- * Editor client surface (REQ-017, REQ-020, REQ-021, REQ-022).
+ * Editor client surface (REQ-017, REQ-020, REQ-021, REQ-022, REQ-025).
  *
  * Wraps the snap-grid (REQ-016) with the v1 cardinal-only street
  * palette, a click-to-place tool, a rotate tool that cycles the
- * selected piece's rotation in 90deg increments, and an erase tool
- * that flips the cell-click contract from place to erase. State is
- * local-only in this slice: undo / redo (REQ-023), pan / zoom
- * (REQ-024), and autosave through PUT `/api/city/<slug>` (REQ-025)
- * each ship as their own slices.
+ * selected piece's rotation in 90deg increments, an erase tool that
+ * flips the cell-click contract from place to erase, and autosave that
+ * writes through PUT `/api/city/<slug>` (REQ-014) on every mutation.
  *
  * Placement uses the pure `placePiece` reducer from `editorState.ts`
  * so the UI does not need to inline footprint validation. Clicks on
@@ -36,26 +40,43 @@ import { SnapGrid } from './SnapGridView'
  * mutually exclusive so the cell-click contract stays unambiguous.
  *
  * Rotation cycles via `nextRotation`. The rotate tool is exposed two
- * ways: a Rotate button in the toolbar and the `R` keyboard shortcut
- * so a power user can rotate without leaving the grid. The cycle is
- * `0 -> 90 -> 180 -> 270 -> 0`. Rotation is sticky across mode flips
- * so an author who rotates to 90deg and then erases a stray piece
- * comes back to place mode still rotated to 90deg.
+ * ways: a Rotate button in the toolbar and the `R` keyboard shortcut.
  *
- * The grid is the same `SnapGrid` SVG used by the server-rendered
- * shell, now passed an `onCellClick` handler so cells become
- * interactive. The selected piece type is highlighted in the palette
- * with a darker background and `aria-pressed`. The cursor flips to
- * `not-allowed` on the grid in erase mode so the change of intent is
- * visually obvious without a custom eraser glyph.
+ * Autosave (REQ-025): every accepted mutation marks the working city
+ * dirty and a debounced effect (DEFAULT_AUTOSAVE_DEBOUNCE_MS) issues a
+ * single PUT once the streak settles. The status indicator surfaces
+ * the in-flight state (`Editing` / `Saving` / `Saved` / `Save failed`)
+ * via the `editor-autosave-status` test id and a `data-autosave-status`
+ * attribute. Rejected placements (overlap, identity equality from the
+ * reducer) do not trigger a save because the city reference is
+ * unchanged. The initial city (loaded via `loadCity` server-side) is
+ * treated as already-saved; the first PUT only fires after the first
+ * accepted mutation.
  */
-export function EditorClient({ initialCity }: { initialCity: City }) {
+export function EditorClient({
+  slug,
+  initialCity,
+  autosaveDebounceMs = DEFAULT_AUTOSAVE_DEBOUNCE_MS,
+}: {
+  slug: Slug
+  initialCity: City
+  autosaveDebounceMs?: number
+}) {
   const [city, setCity] = useState<City>(initialCity)
   const [selectedType, setSelectedType] = useState<PieceType>(
     DEFAULT_PALETTE_TYPE,
   )
   const [rotation, setRotation] = useState<Rotation>(DEFAULT_ROTATION)
   const [toolMode, setToolMode] = useState<ToolMode>(DEFAULT_TOOL_MODE)
+  const [autosaveStatus, setAutosaveStatus] =
+    useState<AutosaveStatus>('idle')
+
+  // Track the last city the network successfully persisted (or the
+  // server-loaded initial city). The autosave effect compares the live
+  // city against this snapshot to skip no-op saves and to detect when
+  // a mid-flight save is already stale and needs a follow-up PUT.
+  const lastSavedCityRef = useRef<City>(initialCity)
+  const inFlightAbortRef = useRef<AbortController | null>(null)
 
   const handleRotate = useCallback(() => {
     setRotation((current) => nextRotation(current))
@@ -67,10 +88,18 @@ export function EditorClient({ initialCity }: { initialCity: City }) {
 
   const handleCellClick = (row: number, col: number) => {
     if (toolMode === 'erase') {
-      setCity((current) => erasePiece(current, row, col))
+      setCity((current) => {
+        const next = erasePiece(current, row, col)
+        if (next !== current) setAutosaveStatus('pending')
+        return next
+      })
       return
     }
-    setCity((current) => placePiece(current, selectedType, row, col, rotation))
+    setCity((current) => {
+      const next = placePiece(current, selectedType, row, col, rotation)
+      if (next !== current) setAutosaveStatus('pending')
+      return next
+    })
   }
 
   // Keyboard shortcuts: `R` rotates the selected piece (REQ-021),
@@ -103,6 +132,70 @@ export function EditorClient({ initialCity }: { initialCity: City }) {
       window.removeEventListener('keydown', onKeyDown)
     }
   }, [handleRotate, handleToggleErase])
+
+  // Autosave (REQ-025). Every mutation that produces a fresh city
+  // reference flips the status to `pending` (above). This effect waits
+  // out the debounce window, then issues a single PUT against the
+  // working city snapshot. If the city reference changes mid-debounce,
+  // the timer resets so a streak of placements only fires one network
+  // request at the end. If the city changes mid-flight, the next save
+  // is queued via the same dirty check after the response settles.
+  useEffect(() => {
+    if (isCityContentEqual(city, lastSavedCityRef.current)) {
+      // The city has not actually moved (e.g. autosave just succeeded
+      // and the dirty flag is being cleared). Stay in `saved` / `idle`.
+      return
+    }
+    const handle = window.setTimeout(() => {
+      const snapshot = city
+      // Cancel any save still in flight; the new snapshot supersedes it.
+      inFlightAbortRef.current?.abort()
+      const ac = new AbortController()
+      inFlightAbortRef.current = ac
+      setAutosaveStatus('saving')
+      fetch(`/api/city/${encodeURIComponent(slug)}`, {
+        method: 'PUT',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify(snapshot),
+        signal: ac.signal,
+      })
+        .then(async (res) => {
+          if (!res.ok) {
+            throw new Error(`save failed (${res.status})`)
+          }
+          lastSavedCityRef.current = snapshot
+          // The user may have edited again while the request was in
+          // flight; only flip to `saved` when the live city matches the
+          // snapshot we just persisted. Otherwise stay `pending` so the
+          // debounce timer fires another save.
+          setAutosaveStatus((prev) => {
+            if (ac.signal.aborted) return prev
+            return isCityContentEqual(snapshot, city) ? 'saved' : 'pending'
+          })
+        })
+        .catch((err: unknown) => {
+          if (err instanceof DOMException && err.name === 'AbortError') return
+          console.warn('autosave PUT failed', err)
+          setAutosaveStatus('error')
+        })
+        .finally(() => {
+          if (inFlightAbortRef.current === ac) {
+            inFlightAbortRef.current = null
+          }
+        })
+    }, autosaveDebounceMs)
+    return () => {
+      window.clearTimeout(handle)
+    }
+  }, [city, slug, autosaveDebounceMs])
+
+  // On unmount, abort any save in flight so a navigation away does not
+  // log a spurious AbortError as an autosave failure on the next page.
+  useEffect(() => {
+    return () => {
+      inFlightAbortRef.current?.abort()
+    }
+  }, [])
 
   const eraseActive = toolMode === 'erase'
 
@@ -210,6 +303,20 @@ export function EditorClient({ initialCity }: { initialCity: City }) {
         }}
       >
         Pieces placed: {city.pieces.length}
+      </p>
+      <p
+        role="status"
+        aria-live="polite"
+        data-testid="editor-autosave-status"
+        data-autosave-status={autosaveStatus}
+        style={{
+          fontSize: 12,
+          margin: 0,
+          opacity: 0.65,
+          color: autosaveStatus === 'error' ? '#a3372a' : undefined,
+        }}
+      >
+        {AUTOSAVE_STATUS_LABEL[autosaveStatus]}
       </p>
       <SnapGrid
         city={city}

@@ -12,9 +12,8 @@ import { expect, test } from '@playwright/test'
  * the `R` keyboard shortcut to confirm the next placement records
  * the active rotation.
  *
- * This spec does NOT exercise persistence (REQ-025) or erase
- * (REQ-022); those land in their own slices and will tighten this
- * spec when they do.
+ * REQ-022 erase tool and REQ-025 autosave are exercised by their
+ * own tests in this file.
  */
 test('editor palette places pieces with click-to-place', async ({ page }) => {
   const response = await page.goto('/playtest-city/edit')
@@ -186,4 +185,104 @@ test('erase tool removes pieces and toggles via button and E key', async ({
   await expect(eraseButton).toHaveAttribute('aria-pressed', 'false')
   await page.keyboard.press('Control+e')
   await expect(eraseButton).toHaveAttribute('aria-pressed', 'false')
+})
+
+test('autosave PUTs after every accepted mutation (REQ-025)', async ({
+  page,
+}) => {
+  // The Playwright webServer runs `next start` without KV configured,
+  // so the real route returns 503. Intercepting the PUT lets the test
+  // verify the autosave path issues the request and the status
+  // indicator transitions through saving -> saved without depending on
+  // a live KV instance. The intercepted handler returns the contract
+  // shape the route would emit on success.
+  const requestedSlugs: string[] = []
+  const requestedBodies: string[] = []
+  await page.route('**/api/city/**', async (route) => {
+    if (route.request().method() !== 'PUT') {
+      await route.continue()
+      return
+    }
+    requestedSlugs.push(new URL(route.request().url()).pathname)
+    requestedBodies.push(route.request().postData() ?? '')
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        slug: 'autosave-spec',
+        versionHash:
+          '0000000000000000000000000000000000000000000000000000000000000000',
+        updatedAt: Date.now(),
+      }),
+    })
+  })
+
+  const response = await page.goto('/autosave-spec/edit')
+  expect(response?.status()).toBe(200)
+
+  const status = page.getByTestId('editor-autosave-status')
+  await expect(status).toHaveAttribute('data-autosave-status', 'idle')
+  await expect(status).toHaveText('Saved')
+
+  const grid = page.getByTestId('editor-snap-grid')
+  // Place a piece. The status should briefly read "Editing" while the
+  // debounce window is open, then "Saved" once the PUT settles. We
+  // assert the eventual state directly because the debounce window is
+  // short enough that the intermediate frame is racy.
+  await grid.locator('[data-cell-row="0"][data-cell-col="0"]').click()
+  await expect(status).toHaveAttribute('data-autosave-status', 'saved', {
+    timeout: 5000,
+  })
+  await expect(status).toHaveText('Saved')
+
+  // The intercepted route saw at least one PUT against the right slug
+  // with the placed-piece payload.
+  expect(requestedSlugs.length).toBeGreaterThanOrEqual(1)
+  expect(requestedSlugs[requestedSlugs.length - 1]).toBe(
+    '/api/city/autosave-spec',
+  )
+  const lastBody = requestedBodies[requestedBodies.length - 1]
+  expect(lastBody).toContain('"type":"straight"')
+  expect(lastBody).toContain('"row":0')
+  expect(lastBody).toContain('"col":0')
+
+  // A second placement issues another PUT once the streak settles.
+  const before = requestedSlugs.length
+  await grid.locator('[data-cell-row="0"][data-cell-col="1"]').click()
+  await expect(status).toHaveAttribute('data-autosave-status', 'saved', {
+    timeout: 5000,
+  })
+  expect(requestedSlugs.length).toBeGreaterThan(before)
+})
+
+test('autosave surfaces save failures via the status indicator (REQ-025)', async ({
+  page,
+}) => {
+  // Force the autosave PUT to fail so the indicator can flip to error.
+  // The route handler stays untouched; only the network response is
+  // intercepted.
+  await page.route('**/api/city/**', async (route) => {
+    if (route.request().method() !== 'PUT') {
+      await route.continue()
+      return
+    }
+    await route.fulfill({
+      status: 503,
+      contentType: 'application/json',
+      body: JSON.stringify({ error: 'storage unavailable' }),
+    })
+  })
+
+  const response = await page.goto('/autosave-spec/edit')
+  expect(response?.status()).toBe(200)
+
+  const status = page.getByTestId('editor-autosave-status')
+  await expect(status).toHaveAttribute('data-autosave-status', 'idle')
+
+  const grid = page.getByTestId('editor-snap-grid')
+  await grid.locator('[data-cell-row="0"][data-cell-col="0"]').click()
+  await expect(status).toHaveAttribute('data-autosave-status', 'error', {
+    timeout: 5000,
+  })
+  await expect(status).toHaveText('Save failed')
 })
