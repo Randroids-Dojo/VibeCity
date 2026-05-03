@@ -83,12 +83,17 @@ describe('kvKeys', () => {
     expect(kvKeys.cityIndex()).toBe('city:index')
   })
 
+  it('cityOwner is per-slug and namespaced under city:', () => {
+    expect(kvKeys.cityOwner(slug)).toBe('city:my-city:owner')
+  })
+
   it('every key starts with the city: prefix', () => {
     const keys = [
       kvKeys.cityLatest(slug),
       kvKeys.cityVersion(slug, hash),
       kvKeys.cityVersions(slug),
       kvKeys.cityIndex(),
+      kvKeys.cityOwner(slug),
     ]
     for (const k of keys) expect(k.startsWith('city:')).toBe(true)
   })

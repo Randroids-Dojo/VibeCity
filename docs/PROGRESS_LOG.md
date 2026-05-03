@@ -16,6 +16,16 @@ Format for each slice:
 - Followups: any new `F-NNN` entries created. Link to them.
 ```
 
+## 2026-05-03, City Save and Load API: REQ-014, REQ-015
+
+- Branch: `feature/req-014-015-city-api`
+- PR: #N (when known)
+- Changed: shipped the round-trip persistence path. Added `src/app/api/city/[slug]/route.ts` with GET (reads latest, or `?v=<hash>` pinned read for REQ-048 / REQ-049 deep links) and PUT (validates slug, validates `vibecity.builderId` cookie, parses body against `CitySchema`, computes `hashCity()`, writes `version:${hash}` then `:latest` then ZADDs `versions` and `city:index`, then on first PUT claims `:owner`). Added `src/lib/loadCity.ts` (`loadCity(slug, version?)`) so any caller (route handler, server component) can ask for "the saved city or an empty one" without each branch re-implementing the soft-fallback path. Extended `kvKeys` with `cityOwner(slug)` so the new ownership key is namespaced alongside the rest of the persistence keys. Added `tests/_fakeKv.ts` (in-memory KV port from VibeRacer's `tests/unit/_fakeKv.ts`; covers `set`, `get`, `del`, `zadd`, `zrange`, `zscore`, `lpush`, `lrange`, `ltrim`). Added `tests/lib/loadCity.test.ts` (7 cases) and `tests/app/cityRoute.test.ts` (12 cases). Updated `docs/gdd/03-persistence.md` Key namespace table to document `cityOwner`, sharpened the Write path step list to spell out the first-claim ownership semantics, and appended a Build log entry. Updated `tests/lib/kv.test.ts` with two new cases for the `cityOwner` key.
+- Verification: `npm run check:dashes` exited 0. `npx tsc --noEmit` exited 0. `npm test` reported 152/152 pass (132 prior + 7 loadCity + 12 cityRoute + 1 cityOwner key + lifted total). `npm run build` produced a green production build with `/api/city/[slug]` registered as a dynamic server-rendered route. `git diff --check` clean. JSON syntax of GDD_COVERAGE.json validated.
+- Assumptions: Ownership is "first PUT wins": the slug is unowned until a PUT lands, then the requesting builder id is recorded under `city:${slug}:owner`. Subsequent PUTs whose cookie does not match return 403 with `error: "not owner"`. This is a soft enforcement: a builder who clears the cookie loses edit rights to their slug, by design (matches REQ-009 v1 trade-off). Writes are sequenced, not `Promise.all`-ed, so the version key always exists before `:latest` advances and a concurrent reader can never see a `:latest` pointing at a missing version. Hash format on `?v=` is constrained to 64 lowercase hex chars (sha256 hex shape from REQ-013) at the route layer; loadCity does not re-validate the shape because the route is the only public caller today and `loadCity` itself trusts internal callers (slice-discipline). Stored payload corruption (an `:latest` whose pointed-at version key fails `CitySchema`) is treated as a soft empty-city fallback with a `console.warn`, not a 500. The route does not yet trim `versions` to a bounded window; that lives with REQ-052.
+- GDD coverage: REQ-014 flipped `not_started` to `done`. REQ-015 flipped `not_started` to `done`. `docs/gdd/03-persistence.md` Build log gained a REQ-014 + REQ-015 entry; the section status stays `partial` because REQ-052 (versions trim policy) and REQ-011 / REQ-050 (home-page index reads) remain in scope.
+- Followups: none new.
+
 ## 2026-05-03, Em-Dash CI Check: REQ-051
 
 - Branch: `feature/req-051-em-dash-ci`

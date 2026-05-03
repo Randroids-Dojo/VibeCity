@@ -3,7 +3,7 @@
   "_comment_2": "Allowed status values: not_started | partial | done | out_of_scope. Every row should carry implementationRefs and testRefs once status >= partial. followupRefs link to F-NNN entries in FOLLOWUPS.md.",
   "_comment_3": "gddRef paths may not yet exist when a row is seeded; the slice that picks the row creates the section file.",
   "updatedAt": "2026-05-03",
-  "_comment_4": "REQ-001 / REQ-002 / REQ-005 landed together as the bootstrap slice. REQ-008 (slug zod schema) landed next. REQ-004 (kv.ts) landed after that. REQ-012 (CitySchema) and REQ-013 (hashCity) followed. REQ-009 (builderId) landed next. REQ-061 / REQ-062 (arc45 + diagonal piece schema entries) flipped to partial after the schema port; runtime pieces (sampled centerline, wheel contact, pace notes, difficulty scoring, editor palette UI) tracked under F-003..F-007. REQ-006 + REQ-010 (slug landing route with Create CTA) landed next; drive scene branch (REQ-031) deferred. REQ-007 (/[slug]/edit route) flipped to partial: route registered with slug validation and Drive CTA back to /<slug>, editor surface (REQ-016 onward) deferred. REQ-051 (em-dash CI check) landed: scripts/check-no-dashes.sh runs as a required GitHub Actions job on every PR alongside type-check, vitest, and next build. See PROGRESS_LOG.md.",
+  "_comment_4": "REQ-001 / REQ-002 / REQ-005 landed together as the bootstrap slice. REQ-008 (slug zod schema) landed next. REQ-004 (kv.ts) landed after that. REQ-012 (CitySchema) and REQ-013 (hashCity) followed. REQ-009 (builderId) landed next. REQ-061 / REQ-062 (arc45 + diagonal piece schema entries) flipped to partial after the schema port; runtime pieces (sampled centerline, wheel contact, pace notes, difficulty scoring, editor palette UI) tracked under F-003..F-007. REQ-006 + REQ-010 (slug landing route with Create CTA) landed next; drive scene branch (REQ-031) deferred. REQ-007 (/[slug]/edit route) flipped to partial: route registered with slug validation and Drive CTA back to /<slug>, editor surface (REQ-016 onward) deferred. REQ-051 (em-dash CI check) landed: scripts/check-no-dashes.sh runs as a required GitHub Actions job on every PR alongside type-check, vitest, and next build. REQ-014 + REQ-015 (city PUT save + load helper) landed together: src/app/api/city/[slug]/route.ts (GET + PUT, ownership-claimed first PUT, 403 on non-owner overwrite, ?v= pinned reads) plus src/lib/loadCity.ts (read path with KV-unconfigured / no-latest / corrupt-payload fallbacks to EMPTY_CITY). See PROGRESS_LOG.md.",
   "rows": [
     {
       "id": "REQ-001",
@@ -134,18 +134,24 @@
       "id": "REQ-014",
       "requirement": "City persistence: PUT /api/city/[slug] validates ownership cookie, computes hash, writes city:${slug}:latest and city:${slug}:version:${hash}",
       "gddRef": "docs/gdd/03-persistence.md",
-      "status": "not_started",
-      "implementationRefs": [],
-      "testRefs": [],
+      "status": "done",
+      "implementationRefs": [
+        "src/app/api/city/[slug]/route.ts",
+        "src/lib/kv.ts"
+      ],
+      "testRefs": ["tests/app/cityRoute.test.ts", "tests/lib/kv.test.ts"],
       "followupRefs": []
     },
     {
       "id": "REQ-015",
       "requirement": "City load: loadCity(slug) reads city:${slug}:latest then city:${slug}:version:${hash}, falls back to empty city when KV unset",
       "gddRef": "docs/gdd/03-persistence.md",
-      "status": "not_started",
-      "implementationRefs": [],
-      "testRefs": [],
+      "status": "done",
+      "implementationRefs": [
+        "src/lib/loadCity.ts",
+        "src/app/api/city/[slug]/route.ts"
+      ],
+      "testRefs": ["tests/lib/loadCity.test.ts", "tests/app/cityRoute.test.ts"],
       "followupRefs": []
     },
     {
