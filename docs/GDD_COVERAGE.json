@@ -116,9 +116,9 @@
       "id": "REQ-012",
       "requirement": "City schema: zod CitySchema with pieces[], buildings[], optional mood; strict reject on unknown fields",
       "gddRef": "docs/gdd/06-city-schema.md",
-      "status": "not_started",
-      "implementationRefs": [],
-      "testRefs": [],
+      "status": "done",
+      "implementationRefs": ["src/lib/schemas.ts"],
+      "testRefs": ["tests/lib/schemas.test.ts"],
       "followupRefs": []
     },
     {

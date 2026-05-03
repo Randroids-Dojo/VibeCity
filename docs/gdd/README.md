@@ -26,6 +26,7 @@ Add entries below as sections are drafted. Each entry: filename + one-line descr
 - `02-tech-stack.md`: stack choices and the bootstrap requirements (Next.js 15, React 19, TS5, Vitest, Playwright, KV).
 - `03-persistence.md`: Upstash Redis backing store, `city:` keyspace, read / write paths.
 - `04-slug-routing.md`: slug shape, validation, and the planned `/`, `/<slug>`, `/<slug>/edit` routes.
+- `06-city-schema.md`: city payload zod schema, piece / building taxonomy, mood, version-hash contract.
 - `99-out-of-scope.md`: the explicit v1 fence. SimCity layers, racing layers, multiplayer, auth, polish.
 
 ## Out of scope

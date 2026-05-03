@@ -16,6 +16,16 @@ Format for each slice:
 - Followups: any new `F-NNN` entries created. Link to them.
 ```
 
+## 2026-05-03, City Schema: REQ-012
+
+- Branch: `feature/req-012-city-schema`
+- PR: #N (when known)
+- Changed: added the canonical `CitySchema` zod definition and supporting types to `src/lib/schemas.ts`. New exports: `PieceTypeSchema` (11 piece types covering REQ-017 / 018 / 019 / 058 / 060), `RotationSchema`, `PieceFootprintCellSchema`, `PieceSchema`, `BuildingTypeSchema` (4-type v1 palette per Q-004 default B), `BuildingSchema`, `CityMoodSchema`, `CitySchema` (`pieces[]`, `buildings[]`, optional `mood`, strict on unknown fields), `EMPTY_CITY` constant, and `MAX_PIECES_PER_CITY` (256) / `MAX_BUILDINGS_PER_CITY` (512) limits. Extended `tests/lib/schemas.test.ts` from 19 to 50 cases covering accept / reject paths for piece / building / mood / city plus EMPTY_CITY round-trip. Drafted `docs/gdd/06-city-schema.md` as the canonical city schema spec covering REQ-012 plus forward-looking notes on REQ-013 hash stability and REQ-059 / 063 / 064 plumbing. Indexed the new GDD file in `docs/gdd/README.md`.
+- Verification: `npm run type-check` exited 0. `npm run test` reported 63/63 pass (13 prior + 50 schema cases). `npm run build` produced a green production build. Em-dash grep clean. `git diff --check` clean. JSON syntax of GDD_COVERAGE.json validated.
+- Assumptions: Mood `timeOfDay` / `weather` are typed as bounded short strings rather than enums because the lighting / weather modules have not been ported; tightening to enums waits for that slice. The `intersection` piece type is added to the enum now so REQ-019 has a schema landing pad ahead of editor support; the schema does not gate placeability beyond the type enum (UI can hide pieces independently). v1 buildings are single-cell only (Q-004 default B); multi-cell footprints (option C) stay out of scope.
+- GDD coverage: REQ-012 flipped `not_started` to `done`. `docs/gdd/06-city-schema.md` drafted with `Status: partial` (REQ-013, REQ-059, REQ-063, REQ-064 still pending in this section's coverage scope).
+- Followups: none new.
+
 ## 2026-05-03, KV Module: REQ-004
 
 - Branch: `feature/req-004-kv-module`
