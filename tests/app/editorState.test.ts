@@ -2,8 +2,10 @@ import { describe, expect, it } from 'vitest'
 import {
   DEFAULT_PALETTE_TYPE,
   DEFAULT_ROTATION,
+  DEFAULT_TOOL_MODE,
   ROTATIONS,
   STREET_PALETTE,
+  erasePiece,
   nextRotation,
   placePiece,
 } from '@/app/[slug]/edit/editorState'
@@ -269,5 +271,146 @@ describe('placePiece with rotation argument (REQ-021)', () => {
     }
     const next = placePiece(seeded, 'left90', 0, 0, 90)
     expect(next).toBe(seeded)
+  })
+})
+
+describe('DEFAULT_TOOL_MODE (REQ-022)', () => {
+  it('opens in place mode (no tool pick required for first placement)', () => {
+    expect(DEFAULT_TOOL_MODE).toBe('place')
+  })
+})
+
+describe('erasePiece (REQ-022)', () => {
+  it('removes the piece occupying the target cell', () => {
+    const seeded: City = {
+      pieces: [
+        { type: 'straight', row: 0, col: 0, rotation: 0 },
+        { type: 'left90', row: 0, col: 1, rotation: 0 },
+      ],
+      buildings: [],
+    }
+    const next = erasePiece(seeded, 0, 0)
+    expect(next.pieces).toHaveLength(1)
+    expect(next.pieces[0]).toEqual({
+      type: 'left90',
+      row: 0,
+      col: 1,
+      rotation: 0,
+    })
+  })
+
+  it('returns the original city when no piece occupies the cell', () => {
+    const seeded: City = {
+      pieces: [{ type: 'straight', row: 0, col: 0, rotation: 0 }],
+      buildings: [],
+    }
+    const next = erasePiece(seeded, 5, 5)
+    expect(next).toBe(seeded)
+  })
+
+  it('returns the original empty city when there is nothing to erase', () => {
+    const next = erasePiece(EMPTY_CITY, 0, 0)
+    expect(next).toBe(EMPTY_CITY)
+  })
+
+  it('does not mutate the input city (functional update)', () => {
+    const seeded: City = {
+      pieces: [{ type: 'straight', row: 0, col: 0, rotation: 0 }],
+      buildings: [],
+    }
+    const before = JSON.stringify(seeded)
+    erasePiece(seeded, 0, 0)
+    expect(JSON.stringify(seeded)).toBe(before)
+  })
+
+  it('preserves buildings array on accept and no-op', () => {
+    const seeded: City = {
+      pieces: [{ type: 'straight', row: 0, col: 0, rotation: 0 }],
+      buildings: [{ type: 'small-house', row: 5, col: 5, rotation: 0 }],
+    }
+    const erased = erasePiece(seeded, 0, 0)
+    expect(erased.buildings).toEqual(seeded.buildings)
+    const noop = erasePiece(seeded, 9, 9)
+    expect(noop.buildings).toEqual(seeded.buildings)
+  })
+
+  it('removes a multi-cell piece when any footprint cell is clicked', () => {
+    const seeded: City = {
+      pieces: [
+        {
+          type: 'megaSweepRight',
+          row: 0,
+          col: 0,
+          rotation: 0,
+          footprint: [
+            { dr: 0, dc: 0 },
+            { dr: 0, dc: 1 },
+            { dr: 1, dc: 0 },
+          ],
+        },
+      ],
+      buildings: [],
+    }
+    // Click the off-anchor footprint cell (1, 0); the whole piece should
+    // disappear atomically.
+    const next = erasePiece(seeded, 1, 0)
+    expect(next.pieces).toHaveLength(0)
+  })
+
+  it('supports negative cell coordinates', () => {
+    const seeded: City = {
+      pieces: [{ type: 'straight', row: -3, col: -7, rotation: 0 }],
+      buildings: [],
+    }
+    const next = erasePiece(seeded, -3, -7)
+    expect(next.pieces).toHaveLength(0)
+  })
+
+  it('only removes the first matching piece when two share a cell', () => {
+    // placePiece would never produce this state, but a hand-edited city
+    // could; the reducer must be deterministic.
+    const seeded: City = {
+      pieces: [
+        { type: 'straight', row: 0, col: 0, rotation: 0 },
+        { type: 'left90', row: 0, col: 0, rotation: 0 },
+      ],
+      buildings: [],
+    }
+    const next = erasePiece(seeded, 0, 0)
+    expect(next.pieces).toHaveLength(1)
+    expect(next.pieces[0].type).toBe('left90')
+  })
+
+  it('preserves placement order of remaining pieces', () => {
+    const seeded: City = {
+      pieces: [
+        { type: 'straight', row: 0, col: 0, rotation: 0 },
+        { type: 'left90', row: 0, col: 1, rotation: 0 },
+        { type: 'right90', row: 1, col: 0, rotation: 0 },
+      ],
+      buildings: [],
+    }
+    const next = erasePiece(seeded, 0, 1)
+    expect(next.pieces.map((p) => p.type)).toEqual(['straight', 'right90'])
+  })
+
+  it('round-trips with placePiece (place then erase yields the original)', () => {
+    const placed = placePiece(EMPTY_CITY, 'straight', 2, 3)
+    expect(placed.pieces).toHaveLength(1)
+    const erased = erasePiece(placed, 2, 3)
+    expect(erased.pieces).toHaveLength(0)
+    expect(erased.buildings).toEqual(EMPTY_CITY.buildings)
+  })
+
+  it('returns a city that still validates against CitySchema', () => {
+    const seeded: City = {
+      pieces: [
+        { type: 'straight', row: 0, col: 0, rotation: 0 },
+        { type: 'left90', row: 0, col: 1, rotation: 0 },
+      ],
+      buildings: [],
+    }
+    const next = erasePiece(seeded, 0, 0)
+    expect(() => CitySchema.parse(next)).not.toThrow()
   })
 })

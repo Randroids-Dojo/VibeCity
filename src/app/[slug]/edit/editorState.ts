@@ -2,7 +2,8 @@ import type { City, Piece, PieceType, Rotation } from '@/lib/schemas'
 import { cellKey, occupiedPieceCells, pieceFootprintCells } from './snapGrid'
 
 /**
- * Editor palette and placement helpers (REQ-017, REQ-020, REQ-021).
+ * Editor palette and placement helpers (REQ-017, REQ-020, REQ-021,
+ * REQ-022).
  *
  * v1 ships the cardinal-only street palette: `straight`, `left90`,
  * `right90`. The full piece taxonomy (REQ-018, REQ-019, REQ-058,
@@ -16,6 +17,15 @@ import { cellKey, occupiedPieceCells, pieceFootprintCells } from './snapGrid'
  * Footprint validation (REQ-027) is applied here so the click handler
  * can rely on placement always returning a valid city.
  *
+ * Erase is the dual reducer: `erasePiece(city, row, col)` removes any
+ * piece whose resolved footprint covers `(row, col)` and returns a
+ * fresh `City`, or the original city when no piece occupies that cell
+ * (so callers can branch on identity equality the same way they do for
+ * placement). Single-cell pieces dominate v1, but the helper resolves
+ * the full footprint so multi-cell pieces (mega sweep, hairpin, future
+ * arc45 / diagonal) erase atomically: clicking any cell of the
+ * footprint removes the whole piece.
+ *
  * Rotation is also a pure helper: `nextRotation` advances a `Rotation`
  * by 90 degrees, wrapping `270 -> 0`. The editor uses it to drive the
  * rotate tool (REQ-021) without importing zod.
@@ -23,6 +33,25 @@ import { cellKey, occupiedPieceCells, pieceFootprintCells } from './snapGrid'
  * Module is split out from the React client so it can be unit tested
  * without a JSX runtime; matches the pattern from `parseSlugParam`.
  */
+
+/**
+ * Editor tool modes (REQ-020, REQ-022).
+ *
+ * `place` is the default mode: a click on a grid cell dispatches
+ * `placePiece` with the currently-selected palette type. `erase` flips
+ * the click handler to dispatch `erasePiece` instead. Future tool
+ * modes (REQ-023 undo / redo state hookups, REQ-024 pan) live as their
+ * own flags rather than extending this union; this enum is the
+ * mutually-exclusive cell-click contract.
+ */
+export type ToolMode = 'place' | 'erase'
+
+/**
+ * Default tool mode on first render (REQ-020). The editor opens in
+ * place mode so a first-time author can drop a piece without having to
+ * pick a tool first.
+ */
+export const DEFAULT_TOOL_MODE: ToolMode = 'place'
 
 export interface PaletteEntry {
   type: PieceType
@@ -117,5 +146,46 @@ export function placePiece(
   return {
     ...city,
     pieces: [...city.pieces, candidate],
+  }
+}
+
+/**
+ * Remove the piece occupying `(row, col)` (REQ-022).
+ *
+ * Returns a fresh `City` with the piece whose resolved footprint
+ * covers the target cell removed. When no piece occupies the cell, the
+ * original city is returned unchanged so callers can branch on
+ * identity equality (`next === city ? noop : erased`).
+ *
+ * For multi-cell pieces (REQ-059, mega sweep, hairpin, future arc45 /
+ * diagonal) clicking any cell of the footprint erases the whole piece,
+ * matching the atomic place / erase contract. When two pieces somehow
+ * occupy the same cell (an invariant the placePiece reducer prevents
+ * but a hand-edited city or future drag-import flow could violate)
+ * only the first match is removed; the next click clears the next
+ * match.
+ *
+ * Buildings are intentionally not touched; building erase lands with
+ * REQ-029 (building palette parity).
+ */
+export function erasePiece(city: City, row: number, col: number): City {
+  const targetKey = cellKey(row, col)
+  const matchIndex = city.pieces.findIndex((piece) => {
+    for (const cell of pieceFootprintCells(piece)) {
+      if (cellKey(cell.row, cell.col) === targetKey) {
+        return true
+      }
+    }
+    return false
+  })
+  if (matchIndex === -1) {
+    return city
+  }
+  return {
+    ...city,
+    pieces: [
+      ...city.pieces.slice(0, matchIndex),
+      ...city.pieces.slice(matchIndex + 1),
+    ],
   }
 }
