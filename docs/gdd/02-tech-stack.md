@@ -64,4 +64,4 @@ Future slices add `npm run test:e2e` for Playwright when REQ-003 lands.
 
 ### Build log
 
-- 2026-05-03: REQ-001, REQ-002, REQ-005 landed. Files: `package.json`, `tsconfig.json`, `next.config.mjs`, `.eslintrc.json`, `.gitignore`, `vitest.config.ts`, `src/app/layout.tsx`, `src/app/page.tsx`, `tests/smoke.test.ts`, `src/AGENTS.md` (symlink to slice-discipline rule), `tests/AGENTS.md` (symlink to slice-discipline rule). Verified `npm run type-check`, `npm run test`, `npm run build` all green. Dash check clean. PR #N.
+- 2026-05-03: REQ-001, REQ-002, REQ-005 landed. Files: `package.json`, `tsconfig.json`, `next.config.mjs`, `.eslintrc.json`, `.gitignore`, `vitest.config.ts`, `src/app/layout.tsx`, `src/app/page.tsx`, `tests/smoke.test.ts`, `src/AGENTS.md` (symlink to slice-discipline rule), `tests/AGENTS.md` (symlink to slice-discipline rule). Verified `npm run type-check`, `npm run test`, `npm run build` all green. Dash check clean. PR #1.
