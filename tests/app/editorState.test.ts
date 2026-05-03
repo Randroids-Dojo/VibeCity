@@ -1,10 +1,19 @@
 import { describe, expect, it } from 'vitest'
 import {
   DEFAULT_PALETTE_TYPE,
+  DEFAULT_ROTATION,
+  ROTATIONS,
   STREET_PALETTE,
+  nextRotation,
   placePiece,
 } from '@/app/[slug]/edit/editorState'
-import { CitySchema, EMPTY_CITY, type City } from '@/lib/schemas'
+import {
+  CitySchema,
+  EMPTY_CITY,
+  RotationSchema,
+  type City,
+  type Rotation,
+} from '@/lib/schemas'
 
 /**
  * REQ-017 (street palette: straight, left90, right90) and REQ-020
@@ -189,5 +198,76 @@ describe('placePiece (REQ-020)', () => {
     expect(accepted.buildings).toEqual(seeded.buildings)
     const rejected = placePiece(seeded, 'left90', 0, 0)
     expect(rejected.buildings).toEqual(seeded.buildings)
+  })
+})
+
+describe('ROTATIONS (REQ-021)', () => {
+  it('exposes the four cardinal rotations in cycle order', () => {
+    expect(ROTATIONS).toEqual([0, 90, 180, 270])
+  })
+
+  it('every entry is a valid Rotation in the schema', () => {
+    for (const rotation of ROTATIONS) {
+      expect(() => RotationSchema.parse(rotation)).not.toThrow()
+    }
+  })
+})
+
+describe('DEFAULT_ROTATION (REQ-021)', () => {
+  it('matches the first rotation in the cycle', () => {
+    expect(DEFAULT_ROTATION).toBe(ROTATIONS[0])
+  })
+
+  it('is 0 (canonical orientation for first-time authors)', () => {
+    expect(DEFAULT_ROTATION).toBe(0)
+  })
+})
+
+describe('nextRotation (REQ-021)', () => {
+  it('advances 0 to 90', () => {
+    expect(nextRotation(0)).toBe(90)
+  })
+
+  it('advances 90 to 180', () => {
+    expect(nextRotation(90)).toBe(180)
+  })
+
+  it('advances 180 to 270', () => {
+    expect(nextRotation(180)).toBe(270)
+  })
+
+  it('wraps 270 back to 0', () => {
+    expect(nextRotation(270)).toBe(0)
+  })
+
+  it('returns to the starting rotation after four steps (full cycle)', () => {
+    let r: Rotation = 0
+    for (let i = 0; i < 4; i++) {
+      r = nextRotation(r)
+    }
+    expect(r).toBe(0)
+  })
+
+  it('always returns a schema-valid Rotation', () => {
+    for (const start of ROTATIONS) {
+      const next = nextRotation(start)
+      expect(() => RotationSchema.parse(next)).not.toThrow()
+    }
+  })
+})
+
+describe('placePiece with rotation argument (REQ-021)', () => {
+  it('records the rotation passed by the click handler', () => {
+    const next = placePiece(EMPTY_CITY, 'left90', 0, 0, 270)
+    expect(next.pieces[0].rotation).toBe(270)
+  })
+
+  it('still applies overlap rejection regardless of rotation', () => {
+    const seeded: City = {
+      pieces: [{ type: 'straight', row: 0, col: 0, rotation: 0 }],
+      buildings: [],
+    }
+    const next = placePiece(seeded, 'left90', 0, 0, 90)
+    expect(next).toBe(seeded)
   })
 })
