@@ -16,6 +16,16 @@ Format for each slice:
 - Followups: any new `F-NNN` entries created. Link to them.
 ```
 
+## 2026-05-03, Playwright E2E Smoke: REQ-003
+
+- Branch: `feature/20260503-175745-req-003-playwright`
+- PR: #N (when known)
+- Changed: wired the Playwright end-to-end runner. Added `@playwright/test ^1.59.1` to devDependencies. New `playwright.config.ts` (chromium-only project, `testDir: 'e2e'`, `webServer` boots `npm run build && npm run start -- --port 3100` on a non-default port so a local dev server can keep using 3000, `reuseExistingServer` enabled outside CI, `retries: 2` and single worker on CI). New `e2e/smoke.spec.ts` asserts that GET `/` returns 200 and renders the `VibeCity` `<h1>` plus the city builder pitch text. Added `npm run test:e2e` and `npm run test:e2e:install` scripts. Updated `tsconfig.json` to include `e2e/**/*.ts` and `playwright.config.ts` so `tsc --noEmit` validates the e2e tree. Added `e2e/AGENTS.md` symlink to slice-discipline so Codex picks up the rule under the new directory. Added an `e2e-tests` job to `.github/workflows/ci.yml` that installs the chromium browser via `npx playwright install --with-deps chromium`, runs `npm run test:e2e`, and uploads the HTML report as an artifact on every run. Updated `docs/gdd/02-tech-stack.md` to flip REQ-003 to done with a Build log entry, and refreshed the README dev script section.
+- Verification: `npx playwright install chromium` populated the local browser cache. `npm run check:dashes` exited 0. `npx tsc --noEmit` exited 0. `npm test` reported 152/152 pass (unchanged; e2e tree is excluded from vitest by `tests/**` include scope). `npm run build` produced a green production build. `npx playwright test` passed 1/1 in 7.4s. `git diff --check` clean. JSON syntax of GDD_COVERAGE.json validated.
+- Assumptions: Playwright tests live under `e2e/` (separate from `tests/`) so vitest's `tests/**` include never accidentally tries to run a Playwright spec. The webServer command runs `npm run build` before `npm run start` to mirror production; that adds latency to the local dev loop but matches what CI runs and avoids the dev-only HMR / strict-mode double-render edge cases. Port 3100 is the default to avoid colliding with a developer's `npm run dev` on 3000. The chromium-only project keeps CI runtime small; firefox / webkit projects are deferred until the route surface justifies the cost. The `webServer` block uses `reuseExistingServer: !process.env.CI` so a developer who already has `npm run start -- --port 3100` in another terminal does not pay the build / start cost on every test run. The Playwright HTML report is uploaded as an artifact only; it is not gated, so a CI failure still surfaces in the GitHub UI before the artifact step runs. Branch protection updates to require the new `e2e-tests` job are owner-side configuration and out of scope for this slice.
+- GDD coverage: REQ-003 flipped `not_started` to `done`. `docs/gdd/02-tech-stack.md` Build log gained an entry for REQ-003.
+- Followups: none new.
+
 ## 2026-05-03, City Save and Load API: REQ-014, REQ-015
 
 - Branch: `feature/req-014-015-city-api`

@@ -3,7 +3,7 @@
   "_comment_2": "Allowed status values: not_started | partial | done | out_of_scope. Every row should carry implementationRefs and testRefs once status >= partial. followupRefs link to F-NNN entries in FOLLOWUPS.md.",
   "_comment_3": "gddRef paths may not yet exist when a row is seeded; the slice that picks the row creates the section file.",
   "updatedAt": "2026-05-03",
-  "_comment_4": "REQ-001 / REQ-002 / REQ-005 landed together as the bootstrap slice. REQ-008 (slug zod schema) landed next. REQ-004 (kv.ts) landed after that. REQ-012 (CitySchema) and REQ-013 (hashCity) followed. REQ-009 (builderId) landed next. REQ-061 / REQ-062 (arc45 + diagonal piece schema entries) flipped to partial after the schema port; runtime pieces (sampled centerline, wheel contact, pace notes, difficulty scoring, editor palette UI) tracked under F-003..F-007. REQ-006 + REQ-010 (slug landing route with Create CTA) landed next; drive scene branch (REQ-031) deferred. REQ-007 (/[slug]/edit route) flipped to partial: route registered with slug validation and Drive CTA back to /<slug>, editor surface (REQ-016 onward) deferred. REQ-051 (em-dash CI check) landed: scripts/check-no-dashes.sh runs as a required GitHub Actions job on every PR alongside type-check, vitest, and next build. REQ-014 + REQ-015 (city PUT save + load helper) landed together: src/app/api/city/[slug]/route.ts (GET + PUT, ownership-claimed first PUT, 403 on non-owner overwrite, ?v= pinned reads) plus src/lib/loadCity.ts (read path with KV-unconfigured / no-latest / corrupt-payload fallbacks to EMPTY_CITY). See PROGRESS_LOG.md.",
+  "_comment_4": "REQ-001 / REQ-002 / REQ-005 landed together as the bootstrap slice. REQ-008 (slug zod schema) landed next. REQ-004 (kv.ts) landed after that. REQ-012 (CitySchema) and REQ-013 (hashCity) followed. REQ-009 (builderId) landed next. REQ-061 / REQ-062 (arc45 + diagonal piece schema entries) flipped to partial after the schema port; runtime pieces (sampled centerline, wheel contact, pace notes, difficulty scoring, editor palette UI) tracked under F-003..F-007. REQ-006 + REQ-010 (slug landing route with Create CTA) landed next; drive scene branch (REQ-031) deferred. REQ-007 (/[slug]/edit route) flipped to partial: route registered with slug validation and Drive CTA back to /<slug>, editor surface (REQ-016 onward) deferred. REQ-051 (em-dash CI check) landed: scripts/check-no-dashes.sh runs as a required GitHub Actions job on every PR alongside type-check, vitest, and next build. REQ-014 + REQ-015 (city PUT save + load helper) landed together: src/app/api/city/[slug]/route.ts (GET + PUT, ownership-claimed first PUT, 403 on non-owner overwrite, ?v= pinned reads) plus src/lib/loadCity.ts (read path with KV-unconfigured / no-latest / corrupt-payload fallbacks to EMPTY_CITY). REQ-003 (Playwright E2E runner) landed next: e2e/smoke.spec.ts asserts /  returns 200 with the VibeCity heading, runs against next start on port 3100 via the e2e-tests CI job. See PROGRESS_LOG.md.",
   "rows": [
     {
       "id": "REQ-001",
@@ -35,9 +35,14 @@
       "id": "REQ-003",
       "requirement": "Project bootstrap: Playwright E2E runner wired with one passing smoke test against /",
       "gddRef": "docs/gdd/02-tech-stack.md",
-      "status": "not_started",
-      "implementationRefs": [],
-      "testRefs": [],
+      "status": "done",
+      "implementationRefs": [
+        "playwright.config.ts",
+        "package.json",
+        "tsconfig.json",
+        ".github/workflows/ci.yml"
+      ],
+      "testRefs": ["e2e/smoke.spec.ts"],
       "followupRefs": []
     },
     {
