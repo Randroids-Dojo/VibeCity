@@ -16,6 +16,16 @@ Format for each slice:
 - Followups: any new `F-NNN` entries created. Link to them.
 ```
 
+## 2026-05-03, Slug Schema: REQ-008
+
+- Branch: `feature/req-008-slug-schema`
+- PR: #2 (when known)
+- Changed: ported VibeRacer's `SlugSchema` and `normalizeSlug` helper into VibeCity. Added `zod ^3.23.0` to dependencies. Added `src/lib/schemas.ts` with `SlugSchema` (kebab-case, 1 to 128 chars, `^[a-z0-9][a-z0-9-]*$`) plus a `Slug` type and `normalizeSlug(raw)` helper. Added `tests/lib/schemas.test.ts` with 19 cases covering accept / reject / normalize. Drafted `docs/gdd/04-slug-routing.md` as the canonical spec for slug routing (REQ-006, REQ-007, REQ-008, REQ-010, REQ-011, REQ-048, REQ-049). Indexed the new GDD file in `docs/gdd/README.md`.
+- Verification: `npm run type-check` exited 0. `npm run test` reported 21/21 pass (2 prior smoke + 19 new schema cases). `npm run build` produced a green production build. Em-dash grep clean. `git diff --check` clean. JSON syntax of GDD_COVERAGE.json validated.
+- Assumptions: Slug shape mirrors VibeRacer 1:1 (per Q-003 default A copy-port). `normalizeSlug` makes no guarantee that its output passes the schema; callers must validate before storage. Reserved slug list and rename / redirect are out of scope for v1.
+- GDD coverage: REQ-008 flipped `not_started` to `done`. `docs/gdd/04-slug-routing.md` drafted with `Status: partial` (REQ-006, REQ-007, REQ-010, REQ-011, REQ-048, REQ-049 still pending in this section's coverage scope).
+- Followups: none new.
+
 ## 2026-05-03, Project Bootstrap: REQ-001, REQ-002, REQ-005
 
 - Branch: `feature/req-001-002-005-bootstrap`
