@@ -16,6 +16,16 @@ Format for each slice:
 - Followups: any new `F-NNN` entries created. Link to them.
 ```
 
+## 2026-05-03, Edit Route: REQ-007
+
+- Branch: `feature/req-007-edit-route`
+- PR: #N (when known)
+- Changed: added the editor route at `/<slug>/edit`. New file: `src/app/[slug]/edit/page.tsx` (Next.js 15 async server component, awaits `params`, validates the slug via the existing `parseSlugParam` helper from the parent route, calls `notFound()` on invalid input, otherwise renders the editor placeholder shell with a Drive CTA linking back to `/<slug>`). Added `tests/app/editRoute.test.ts` with 8 cases asserting the rejection contract (empty, uppercase, underscores, spaces, leading dash, slashes, over-length, URL-encoded). Updated `docs/gdd/04-slug-routing.md` Build log with a REQ-007 entry. Now the Create CTA on the fresh-slug landing has a valid target instead of producing a 404.
+- Verification: `npx tsc --noEmit` exited 0. `npm test` reported 127/127 pass (119 prior + 8 editRoute cases). `npm run build` produced a green production build with both `/[slug]` and `/[slug]/edit` registered as dynamic server-rendered routes. Em-dash grep clean across edited files. `git diff --check` clean. JSON syntax of GDD_COVERAGE.json validated.
+- Assumptions: REQ-007 lands as `partial` because the editor surface itself (REQ-016 onward, snap grid, piece palette, place / rotate / erase, autosave) is deferred to its own slices. The route renders a placeholder shell so the build / drive loop has a valid round-trip target, but it does not yet let an author build a city. JSX-tree inspection of the success path is intentionally omitted from the test file: vitest runs in `node` and there is no React Testing Library or JSX runtime in dev deps (mirrors REQ-006's testing pattern; `parseSlugParam` is already covered by `tests/app/slugRoute.test.ts`). The production build (`npm run build`) compiles the route end-to-end and is the integration check for the rendered shell. The edit route reuses `parseSlugParam` directly from the parent `/[slug]` route via a relative import (`../slugRoute`), keeping the slug-validation contract identical between drive and edit views.
+- GDD coverage: REQ-007 flipped `not_started` to `partial`. `docs/gdd/04-slug-routing.md` Build log gained an entry for REQ-007.
+- Followups: none new.
+
 ## 2026-05-03, Slug Landing Route: REQ-006, REQ-010
 
 - Branch: `feature/req-006-010-slug-landing`
