@@ -16,6 +16,16 @@ Format for each slice:
 - Followups: any new `F-NNN` entries created. Link to them.
 ```
 
+## 2026-05-03, KV Module: REQ-004
+
+- Branch: `feature/req-004-kv-module`
+- PR: #N (when known)
+- Changed: ported VibeRacer's `src/lib/kv.ts` into VibeCity with the `city:` namespace. Added `@upstash/redis ^1.37.0` to dependencies. Added `src/lib/kv.ts` exporting `getKv()` (lazy singleton), `hasKvConfigured()` (env probe for graceful empty-city fallback per REQ-015), `kvKeys` (`cityLatest`, `cityVersion`, `cityVersions`, `cityIndex`), and a nominal `CityVersionHash` brand type. Added `tests/lib/kv.test.ts` with 11 cases covering env-toggle, key shape, prefix invariant, and throw-on-unset. Drafted `docs/gdd/03-persistence.md` as the canonical persistence spec (backing store, key namespace table, read path, write path, out-of-scope fence). Indexed it in `docs/gdd/README.md`. Updated `docs/gdd/02-tech-stack.md` to flip REQ-004 from pending to done and added a build log entry.
+- Verification: `npm run type-check` exited 0. `npm run test` reported 32/32 pass (21 prior + 11 new kv cases). `npm run build` produced a green production build. Em-dash grep clean. `git diff --check` clean. JSON syntax of GDD_COVERAGE.json validated.
+- Assumptions: Only the keys VibeCity v1 needs are exported; racing-only keys (leaderboards, replays, anticheat tokens) intentionally omitted (per Q-003 default A copy-port: take only what city scope needs). `getKv()` is lazy so importing the module from a route that does not need persistence (e.g. `/`) does not crash on missing env. `hasKvConfigured()` is the soft-fallback gate; callers that want graceful empty-city behavior branch on it before calling `getKv()`.
+- GDD coverage: REQ-004 flipped `not_started` to `done`. `docs/gdd/03-persistence.md` drafted with `Status: partial` (REQ-014, REQ-015, REQ-052 still pending in this section's coverage scope).
+- Followups: none new.
+
 ## 2026-05-03, Slug Schema: REQ-008
 
 - Branch: `feature/req-008-slug-schema`
