@@ -2,16 +2,17 @@ import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import { EMPTY_CITY } from '@/lib/schemas'
 import { parseSlugParam } from '../slugRoute'
-import { SnapGrid } from './SnapGridView'
+import { EditorClient } from './EditorClient'
 
 /**
  * Editor route at `/<slug>/edit` (REQ-007).
  *
- * v1 scope: validate the slug, render the snap-grid surface (REQ-016)
- * seeded with the default empty city plus a Drive CTA linking back to
- * `/<slug>`. Piece palette and place / rotate / erase (REQ-017
- * onward) land in their own slices; this slice gives those slices a
- * visible canvas to attach to.
+ * v1 scope: validate the slug, render the editor client surface
+ * (REQ-016 grid + REQ-017 palette + REQ-020 click-to-place) seeded
+ * with the default empty city plus a Drive CTA linking back to
+ * `/<slug>`. Rotate / erase (REQ-021, REQ-022), undo / redo
+ * (REQ-023), pan / zoom (REQ-024), and autosave (REQ-025) land in
+ * follow-up slices.
  *
  * The grid is seeded with `EMPTY_CITY` directly. Loading a saved
  * city (REQ-015) into the editor lands with REQ-025 (autosave) so
@@ -50,10 +51,10 @@ export default async function EditCityPage({
       </p>
       <h1 style={{ fontSize: 32, margin: 0, wordBreak: 'break-all' }}>{slug}</h1>
       <p style={{ fontSize: 14, margin: 0, opacity: 0.65, textAlign: 'center' }}>
-        Place pieces, build a city, drive it. Palette and tools land
-        next.
+        Pick a piece, click the grid to place it. Rotate, erase, and
+        autosave land next.
       </p>
-      <SnapGrid city={EMPTY_CITY} />
+      <EditorClient initialCity={EMPTY_CITY} />
       <Link
         href={`/${slug}`}
         style={{
