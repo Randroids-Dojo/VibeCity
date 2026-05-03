@@ -1,0 +1,593 @@
+{
+  "_comment_1": "ATOMIC GRANULARITY ONLY. One row per requirement, not per chapter. A 14-day project should produce on the order of 100 rows. If your row count is implausibly low for project age, the loop will self-terminate before the product is good. This is the Flatline failure mode.",
+  "_comment_2": "Allowed status values: not_started | partial | done | out_of_scope. Every row should carry implementationRefs and testRefs once status >= partial. followupRefs link to F-NNN entries in FOLLOWUPS.md.",
+  "_comment_3": "gddRef paths may not yet exist when a row is seeded; the slice that picks the row creates the section file.",
+  "updatedAt": "2026-05-03",
+  "rows": [
+    {
+      "id": "REQ-001",
+      "requirement": "Project bootstrap: Next.js 15 App Router + React 19 + TypeScript 5 scaffold matching VibeRacer's package.json",
+      "gddRef": "docs/gdd/02-tech-stack.md",
+      "status": "not_started",
+      "implementationRefs": [],
+      "testRefs": [],
+      "followupRefs": []
+    },
+    {
+      "id": "REQ-002",
+      "requirement": "Project bootstrap: Vitest unit test runner wired with one passing smoke test",
+      "gddRef": "docs/gdd/02-tech-stack.md",
+      "status": "not_started",
+      "implementationRefs": [],
+      "testRefs": [],
+      "followupRefs": []
+    },
+    {
+      "id": "REQ-003",
+      "requirement": "Project bootstrap: Playwright E2E runner wired with one passing smoke test against /",
+      "gddRef": "docs/gdd/02-tech-stack.md",
+      "status": "not_started",
+      "implementationRefs": [],
+      "testRefs": [],
+      "followupRefs": []
+    },
+    {
+      "id": "REQ-004",
+      "requirement": "Project bootstrap: @upstash/redis client module ported as src/lib/kv.ts with city: key namespace",
+      "gddRef": "docs/gdd/03-persistence.md",
+      "status": "not_started",
+      "implementationRefs": [],
+      "testRefs": [],
+      "followupRefs": []
+    },
+    {
+      "id": "REQ-005",
+      "requirement": "Project bootstrap: production build (next build) green",
+      "gddRef": "docs/gdd/02-tech-stack.md",
+      "status": "not_started",
+      "implementationRefs": [],
+      "testRefs": [],
+      "followupRefs": []
+    },
+    {
+      "id": "REQ-006",
+      "requirement": "Slug routing: /[slug] App Router route renders an empty city or a fresh-slug landing",
+      "gddRef": "docs/gdd/04-slug-routing.md",
+      "status": "not_started",
+      "implementationRefs": [],
+      "testRefs": [],
+      "followupRefs": []
+    },
+    {
+      "id": "REQ-007",
+      "requirement": "Slug routing: /[slug]/edit App Router route renders the editor for that slug",
+      "gddRef": "docs/gdd/04-slug-routing.md",
+      "status": "not_started",
+      "implementationRefs": [],
+      "testRefs": [],
+      "followupRefs": []
+    },
+    {
+      "id": "REQ-008",
+      "requirement": "Slug validation: kebab-case, 1 to 128 chars, [a-z0-9][a-z0-9-]* via zod schema (port from VibeRacer)",
+      "gddRef": "docs/gdd/04-slug-routing.md",
+      "status": "not_started",
+      "implementationRefs": [],
+      "testRefs": [],
+      "followupRefs": []
+    },
+    {
+      "id": "REQ-009",
+      "requirement": "Anonymous owner identity: cookie-issued UUID per visitor (port VibeRacer racerId.ts as builderId.ts)",
+      "gddRef": "docs/gdd/05-identity.md",
+      "status": "not_started",
+      "implementationRefs": [],
+      "testRefs": [],
+      "followupRefs": []
+    },
+    {
+      "id": "REQ-010",
+      "requirement": "Fresh-slug landing: /<slug> with no saved city offers Create CTA linking to /<slug>/edit",
+      "gddRef": "docs/gdd/04-slug-routing.md",
+      "status": "not_started",
+      "implementationRefs": [],
+      "testRefs": [],
+      "followupRefs": []
+    },
+    {
+      "id": "REQ-011",
+      "requirement": "Fresh-slug landing: Load existing list reads top-N recently-updated slugs from city:index sorted set",
+      "gddRef": "docs/gdd/04-slug-routing.md",
+      "status": "not_started",
+      "implementationRefs": [],
+      "testRefs": [],
+      "followupRefs": []
+    },
+    {
+      "id": "REQ-012",
+      "requirement": "City schema: zod CitySchema with pieces[], buildings[], optional mood; strict reject on unknown fields",
+      "gddRef": "docs/gdd/06-city-schema.md",
+      "status": "not_started",
+      "implementationRefs": [],
+      "testRefs": [],
+      "followupRefs": []
+    },
+    {
+      "id": "REQ-013",
+      "requirement": "City versioning: hashCity() over pieces+buildings (mood excluded) returns stable hash, mirroring VibeRacer hashTrack pattern",
+      "gddRef": "docs/gdd/06-city-schema.md",
+      "status": "not_started",
+      "implementationRefs": [],
+      "testRefs": [],
+      "followupRefs": []
+    },
+    {
+      "id": "REQ-014",
+      "requirement": "City persistence: PUT /api/city/[slug] validates ownership cookie, computes hash, writes city:${slug}:latest and city:${slug}:version:${hash}",
+      "gddRef": "docs/gdd/03-persistence.md",
+      "status": "not_started",
+      "implementationRefs": [],
+      "testRefs": [],
+      "followupRefs": []
+    },
+    {
+      "id": "REQ-015",
+      "requirement": "City load: loadCity(slug) reads city:${slug}:latest then city:${slug}:version:${hash}, falls back to empty city when KV unset",
+      "gddRef": "docs/gdd/03-persistence.md",
+      "status": "not_started",
+      "implementationRefs": [],
+      "testRefs": [],
+      "followupRefs": []
+    },
+    {
+      "id": "REQ-016",
+      "requirement": "Editor: render snap-grid with default empty city",
+      "gddRef": "docs/gdd/07-editor.md",
+      "status": "not_started",
+      "implementationRefs": [],
+      "testRefs": [],
+      "followupRefs": []
+    },
+    {
+      "id": "REQ-017",
+      "requirement": "Editor: street piece palette with straight, left90, right90 piece types",
+      "gddRef": "docs/gdd/07-editor.md",
+      "status": "not_started",
+      "implementationRefs": [],
+      "testRefs": [],
+      "followupRefs": []
+    },
+    {
+      "id": "REQ-018",
+      "requirement": "Editor: street piece palette extended with scurve, scurveLeft, sweepRight, sweepLeft",
+      "gddRef": "docs/gdd/07-editor.md",
+      "status": "not_started",
+      "implementationRefs": [],
+      "testRefs": [],
+      "followupRefs": []
+    },
+    {
+      "id": "REQ-019",
+      "requirement": "Editor: intersection piece type (4-way) so streets can branch. NEW vs VibeRacer Phase 3 which targets 3-connector junction. VibeCity's 4-way intersection extends that pattern with a fourth connector.",
+      "gddRef": "docs/gdd/07-editor.md",
+      "status": "not_started",
+      "implementationRefs": [],
+      "testRefs": [],
+      "followupRefs": ["F-002"]
+    },
+    {
+      "id": "REQ-058",
+      "requirement": "Editor: street piece palette extended with megaSweepRight, megaSweepLeft (3x3 footprint, 49-sample centerline, MEGA_SWEEP_ARC_RADIUS = 1.5 * CELL_SIZE). Port from VibeRacer PR #80.",
+      "gddRef": "docs/gdd/07-editor.md",
+      "status": "not_started",
+      "implementationRefs": [],
+      "testRefs": [],
+      "followupRefs": ["F-002"]
+    },
+    {
+      "id": "REQ-059",
+      "requirement": "Multi-cell footprint plumbing: PieceSchema.footprint?: { dr, dc }[] with default [{0,0}] omitted from canonical JSON, validateClosedLoop marks every footprint cell occupied, editor place / remove / select / move / rotate / flip operate on the footprint union atomically. Port from VibeRacer Phase 0c (src/game/trackFootprint.ts).",
+      "gddRef": "docs/gdd/06-city-schema.md",
+      "status": "not_started",
+      "implementationRefs": [],
+      "testRefs": [],
+      "followupRefs": ["F-002"]
+    },
+    {
+      "id": "REQ-060",
+      "requirement": "Editor: hairpin piece type (2x3 implicit footprint, 180deg arc, 65-sample centerline, rotated connector ports on footprint cells). Port from VibeRacer PR #81. Drive-side dependency: REQ-065 (wheelContact multi-locator handling) is required for the hairpin to be drivable; porting the schema entry without REQ-065 leaves the car falling off mid-piece.",
+      "gddRef": "docs/gdd/07-editor.md",
+      "status": "not_started",
+      "implementationRefs": [],
+      "testRefs": [],
+      "followupRefs": ["F-002"]
+    },
+    {
+      "id": "REQ-061",
+      "requirement": "Editor: 45-arc piece type (2x2 footprint, cardinal-to-corner connector bridge) per VibeRacer Phase 1c. Required if diagonal pieces are adopted. Adopt once VibeRacer ships it.",
+      "gddRef": "docs/gdd/07-editor.md",
+      "status": "not_started",
+      "implementationRefs": [],
+      "testRefs": [],
+      "followupRefs": ["F-002"]
+    },
+    {
+      "id": "REQ-062",
+      "requirement": "Editor: diagonal piece type (1x1 footprint, two corner connectors NE-SW or NW-SE, length CELL_SIZE * sqrt(2)) per VibeRacer Phase 1d. Adopt once VibeRacer ships it.",
+      "gddRef": "docs/gdd/07-editor.md",
+      "status": "not_started",
+      "implementationRefs": [],
+      "testRefs": [],
+      "followupRefs": ["F-002"]
+    },
+    {
+      "id": "REQ-063",
+      "requirement": "8-direction connector system: Dir spans 0..7 (N=0, NE=1, E=2, SE=3, S=4, SW=5, W=6, NW=7) with corner offsets in DIR_OFFSETS and opposite(d) = (d + 4) % 8. Connector validation: cardinal matches cardinal-adjacent, corner matches diagonal-adjacent. Port from VibeRacer Phase 0d (src/game/track.ts). Required for diagonal pieces and intersections.",
+      "gddRef": "docs/gdd/06-city-schema.md",
+      "status": "not_started",
+      "implementationRefs": [],
+      "testRefs": [],
+      "followupRefs": ["F-002"]
+    },
+    {
+      "id": "REQ-064",
+      "requirement": "Segment-based path: TrackPath carries segments: PathSegment[] with cellToLocators: Map<string, Locator[]>. Required for branching streets and intersections. Port from VibeRacer Phase 0b (src/game/trackPath.ts).",
+      "gddRef": "docs/gdd/06-city-schema.md",
+      "status": "not_started",
+      "implementationRefs": [],
+      "testRefs": [],
+      "followupRefs": ["F-002"]
+    },
+    {
+      "id": "REQ-065",
+      "requirement": "wheelContact: multi-locator candidate evaluation. For a wheel's cell, read path.cellToLocators (fallback to cellToOrderIdx for single-locator cells), iterate every candidate piece index, compute distanceToCenterline against each, pick the closest. Without this, multi-cell pieces (hairpin, mega sweep, future arc45 / diagonal) silently report on-street status against the wrong centerline mid-piece and the car falls off. Port from VibeRacer PR #81 (src/game/wheelContact.ts wheelTrackContact).",
+      "gddRef": "docs/gdd/09-drive-mode.md",
+      "status": "not_started",
+      "implementationRefs": [],
+      "testRefs": [],
+      "followupRefs": ["F-002"]
+    },
+    {
+      "id": "REQ-020",
+      "requirement": "Editor: place piece on grid cell with click",
+      "gddRef": "docs/gdd/07-editor.md",
+      "status": "not_started",
+      "implementationRefs": [],
+      "testRefs": [],
+      "followupRefs": []
+    },
+    {
+      "id": "REQ-021",
+      "requirement": "Editor: rotate selected piece in 90deg increments",
+      "gddRef": "docs/gdd/07-editor.md",
+      "status": "not_started",
+      "implementationRefs": [],
+      "testRefs": [],
+      "followupRefs": []
+    },
+    {
+      "id": "REQ-022",
+      "requirement": "Editor: erase selected piece",
+      "gddRef": "docs/gdd/07-editor.md",
+      "status": "not_started",
+      "implementationRefs": [],
+      "testRefs": [],
+      "followupRefs": []
+    },
+    {
+      "id": "REQ-023",
+      "requirement": "Editor: undo / redo via immutable history stack ported from VibeRacer editorHistory.ts",
+      "gddRef": "docs/gdd/07-editor.md",
+      "status": "not_started",
+      "implementationRefs": [],
+      "testRefs": [],
+      "followupRefs": []
+    },
+    {
+      "id": "REQ-024",
+      "requirement": "Editor: pan and zoom over the grid",
+      "gddRef": "docs/gdd/07-editor.md",
+      "status": "not_started",
+      "implementationRefs": [],
+      "testRefs": [],
+      "followupRefs": []
+    },
+    {
+      "id": "REQ-025",
+      "requirement": "Editor: autosave on every mutation (no Save button); writes through PUT /api/city/[slug]",
+      "gddRef": "docs/gdd/07-editor.md",
+      "status": "not_started",
+      "implementationRefs": [],
+      "testRefs": [],
+      "followupRefs": []
+    },
+    {
+      "id": "REQ-026",
+      "requirement": "Editor: Drive CTA in editor toolbar that switches to drive mode at /<slug>",
+      "gddRef": "docs/gdd/07-editor.md",
+      "status": "not_started",
+      "implementationRefs": [],
+      "testRefs": [],
+      "followupRefs": []
+    },
+    {
+      "id": "REQ-027",
+      "requirement": "Editor: footprint validation prevents overlapping placement",
+      "gddRef": "docs/gdd/07-editor.md",
+      "status": "not_started",
+      "implementationRefs": [],
+      "testRefs": [],
+      "followupRefs": []
+    },
+    {
+      "id": "REQ-028",
+      "requirement": "Building palette: placeholder primitive types (small-house, mid-house, shop, factory) as grid pieces",
+      "gddRef": "docs/gdd/08-buildings.md",
+      "status": "not_started",
+      "implementationRefs": [],
+      "testRefs": [],
+      "followupRefs": []
+    },
+    {
+      "id": "REQ-029",
+      "requirement": "Building palette: place / rotate / erase parity with street pieces",
+      "gddRef": "docs/gdd/08-buildings.md",
+      "status": "not_started",
+      "implementationRefs": [],
+      "testRefs": [],
+      "followupRefs": []
+    },
+    {
+      "id": "REQ-030",
+      "requirement": "Building palette: collide with car (treated as off-track obstacle, not drivable)",
+      "gddRef": "docs/gdd/08-buildings.md",
+      "status": "not_started",
+      "implementationRefs": [],
+      "testRefs": [],
+      "followupRefs": []
+    },
+    {
+      "id": "REQ-031",
+      "requirement": "Drive mode: vehicle reuses VibeRacer physics integrator (planar arcade) at /<slug>",
+      "gddRef": "docs/gdd/09-drive-mode.md",
+      "status": "not_started",
+      "implementationRefs": [],
+      "testRefs": [],
+      "followupRefs": []
+    },
+    {
+      "id": "REQ-032",
+      "requirement": "Drive mode: wheel contact uses VibeRacer wheelContact.ts with streets as on-surface grid. MUST include the multi-locator extension (REQ-065) so multi-cell pieces (mega sweep, hairpin, future arc45 / diagonal) report correct on-street status from any cell of their footprint.",
+      "gddRef": "docs/gdd/09-drive-mode.md",
+      "status": "not_started",
+      "implementationRefs": [],
+      "testRefs": [],
+      "followupRefs": ["F-002"]
+    },
+    {
+      "id": "REQ-033",
+      "requirement": "Drive mode: chase camera reuses VibeRacer initCameraRig / updateCameraRig with default chase-far preset",
+      "gddRef": "docs/gdd/09-drive-mode.md",
+      "status": "not_started",
+      "implementationRefs": [],
+      "testRefs": [],
+      "followupRefs": []
+    },
+    {
+      "id": "REQ-034",
+      "requirement": "Drive mode: keyboard input via VibeRacer useKeyboard hook + DEFAULT_KEY_BINDINGS",
+      "gddRef": "docs/gdd/09-drive-mode.md",
+      "status": "not_started",
+      "implementationRefs": [],
+      "testRefs": [],
+      "followupRefs": []
+    },
+    {
+      "id": "REQ-035",
+      "requirement": "Drive mode: touch input via VibeRacer useTouchControls hook (dual-stick default)",
+      "gddRef": "docs/gdd/09-drive-mode.md",
+      "status": "not_started",
+      "implementationRefs": [],
+      "testRefs": [],
+      "followupRefs": []
+    },
+    {
+      "id": "REQ-036",
+      "requirement": "Drive mode: vehicle spawns on a deterministic anchor cell (first placed street piece, or grid origin if none)",
+      "gddRef": "docs/gdd/09-drive-mode.md",
+      "status": "not_started",
+      "implementationRefs": [],
+      "testRefs": [],
+      "followupRefs": []
+    },
+    {
+      "id": "REQ-037",
+      "requirement": "Drive mode: NO laps, NO checkpoints, NO HUD lap timer (anti-feature, explicit)",
+      "gddRef": "docs/gdd/09-drive-mode.md",
+      "status": "not_started",
+      "implementationRefs": [],
+      "testRefs": [],
+      "followupRefs": []
+    },
+    {
+      "id": "REQ-038",
+      "requirement": "Drive mode: Edit CTA in pause menu that returns to /<slug>/edit",
+      "gddRef": "docs/gdd/09-drive-mode.md",
+      "status": "not_started",
+      "implementationRefs": [],
+      "testRefs": [],
+      "followupRefs": []
+    },
+    {
+      "id": "REQ-039",
+      "requirement": "Drive mode: pause menu via Esc key (port from VibeRacer; lap-timer compensation removed)",
+      "gddRef": "docs/gdd/09-drive-mode.md",
+      "status": "not_started",
+      "implementationRefs": [],
+      "testRefs": [],
+      "followupRefs": []
+    },
+    {
+      "id": "REQ-040",
+      "requirement": "Settings pane: camera tuning (height, distance, lookAhead, followSpeed, fov) ported from VibeRacer",
+      "gddRef": "docs/gdd/10-settings.md",
+      "status": "not_started",
+      "implementationRefs": [],
+      "testRefs": [],
+      "followupRefs": []
+    },
+    {
+      "id": "REQ-041",
+      "requirement": "Settings pane: keyboard rebinding ported from VibeRacer",
+      "gddRef": "docs/gdd/10-settings.md",
+      "status": "not_started",
+      "implementationRefs": [],
+      "testRefs": [],
+      "followupRefs": []
+    },
+    {
+      "id": "REQ-042",
+      "requirement": "Settings pane: touch mode (dual-stick / single-stick) ported from VibeRacer",
+      "gddRef": "docs/gdd/10-settings.md",
+      "status": "not_started",
+      "implementationRefs": [],
+      "testRefs": [],
+      "followupRefs": []
+    },
+    {
+      "id": "REQ-043",
+      "requirement": "Settings pane: persisted to localStorage under vibecity.controls (separate namespace from VibeRacer)",
+      "gddRef": "docs/gdd/10-settings.md",
+      "status": "not_started",
+      "implementationRefs": [],
+      "testRefs": [],
+      "followupRefs": []
+    },
+    {
+      "id": "REQ-044",
+      "requirement": "Three.js scene: ground plane, sky, ambient + directional light (VibeRacer noon preset as default)",
+      "gddRef": "docs/gdd/11-scene.md",
+      "status": "not_started",
+      "implementationRefs": [],
+      "testRefs": [],
+      "followupRefs": []
+    },
+    {
+      "id": "REQ-045",
+      "requirement": "Three.js scene: street pieces render as flat textured / colored quads on the grid (placeholder visuals)",
+      "gddRef": "docs/gdd/11-scene.md",
+      "status": "not_started",
+      "implementationRefs": [],
+      "testRefs": [],
+      "followupRefs": []
+    },
+    {
+      "id": "REQ-046",
+      "requirement": "Three.js scene: building pieces render as extruded boxes with placeholder colors per type",
+      "gddRef": "docs/gdd/11-scene.md",
+      "status": "not_started",
+      "implementationRefs": [],
+      "testRefs": [],
+      "followupRefs": []
+    },
+    {
+      "id": "REQ-047",
+      "requirement": "Three.js scene: VibeRacer car model shipped as the player vehicle in v1",
+      "gddRef": "docs/gdd/11-scene.md",
+      "status": "not_started",
+      "implementationRefs": [],
+      "testRefs": [],
+      "followupRefs": []
+    },
+    {
+      "id": "REQ-048",
+      "requirement": "Editor URL: /<slug>/edit?v=<hash> pins the editor to a historical version (port VibeRacer fork pattern)",
+      "gddRef": "docs/gdd/04-slug-routing.md",
+      "status": "not_started",
+      "implementationRefs": [],
+      "testRefs": [],
+      "followupRefs": []
+    },
+    {
+      "id": "REQ-049",
+      "requirement": "Drive URL: /<slug>?v=<hash> pins the drive view to a historical version",
+      "gddRef": "docs/gdd/04-slug-routing.md",
+      "status": "not_started",
+      "implementationRefs": [],
+      "testRefs": [],
+      "followupRefs": []
+    },
+    {
+      "id": "REQ-050",
+      "requirement": "Home page: / lists recently-updated slugs from city:index plus a Create-new-slug input",
+      "gddRef": "docs/gdd/12-home-page.md",
+      "status": "not_started",
+      "implementationRefs": [],
+      "testRefs": [],
+      "followupRefs": []
+    },
+    {
+      "id": "REQ-051",
+      "requirement": "AGENTS.md: em-dash compliance check passes on every committed source file (CI-checked)",
+      "gddRef": "AGENTS.md#rule-1",
+      "status": "not_started",
+      "implementationRefs": [],
+      "testRefs": [],
+      "followupRefs": []
+    },
+    {
+      "id": "REQ-052",
+      "requirement": "City versions index: city:${slug}:versions sorted set tracks last-N hashes with timestamps (port from VibeRacer)",
+      "gddRef": "docs/gdd/03-persistence.md",
+      "status": "not_started",
+      "implementationRefs": [],
+      "testRefs": [],
+      "followupRefs": []
+    },
+    {
+      "id": "REQ-053",
+      "requirement": "Empty-grid state: drive mode at a slug with zero placed streets shows a friendly Place a road first prompt",
+      "gddRef": "docs/gdd/09-drive-mode.md",
+      "status": "not_started",
+      "implementationRefs": [],
+      "testRefs": [],
+      "followupRefs": []
+    },
+    {
+      "id": "REQ-054",
+      "requirement": "Off-street penalty: car drag and max-speed penalty applies when wheels are off any placed street piece (reuse VibeRacer offTrackDrag)",
+      "gddRef": "docs/gdd/09-drive-mode.md",
+      "status": "not_started",
+      "implementationRefs": [],
+      "testRefs": [],
+      "followupRefs": []
+    },
+    {
+      "id": "REQ-055",
+      "requirement": "Drive-to-edit transition: smooth (sub-1s) navigation from /<slug> to /<slug>/edit so the build-drive loop feels like one tap",
+      "gddRef": "docs/gdd/01-vision-and-pillars.md#design-pillars",
+      "status": "not_started",
+      "implementationRefs": [],
+      "testRefs": [],
+      "followupRefs": []
+    },
+    {
+      "id": "REQ-056",
+      "requirement": "Out-of-scope file: 99-out-of-scope.md fence is referenced from AGENTS.md so loop knows the boundary",
+      "gddRef": "docs/gdd/99-out-of-scope.md",
+      "status": "done",
+      "implementationRefs": ["docs/gdd/99-out-of-scope.md"],
+      "testRefs": [],
+      "followupRefs": []
+    },
+    {
+      "id": "REQ-057",
+      "requirement": "Vision and pillars: 01-vision-and-pillars.md drafted; pitch, three pillars, NOT-list, reuse map, out-of-scope index",
+      "gddRef": "docs/gdd/01-vision-and-pillars.md",
+      "status": "done",
+      "implementationRefs": ["docs/gdd/01-vision-and-pillars.md"],
+      "testRefs": [],
+      "followupRefs": []
+    }
+  ]
+}

@@ -1,0 +1,76 @@
+# Progress Log
+
+Newest entries first. Every implementation slice adds an entry. Append-only: never delete, never reorder, never edit a previous entry.
+
+Format for each slice:
+
+```
+## YYYY-MM-DD, Short Title
+
+- Branch: `feature/short-name`
+- PR: #N (when known)
+- Changed: one paragraph naming the user-facing change and the key files / helpers / defaults that landed.
+- Verification: dash checks, type-check, relevant unit tests, build, smoke (where applicable). Note any known-tolerated lint warnings or skipped checks.
+- Assumptions: assumptions made under a Recommended default. One sentence per assumption.
+- GDD coverage: which rows in `docs/GDD_COVERAGE.json` flipped to `partial` or `done`, or which `docs/gdd/*.md` files gained a Build log entry.
+- Followups: any new `F-NNN` entries created. Link to them.
+```
+
+## 2026-05-03, REQ-065 Added: wheelContact Multi-Locator Atomic Row
+
+- Branch: `setup/spiral` (continuation of scaffold seed)
+- PR: N/A (scaffold seed; no code yet)
+- Changed: split out the wheelContact multi-locator extension (introduced in VibeRacer PR #81) as its own atomic coverage row REQ-065 so a future port slice can't ship the hairpin schema without the drive-side support. Verified the diff against VibeRacer commit `4143c77`: `wheelTrackContact` now reads `path.cellToLocators` (fallback to `cellToOrderIdx`), iterates every candidate piece index for the wheel's cell, computes `distanceToCenterline` against each, and picks the closest. Sharpened REQ-032 (drive-mode wheel-contact reuse) to explicitly require REQ-065. Sharpened REQ-060 (hairpin) to call out REQ-065 as a drive-side dependency without which hairpins are placeable but not drivable.
+- Verification: em-dash grep clean across edited files. JSON syntax validated. REQ row count: 65.
+- Assumptions: cellToLocators is populated by the segment-based path build (REQ-064, port from PR #76). REQ-065 depends on REQ-064 transitively. The fallback to cellToOrderIdx preserves single-segment behavior so legacy tracks (and v1 cities with no multi-cell pieces) keep working without the locator map.
+- GDD coverage: REQ-032 description sharpened. REQ-060 description sharpened. REQ-065 added as `not_started`.
+- Followups: none new.
+
+## 2026-05-03, VibeRacer Hairpin (PR #81) Auto-Adopted
+
+- Branch: `setup/spiral` (continuation of scaffold seed)
+- PR: N/A (scaffold seed; no code yet)
+- Changed: VibeRacer PR #81 (hairpin) merged at 21:17. Per Q-006 default A (auto-adopt every shipped piece), REQ-060 promoted from "auto-in scope once upstream merges" to unconditionally in v1 scope. Row description sharpened to record what hairpin actually ships with: 2x3 implicit footprint, 65-sample centerline, rotated connector ports on footprint cells, wheel contact extended via footprint locators. F-002 watch list updated to mark hairpin merged. 45-arc (1c) and diagonal (1d) remain "not started upstream"; they will auto-flip the same way when their PRs merge.
+- Verification: confirmed `origin/main` PieceTypeSchema includes `'hairpin'` alongside `'megaSweepRight'` / `'megaSweepLeft'`. Em-dash grep clean. JSON syntax validated.
+- Assumptions: hairpin's wheel contact extension (footprint locators) is part of the port surface, not just the piece definition. The VibeCity port slice for REQ-060 must include the `src/game/wheelContact.ts` change from PR #81.
+- GDD coverage: REQ-060 description updated. No status flip (still `not_started` because no VibeCity code yet).
+- Followups: F-002 watch list now reads: PRs #75-79 merged (Phase 0 plumbing), PR #80 merged (mega sweep), PR #81 merged (hairpin), 45-arc / diagonal / junction not started upstream.
+
+## 2026-05-03, Q-006 Resolved: Auto-Adopt Upstream Pieces
+
+- Branch: `setup/spiral` (continuation of scaffold seed)
+- PR: N/A (scaffold seed; no code yet)
+- Changed: resolved Q-006 to default A (auto-adopt every VibeRacer piece on upstream merge). Re-verified upstream state: VibeRacer main has merged PRs #75-79 (Phase 0 plumbing) and PR #80 (Phase 1a mega sweep). Hairpin is on `feature/hairpin-track-piece` branch in VibeRacer with `'hairpin'` already in `PieceTypeSchema`, but not yet pushed to a PR. Updated F-002 watch-list to reflect actual merge status (Phase 0 + 1a confirmed merged, hairpin in flight, 1c / 1d not started, Phase 3 junction not started). Per Q-006 resolution, REQ-058 (mega sweep) is unconditionally in v1 scope, and REQ-060 / 061 / 062 (hairpin / 45-arc / diagonal) auto-flip into scope when each upstream PR merges.
+- Verification: em-dash grep clean. JSON syntax validated.
+- Assumptions: VibeCity tracks VibeRacer's editor vocabulary 1:1. If a piece turns out to feel wrong in a city, the response is to hide it from the palette in a follow-up, not to skip the port.
+- GDD coverage: no row status flips this slice. Q-006 resolution recorded in OPEN_QUESTIONS.md.
+- Followups: F-002 watch list refreshed to reflect actual upstream merge status.
+
+## 2026-05-03, VibeRacer Mega Sweep + Phase 1 Roadmap Wired
+
+- Branch: `setup/spiral` (continuation of scaffold seed)
+- PR: N/A (scaffold seed; no code yet)
+- Changed: surfaced VibeRacer's in-flight track-piece roadmap and pulled the relevant rows into VibeCity scope. Added REQ-058 (megaSweep palette entry, port from VibeRacer PR #80), REQ-059 (multi-cell footprint plumbing, port from VibeRacer Phase 0c), REQ-060 (hairpin, future), REQ-061 (45-arc, future), REQ-062 (diagonal, future), REQ-063 (8-direction connectors, port from VibeRacer Phase 0d), REQ-064 (segment-based path with cellToLocators, port from VibeRacer Phase 0b). Updated REQ-019 to note that VibeCity's 4-way intersection extends VibeRacer's planned Phase 3 3-connector junction. Sharpened `01-vision-and-pillars.md` reuse map with two new bullets covering the Phase 0 plumbing and the Phase 1 piece taxonomy. Opened Q-006 (Phase 1 adoption cadence; default: per-piece city merit eval). Opened F-002 (watch upstream VibeRacer piece additions).
+- Verification: em-dash grep clean across edited files. JSON syntax validated.
+- Assumptions: VibeRacer PR #80 will merge as written, shipping `megaSweepRight` / `megaSweepLeft` with 3x3 implicit footprints and 49-sample centerlines (Q-006 default B). Hairpin and corner-connector pieces (1b / 1c / 1d) are NOT in VibeCity v1 scope by default; each requires a separate adoption slice gated by city-merit eval.
+- GDD coverage: REQ-019 description sharpened. REQ-058 through REQ-064 added as `not_started`. No status flips on the rest.
+- Followups: F-002 tracks upstream VibeRacer piece additions.
+
+## 2026-05-03, Vision and Coverage Seeded
+
+- Branch: `setup/spiral` (continuation of scaffold init)
+- PR: N/A (scaffold seed; no code yet)
+- Changed: drafted `docs/gdd/01-vision-and-pillars.md` (pitch, three pillars, NOT-list, reuse map from VibeRacer, out-of-scope index), drafted `docs/gdd/99-out-of-scope.md` (SimCity layers, racing layers, multiplayer, auth, polish, anti-features), updated `docs/gdd/README.md` index to reference both, replaced placeholder rows in `docs/GDD_COVERAGE.json` with 57 atomic seed rows covering bootstrap, slug routing, schema, persistence, editor, building palette, drive mode, settings, scene, and home page. Updated `docs/OPEN_QUESTIONS.md`: resolved Q-001 (first GDD section), opened Q-002 (build/drive page topology), Q-003 (VibeRacer reuse mechanism), Q-004 (v1 building palette breadth), Q-005 (drive-mode building collision model).
+- Verification: em-dash grep clean across `docs/gdd/*.md`, `docs/GDD_COVERAGE.json`, `docs/OPEN_QUESTIONS.md`. JSON syntax validated.
+- Assumptions: VibeRacer vehicle / wheel-contact / camera / input modules will be copy-ported into VibeCity (Q-003 default A). Build / drive will live as two routes with prefetch-smooth transitions (Q-002 default C). v1 building palette is four placeholder primitive types (Q-004 default B). Buildings collide with car as off-street penalty cells, not hard walls (Q-005 default A).
+- GDD coverage: REQ-056 (out-of-scope file) and REQ-057 (vision drafted) marked `done`. The other 55 rows seeded as `not_started` and ready for the loop to pick up.
+- Followups: none new from this slice; F-001 (draft first GDD section) is now satisfied and should be marked resolved in `FOLLOWUPS.md`.
+
+## 2026-05-03, Spiral Scaffold Initialized
+
+- Branch: `setup/spiral`
+- Changed: bootstrapped the VibeCity scaffold using the `spiral` skill. Created `AGENTS.md`, `docs/IMPLEMENTATION_PLAN.md`, `docs/WORKING_AGREEMENT.md`, `docs/gdd/README.md`, `docs/GDD_COVERAGE.json`, `docs/PROGRESS_LOG.md`, `docs/OPEN_QUESTIONS.md`, `docs/FOLLOWUPS.md`, `docs/PLAYTEST.md`, and `docs/FUN_FACTOR_AUDIT.md`.
+- Verification: em-dash grep returned nothing.
+- Assumptions: the GDD will be drafted under `docs/gdd/` at requirement granularity per the anti-Flatline guardrail in `docs/gdd/README.md`.
+- GDD coverage: ledger created with two example rows; replace these with real requirements before opening any feature PRs.
+- Followups: F-001 to draft the first GDD section (vision and pillars).
