@@ -11,7 +11,7 @@ import {
 } from './snapGrid'
 
 /**
- * Render the editor snap-grid (REQ-016).
+ * Render the editor snap-grid (REQ-016, REQ-020).
  *
  * The grid is an SVG of `GRID_DIAMETER x GRID_DIAMETER` cells. Each
  * cell renders as a faint outlined square. The origin cell `(0, 0)`
@@ -20,13 +20,22 @@ import {
  * resolved footprint cells; the empty city has zero pieces and shows
  * just the grid.
  *
- * This component is presentational: it consumes a city and emits
- * SVG. Place / rotate / erase (REQ-020 onward) and pan / zoom
- * (REQ-024) live in their own slices on top of this surface.
+ * When `onCellClick` is provided, every cell renders as a clickable
+ * `<rect>` so the place-piece tool (REQ-020) can attach. Without the
+ * handler the grid stays presentational. Place / rotate / erase
+ * (REQ-020 onward) and pan / zoom (REQ-024) live in their own slices
+ * on top of this surface.
  */
-export function SnapGrid({ city }: { city: City }) {
+export function SnapGrid({
+  city,
+  onCellClick,
+}: {
+  city: City
+  onCellClick?: (row: number, col: number) => void
+}) {
   const cells = gridCells()
   const occupied = occupiedPieceCells(city)
+  const interactive = typeof onCellClick === 'function'
 
   return (
     <svg
@@ -47,6 +56,7 @@ export function SnapGrid({ city }: { city: City }) {
         borderRadius: 4,
         maxWidth: '100%',
         height: 'auto',
+        cursor: interactive ? 'crosshair' : 'default',
       }}
     >
       {cells.map((cell) => {
@@ -67,6 +77,14 @@ export function SnapGrid({ city }: { city: City }) {
             data-cell-row={cell.row}
             data-cell-col={cell.col}
             data-cell-occupied={isOccupied ? 'true' : 'false'}
+            onClick={
+              interactive
+                ? () => {
+                    onCellClick(cell.row, cell.col)
+                  }
+                : undefined
+            }
+            style={interactive ? { cursor: 'crosshair' } : undefined}
           />
         )
       })}
