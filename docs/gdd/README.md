@@ -23,6 +23,7 @@ Project pitch: A fully vibed city builder that you can actually drive around in.
 Add entries below as sections are drafted. Each entry: filename + one-line description. This index is the human-readable map; the machine-readable map is `docs/GDD_COVERAGE.json`.
 
 - `01-vision-and-pillars.md`: what VibeCity is and what it is not.
+- `02-tech-stack.md`: stack choices and the bootstrap requirements (Next.js 15, React 19, TS5, Vitest, Playwright, KV).
 - `99-out-of-scope.md`: the explicit v1 fence. SimCity layers, racing layers, multiplayer, auth, polish.
 
 ## Out of scope

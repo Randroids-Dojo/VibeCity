@@ -3,13 +3,22 @@
   "_comment_2": "Allowed status values: not_started | partial | done | out_of_scope. Every row should carry implementationRefs and testRefs once status >= partial. followupRefs link to F-NNN entries in FOLLOWUPS.md.",
   "_comment_3": "gddRef paths may not yet exist when a row is seeded; the slice that picks the row creates the section file.",
   "updatedAt": "2026-05-03",
+  "_comment_4": "REQ-001 / REQ-002 / REQ-005 landed together as the bootstrap slice. See PROGRESS_LOG.md.",
   "rows": [
     {
       "id": "REQ-001",
       "requirement": "Project bootstrap: Next.js 15 App Router + React 19 + TypeScript 5 scaffold matching VibeRacer's package.json",
       "gddRef": "docs/gdd/02-tech-stack.md",
-      "status": "not_started",
-      "implementationRefs": [],
+      "status": "done",
+      "implementationRefs": [
+        "package.json",
+        "tsconfig.json",
+        "next.config.mjs",
+        ".eslintrc.json",
+        ".gitignore",
+        "src/app/layout.tsx",
+        "src/app/page.tsx"
+      ],
       "testRefs": [],
       "followupRefs": []
     },
@@ -17,9 +26,9 @@
       "id": "REQ-002",
       "requirement": "Project bootstrap: Vitest unit test runner wired with one passing smoke test",
       "gddRef": "docs/gdd/02-tech-stack.md",
-      "status": "not_started",
-      "implementationRefs": [],
-      "testRefs": [],
+      "status": "done",
+      "implementationRefs": ["vitest.config.ts", "package.json"],
+      "testRefs": ["tests/smoke.test.ts"],
       "followupRefs": []
     },
     {
@@ -44,8 +53,8 @@
       "id": "REQ-005",
       "requirement": "Project bootstrap: production build (next build) green",
       "gddRef": "docs/gdd/02-tech-stack.md",
-      "status": "not_started",
-      "implementationRefs": [],
+      "status": "done",
+      "implementationRefs": ["package.json", "next.config.mjs"],
       "testRefs": [],
       "followupRefs": []
     },
