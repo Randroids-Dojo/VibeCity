@@ -16,6 +16,16 @@ Format for each slice:
 - Followups: any new `F-NNN` entries created. Link to them.
 ```
 
+## 2026-05-03, Project Bootstrap: REQ-001, REQ-002, REQ-005
+
+- Branch: `feature/req-001-002-005-bootstrap`
+- PR: #N (to be filled in once opened)
+- Changed: stood up the VibeCity Next.js 15 App Router scaffold with React 19, TypeScript 5 strict, and Vitest 2. Added `package.json` (mirrors VibeRacer's core dep set minus three / zod / @upstash/redis / Playwright; those land in their own slices), `tsconfig.json` (strict, `@/*` -> `src/*`), `next.config.mjs` (resolves `NEXT_PUBLIC_APP_VERSION` from git short sha or `VERCEL_GIT_COMMIT_SHA`), `.eslintrc.json` (extends `next/core-web-vitals`), `.gitignore` (Next.js + Playwright + env + `.claude/` patterns), `vitest.config.ts` (path alias mirrors tsconfig, scoped to `tests/`). Added `src/app/layout.tsx` (root layout, plain HTML scaffold), `src/app/page.tsx` (placeholder home page with the project pitch), and `tests/smoke.test.ts` (two assertions to confirm Vitest runs). Symlinked `.claude/rules/slice-discipline.md` into `src/AGENTS.md` and `tests/AGENTS.md` per `AGENTS.md` guidance so Codex picks it up. Drafted `docs/gdd/02-tech-stack.md` as the canonical bootstrap spec.
+- Verification: `npm install` (341 packages added). `npm run type-check` exited 0. `npm run test` reported 2/2 pass. `npm run build` produced 4 prerendered routes and reported 102 kB First Load JS. Em-dash grep clean. `git diff --check` clean. JSON syntax of GDD_COVERAGE.json validated.
+- Assumptions: Inline-style placeholder home page is acceptable until a styling pass is justified (matches v1 minimalism). Single-package layout with no workspaces (per Q-003 default A: copy-paste port from VibeRacer, not a workspace). Vitest tests live under `tests/` (matches VibeRacer convention). Playwright (REQ-003) and KV (REQ-004) deferred to follow-up slices to keep this PR small.
+- GDD coverage: REQ-001, REQ-002, REQ-005 flipped `not_started` -> `done`. `docs/gdd/02-tech-stack.md` drafted with `Status: partial` (REQ-003, REQ-004 still pending in this section's coverage scope).
+- Followups: none new.
+
 ## 2026-05-03, REQ-065 Added: wheelContact Multi-Locator Atomic Row
 
 - Branch: `setup/spiral` (continuation of scaffold seed)
