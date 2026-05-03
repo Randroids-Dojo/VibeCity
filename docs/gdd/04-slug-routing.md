@@ -35,4 +35,5 @@ These routes are wired in their own slices. This section's `partial` status refl
 
 ### Build log
 
+- 2026-05-03: REQ-006 + REQ-010 landed. Added `src/app/[slug]/page.tsx` (server component for the drive-view route, validates slug, renders fresh-slug landing) and `src/app/[slug]/slugRoute.ts` (`parseSlugParam` helper that wraps `SlugSchema.safeParse` and returns `null` on failure for `notFound()` plumbing). Empty-city landing offers a "Create this city" CTA linking to `/<slug>/edit`. Drive-scene branch (REQ-031) and saved-city load (REQ-015) deferred to their own slices. Files: `src/app/[slug]/page.tsx`, `src/app/[slug]/slugRoute.ts`, `tests/app/slugRoute.test.ts` (13 cases covering accept / reject paths). Verified `npm run type-check`, `npm run test`, `npm run build` all green. PR #N.
 - 2026-05-03: REQ-008 landed. Added `zod` to dependencies. Files: `src/lib/schemas.ts` (`SlugSchema`, `Slug` type, `normalizeSlug` helper), `tests/lib/schemas.test.ts` (19 cases covering accept / reject / normalize). Verified `npm run type-check`, `npm run test`, `npm run build` all green. PR #2.

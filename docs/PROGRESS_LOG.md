@@ -16,6 +16,16 @@ Format for each slice:
 - Followups: any new `F-NNN` entries created. Link to them.
 ```
 
+## 2026-05-03, Slug Landing Route: REQ-006, REQ-010
+
+- Branch: `feature/req-006-010-slug-landing`
+- PR: #N (when known)
+- Changed: added the dynamic drive-view route at `/<slug>`. New files: `src/app/[slug]/page.tsx` (Next.js 15 async server component, awaits `params`, validates the slug via `parseSlugParam`, renders 404 on invalid input via `notFound()`, otherwise renders the empty-city landing with a Create CTA linking to `/<slug>/edit`); `src/app/[slug]/slugRoute.ts` (`parseSlugParam(raw)` helper that wraps `SlugSchema.safeParse` and returns `Slug | null` so the page component does not need to import zod directly). Added `tests/app/slugRoute.test.ts` with 13 cases covering accept (lowercase, kebab-case, leading digit, single char, max-length 128) and reject (empty, uppercase, leading dash, spaces, underscores, slashes, over-length, URL-encoded). Updated `docs/gdd/04-slug-routing.md` Build log with a REQ-006 + REQ-010 entry.
+- Verification: `npm run type-check` exited 0. `npm run test` reported 119/119 pass (106 prior + 13 slugRoute cases). `npm run build` produced a green production build with the new dynamic route. Em-dash grep clean across edited files. `git diff --check` clean. JSON syntax of GDD_COVERAGE.json validated.
+- Assumptions: REQ-006 lands as `partial` because the drive-scene branch (REQ-031 onward) and the saved-city load (REQ-015) are deferred to their own slices; today every visit to `/<slug>` shows the fresh-slug landing. REQ-010 lands as `done` because the Create CTA is the entire user-facing surface for the fresh-slug landing per the GDD spec. The CTA links to `/<slug>/edit` which does not yet exist (REQ-007); clicking it produces a 404 until the editor route lands. The `parseSlugParam` helper is split out from the page component so the validation logic can be unit tested without a JSX runtime or React testing library; vitest's environment is `node` and we have not (and intentionally have not) added React Testing Library to dev deps for this slice.
+- GDD coverage: REQ-006 flipped `not_started` to `partial`. REQ-010 flipped `not_started` to `done`. `docs/gdd/04-slug-routing.md` Build log gained an entry for REQ-006 + REQ-010.
+- Followups: none new.
+
 ## 2026-05-03, arc45 + diagonal Piece Schema: REQ-061, REQ-062
 
 - Branch: `feature/req-061-062-arc45-diagonal`
