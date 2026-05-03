@@ -4,7 +4,7 @@ A fully vibed city builder you can actually drive around in.
 
 ## Stack
 
-Next.js 15 (App Router) + React 19 + TypeScript 5 (strict). Vitest for unit tests. Playwright for E2E (wired in a follow-up slice). raw three for the eventual scene. zod for schemas. `@upstash/redis` for slug-keyed persistence (wired in a follow-up slice).
+Next.js 15 (App Router) + React 19 + TypeScript 5 (strict). Vitest for unit tests. Playwright for E2E (chromium-only smoke). raw three for the eventual scene. zod for schemas. `@upstash/redis` for slug-keyed persistence.
 
 See `docs/gdd/02-tech-stack.md` for the canonical spec.
 
@@ -16,6 +16,8 @@ npm run dev          # http://localhost:3000
 npm run type-check
 npm run test         # vitest run
 npm run build        # next build
+npm run test:e2e:install  # one-time chromium install
+npm run test:e2e          # playwright smoke against next start on port 3100
 ```
 
 ## Project layout
@@ -26,6 +28,7 @@ npm run build        # next build
 - `src/hooks/` React hooks (added per slice).
 - `src/lib/` pure utility modules (added per slice).
 - `tests/` Vitest unit tests.
+- `e2e/` Playwright end-to-end smoke tests.
 - `docs/` GDD, implementation plan, and ledgers.
 
 ## Environment variables
