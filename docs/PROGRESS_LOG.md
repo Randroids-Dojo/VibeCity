@@ -16,6 +16,16 @@ Format for each slice:
 - Followups: any new `F-NNN` entries created. Link to them.
 ```
 
+## 2026-05-03, City Hash: REQ-013
+
+- Branch: `feature/req-013-city-hash`
+- PR: #N (when known)
+- Changed: added `src/lib/hashCity.ts` exporting `hashCity(city)` (sha256 hex digest branded as `CityVersionHash`) and `canonicalCityJson(city)` (the deterministic JSON form fed to the digest). Mirrors VibeRacer's `src/lib/hashTrack.ts` pattern: pieces sorted by `(row, col, type, rotation)`, buildings sorted by the same key, footprint omitted when it resolves to the single-cell default `[{ dr: 0, dc: 0 }]`, otherwise normalized (deduped, `-0` collapsed to `0`, sorted by `(dr, dc)`). City `mood` is excluded from the hash by design (REQ-013) so adding or changing the mood on an existing city keeps every prior version reference intact. Added `tests/lib/hashCity.test.ts` with 18 cases covering format, determinism, mood exclusion, footprint canonicalization (omit / order / -0 collapse), and change detection across piece type / coordinates / rotation / building type. Updated `docs/gdd/06-city-schema.md` Status to `partial` -> still partial (REQ-059 / 063 / 064 pending) with a new Build log entry.
+- Verification: `npm run type-check` exited 0. `npm run test` reported 81/81 pass (63 prior + 18 hashCity cases). `npm run build` produced a green production build. Em-dash grep clean. `git diff --check` clean. JSON syntax of GDD_COVERAGE.json validated.
+- Assumptions: Hash format is sha256 hex 64-char (matches VibeRacer's `hashTrack` output shape so external tooling can treat both projects' version hashes the same way). v1 footprint normalization handles dedupe / `-0` collapse / sort but not rotation symmetry: two pieces that resolve to the same shape under different rotations still hash differently because `rotation` is part of the canonical form (matches VibeRacer). The `Pick<City, 'pieces' | 'buildings'>` parameter shape lets callers pass partial inputs (e.g. an editor's working state) without first constructing a full `City` value. `branchEdges` and `checkpoints` from VibeRacer's `hashTrack` are intentionally not ported: VibeCity does not have lap timing, and branch edges land in the REQ-064 segment-based path slice if needed.
+- GDD coverage: REQ-013 flipped `not_started` to `done`. `docs/gdd/06-city-schema.md` Build log gained an entry for REQ-013.
+- Followups: none new.
+
 ## 2026-05-03, City Schema: REQ-012
 
 - Branch: `feature/req-012-city-schema`
