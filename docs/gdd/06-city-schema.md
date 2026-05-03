@@ -79,4 +79,5 @@ VibeRacer's `MAX_PIECES_PER_TRACK` is 64 because a track is a closed loop. VibeC
 
 ### Build log
 
+- 2026-05-03: REQ-013 landed. Files: `src/lib/hashCity.ts` (`hashCity`, `canonicalCityJson`, internal `normalizedFootprint` / `isDefaultFootprint`), `tests/lib/hashCity.test.ts` (18 cases covering format, determinism, mood exclusion, footprint canonicalization, change detection). Mood is excluded from the digest. Footprint canonicalization dedupes, collapses `-0` to `0`, sorts by `(dr, dc)`, and omits the field when it resolves to the single-cell default. PR #N.
 - 2026-05-03: REQ-012 landed. Files: `src/lib/schemas.ts` (`PieceTypeSchema`, `RotationSchema`, `PieceFootprintCellSchema`, `PieceSchema`, `BuildingTypeSchema`, `BuildingSchema`, `CityMoodSchema`, `CitySchema`, `EMPTY_CITY`, `MAX_PIECES_PER_CITY`, `MAX_BUILDINGS_PER_CITY`), `tests/lib/schemas.test.ts` (city / piece / building / mood cases). Verified `npm run type-check`, `npm run test`, `npm run build` all green. Dash check clean. PR #N.

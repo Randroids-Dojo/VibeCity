@@ -125,9 +125,9 @@
       "id": "REQ-013",
       "requirement": "City versioning: hashCity() over pieces+buildings (mood excluded) returns stable hash, mirroring VibeRacer hashTrack pattern",
       "gddRef": "docs/gdd/06-city-schema.md",
-      "status": "not_started",
-      "implementationRefs": [],
-      "testRefs": [],
+      "status": "done",
+      "implementationRefs": ["src/lib/hashCity.ts"],
+      "testRefs": ["tests/lib/hashCity.test.ts"],
       "followupRefs": []
     },
     {
