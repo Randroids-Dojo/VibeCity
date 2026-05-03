@@ -36,11 +36,20 @@ export function normalizeSlug(raw: string): string {
 }
 
 /**
- * Street piece taxonomy (REQ-017, REQ-018, REQ-019, REQ-058, REQ-060).
+ * Street piece taxonomy (REQ-017, REQ-018, REQ-019, REQ-058, REQ-060,
+ * REQ-061, REQ-062).
  *
  * Mirrors VibeRacer's `PieceTypeSchema` (the editor vocabulary), plus
  * `intersection` which is VibeCity-specific (4-way junction extending
  * VibeRacer's planned 3-connector junction; see REQ-019).
+ *
+ * `arc45` (REQ-061) bridges a cardinal connector to a corner connector,
+ * acting as the transition piece between cardinal-only runs (straight,
+ * 90deg turns, sweeps) and diagonal runs. `diagonal` (REQ-062) chains
+ * corner-to-corner across a single cell. Both are ported from VibeRacer
+ * 2026-05-03 and depend on the 8-direction connector scaffold (REQ-063)
+ * for connector validation; v1 ports the schema entries now so cities
+ * can record placements ahead of the runtime port.
  *
  * The schema accepts every piece in the planned v1 taxonomy. Hiding a
  * piece from the palette UI is a separate concern; the schema does not
@@ -57,6 +66,8 @@ export const PieceTypeSchema = z.enum([
   'megaSweepRight',
   'megaSweepLeft',
   'hairpin',
+  'arc45',
+  'diagonal',
   'intersection',
 ])
 export type PieceType = z.infer<typeof PieceTypeSchema>
