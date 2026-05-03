@@ -27,6 +27,12 @@ import { join, resolve } from 'node:path'
 const SCRIPT_PATH = resolve(__dirname, '../../scripts/check-no-dashes.sh')
 const REPO_ROOT = resolve(__dirname, '../..')
 
+// Build the banned characters from their codepoints rather than embedding
+// them as literals in this source file. Embedding them would (correctly)
+// trip the very check this test exercises against the live VibeCity tree.
+const EM_DASH = String.fromCodePoint(0x2014)
+const EN_DASH = String.fromCodePoint(0x2013)
+
 function initRepo(dir: string): void {
   // Configure user.name / user.email locally so commit works in CI sandboxes
   // that do not preconfigure a global identity.
@@ -78,7 +84,7 @@ describe('check-no-dashes.sh', () => {
 
   it('rejects a file containing U+2014 EM DASH', () => {
     const dir = newRepo()
-    writeFileSync(join(dir, 'bad.md'), 'hello — world\n', 'utf8')
+    writeFileSync(join(dir, 'bad.md'), `hello ${EM_DASH} world\n`, 'utf8')
     commitAll(dir)
     const result = runScript(dir)
     expect(result.status).toBe(1)
@@ -88,7 +94,7 @@ describe('check-no-dashes.sh', () => {
 
   it('rejects a file containing U+2013 EN DASH', () => {
     const dir = newRepo()
-    writeFileSync(join(dir, 'bad.json'), '{"x": "a – b"}\n', 'utf8')
+    writeFileSync(join(dir, 'bad.json'), `{"x": "a ${EN_DASH} b"}\n`, 'utf8')
     commitAll(dir)
     const result = runScript(dir)
     expect(result.status).toBe(1)
@@ -112,7 +118,7 @@ describe('check-no-dashes.sh', () => {
     writeFileSync(join(dir, '.gitignore'), 'node_modules\n', 'utf8')
     writeFileSync(join(dir, 'ok.md'), 'plain content\n', 'utf8')
     mkdirSync(join(dir, 'node_modules', 'lib'), { recursive: true })
-    writeFileSync(join(dir, 'node_modules/lib/index.js'), 'const a = "x — y";\n', 'utf8')
+    writeFileSync(join(dir, 'node_modules/lib/index.js'), `const a = "x ${EM_DASH} y";\n`, 'utf8')
     commitAll(dir)
     const result = runScript(dir)
     expect(result.status).toBe(0)
