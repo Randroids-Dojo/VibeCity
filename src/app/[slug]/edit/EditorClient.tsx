@@ -77,6 +77,16 @@ export function EditorClient({
   // a mid-flight save is already stale and needs a follow-up PUT.
   const lastSavedCityRef = useRef<City>(initialCity)
   const inFlightAbortRef = useRef<AbortController | null>(null)
+  // Always points at the latest city so the in-flight save's `.then`
+  // callback can compare its snapshot against the live city, not the
+  // stale closure capture from the render that scheduled the request.
+  // Without this, a mutation that lands between the fetch and its
+  // resolution would falsely flip the indicator to `saved` even though
+  // there are unsaved edits queued for the next debounce.
+  const latestCityRef = useRef<City>(initialCity)
+  useEffect(() => {
+    latestCityRef.current = city
+  }, [city])
 
   const handleRotate = useCallback(() => {
     setRotation((current) => nextRotation(current))
@@ -165,12 +175,15 @@ export function EditorClient({
           }
           lastSavedCityRef.current = snapshot
           // The user may have edited again while the request was in
-          // flight; only flip to `saved` when the live city matches the
+          // flight; only flip to `saved` when the LIVE city (read via
+          // `latestCityRef`, not the stale closure capture) matches the
           // snapshot we just persisted. Otherwise stay `pending` so the
           // debounce timer fires another save.
           setAutosaveStatus((prev) => {
             if (ac.signal.aborted) return prev
-            return isCityContentEqual(snapshot, city) ? 'saved' : 'pending'
+            return isCityContentEqual(snapshot, latestCityRef.current)
+              ? 'saved'
+              : 'pending'
           })
         })
         .catch((err: unknown) => {
