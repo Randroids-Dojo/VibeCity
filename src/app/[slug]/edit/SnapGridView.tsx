@@ -11,7 +11,7 @@ import {
 } from './snapGrid'
 
 /**
- * Render the editor snap-grid (REQ-016, REQ-020).
+ * Render the editor snap-grid (REQ-016, REQ-020, REQ-022).
  *
  * The grid is an SVG of `GRID_DIAMETER x GRID_DIAMETER` cells. Each
  * cell renders as a faint outlined square. The origin cell `(0, 0)`
@@ -22,20 +22,29 @@ import {
  *
  * When `onCellClick` is provided, every cell renders as a clickable
  * `<rect>` so the place-piece tool (REQ-020) can attach. Without the
- * handler the grid stays presentational. Place / rotate / erase
- * (REQ-020 onward) and pan / zoom (REQ-024) live in their own slices
- * on top of this surface.
+ * handler the grid stays presentational. The optional `cursorMode`
+ * prop swaps the cursor glyph between place (crosshair) and erase
+ * (not-allowed); the cell-click contract itself is owned by the
+ * caller. Pan / zoom (REQ-024) lives in its own slice on top of this
+ * surface.
  */
 export function SnapGrid({
   city,
   onCellClick,
+  cursorMode = 'place',
 }: {
   city: City
   onCellClick?: (row: number, col: number) => void
+  cursorMode?: 'place' | 'erase'
 }) {
   const cells = gridCells()
   const occupied = occupiedPieceCells(city)
   const interactive = typeof onCellClick === 'function'
+  const cursor = !interactive
+    ? 'default'
+    : cursorMode === 'erase'
+      ? 'not-allowed'
+      : 'crosshair'
 
   return (
     <svg
@@ -46,6 +55,7 @@ export function SnapGrid({
       data-grid-diameter={GRID_DIAMETER}
       data-cell-pixels={CELL_PIXELS}
       data-occupied-count={occupied.size}
+      data-cursor-mode={interactive ? cursorMode : 'none'}
       width={GRID_PIXEL_SIZE}
       height={GRID_PIXEL_SIZE}
       viewBox={`0 0 ${GRID_PIXEL_SIZE} ${GRID_PIXEL_SIZE}`}
@@ -56,7 +66,7 @@ export function SnapGrid({
         borderRadius: 4,
         maxWidth: '100%',
         height: 'auto',
-        cursor: interactive ? 'crosshair' : 'default',
+        cursor,
       }}
     >
       {cells.map((cell) => {
@@ -84,7 +94,7 @@ export function SnapGrid({
                   }
                 : undefined
             }
-            style={interactive ? { cursor: 'crosshair' } : undefined}
+            style={interactive ? { cursor } : undefined}
           />
         )
       })}

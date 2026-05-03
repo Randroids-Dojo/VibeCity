@@ -117,3 +117,73 @@ test('rotate tool cycles 0 to 90 to 180 to 270 to 0 via button and R key', async
     rotationBefore ?? '180',
   )
 })
+
+test('erase tool removes pieces and toggles via button and E key', async ({
+  page,
+}) => {
+  const response = await page.goto('/playtest-city/edit')
+  expect(response?.status()).toBe(200)
+
+  const grid = page.getByTestId('editor-snap-grid')
+  const pieceCount = page.getByTestId('editor-piece-count')
+  const eraseButton = page.getByTestId('editor-erase')
+  const palette = page.getByTestId('editor-palette')
+
+  // Editor opens in place mode (REQ-022 default).
+  await expect(eraseButton).toBeVisible()
+  await expect(eraseButton).toHaveAttribute('aria-pressed', 'false')
+  await expect(eraseButton).toHaveAttribute('data-tool-mode', 'place')
+  await expect(palette).toHaveAttribute('data-tool-mode', 'place')
+  await expect(grid).toHaveAttribute('data-cursor-mode', 'place')
+
+  // Place two pieces in place mode.
+  await grid.locator('[data-cell-row="0"][data-cell-col="0"]').click()
+  await grid.locator('[data-cell-row="0"][data-cell-col="1"]').click()
+  await expect(pieceCount).toHaveText('Pieces placed: 2')
+  await expect(grid).toHaveAttribute('data-occupied-count', '2')
+
+  // Toggle to erase mode via the button.
+  await eraseButton.click()
+  await expect(eraseButton).toHaveAttribute('aria-pressed', 'true')
+  await expect(eraseButton).toHaveAttribute('data-tool-mode', 'erase')
+  await expect(palette).toHaveAttribute('data-tool-mode', 'erase')
+  await expect(grid).toHaveAttribute('data-cursor-mode', 'erase')
+
+  // Click an empty cell in erase mode: nothing happens.
+  await grid.locator('[data-cell-row="5"][data-cell-col="5"]').click()
+  await expect(pieceCount).toHaveText('Pieces placed: 2')
+  await expect(grid).toHaveAttribute('data-occupied-count', '2')
+
+  // Click an occupied cell: piece disappears.
+  await grid.locator('[data-cell-row="0"][data-cell-col="0"]').click()
+  await expect(pieceCount).toHaveText('Pieces placed: 1')
+  await expect(grid).toHaveAttribute('data-occupied-count', '1')
+  await expect(
+    grid.locator('[data-cell-row="0"][data-cell-col="0"]'),
+  ).toHaveAttribute('data-cell-occupied', 'false')
+  await expect(
+    grid.locator('[data-cell-row="0"][data-cell-col="1"]'),
+  ).toHaveAttribute('data-cell-occupied', 'true')
+
+  // Toggle back to place mode via the E key (uppercase too).
+  await page.keyboard.press('e')
+  await expect(eraseButton).toHaveAttribute('aria-pressed', 'false')
+  await expect(grid).toHaveAttribute('data-cursor-mode', 'place')
+  await page.keyboard.press('E')
+  await expect(eraseButton).toHaveAttribute('aria-pressed', 'true')
+  await expect(grid).toHaveAttribute('data-cursor-mode', 'erase')
+
+  // Erase the remaining piece via the keyboard shortcut path: still in
+  // erase mode, click the surviving cell.
+  await grid.locator('[data-cell-row="0"][data-cell-col="1"]').click()
+  await expect(pieceCount).toHaveText('Pieces placed: 0')
+  await expect(grid).toHaveAttribute('data-occupied-count', '0')
+
+  // Modifier-held E does NOT toggle erase (no browser hijack today, but
+  // matches the rotate-shortcut policy so future browser shortcuts on
+  // Cmd+E or Ctrl+E do not regress).
+  await page.keyboard.press('e')
+  await expect(eraseButton).toHaveAttribute('aria-pressed', 'false')
+  await page.keyboard.press('Control+e')
+  await expect(eraseButton).toHaveAttribute('aria-pressed', 'false')
+})

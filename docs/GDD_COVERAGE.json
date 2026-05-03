@@ -3,6 +3,7 @@
   "_comment_2": "Allowed status values: not_started | partial | done | out_of_scope. Every row should carry implementationRefs and testRefs once status >= partial. followupRefs link to F-NNN entries in FOLLOWUPS.md.",
   "_comment_3": "gddRef paths may not yet exist when a row is seeded; the slice that picks the row creates the section file.",
   "updatedAt": "2026-05-04",
+  "_comment_5": "REQ-022 (erase tool) landed: src/app/[slug]/edit/editorState.ts gained a pure erasePiece(city, row, col) reducer (atomic multi-cell footprint erase, no-op identity equality on empty cell, building preservation) plus a ToolMode union ('place' | 'erase') and DEFAULT_TOOL_MODE = 'place'; EditorClient holds a toolMode state, exposes an Erase toggle button with data-testid editor-erase / aria-pressed / data-tool-mode and an E-key shortcut (modifier-aware, ignores text inputs), routes cell clicks to erasePiece when in erase mode; SnapGridView gained an optional cursorMode prop that swaps the cursor (crosshair vs not-allowed) and exposes data-cursor-mode on the SVG. Place / erase are mutually exclusive cell-click contracts; rotation state is sticky across mode flips. See PROGRESS_LOG.md.",
   "_comment_4": "REQ-001 / REQ-002 / REQ-005 landed together as the bootstrap slice. REQ-008 (slug zod schema) landed next. REQ-004 (kv.ts) landed after that. REQ-012 (CitySchema) and REQ-013 (hashCity) followed. REQ-009 (builderId) landed next. REQ-061 / REQ-062 (arc45 + diagonal piece schema entries) flipped to partial after the schema port; runtime pieces (sampled centerline, wheel contact, pace notes, difficulty scoring, editor palette UI) tracked under F-003..F-007. REQ-006 + REQ-010 (slug landing route with Create CTA) landed next; drive scene branch (REQ-031) deferred. REQ-007 (/[slug]/edit route) flipped to partial: route registered with slug validation and Drive CTA back to /<slug>, editor surface (REQ-016 onward) deferred. REQ-051 (em-dash CI check) landed: scripts/check-no-dashes.sh runs as a required GitHub Actions job on every PR alongside type-check, vitest, and next build. REQ-014 + REQ-015 (city PUT save + load helper) landed together: src/app/api/city/[slug]/route.ts (GET + PUT, ownership-claimed first PUT, 403 on non-owner overwrite, ?v= pinned reads) plus src/lib/loadCity.ts (read path with KV-unconfigured / no-latest / corrupt-payload fallbacks to EMPTY_CITY). REQ-003 (Playwright E2E runner) landed next: e2e/smoke.spec.ts asserts /  returns 200 with the VibeCity heading, runs against next start on port 3100 via the e2e-tests CI job. REQ-016 (snap grid) landed next. REQ-017 (cardinal-only street palette: straight, left90, right90) and REQ-020 (click-to-place) landed together: src/app/[slug]/edit/editorState.ts (STREET_PALETTE, placePiece reducer with footprint overlap rejection), src/app/[slug]/edit/EditorClient.tsx (use-client palette + selected state + click handler), SnapGridView.tsx extended with optional onCellClick. REQ-027 (overlap prevention) flipped to partial under the same slice (reducer rejects overlap; visual feedback on rejection still pending). REQ-021 (rotate selected piece in 90deg increments) landed next: src/app/[slug]/edit/editorState.ts gained ROTATIONS / DEFAULT_ROTATION / nextRotation pure helper; EditorClient holds rotation state, exposes a Rotate button (data-testid editor-rotate, data-rotation attribute) and an R-key keyboard shortcut (modifier-aware, ignores text inputs), and passes the active rotation into placePiece on every click. See PROGRESS_LOG.md.",
   "rows": [
     {
@@ -314,9 +315,17 @@
       "id": "REQ-022",
       "requirement": "Editor: erase selected piece",
       "gddRef": "docs/gdd/07-editor.md",
-      "status": "not_started",
-      "implementationRefs": [],
-      "testRefs": [],
+      "status": "done",
+      "implementationRefs": [
+        "src/app/[slug]/edit/editorState.ts",
+        "src/app/[slug]/edit/EditorClient.tsx",
+        "src/app/[slug]/edit/SnapGridView.tsx",
+        "src/app/[slug]/edit/page.tsx"
+      ],
+      "testRefs": [
+        "tests/app/editorState.test.ts",
+        "e2e/editor.spec.ts"
+      ],
       "followupRefs": []
     },
     {

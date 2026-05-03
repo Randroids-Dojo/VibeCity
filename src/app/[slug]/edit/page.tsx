@@ -9,10 +9,10 @@ import { EditorClient } from './EditorClient'
  *
  * v1 scope: validate the slug, render the editor client surface
  * (REQ-016 grid + REQ-017 palette + REQ-020 click-to-place +
- * REQ-021 rotate) seeded with the default empty city plus a Drive
- * CTA linking back to `/<slug>`. Erase (REQ-022), undo / redo
- * (REQ-023), pan / zoom (REQ-024), and autosave (REQ-025) land in
- * follow-up slices.
+ * REQ-021 rotate + REQ-022 erase) seeded with the default empty city
+ * plus a Drive CTA linking back to `/<slug>`. Undo / redo (REQ-023),
+ * pan / zoom (REQ-024), and autosave (REQ-025) land in follow-up
+ * slices.
  *
  * The grid is seeded with `EMPTY_CITY` directly. Loading a saved
  * city (REQ-015) into the editor lands with REQ-025 (autosave) so
@@ -52,8 +52,8 @@ export default async function EditCityPage({
       <h1 style={{ fontSize: 32, margin: 0, wordBreak: 'break-all' }}>{slug}</h1>
       <p style={{ fontSize: 14, margin: 0, opacity: 0.65, textAlign: 'center' }}>
         Pick a piece, click the grid to place it. Press R or click
-        Rotate to spin the next placement. Erase and autosave land
-        next.
+        Rotate to spin the next placement. Press E or click Erase to
+        clear a placed piece. Autosave lands next.
       </p>
       <EditorClient initialCity={EMPTY_CITY} />
       <Link
