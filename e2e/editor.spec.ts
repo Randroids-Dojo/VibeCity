@@ -69,6 +69,60 @@ test('editor palette places pieces with click-to-place', async ({ page }) => {
   await expect(grid).toHaveAttribute('data-occupied-count', '3')
 })
 
+test('palette exposes REQ-018 curve and sweep pieces and places them', async ({
+  page,
+}) => {
+  const response = await page.goto('/curve-palette-spec/edit')
+  expect(response?.status()).toBe(200)
+
+  const palette = page.getByTestId('editor-palette')
+  await expect(palette).toBeVisible()
+
+  // The four REQ-018 entries are visible alongside the REQ-017 basics.
+  const scurve = palette.locator('[data-piece-type="scurve"]')
+  const scurveLeft = palette.locator('[data-piece-type="scurveLeft"]')
+  const sweepRight = palette.locator('[data-piece-type="sweepRight"]')
+  const sweepLeft = palette.locator('[data-piece-type="sweepLeft"]')
+  await expect(scurve).toBeVisible()
+  await expect(scurveLeft).toBeVisible()
+  await expect(sweepRight).toBeVisible()
+  await expect(sweepLeft).toBeVisible()
+
+  // None of the REQ-018 entries are selected on first render (Straight
+  // remains the default per REQ-017).
+  await expect(scurve).toHaveAttribute('aria-pressed', 'false')
+  await expect(sweepRight).toHaveAttribute('aria-pressed', 'false')
+
+  const grid = page.getByTestId('editor-snap-grid')
+  const pieceCount = page.getByTestId('editor-piece-count')
+
+  // Pick S-Curve, place at (0, 0).
+  await scurve.click()
+  await expect(scurve).toHaveAttribute('aria-pressed', 'true')
+  await grid.locator('[data-cell-row="0"][data-cell-col="0"]').click()
+  await expect(pieceCount).toHaveText('Pieces placed: 1')
+  await expect(grid).toHaveAttribute('data-occupied-count', '1')
+
+  // Pick Sweep Right, place at (0, 1).
+  await sweepRight.click()
+  await expect(sweepRight).toHaveAttribute('aria-pressed', 'true')
+  await expect(scurve).toHaveAttribute('aria-pressed', 'false')
+  await grid.locator('[data-cell-row="0"][data-cell-col="1"]').click()
+  await expect(pieceCount).toHaveText('Pieces placed: 2')
+  await expect(grid).toHaveAttribute('data-occupied-count', '2')
+
+  // Pick Sweep Left, place at (0, 2).
+  await sweepLeft.click()
+  await grid.locator('[data-cell-row="0"][data-cell-col="2"]').click()
+  await expect(pieceCount).toHaveText('Pieces placed: 3')
+
+  // Pick S-Curve Left, place at (0, 3).
+  await scurveLeft.click()
+  await grid.locator('[data-cell-row="0"][data-cell-col="3"]').click()
+  await expect(pieceCount).toHaveText('Pieces placed: 4')
+  await expect(grid).toHaveAttribute('data-occupied-count', '4')
+})
+
 test('rotate tool cycles 0 to 90 to 180 to 270 to 0 via button and R key', async ({
   page,
 }) => {
