@@ -23,6 +23,11 @@ import {
   viewportToViewBoxString,
   type Viewport,
 } from './gridViewport'
+import {
+  CONNECTOR_DIR_LABEL,
+  GLYPH_RADIUS_PIXELS,
+  cityConnectorGlyphs,
+} from './connectorGlyphs'
 
 /**
  * Render the editor snap-grid (REQ-016, REQ-020, REQ-022, REQ-028).
@@ -57,6 +62,16 @@ import {
  * `onSurfacePointerDown`) are forwarded through so the parent can
  * own the viewport state machine. The default viewport renders
  * exactly the same as before this slice.
+ *
+ * Connector glyphs (REQ-019, REQ-063): each placed piece's connector
+ * ports are rendered as small circles at the cell-edge midpoint
+ * (cardinal) or cell corner (corner) along the compass direction the
+ * port faces. Cardinals get a wheat fill so they read as the dominant
+ * cardinal-only piece taxonomy; corners get a moccasin fill so the
+ * arc45 / diagonal corner-connector pieces are visually
+ * distinguishable. Glyphs are non-interactive (`pointerEvents='none'`)
+ * so they do not steal hover or click events from the underlying
+ * cells.
  */
 export function SnapGrid({
   city,
@@ -82,6 +97,7 @@ export function SnapGrid({
   const cells = gridCells()
   const occupiedPieces = occupiedPieceCells(city)
   const occupiedBuildings = occupiedBuildingCells(city)
+  const connectorGlyphs = cityConnectorGlyphs(city.pieces)
   const interactive = typeof onCellClick === 'function'
   const cursor = !interactive
     ? 'default'
@@ -104,6 +120,7 @@ export function SnapGrid({
       data-cell-pixels={CELL_PIXELS}
       data-occupied-count={occupiedPieces.size}
       data-building-count={occupiedBuildings.size}
+      data-connector-count={connectorGlyphs.length}
       data-cursor-mode={interactive ? cursorMode : 'none'}
       data-preview-kind={previewCell ? previewCell.kind : 'none'}
       data-preview-row={previewCell ? previewCell.row : ''}
@@ -183,6 +200,24 @@ export function SnapGrid({
           />
         )
       })}
+      {connectorGlyphs.map((glyph, index) => (
+        <circle
+          key={`connector-${glyph.pieceIndex}-${index}`}
+          data-testid="editor-connector-glyph"
+          data-connector-piece={glyph.pieceIndex}
+          data-connector-dir={CONNECTOR_DIR_LABEL[glyph.dir]}
+          data-connector-kind={glyph.kind}
+          data-connector-row={glyph.cellRow}
+          data-connector-col={glyph.cellCol}
+          cx={glyph.x}
+          cy={glyph.y}
+          r={GLYPH_RADIUS_PIXELS}
+          fill={glyph.kind === 'cardinal' ? '#f5deb3' : '#ffe4b5'}
+          stroke="#5a4a2a"
+          strokeWidth={1}
+          pointerEvents="none"
+        />
+      ))}
       {previewCell ? (
         <rect
           data-testid="editor-preview-ghost"

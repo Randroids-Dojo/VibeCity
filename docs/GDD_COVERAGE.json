@@ -305,10 +305,13 @@
       "implementationRefs": [
         "src/app/[slug]/edit/editorState.ts",
         "src/app/[slug]/edit/EditorClient.tsx",
+        "src/app/[slug]/edit/SnapGridView.tsx",
+        "src/app/[slug]/edit/connectorGlyphs.ts",
         "src/lib/schemas.ts"
       ],
       "testRefs": [
         "tests/app/editorState.test.ts",
+        "tests/app/connectorGlyphs.test.ts",
         "e2e/editor.spec.ts"
       ],
       "followupRefs": [
@@ -421,10 +424,14 @@
       "gddRef": "docs/gdd/06-city-schema.md",
       "status": "done",
       "implementationRefs": [
-        "src/lib/connectors.ts"
+        "src/lib/connectors.ts",
+        "src/app/[slug]/edit/connectorGlyphs.ts",
+        "src/app/[slug]/edit/SnapGridView.tsx"
       ],
       "testRefs": [
-        "tests/lib/connectors.test.ts"
+        "tests/lib/connectors.test.ts",
+        "tests/app/connectorGlyphs.test.ts",
+        "e2e/editor.spec.ts"
       ],
       "followupRefs": [
         "F-002"
