@@ -86,6 +86,15 @@ test('drive route mounts the canvas with the slug label and Edit CTA', async ({
   // An empty grid keeps the listener dormant; the unit tests cover the
   // pure helper and the populated runtime is exercised via the HUD
   // controls hint when a car mounts (see the `R: respawn` line below).
+
+  // REQ-068: engine audio rig is built lazily on the first user gesture
+  // inside the integration effect. The empty grid keeps the listener
+  // gate closed so the rig is never constructed; the data attributes
+  // still ride on the root so the contract is observable. The mute
+  // toggle button only renders when a car is mounted.
+  await expect(root).toHaveAttribute('data-engine-audio-muted', 'false')
+  await expect(root).toHaveAttribute('data-engine-audio-started', 'false')
+  await expect(page.getByTestId('drive-engine-mute-toggle')).toHaveCount(0)
 })
 
 test('drive route shows the empty-state prompt for a fresh slug (REQ-053)', async ({
@@ -129,6 +138,16 @@ test('drive route shows the empty-state prompt for a fresh slug (REQ-053)', asyn
   // so a stray R in the empty-state branch is a no-op.
   await page.keyboard.press('KeyR')
   await expect(root).toHaveAttribute('data-vehicle', 'false')
+
+  // REQ-068: pressing M on the empty grid does not toggle the engine
+  // mute or build the audio rig; the listener is gated on the car being
+  // mounted so a stray M in the empty-state branch is a no-op. The
+  // mute toggle button is also absent so a player cannot click to
+  // toggle a rig that does not exist yet.
+  await page.keyboard.press('KeyM')
+  await expect(root).toHaveAttribute('data-engine-audio-muted', 'false')
+  await expect(root).toHaveAttribute('data-engine-audio-started', 'false')
+  await expect(page.getByTestId('drive-engine-mute-toggle')).toHaveCount(0)
 
   const prompt = page.getByTestId('drive-empty-prompt')
   await expect(prompt).toBeVisible()
