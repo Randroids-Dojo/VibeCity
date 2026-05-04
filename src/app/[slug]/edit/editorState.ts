@@ -72,19 +72,20 @@ export interface PaletteEntry {
 }
 
 /**
- * v1 street palette (REQ-017, REQ-018, REQ-019, REQ-058, REQ-061,
- * REQ-062). Ordering is the render order. The first three entries
- * are the cardinal-only basics (REQ-017); the next four extend the
- * palette with single-cell sweep and S-curve pieces that share the
- * same cardinal connector pattern (REQ-018); the next two entries
- * are the multi-cell mega sweep pair (REQ-058), a 2x2 long-radius
- * smooth turn with the canonical footprint and rotation handled by
- * `defaultFootprintForPiece` in `snapGrid.ts`; the next entry is the
- * 4-way `intersection` (REQ-019), a single-cell piece with four
- * cardinal connectors so streets can branch; the last two entries
- * are the single-cell corner-connector pieces `arc45` (REQ-061) and
- * `diagonal` (REQ-062) per F-007. Future slices append the
- * multi-cell hairpin (REQ-060) piece.
+ * v1 street palette (REQ-017, REQ-018, REQ-019, REQ-058, REQ-060,
+ * REQ-061, REQ-062). Ordering is the render order. The first three
+ * entries are the cardinal-only basics (REQ-017); the next four
+ * extend the palette with single-cell sweep and S-curve pieces that
+ * share the same cardinal connector pattern (REQ-018); the next two
+ * entries are the multi-cell mega sweep pair (REQ-058), a 2x2
+ * long-radius smooth turn with the canonical footprint and rotation
+ * handled by `defaultFootprintForPiece` in `snapGrid.ts`; the next
+ * entry is the multi-cell `hairpin` (REQ-060), a 2x3 180deg U-turn
+ * sharing the same multi-cell footprint resolver path; the next
+ * entry is the 4-way `intersection` (REQ-019), a single-cell piece
+ * with four cardinal connectors so streets can branch; the last two
+ * entries are the single-cell corner-connector pieces `arc45`
+ * (REQ-061) and `diagonal` (REQ-062) per F-007.
  *
  * The REQ-018 entries are placed after the REQ-017 entries so existing
  * keyboard / palette muscle memory (Straight as the first entry,
@@ -96,8 +97,13 @@ export interface PaletteEntry {
  * reaches for a longer-radius turn finds the regular sweeps first
  * and the multi-cell variant immediately after; this keeps the
  * single-cell block adjacent to the multi-cell block instead of
- * splitting them with the intersection. Intersection lands after
- * the sweep block because branching is the next conceptual step
+ * splitting them with the intersection. The hairpin (REQ-060) sits
+ * immediately after the mega sweep pair because it is the other
+ * multi-cell turn piece, so the multi-cell block stays grouped
+ * before the single-cell intersection; both ports face the same
+ * direction (W at rotation 0) so the hairpin reads as a U-turn that
+ * loops back on the side it entered. Intersection lands after the
+ * multi-cell block because branching is the next conceptual step
  * after a builder has the basic shape and the curves in hand. The
  * corner-connector pieces (arc45 then diagonal) land at the end so
  * the cardinal-only block stays grouped at the front of the palette;
@@ -107,19 +113,25 @@ export interface PaletteEntry {
  * place.
  *
  * REQ-058 ships the editor surface and the multi-cell footprint
- * resolver in this slice. The mega sweep's runtime concerns
- * (sampled centerlines, segment-based path per REQ-064, wheel
- * contact multi-locator per REQ-065) stay deferred to the drive
- * scene scaffold; the multi-cell ground-quad rendering already
- * works because `pieceFootprintWorldCells` reads the type-driven
- * default footprint when the field is omitted. REQ-061 and REQ-062
- * still ship the editor surface only; their runtime concerns (per
- * F-003 through F-006) wait for the drive scene scaffold. The
- * palette entry lets a builder record a placement; the schema
+ * resolver. REQ-060 reuses the same resolver: this slice ships the
+ * canonical 2x3 `HAIRPIN_FOOTPRINT` constant in `snapGrid.ts` (and
+ * mirrors it locally in `driveScene.ts` per the established
+ * duplication pattern) plus the palette entry, so a placed hairpin
+ * correctly fills six ground quads, rejects overlap on any of its
+ * six footprint cells, and erases atomically when any cell is
+ * clicked. The hairpin's runtime concerns (sampled 65-sample
+ * centerline per F-003, multi-locator wheel contact per REQ-065,
+ * pace notes per F-005, difficulty scoring per F-006) stay deferred
+ * to the drive scene scaffold; the palette entry lets a builder
+ * record a placement now even though the car will fall off the
+ * piece mid-corner until REQ-065 lands. REQ-061 and REQ-062 still
+ * ship the editor surface only; their runtime concerns (per F-003
+ * through F-006) wait for the drive scene scaffold. The palette
+ * entry lets a builder record a placement; the schema
  * (PieceTypeSchema) already accepts these types and `placePiece`
  * resolves the canonical footprint via `pieceFootprintCells` so a
- * mega-sweep placement correctly rejects overlapping cells
- * across its full 2x2 footprint.
+ * hairpin placement correctly rejects overlapping cells across its
+ * full 2x3 footprint.
  */
 export const STREET_PALETTE: readonly PaletteEntry[] = [
   { type: 'straight', label: 'Straight' },
@@ -131,6 +143,7 @@ export const STREET_PALETTE: readonly PaletteEntry[] = [
   { type: 'sweepLeft', label: 'Sweep Left' },
   { type: 'megaSweepRight', label: 'Mega Sweep Right' },
   { type: 'megaSweepLeft', label: 'Mega Sweep Left' },
+  { type: 'hairpin', label: 'Hairpin' },
   { type: 'intersection', label: 'Intersection' },
   { type: 'arc45', label: 'Arc 45' },
   { type: 'diagonal', label: 'Diagonal' },

@@ -32,8 +32,8 @@ import {
  * `npm run build` plus the Playwright spec for the editor route.
  */
 
-describe('STREET_PALETTE (REQ-017, REQ-018, REQ-019, REQ-058, REQ-061, REQ-062)', () => {
-  it('exposes the v1 cardinal basics, the curve / sweep pieces, the mega sweep pair, the intersection, then the corner-connector pieces', () => {
+describe('STREET_PALETTE (REQ-017, REQ-018, REQ-019, REQ-058, REQ-060, REQ-061, REQ-062)', () => {
+  it('exposes the v1 cardinal basics, the curve / sweep pieces, the mega sweep pair, the hairpin, the intersection, then the corner-connector pieces', () => {
     expect(STREET_PALETTE.map((p) => p.type)).toEqual([
       'straight',
       'left90',
@@ -44,6 +44,7 @@ describe('STREET_PALETTE (REQ-017, REQ-018, REQ-019, REQ-058, REQ-061, REQ-062)'
       'sweepLeft',
       'megaSweepRight',
       'megaSweepLeft',
+      'hairpin',
       'intersection',
       'arc45',
       'diagonal',
@@ -92,10 +93,17 @@ describe('STREET_PALETTE (REQ-017, REQ-018, REQ-019, REQ-058, REQ-061, REQ-062)'
     expect(indexOf('megaSweepRight')).toBeLessThan(indexOf('megaSweepLeft'))
   })
 
-  it('orders the REQ-019 intersection after the REQ-058 mega sweep pair', () => {
+  it('orders the REQ-060 hairpin immediately after the REQ-058 mega sweep pair', () => {
     const indexOf = (t: string) =>
       STREET_PALETTE.findIndex((p) => p.type === t)
-    expect(indexOf('megaSweepLeft')).toBeLessThan(indexOf('intersection'))
+    expect(indexOf('megaSweepLeft')).toBeLessThan(indexOf('hairpin'))
+    expect(indexOf('hairpin') - indexOf('megaSweepLeft')).toBe(1)
+  })
+
+  it('orders the REQ-019 intersection after the REQ-060 hairpin', () => {
+    const indexOf = (t: string) =>
+      STREET_PALETTE.findIndex((p) => p.type === t)
+    expect(indexOf('hairpin')).toBeLessThan(indexOf('intersection'))
   })
 
   it('orders the REQ-061 arc45 and REQ-062 diagonal after the intersection', () => {
@@ -108,9 +116,10 @@ describe('STREET_PALETTE (REQ-017, REQ-018, REQ-019, REQ-058, REQ-061, REQ-062)'
     expect(indexOf('diagonal')).toBe(STREET_PALETTE.length - 1)
   })
 
-  it('does not advertise pieces from later slices (REQ-060)', () => {
-    const types = new Set(STREET_PALETTE.map((p) => p.type))
-    expect(types.has('hairpin')).toBe(false)
+  it('exposes the REQ-060 hairpin entry with the right label', () => {
+    const entry = STREET_PALETTE.find((p) => p.type === 'hairpin')
+    expect(entry).toBeDefined()
+    expect(entry?.label).toBe('Hairpin')
   })
 
   it('does not duplicate any piece type', () => {
@@ -355,6 +364,94 @@ describe('placePiece with REQ-058 megaSweepRight / megaSweepLeft', () => {
     expect(() => CitySchema.parse(next)).not.toThrow()
     const left = placePiece(EMPTY_CITY, 'megaSweepLeft', 0, 0, 90)
     expect(() => CitySchema.parse(left)).not.toThrow()
+  })
+})
+
+describe('placePiece with REQ-060 hairpin', () => {
+  it('places a hairpin without recording an explicit footprint', () => {
+    const next = placePiece(EMPTY_CITY, 'hairpin', 5, 5)
+    expect(next.pieces).toHaveLength(1)
+    expect(next.pieces[0]).toEqual({
+      type: 'hairpin',
+      row: 5,
+      col: 5,
+      rotation: 0,
+    })
+    expect(next.pieces[0].footprint).toBeUndefined()
+  })
+
+  it('records rotation when the click handler passes one', () => {
+    const next = placePiece(EMPTY_CITY, 'hairpin', 0, 0, 270)
+    expect(next.pieces[0].rotation).toBe(270)
+  })
+
+  it('rejects a hairpin placement that would overlap any of its 2x3 footprint cells', () => {
+    // hairpin at (1, 1) rotation 0 covers (0, 1), (0, 2), (1, 1),
+    // (1, 2), (2, 1), (2, 2). A straight piece at (2, 2) collides
+    // with the bottom-right footprint cell so the placement must be
+    // rejected even though the anchor cell (1, 1) is free.
+    const seeded: City = {
+      pieces: [{ type: 'straight', row: 2, col: 2, rotation: 0 }],
+      buildings: [],
+    }
+    const rejected = placePiece(seeded, 'hairpin', 1, 1)
+    expect(rejected).toBe(seeded)
+  })
+
+  it('rejects a hairpin placement on a top-row footprint cell collision', () => {
+    // A straight at (0, 1) collides with the top-left footprint cell of
+    // a hairpin anchored at (1, 1).
+    const seeded: City = {
+      pieces: [{ type: 'straight', row: 0, col: 1, rotation: 0 }],
+      buildings: [],
+    }
+    const rejected = placePiece(seeded, 'hairpin', 1, 1)
+    expect(rejected).toBe(seeded)
+  })
+
+  it('accepts a hairpin placement when the full 2x3 footprint is clear', () => {
+    const next = placePiece(EMPTY_CITY, 'hairpin', 1, 1)
+    expect(next.pieces).toHaveLength(1)
+  })
+
+  it('rejects a second hairpin that overlaps the first piece footprint', () => {
+    const first = placePiece(EMPTY_CITY, 'hairpin', 1, 1)
+    // Second hairpin at (1, 2) covers (0, 2), (0, 3), (1, 2), (1, 3),
+    // (2, 2), (2, 3) which overlaps the first at (0, 2), (1, 2), and
+    // (2, 2). Must reject.
+    const rejected = placePiece(first, 'hairpin', 1, 2)
+    expect(rejected).toBe(first)
+  })
+
+  it('rotates the hairpin footprint with the rotation argument', () => {
+    // hairpin at rotation 0 anchored at (0, 0) covers (-1, 0), (-1, 1),
+    // (0, 0), (0, 1), (1, 0), (1, 1). After a 90deg clockwise rotate
+    // the footprint covers (0, 1), (1, 1), (0, 0), (1, 0), (0, -1),
+    // (1, -1) (the 2x3 block now extends to the left and below the
+    // anchor as a 3x2). A straight at (1, -1) collides with the
+    // rotated footprint but not with the unrotated one.
+    const seeded: City = {
+      pieces: [{ type: 'straight', row: 1, col: -1, rotation: 0 }],
+      buildings: [],
+    }
+    const unrotated = placePiece(seeded, 'hairpin', 0, 0, 0)
+    expect(unrotated).not.toBe(seeded)
+    expect(unrotated.pieces).toHaveLength(2)
+    const rotated = placePiece(seeded, 'hairpin', 0, 0, 90)
+    expect(rotated).toBe(seeded)
+  })
+
+  it('round-trips with erasePiece atomically (any footprint cell removes the whole piece)', () => {
+    const placed = placePiece(EMPTY_CITY, 'hairpin', 1, 1)
+    // Erase by clicking the bottom-right footprint cell rather than
+    // the anchor; the whole piece must come out in one click.
+    const erased = erasePiece(placed, 2, 2)
+    expect(erased.pieces).toHaveLength(0)
+  })
+
+  it('returns a city that still validates against CitySchema', () => {
+    const next = placePiece(EMPTY_CITY, 'hairpin', 0, 0, 180)
+    expect(() => CitySchema.parse(next)).not.toThrow()
   })
 })
 

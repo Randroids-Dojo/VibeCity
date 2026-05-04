@@ -4,6 +4,7 @@ import {
   GRID_DIAMETER,
   GRID_PIXEL_SIZE,
   GRID_RADIUS,
+  HAIRPIN_FOOTPRINT,
   MEGA_SWEEP_LEFT_FOOTPRINT,
   MEGA_SWEEP_RIGHT_FOOTPRINT,
   cellKey,
@@ -157,7 +158,30 @@ describe('MEGA_SWEEP_RIGHT_FOOTPRINT / MEGA_SWEEP_LEFT_FOOTPRINT (REQ-058)', () 
   })
 })
 
-describe('defaultFootprintForPiece (REQ-058, REQ-059)', () => {
+describe('HAIRPIN_FOOTPRINT (REQ-060)', () => {
+  it('covers a 2x3 block (rows -1, 0, 1 across cols 0, 1)', () => {
+    expect(HAIRPIN_FOOTPRINT).toHaveLength(6)
+    const rows = new Set(HAIRPIN_FOOTPRINT.map((c) => c.dr))
+    const cols = new Set(HAIRPIN_FOOTPRINT.map((c) => c.dc))
+    expect(rows).toEqual(new Set([-1, 0, 1]))
+    expect(cols).toEqual(new Set([0, 1]))
+  })
+
+  it('exposes every cell of the 2x3 block exactly once', () => {
+    const keys = new Set(HAIRPIN_FOOTPRINT.map((c) => `${c.dr},${c.dc}`))
+    expect(keys.size).toBe(HAIRPIN_FOOTPRINT.length)
+    expect(keys).toEqual(
+      new Set(['-1,0', '-1,1', '0,0', '0,1', '1,0', '1,1']),
+    )
+  })
+
+  it('includes the anchor cell (0, 0) so a hairpin always covers its placement cell', () => {
+    const keys = new Set(HAIRPIN_FOOTPRINT.map((c) => `${c.dr},${c.dc}`))
+    expect(keys.has('0,0')).toBe(true)
+  })
+})
+
+describe('defaultFootprintForPiece (REQ-058, REQ-059, REQ-060)', () => {
   it('returns the single-cell default for a single-cell piece type', () => {
     expect(defaultFootprintForPiece({ type: 'straight', rotation: 0 })).toEqual([
       { dr: 0, dc: 0 },
@@ -196,6 +220,56 @@ describe('defaultFootprintForPiece (REQ-058, REQ-059)', () => {
     expect(cells).toHaveLength(4)
     const keys = new Set(cells.map((c) => `${c.dr},${c.dc}`))
     expect(keys).toEqual(new Set(['-1,0', '-1,1', '0,0', '0,1']))
+  })
+
+  it('returns the canonical 2x3 footprint for hairpin at rotation 0 (REQ-060)', () => {
+    const cells = defaultFootprintForPiece({ type: 'hairpin', rotation: 0 })
+    expect(cells).toHaveLength(6)
+    const keys = new Set(cells.map((c) => `${c.dr},${c.dc}`))
+    expect(keys).toEqual(
+      new Set(['-1,0', '-1,1', '0,0', '0,1', '1,0', '1,1']),
+    )
+  })
+
+  it('rotates hairpin 90deg clockwise (the 2x3 block extends below the anchor as a 3x2)', () => {
+    const cells = defaultFootprintForPiece({ type: 'hairpin', rotation: 90 })
+    expect(cells).toHaveLength(6)
+    const keys = new Set(cells.map((c) => `${c.dr},${c.dc}`))
+    // 90deg rotate of (-1, 0) -> (0, 1); (-1, 1) -> (1, 1);
+    // (0, 0) -> (0, 0); (0, 1) -> (1, 0); (1, 0) -> (0, -1);
+    // (1, 1) -> (1, -1).
+    expect(keys).toEqual(
+      new Set(['0,1', '1,1', '0,0', '1,0', '0,-1', '1,-1']),
+    )
+  })
+
+  it('rotates hairpin 180deg (mirror across the anchor)', () => {
+    const cells = defaultFootprintForPiece({ type: 'hairpin', rotation: 180 })
+    expect(cells).toHaveLength(6)
+    const keys = new Set(cells.map((c) => `${c.dr},${c.dc}`))
+    expect(keys).toEqual(
+      new Set(['1,0', '1,-1', '0,0', '0,-1', '-1,0', '-1,-1']),
+    )
+  })
+
+  it('rotates hairpin 270deg', () => {
+    const cells = defaultFootprintForPiece({ type: 'hairpin', rotation: 270 })
+    expect(cells).toHaveLength(6)
+    const keys = new Set(cells.map((c) => `${c.dr},${c.dc}`))
+    // Three 90deg clockwise steps applied to the canonical 2x3 block.
+    // The 270 rotation places the block back as a 2x3 reaching up
+    // and to the right of the anchor.
+    expect(keys).toEqual(
+      new Set(['0,-1', '-1,-1', '0,0', '-1,0', '0,1', '-1,1']),
+    )
+  })
+
+  it('hairpin rotation collapses -0 to 0 in the rotated offsets', () => {
+    const cells = defaultFootprintForPiece({ type: 'hairpin', rotation: 180 })
+    for (const cell of cells) {
+      expect(Object.is(cell.dr, -0)).toBe(false)
+      expect(Object.is(cell.dc, -0)).toBe(false)
+    }
   })
 
   it('rotates megaSweepRight 90deg clockwise (the 2x2 block extends to the right of the anchor)', () => {
@@ -256,7 +330,7 @@ describe('defaultFootprintForPiece (REQ-058, REQ-059)', () => {
   })
 })
 
-describe('pieceFootprintCells (REQ-016, REQ-058, REQ-059)', () => {
+describe('pieceFootprintCells (REQ-016, REQ-058, REQ-059, REQ-060)', () => {
   it('expands a piece without footprint to a single anchor cell', () => {
     const piece: Piece = {
       type: 'straight',
@@ -333,6 +407,48 @@ describe('pieceFootprintCells (REQ-016, REQ-058, REQ-059)', () => {
     expect(cells).toContainEqual({ row: -1, col: 1 })
     expect(cells).toContainEqual({ row: 0, col: 0 })
     expect(cells).toContainEqual({ row: 0, col: 1 })
+  })
+
+  it('falls back to the type-driven default footprint for hairpin (REQ-060)', () => {
+    // The placePiece reducer never records an explicit footprint for a
+    // hairpin, so pieceFootprintCells must derive the 2x3 footprint
+    // from the piece type alone or it would treat the hairpin as a
+    // single-cell piece and let neighboring pieces overlap five of its
+    // six cells.
+    const piece: Piece = {
+      type: 'hairpin',
+      row: 3,
+      col: 3,
+      rotation: 0,
+    }
+    const cells = pieceFootprintCells(piece)
+    expect(cells).toHaveLength(6)
+    expect(cells).toContainEqual({ row: 2, col: 3 })
+    expect(cells).toContainEqual({ row: 2, col: 4 })
+    expect(cells).toContainEqual({ row: 3, col: 3 })
+    expect(cells).toContainEqual({ row: 3, col: 4 })
+    expect(cells).toContainEqual({ row: 4, col: 3 })
+    expect(cells).toContainEqual({ row: 4, col: 4 })
+  })
+
+  it('rotates the hairpin type-driven default with the piece rotation field (REQ-060)', () => {
+    // hairpin at rotation 90 anchored at (5, 5) covers offsets
+    // {(0, 1), (1, 1), (0, 0), (1, 0), (0, -1), (1, -1)}, so absolute
+    // cells are (5, 6), (6, 6), (5, 5), (6, 5), (5, 4), (6, 4).
+    const piece: Piece = {
+      type: 'hairpin',
+      row: 5,
+      col: 5,
+      rotation: 90,
+    }
+    const cells = pieceFootprintCells(piece)
+    expect(cells).toHaveLength(6)
+    expect(cells).toContainEqual({ row: 5, col: 6 })
+    expect(cells).toContainEqual({ row: 6, col: 6 })
+    expect(cells).toContainEqual({ row: 5, col: 5 })
+    expect(cells).toContainEqual({ row: 6, col: 5 })
+    expect(cells).toContainEqual({ row: 5, col: 4 })
+    expect(cells).toContainEqual({ row: 6, col: 4 })
   })
 
   it('honors an explicit footprint over the type-driven default for a multi-cell type', () => {
@@ -429,6 +545,25 @@ describe('occupiedPieceCells (REQ-016, REQ-027 prep)', () => {
     expect(occupied.has('0,1')).toBe(true)
     expect(occupied.has('1,0')).toBe(true)
     expect(occupied.has('1,1')).toBe(true)
+  })
+
+  it('aggregates the type-driven default footprint for a hairpin without explicit footprint (REQ-060)', () => {
+    const city: City = {
+      pieces: [
+        {
+          type: 'hairpin',
+          row: 2,
+          col: 2,
+          rotation: 0,
+        },
+      ],
+      buildings: [],
+    }
+    const occupied = occupiedPieceCells(city)
+    expect(occupied.size).toBe(6)
+    for (const key of ['1,2', '1,3', '2,2', '2,3', '3,2', '3,3']) {
+      expect(occupied.has(key)).toBe(true)
+    }
   })
 
   it('dedupes overlapping cells across pieces (raw set semantics)', () => {

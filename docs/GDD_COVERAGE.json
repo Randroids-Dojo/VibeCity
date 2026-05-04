@@ -366,9 +366,21 @@
       "id": "REQ-060",
       "requirement": "Editor: hairpin piece type (2x3 implicit footprint, 180deg arc, 65-sample centerline, rotated connector ports on footprint cells). Port from VibeRacer PR #81. Drive-side dependency: REQ-065 (wheelContact multi-locator handling) is required for the hairpin to be drivable; porting the schema entry without REQ-065 leaves the car falling off mid-piece.",
       "gddRef": "docs/gdd/07-editor.md",
-      "status": "not_started",
-      "implementationRefs": [],
-      "testRefs": [],
+      "status": "partial",
+      "implementationRefs": [
+        "src/app/[slug]/edit/snapGrid.ts",
+        "src/app/[slug]/edit/editorState.ts",
+        "src/app/[slug]/driveScene.ts",
+        "src/lib/connectors.ts",
+        "src/lib/schemas.ts"
+      ],
+      "testRefs": [
+        "tests/app/snapGrid.test.ts",
+        "tests/app/editorState.test.ts",
+        "tests/app/driveScene.test.ts",
+        "tests/lib/connectors.test.ts",
+        "e2e/editor.spec.ts"
+      ],
       "followupRefs": [
         "F-002"
       ]

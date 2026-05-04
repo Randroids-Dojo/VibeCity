@@ -68,7 +68,7 @@ export const MEGA_SWEEP_RIGHT_FOOTPRINT: readonly PieceFootprintCell[] = [
  * Mirror of `MEGA_SWEEP_RIGHT_FOOTPRINT` across the north-south axis.
  * The anchor cell is the bottom-left of the 2x2 block, so the offsets
  * reach back and right to fill the 2x2 footprint while the connectors
- * hang off the south and west edges (the `S -> W` connector pattern
+ * hang off the south and east edges (the `S -> W` connector pattern
  * from VibeRacer's track entry). Ported from VibeRacer's
  * `MEGA_SWEEP_LEFT_FOOTPRINT` (PR #80).
  */
@@ -77,6 +77,29 @@ export const MEGA_SWEEP_LEFT_FOOTPRINT: readonly PieceFootprintCell[] = [
   { dr: -1, dc: 1 },
   { dr: 0, dc: 0 },
   { dr: 0, dc: 1 },
+]
+
+/**
+ * Canonical footprint for `hairpin` at rotation 0 (REQ-060).
+ *
+ * The hairpin is a 180deg U-turn that occupies a 2x3 block of cells. The
+ * anchor cell sits at the middle row of the block's left column so the
+ * canonical port pair `(dr: -1, dc: 0)` and `(dr: 1, dc: 0)` (both facing
+ * west, see `connectorPortsOf` in `src/lib/connectors.ts`) hangs off the
+ * top-left and bottom-left footprint cells. The block reaches one row
+ * up, one row down, and one column right of the anchor so a hairpin at
+ * `(row, col)` covers cells
+ * `{ (row - 1, col), (row - 1, col + 1), (row, col), (row, col + 1),
+ *   (row + 1, col), (row + 1, col + 1) }`. Ported from VibeRacer's
+ * `HAIRPIN_FOOTPRINT` (PR #81).
+ */
+export const HAIRPIN_FOOTPRINT: readonly PieceFootprintCell[] = [
+  { dr: -1, dc: 0 },
+  { dr: -1, dc: 1 },
+  { dr: 0, dc: 0 },
+  { dr: 0, dc: 1 },
+  { dr: 1, dc: 0 },
+  { dr: 1, dc: 1 },
 ]
 
 /**
@@ -112,19 +135,19 @@ function rotateFootprint(
 
 /**
  * Resolve a piece's canonical default footprint from its `type` and
- * `rotation` (REQ-058, REQ-059).
+ * `rotation` (REQ-058, REQ-059, REQ-060).
  *
  * Used by `pieceFootprintCells` when a piece has no explicit
  * `footprint` field. Multi-cell pieces (`megaSweepRight` /
- * `megaSweepLeft`) return their canonical 2x2 offsets rotated by the
- * piece's `rotation`. Single-cell pieces return the canonical single
- * `[{ dr: 0, dc: 0 }]` so a hand-edited or future-imported city with
- * the field omitted continues to be treated as a single anchor cell.
+ * `megaSweepLeft`, `hairpin`) return their canonical offsets rotated
+ * by the piece's `rotation`. Single-cell pieces return the canonical
+ * single `[{ dr: 0, dc: 0 }]` so a hand-edited or future-imported city
+ * with the field omitted continues to be treated as a single anchor
+ * cell.
  *
- * Future multi-cell pieces (REQ-060 hairpin) extend this resolver
- * rather than the schema; the schema's `footprint` field is the
- * override path for hand-authored or imported cities that want to
- * record a non-canonical shape.
+ * Future multi-cell pieces extend this resolver rather than the schema;
+ * the schema's `footprint` field is the override path for hand-authored
+ * or imported cities that want to record a non-canonical shape.
  */
 export function defaultFootprintForPiece(
   piece: Pick<Piece, 'type' | 'rotation'>,
@@ -134,6 +157,8 @@ export function defaultFootprintForPiece(
       return rotateFootprint(MEGA_SWEEP_RIGHT_FOOTPRINT, piece.rotation)
     case 'megaSweepLeft':
       return rotateFootprint(MEGA_SWEEP_LEFT_FOOTPRINT, piece.rotation)
+    case 'hairpin':
+      return rotateFootprint(HAIRPIN_FOOTPRINT, piece.rotation)
     default:
       return DEFAULT_FOOTPRINT
   }
@@ -143,8 +168,8 @@ export function defaultFootprintForPiece(
  * Resolve a piece's footprint to absolute cell coordinates on the
  * grid. Pieces with no `footprint` field fall back to the type-driven
  * default from `defaultFootprintForPiece`; single-cell types resolve
- * to a single anchor cell, multi-cell types (mega sweep, future
- * hairpin) resolve to their canonical rotated footprint.
+ * to a single anchor cell, multi-cell types (mega sweep, hairpin)
+ * resolve to their canonical rotated footprint.
  */
 export function pieceFootprintCells(piece: Piece): GridCellCoord[] {
   const footprint = piece.footprint ?? defaultFootprintForPiece(piece)

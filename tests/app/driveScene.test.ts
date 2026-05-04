@@ -669,6 +669,43 @@ describe('pieceFootprintWorldCells (REQ-045 multi-cell ground meshes)', () => {
     expect(coords).toEqual(new Set(['-1,0', '-1,1', '0,0', '0,1']))
   })
 
+  it('falls back to the type-driven default for hairpin without an explicit footprint (REQ-060)', () => {
+    // The placePiece reducer never records an explicit footprint for a
+    // hairpin, so the drive scene must derive the 2x3 footprint from
+    // the piece type alone or it would render a single ground quad
+    // and leave five visible holes through the placed piece.
+    const piece: Piece = {
+      type: 'hairpin',
+      row: 4,
+      col: 4,
+      rotation: 0,
+    }
+    const cells = pieceFootprintWorldCells(piece)
+    expect(cells).toHaveLength(6)
+    const coords = new Set(cells.map((c) => `${c.row},${c.col}`))
+    expect(coords).toEqual(
+      new Set(['3,4', '3,5', '4,4', '4,5', '5,4', '5,5']),
+    )
+  })
+
+  it('rotates the type-driven default hairpin with the piece rotation field (REQ-060)', () => {
+    // hairpin at rotation 90 anchored at (5, 5) covers offsets
+    // {(0, 1), (1, 1), (0, 0), (1, 0), (0, -1), (1, -1)} so absolute
+    // cells are (5, 6), (6, 6), (5, 5), (6, 5), (5, 4), (6, 4).
+    const piece: Piece = {
+      type: 'hairpin',
+      row: 5,
+      col: 5,
+      rotation: 90,
+    }
+    const cells = pieceFootprintWorldCells(piece)
+    expect(cells).toHaveLength(6)
+    const coords = new Set(cells.map((c) => `${c.row},${c.col}`))
+    expect(coords).toEqual(
+      new Set(['5,6', '6,6', '5,5', '6,5', '5,4', '6,4']),
+    )
+  })
+
   it('rotates the type-driven default with the piece rotation field (REQ-058)', () => {
     // megaSweepRight at rotation 90 covers (-1, 0), (-1, 1), (0, 0),
     // (0, 1) anchored at (10, 10), so absolute cells are (9, 10),
