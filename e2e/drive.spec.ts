@@ -1,4 +1,5 @@
 import { expect, test } from '@playwright/test'
+import { RACE_HUD_FORBIDDEN_TESTIDS } from '../src/app/[slug]/driveAntiFeatures'
 
 /**
  * REQ-006 + REQ-044 + REQ-045 + REQ-046 + REQ-053: drive view
@@ -104,6 +105,15 @@ test('drive route mounts the canvas with the slug label and Edit CTA', async ({
   await expect(root).toHaveAttribute('data-minimap-piece-count', '0')
   await expect(root).toHaveAttribute('data-minimap-building-count', '0')
   await expect(page.getByTestId('drive-minimap')).toHaveCount(0)
+
+  // REQ-037: drive mode is a city-builder loop, not a racing game. The
+  // anti-feature lockdown asserts that no lap timer, checkpoint banner,
+  // race timer, or other race-HUD element ever ships on the drive
+  // surface. The forbidden testid list lives in driveAntiFeatures.ts
+  // so the unit tests and the e2e suite share the same vocabulary.
+  for (const testid of RACE_HUD_FORBIDDEN_TESTIDS) {
+    await expect(page.getByTestId(testid)).toHaveCount(0)
+  }
 })
 
 test('drive route shows the empty-state prompt for a fresh slug (REQ-053)', async ({
@@ -162,6 +172,14 @@ test('drive route shows the empty-state prompt for a fresh slug (REQ-053)', asyn
   // null when the city has no footprint so the SVG layer never mounts.
   await expect(root).toHaveAttribute('data-minimap-visible', 'false')
   await expect(page.getByTestId('drive-minimap')).toHaveCount(0)
+
+  // REQ-037: race-HUD anti-feature lockdown also applies on the empty
+  // grid. The forbidden testids must not exist regardless of whether a
+  // car is mounted because a future regression could ship a race
+  // surface that renders before the car-mounted gate.
+  for (const testid of RACE_HUD_FORBIDDEN_TESTIDS) {
+    await expect(page.getByTestId(testid)).toHaveCount(0)
+  }
 
   const prompt = page.getByTestId('drive-empty-prompt')
   await expect(prompt).toBeVisible()
