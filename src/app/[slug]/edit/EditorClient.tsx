@@ -46,6 +46,11 @@ import {
 } from './editorHistory'
 import { previewKindFor, type PreviewCell } from './editorPreview'
 import {
+  REJECTION_FLASH_DURATION_MS,
+  rejectionFlashFromClick,
+  type RejectionFlash,
+} from './rejectionFlash'
+import {
   DEFAULT_VIEWPORT,
   dragDeltaToPan,
   isDefaultViewport,
@@ -163,6 +168,13 @@ export function EditorClient({
   const [hoverCell, setHoverCell] = useState<{ row: number; col: number } | null>(
     null,
   )
+  const [rejectionFlash, setRejectionFlash] = useState<RejectionFlash | null>(
+    null,
+  )
+  // Holds the timeout that clears the rejection flash so a fresh
+  // rejection on a different cell cancels the prior clear and shows the
+  // new flash for its full duration.
+  const rejectionTimeoutRef = useRef<number | null>(null)
   const [viewport, setViewport] = useState<Viewport>(DEFAULT_VIEWPORT)
   const viewportDefault = isDefaultViewport(viewport)
   const undoAvailable = canUndo(history)
@@ -310,6 +322,40 @@ export function EditorClient({
     })
   }, [])
 
+  // Trigger a brief visual flash on a click that the place / erase
+  // reducer rejected (REQ-027). The setTimeout clears the flash after
+  // REJECTION_FLASH_DURATION_MS so the overlay disappears at the same
+  // time the SMIL animation finishes the fade. A fresh rejection
+  // cancels the prior timeout so back-to-back rejections each render
+  // for their full duration (the keyed React node remounts in
+  // SnapGridView so the SMIL animation restarts).
+  const triggerRejectionFlash = useCallback(
+    (row: number, col: number, currentCity: City) => {
+      setRejectionFlash((prev) => {
+        const next = rejectionFlashFromClick(
+          {
+            city: currentCity,
+            category: paletteCategory,
+            toolMode,
+            row,
+            col,
+          },
+          prev?.id ?? 0,
+        )
+        if (next === null) return prev
+        return next
+      })
+      if (rejectionTimeoutRef.current !== null) {
+        window.clearTimeout(rejectionTimeoutRef.current)
+      }
+      rejectionTimeoutRef.current = window.setTimeout(() => {
+        setRejectionFlash(null)
+        rejectionTimeoutRef.current = null
+      }, REJECTION_FLASH_DURATION_MS)
+    },
+    [paletteCategory, toolMode],
+  )
+
   const handleCellClick = (row: number, col: number) => {
     if (toolMode === 'erase') {
       setCityWithHistory((current) => {
@@ -317,7 +363,11 @@ export function EditorClient({
           paletteCategory === 'building'
             ? eraseBuilding(current, row, col)
             : erasePiece(current, row, col)
-        if (next !== current) setAutosaveStatus('pending')
+        if (next !== current) {
+          setAutosaveStatus('pending')
+        } else {
+          triggerRejectionFlash(row, col, current)
+        }
         return next
       })
       return
@@ -327,7 +377,11 @@ export function EditorClient({
         paletteCategory === 'building'
           ? placeBuilding(current, selectedBuildingType, row, col, rotation)
           : placePiece(current, selectedType, row, col, rotation)
-      if (next !== current) setAutosaveStatus('pending')
+      if (next !== current) {
+        setAutosaveStatus('pending')
+      } else {
+        triggerRejectionFlash(row, col, current)
+      }
       return next
     })
   }
@@ -493,6 +547,18 @@ export function EditorClient({
   useEffect(() => {
     return () => {
       inFlightAbortRef.current?.abort()
+    }
+  }, [])
+
+  // On unmount, clear any pending rejection-flash clear timer so a
+  // navigation mid-flash does not log a stale state update on the next
+  // page.
+  useEffect(() => {
+    return () => {
+      if (rejectionTimeoutRef.current !== null) {
+        window.clearTimeout(rejectionTimeoutRef.current)
+        rejectionTimeoutRef.current = null
+      }
     }
   }, [])
 
@@ -818,6 +884,7 @@ export function EditorClient({
         onCellEnter={handleCellEnter}
         onCellLeave={handleCellLeave}
         previewCell={previewCell}
+        rejectionFlash={rejectionFlash}
         cursorMode={toolMode}
         viewport={viewport}
         onSurfaceWheel={handleSurfaceWheel}
