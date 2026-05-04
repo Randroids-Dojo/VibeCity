@@ -46,6 +46,11 @@ test('drive route mounts the canvas with the slug label and Edit CTA', async ({
   // placed. The webServer is unconfigured KV, so the city is empty and
   // the vehicle flag is false; the unit tests cover the populated case.
   await expect(root).toHaveAttribute('data-vehicle', 'false')
+
+  // REQ-034: keyboard controls install only when a car is mounted; an
+  // empty city keeps the listeners dormant so an author cannot
+  // accidentally trigger driving with no vehicle on screen.
+  await expect(root).toHaveAttribute('data-controls-active', 'false')
 })
 
 test('drive route shows the empty-state prompt for a fresh slug (REQ-053)', async ({
@@ -63,6 +68,8 @@ test('drive route shows the empty-state prompt for a fresh slug (REQ-053)', asyn
   await expect(root).toHaveAttribute('data-spawn-col', '0')
   // REQ-047: placeholder car is omitted on the empty grid.
   await expect(root).toHaveAttribute('data-vehicle', 'false')
+  // REQ-034: keyboard controls stay dormant on the empty grid.
+  await expect(root).toHaveAttribute('data-controls-active', 'false')
 
   const prompt = page.getByTestId('drive-empty-prompt')
   await expect(prompt).toBeVisible()

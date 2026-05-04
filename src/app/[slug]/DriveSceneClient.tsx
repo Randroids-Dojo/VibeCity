@@ -40,6 +40,12 @@ import {
   rotationToRadians,
   spawnAnchor,
 } from './driveScene'
+import {
+  DEFAULT_KEY_BINDINGS,
+  applyDriveStep,
+  createVehicleState,
+  inputFromPressedKeys,
+} from './driveControls'
 
 /**
  * Drive scene scaffold (REQ-044, REQ-045, REQ-046, REQ-053).
@@ -73,6 +79,7 @@ export function DriveSceneClient({
   city: City
 }) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null)
+  const rootRef = useRef<HTMLDivElement | null>(null)
   const isEmpty = city.pieces.length === 0 && city.buildings.length === 0
 
   // Memoize the bounds so the effect re-fits the camera only when the
@@ -193,16 +200,15 @@ export function DriveSceneClient({
 
     // Placeholder player vehicle (REQ-047). A primitive-composed car
     // (body + cabin + four wheels) sits at the deterministic spawn
-    // anchor (REQ-036) so the build / drive loop has a visible vehicle
-    // ahead of the physics slice (REQ-031), the input slices (REQ-034
-    // / REQ-035), and the chase camera (REQ-033). The car is grouped
-    // under a single THREE.Group so subsequent slices can attach a
-    // physics-driven transform to one node without re-walking the
-    // children. Rendered only when the city has at least one piece;
-    // an empty city shows the empty-state prompt instead.
+    // anchor (REQ-036). The keyboard input slice (REQ-034) drives the
+    // group's position and rotation each frame via `applyDriveStep`
+    // from `driveControls.ts`. Rendered only when the city has at
+    // least one piece; an empty city shows the empty-state prompt
+    // instead and the integration loop / key listeners stay dormant.
+    let car: THREE.Group | null = null
     if (city.pieces.length > 0) {
       const { x, z } = cellToWorld(spawn.row, spawn.col)
-      const car = new THREE.Group()
+      car = new THREE.Group()
       car.name = 'placeholder-car'
       car.position.set(x, 0, z)
       car.rotation.y = rotationToRadians(city.pieces[0].rotation)
@@ -258,7 +264,7 @@ export function DriveSceneClient({
     // Resize handling. The canvas fills its parent; we read the parent
     // box size on mount and on resize so the renderer / camera stay in
     // sync as the page reflows.
-    let rafHandle: number | null = null
+    let resizeRafHandle: number | null = null
     const applySize = () => {
       const parent = canvas.parentElement
       if (!parent) return
@@ -268,28 +274,137 @@ export function DriveSceneClient({
       renderer.setSize(width, height, false)
       camera.aspect = width / height
       camera.updateProjectionMatrix()
-      renderer.render(scene, camera)
     }
     const requestResize = () => {
-      if (rafHandle !== null) return
-      rafHandle = window.requestAnimationFrame(() => {
-        rafHandle = null
+      if (resizeRafHandle !== null) return
+      resizeRafHandle = window.requestAnimationFrame(() => {
+        resizeRafHandle = null
         applySize()
+        // Re-render after resize so the empty-state scaffold (no
+        // animation loop running) refreshes on viewport changes.
+        if (!car) renderer.render(scene, camera)
       })
     }
     applySize()
-
     window.addEventListener('resize', requestResize)
 
-    // Single render pass after mount. v1 ships a static scene; the
-    // animation loop lands when the car / chase camera ship.
-    renderer.render(scene, camera)
+    // Keyboard input (REQ-034). Keys press / release into a `Set` keyed
+    // on `KeyboardEvent.code` so the binding table is layout-stable
+    // (works on QWERTY, AZERTY, Dvorak); the integration loop reads
+    // the live set each frame via `inputFromPressedKeys`.
+    //
+    // Listeners attach to `window` so the canvas does not need focus
+    // for steering to work; a click anywhere in the page does not
+    // steal driving control. We do not call `preventDefault` on the
+    // arrow keys when the user is typing in an input / textarea so
+    // text-entry shortcuts (e.g. cursor move in a future settings
+    // form) keep working; the v1 drive view has no such inputs but
+    // the guard keeps the contract consistent with the editor's
+    // keyboard handler.
+    const pressedKeys = new Set<string>()
+    const isTextTarget = (target: EventTarget | null): boolean => {
+      if (!(target instanceof HTMLElement)) return false
+      const tag = target.tagName
+      if (tag === 'INPUT' || tag === 'TEXTAREA') return true
+      return target.isContentEditable
+    }
+    const isBoundKey = (code: string): boolean =>
+      Object.prototype.hasOwnProperty.call(DEFAULT_KEY_BINDINGS, code)
+    const root = rootRef.current
+    const updatePressedAttr = () => {
+      if (!root) return
+      const list = Array.from(pressedKeys).sort().join(' ')
+      root.setAttribute('data-keys-pressed', list)
+    }
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (!isBoundKey(event.code)) return
+      if (isTextTarget(event.target)) return
+      // Arrow keys scroll the page by default; cancel that so the
+      // viewport does not jump while the player is steering.
+      event.preventDefault()
+      pressedKeys.add(event.code)
+      updatePressedAttr()
+    }
+    const handleKeyUp = (event: KeyboardEvent) => {
+      if (!isBoundKey(event.code)) return
+      pressedKeys.delete(event.code)
+      updatePressedAttr()
+    }
+    const handleBlur = () => {
+      // Releasing focus (alt-tab, devtools focus) should clear the
+      // input so the car does not keep accelerating with no key down.
+      pressedKeys.clear()
+      updatePressedAttr()
+    }
+    if (car) {
+      window.addEventListener('keydown', handleKeyDown)
+      window.addEventListener('keyup', handleKeyUp)
+      window.addEventListener('blur', handleBlur)
+    }
+    updatePressedAttr()
+
+    // Vehicle integration loop (REQ-031 first slice). Runs only when
+    // the car is mounted; an empty city renders a single static frame
+    // so the empty-state prompt is the visual focus and the integrator
+    // does not burn frames updating a hidden mesh.
+    let frameHandle: number | null = null
+    let lastTimestamp: number | null = null
+    let vehicle = car
+      ? createVehicleState({
+          x: car.position.x,
+          z: car.position.z,
+          heading: car.rotation.y,
+        })
+      : null
+    const updateVehicleAttrs = () => {
+      if (!root || !vehicle) return
+      root.setAttribute('data-car-x', vehicle.x.toFixed(3))
+      root.setAttribute('data-car-z', vehicle.z.toFixed(3))
+      root.setAttribute('data-car-heading', vehicle.heading.toFixed(4))
+      root.setAttribute('data-car-speed', vehicle.speed.toFixed(3))
+    }
+    if (vehicle) updateVehicleAttrs()
+
+    const tick = (timestamp: number) => {
+      frameHandle = window.requestAnimationFrame(tick)
+      if (lastTimestamp === null) {
+        lastTimestamp = timestamp
+        renderer.render(scene, camera)
+        return
+      }
+      const dt = (timestamp - lastTimestamp) / 1000
+      lastTimestamp = timestamp
+      if (vehicle && car) {
+        const input = inputFromPressedKeys(pressedKeys)
+        vehicle = applyDriveStep(vehicle, input, dt)
+        car.position.x = vehicle.x
+        car.position.z = vehicle.z
+        car.rotation.y = vehicle.heading
+        updateVehicleAttrs()
+      }
+      renderer.render(scene, camera)
+    }
+    if (car) {
+      frameHandle = window.requestAnimationFrame(tick)
+    } else {
+      // No car mounted: single render pass for the static scaffold.
+      renderer.render(scene, camera)
+    }
 
     return () => {
       window.removeEventListener('resize', requestResize)
-      if (rafHandle !== null) {
-        window.cancelAnimationFrame(rafHandle)
-        rafHandle = null
+      if (resizeRafHandle !== null) {
+        window.cancelAnimationFrame(resizeRafHandle)
+        resizeRafHandle = null
+      }
+      if (frameHandle !== null) {
+        window.cancelAnimationFrame(frameHandle)
+        frameHandle = null
+      }
+      if (car) {
+        window.removeEventListener('keydown', handleKeyDown)
+        window.removeEventListener('keyup', handleKeyUp)
+        window.removeEventListener('blur', handleBlur)
       }
       // Dispose every geometry / material attached to the scene so
       // navigating away does not leak GPU memory across slugs.
@@ -316,6 +431,7 @@ export function DriveSceneClient({
 
   return (
     <div
+      ref={rootRef}
       data-testid="drive-scene-root"
       data-slug={slug}
       data-piece-count={city.pieces.length}
@@ -324,6 +440,7 @@ export function DriveSceneClient({
       data-spawn-row={spawn.row}
       data-spawn-col={spawn.col}
       data-vehicle={hasVehicle ? 'true' : 'false'}
+      data-controls-active={hasVehicle ? 'true' : 'false'}
       style={{
         position: 'fixed',
         inset: 0,
