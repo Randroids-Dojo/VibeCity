@@ -418,9 +418,13 @@
       "id": "REQ-063",
       "requirement": "8-direction connector system: Dir spans 0..7 (N=0, NE=1, E=2, SE=3, S=4, SW=5, W=6, NW=7) with corner offsets in DIR_OFFSETS and opposite(d) = (d + 4) % 8. Connector validation: cardinal matches cardinal-adjacent, corner matches diagonal-adjacent. Port from VibeRacer Phase 0d (src/game/track.ts). Required for diagonal pieces and intersections.",
       "gddRef": "docs/gdd/06-city-schema.md",
-      "status": "not_started",
-      "implementationRefs": [],
-      "testRefs": [],
+      "status": "done",
+      "implementationRefs": [
+        "src/lib/connectors.ts"
+      ],
+      "testRefs": [
+        "tests/lib/connectors.test.ts"
+      ],
       "followupRefs": [
         "F-002"
       ]
