@@ -42,6 +42,7 @@ import {
 } from './editorHistory'
 import { previewKindFor, type PreviewCell } from './editorPreview'
 import { SnapGrid } from './SnapGridView'
+import { SceneTransitionCurtain } from '../SceneTransitionCurtain'
 
 /**
  * Editor client surface (REQ-017, REQ-020, REQ-021, REQ-022, REQ-023,
@@ -606,6 +607,7 @@ export function EditorClient({
           }}
         >
           Drive
+          <SceneTransitionCurtain target="drive" />
         </Link>
       </div>
       <p

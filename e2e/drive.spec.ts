@@ -114,6 +114,13 @@ test('drive route mounts the canvas with the slug label and Edit CTA', async ({
   for (const testid of RACE_HUD_FORBIDDEN_TESTIDS) {
     await expect(page.getByTestId(testid)).toHaveCount(0)
   }
+
+  // REQ-055: the build / drive transition curtain mounts as a hidden
+  // descendant of the drive Edit CTA. With no navigation in flight,
+  // useLinkStatus().pending is false so the curtain renders nothing.
+  await expect(
+    page.getByTestId('scene-transition-curtain-edit'),
+  ).toHaveCount(0)
 })
 
 test('drive route shows the empty-state prompt for a fresh slug (REQ-053)', async ({

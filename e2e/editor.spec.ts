@@ -830,3 +830,37 @@ test('hover preview ghost flips kind across place / erase and category', async (
   await expect(grid).toHaveAttribute('data-preview-kind', 'none')
   await expect(ghost).toHaveCount(0)
 })
+
+test('build / drive transition curtain is wired but dormant by default (REQ-055)', async ({
+  page,
+}) => {
+  // Intercept autosave so the editor opens cleanly without KV.
+  await page.route('**/api/city/**', async (route) => {
+    if (route.request().method() !== 'PUT') {
+      await route.continue()
+      return
+    }
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        slug: 'curtain-spec',
+        versionHash:
+          '0000000000000000000000000000000000000000000000000000000000000000',
+        updatedAt: Date.now(),
+      }),
+    })
+  })
+
+  const response = await page.goto('/curtain-spec/edit')
+  expect(response?.status()).toBe(200)
+
+  // The Drive CTA mounts the curtain as a hidden descendant; with no
+  // navigation in flight, useLinkStatus().pending is false so the
+  // curtain renders nothing. The testid asserts the dormant contract.
+  const driveCta = page.getByTestId('editor-drive-cta')
+  await expect(driveCta).toBeVisible()
+  await expect(
+    page.getByTestId('scene-transition-curtain-drive'),
+  ).toHaveCount(0)
+})
