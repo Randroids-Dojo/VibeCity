@@ -5,6 +5,7 @@ import { hashCity } from '@/lib/hashCity'
 import { kvKeys } from '@/lib/kv'
 import { EMPTY_CITY, type City, type Slug } from '@/lib/schemas'
 import { BUILDER_ID_COOKIE } from '@/lib/builderId'
+import { MAX_CITY_VERSIONS } from '@/lib/recentVersions'
 
 const fake = new FakeKv()
 const builderIdA = '11111111-1111-4111-8111-111111111111'
@@ -166,6 +167,150 @@ describe('PUT /api/city/[slug]', () => {
     expect(await fake.get<string>(kvKeys.cityLatest(slug))).toBe(
       hashCity(EMPTY_CITY),
     )
+  })
+
+  it('appends to city:${slug}:versions on every save (REQ-052)', async () => {
+    const { PUT } = await import('@/app/api/city/[slug]/route')
+    const slug = 'history-write' as Slug
+    await fake.del(kvKeys.cityVersions(slug))
+    await fake.del(kvKeys.cityLatest(slug), kvKeys.cityOwner(slug))
+
+    // First save: empty city.
+    await PUT(
+      new NextRequest('http://test/api/city/history-write', {
+        method: 'PUT',
+        headers: {
+          cookie: cookieHeader(builderIdA),
+          'content-type': 'application/json',
+        },
+        body: JSON.stringify(EMPTY_CITY),
+      }),
+      { params: Promise.resolve({ slug: 'history-write' }) },
+    )
+    // Second save: a different city under the same slug.
+    await PUT(
+      new NextRequest('http://test/api/city/history-write', {
+        method: 'PUT',
+        headers: {
+          cookie: cookieHeader(builderIdA),
+          'content-type': 'application/json',
+        },
+        body: JSON.stringify(sampleCity),
+      }),
+      { params: Promise.resolve({ slug: 'history-write' }) },
+    )
+    expect(await fake.zcard(kvKeys.cityVersions(slug))).toBe(2)
+    const newestFirst = await fake.zrange(
+      kvKeys.cityVersions(slug),
+      0,
+      -1,
+      { rev: true },
+    )
+    expect(newestFirst).toEqual([hashCity(sampleCity), hashCity(EMPTY_CITY)])
+  })
+
+  it('trims the per-slug version history to MAX_CITY_VERSIONS oldest-first (REQ-052)', async () => {
+    const { PUT } = await import('@/app/api/city/[slug]/route')
+    const slug = 'history-trim' as Slug
+    await fake.del(kvKeys.cityVersions(slug))
+    await fake.del(kvKeys.cityLatest(slug), kvKeys.cityOwner(slug))
+
+    // Synthesize MAX_CITY_VERSIONS oldest entries that are NOT real
+    // PUT-written versions; the trim is rank-based so any pre-existing
+    // members count toward the bound.
+    for (let i = 0; i < MAX_CITY_VERSIONS; i++) {
+      await fake.zadd(kvKeys.cityVersions(slug), {
+        score: i + 1,
+        member:
+          'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa'.slice(
+            0,
+            56,
+          ) + i.toString(16).padStart(8, '0'),
+      })
+    }
+    expect(await fake.zcard(kvKeys.cityVersions(slug))).toBe(MAX_CITY_VERSIONS)
+
+    // One real PUT pushes the cap over and triggers a trim of one entry.
+    await PUT(
+      new NextRequest('http://test/api/city/history-trim', {
+        method: 'PUT',
+        headers: {
+          cookie: cookieHeader(builderIdA),
+          'content-type': 'application/json',
+        },
+        body: JSON.stringify(sampleCity),
+      }),
+      { params: Promise.resolve({ slug: 'history-trim' }) },
+    )
+
+    expect(await fake.zcard(kvKeys.cityVersions(slug))).toBe(
+      MAX_CITY_VERSIONS,
+    )
+    // The newest entry is the just-PUT hash; the oldest synthetic entry
+    // (score = 1) was trimmed.
+    const newestFirst = await fake.zrange(
+      kvKeys.cityVersions(slug),
+      0,
+      -1,
+      { rev: true },
+    )
+    expect(newestFirst[0]).toBe(hashCity(sampleCity))
+    // The score-1 entry is gone, but score-2 survived.
+    const trimmedScore = await fake.zscore(
+      kvKeys.cityVersions(slug),
+      'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa00000000',
+    )
+    expect(trimmedScore).toBeNull()
+    const survivedScore = await fake.zscore(
+      kvKeys.cityVersions(slug),
+      'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa00000001',
+    )
+    expect(survivedScore).toBe(2)
+  })
+
+  it('does not delete the version payload when trimming the history (deep-link survival, REQ-052)', async () => {
+    const { PUT } = await import('@/app/api/city/[slug]/route')
+    const slug = 'history-payload' as Slug
+    await fake.del(kvKeys.cityVersions(slug))
+    await fake.del(kvKeys.cityLatest(slug), kvKeys.cityOwner(slug))
+
+    // Pre-seed the oldest entry's payload alongside its history member;
+    // confirm the payload survives the trim. The trim policy intentionally
+    // leaves `city:${slug}:version:${hash}` in place so a stale ?v=
+    // deep link still loads (per the GDD persistence read path).
+    const oldestMember =
+      'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb00000000'
+    await fake.set(
+      kvKeys.cityVersion(slug, oldestMember as never),
+      JSON.stringify(EMPTY_CITY),
+    )
+    for (let i = 0; i < MAX_CITY_VERSIONS; i++) {
+      await fake.zadd(kvKeys.cityVersions(slug), {
+        score: i + 1,
+        member:
+          'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb'.slice(
+            0,
+            56,
+          ) + i.toString(16).padStart(8, '0'),
+      })
+    }
+
+    await PUT(
+      new NextRequest('http://test/api/city/history-payload', {
+        method: 'PUT',
+        headers: {
+          cookie: cookieHeader(builderIdA),
+          'content-type': 'application/json',
+        },
+        body: JSON.stringify(sampleCity),
+      }),
+      { params: Promise.resolve({ slug: 'history-payload' }) },
+    )
+
+    // Payload still readable even though the history member was trimmed.
+    expect(
+      await fake.get<unknown>(kvKeys.cityVersion(slug, oldestMember as never)),
+    ).toEqual(EMPTY_CITY)
   })
 
   it('lets the owner overwrite their own city', async () => {

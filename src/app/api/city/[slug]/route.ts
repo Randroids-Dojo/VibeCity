@@ -14,6 +14,7 @@ import {
 import { BUILDER_ID_COOKIE, isValidBuilderId } from '@/lib/builderId'
 import { loadCity } from '@/lib/loadCity'
 import { parseCityVersionHash } from '@/lib/cityVersion'
+import { MAX_CITY_VERSIONS } from '@/lib/recentVersions'
 
 export const runtime = 'nodejs'
 
@@ -60,8 +61,12 @@ export async function GET(
  *   1. `city:${slug}:version:${hash}` (idempotent on identical content)
  *   2. `city:${slug}:latest` -> the new hash
  *   3. `ZADD city:${slug}:versions ${now} ${hash}`
- *   4. `ZADD city:index ${now} ${slug}`
- *   5. On first claim: `city:${slug}:owner` -> the requesting builder id.
+ *   4. `ZREMRANGEBYRANK city:${slug}:versions 0 -(MAX_CITY_VERSIONS+1)` so
+ *      the per-slug history is bounded (REQ-052). The version payload
+ *      itself is left in place because deleting it would invalidate any
+ *      outstanding `?v=<hash>` deep link to that snapshot.
+ *   5. `ZADD city:index ${now} ${slug}`
+ *   6. On first claim: `city:${slug}:owner` -> the requesting builder id.
  *
  * Ordering: the version key is written before `:latest` advances so a
  * concurrent reader can never see a `:latest` that points at a missing
@@ -112,6 +117,15 @@ export async function PUT(
     await kv.set(kvKeys.cityVersion(slug, hash), JSON.stringify(city))
     await kv.set(kvKeys.cityLatest(slug), hash)
     await kv.zadd(kvKeys.cityVersions(slug), { score: now, member: hash })
+    // Trim the per-slug history to the newest MAX_CITY_VERSIONS entries
+    // (REQ-052). Sorted-set rank is low-score-first so rank 0 is the
+    // oldest entry; removing rank 0 .. -(MAX+1) is a no-op when the set
+    // has fewer than MAX entries.
+    await kv.zremrangebyrank(
+      kvKeys.cityVersions(slug),
+      0,
+      -(MAX_CITY_VERSIONS + 1),
+    )
     await kv.zadd(kvKeys.cityIndex(), { score: now, member: slug })
     if (!owner) {
       await kv.set(kvKeys.cityOwner(slug), builderId)

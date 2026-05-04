@@ -1,7 +1,8 @@
 /**
  * In-memory KV used by route-handler tests. Mirrors the slice of the
  * @upstash/redis surface that VibeCity uses today: get / set / del,
- * lpush / lrange / ltrim, zadd / zrange / zscore / zrem / zrank / zcard.
+ * lpush / lrange / ltrim, zadd / zrange / zscore / zcard /
+ * zremrangebyrank.
  *
  * Ported from VibeRacer's `tests/unit/_fakeKv.ts` so the persistence
  * tests in both projects share the same fake semantics.
@@ -108,6 +109,47 @@ export class FakeKv {
     const list = this.zsets.get(key) ?? []
     const entry = list.find((e) => e.member === member)
     return entry ? entry.score : null
+  }
+
+  async zcard(key: string): Promise<number> {
+    return (this.zsets.get(key) ?? []).length
+  }
+
+  /**
+   * Remove members whose rank (0-based index in ascending score order)
+   * falls between `start` and `stop` inclusive. The set is implicitly
+   * ordered by score ascending; the indices are positions in that
+   * ordering, NOT scores themselves (`zremrangebyscore` is the
+   * score-keyed variant). Negative indices count from the end (-1 is
+   * the highest-rank / highest-scored entry). Returns the number of
+   * members removed. Mirrors Redis `ZREMRANGEBYRANK`: if the resolved
+   * range is empty (e.g. `stop` resolves below `start`, or below 0),
+   * no members are removed.
+   */
+  async zremrangebyrank(
+    key: string,
+    start: number,
+    stop: number,
+  ): Promise<number> {
+    const list = this.zsets.get(key) ?? []
+    const len = list.length
+    if (len === 0) return 0
+    const resolve = (idx: number): number =>
+      idx < 0 ? len + idx : idx
+    const rawLo = resolve(start)
+    const rawHi = resolve(stop)
+    if (rawHi < 0 || rawLo >= len) return 0
+    const lo = Math.max(0, rawLo)
+    const hi = Math.min(len - 1, rawHi)
+    if (lo > hi) return 0
+    const removed = list.slice(lo, hi + 1)
+    const kept = [...list.slice(0, lo), ...list.slice(hi + 1)]
+    this.zsets.set(key, kept)
+    const members = this.zsetMembers.get(key)
+    if (members) {
+      for (const e of removed) members.delete(e.member)
+    }
+    return removed.length
   }
 
   async lpush(key: string, ...values: string[]): Promise<number> {
