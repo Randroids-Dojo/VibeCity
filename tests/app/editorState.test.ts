@@ -27,12 +27,16 @@ import {
  * `npm run build` plus the Playwright spec for the editor route.
  */
 
-describe('STREET_PALETTE (REQ-017)', () => {
-  it('exposes exactly the v1 cardinal-only types', () => {
+describe('STREET_PALETTE (REQ-017, REQ-018)', () => {
+  it('exposes the v1 cardinal-only basics first then the curve / sweep pieces', () => {
     expect(STREET_PALETTE.map((p) => p.type)).toEqual([
       'straight',
       'left90',
       'right90',
+      'scurve',
+      'scurveLeft',
+      'sweepRight',
+      'sweepLeft',
     ])
   })
 
@@ -45,25 +49,69 @@ describe('STREET_PALETTE (REQ-017)', () => {
 
   it('every entry is a valid PieceType in the schema', () => {
     const sampleCity: City = {
-      pieces: STREET_PALETTE.map((entry) => ({
+      pieces: STREET_PALETTE.map((entry, index) => ({
         type: entry.type,
-        row: 0,
+        // Spread placements across cells so CitySchema also tolerates
+        // them when the future overlap-aware schema check lands; for
+        // type validation alone the cell choice is irrelevant.
+        row: index,
         col: 0,
         rotation: 0,
       })),
       buildings: [],
     }
-    // CitySchema would reject any unknown PieceType. Setting all pieces
-    // at the same cell is fine here since we are validating the type
-    // enum, not footprint occupancy (that is REQ-027 territory).
+    // CitySchema would reject any unknown PieceType.
     expect(() => CitySchema.parse(sampleCity)).not.toThrow()
   })
 
-  it('does not advertise pieces from later slices (REQ-018, REQ-019)', () => {
+  it('keeps Straight as the first entry so REQ-017 default selection is unchanged', () => {
+    expect(STREET_PALETTE[0].type).toBe('straight')
+  })
+
+  it('orders REQ-018 entries after the REQ-017 cardinal basics', () => {
+    const indexOf = (t: string) =>
+      STREET_PALETTE.findIndex((p) => p.type === t)
+    expect(indexOf('right90')).toBeLessThan(indexOf('scurve'))
+    expect(indexOf('scurve')).toBeLessThan(indexOf('sweepRight'))
+  })
+
+  it('does not advertise pieces from later slices (REQ-019, REQ-058, REQ-060)', () => {
     const types = new Set(STREET_PALETTE.map((p) => p.type))
-    expect(types.has('scurve')).toBe(false)
     expect(types.has('intersection')).toBe(false)
     expect(types.has('megaSweepRight')).toBe(false)
+    expect(types.has('megaSweepLeft')).toBe(false)
+    expect(types.has('hairpin')).toBe(false)
+    expect(types.has('arc45')).toBe(false)
+    expect(types.has('diagonal')).toBe(false)
+  })
+
+  it('does not duplicate any piece type', () => {
+    const types = STREET_PALETTE.map((p) => p.type)
+    expect(new Set(types).size).toBe(types.length)
+  })
+})
+
+describe('placePiece with REQ-018 piece types', () => {
+  it('places each REQ-018 piece type as a single-cell piece', () => {
+    const types = ['scurve', 'scurveLeft', 'sweepRight', 'sweepLeft'] as const
+    let city: City = EMPTY_CITY
+    types.forEach((type, index) => {
+      city = placePiece(city, type, index, 0)
+    })
+    expect(city.pieces).toHaveLength(types.length)
+    expect(city.pieces.map((p) => p.type)).toEqual([...types])
+    for (const piece of city.pieces) {
+      expect(piece.footprint).toBeUndefined()
+    }
+  })
+
+  it('still rejects overlap when placing a REQ-018 piece on an occupied cell', () => {
+    const seeded: City = {
+      pieces: [{ type: 'straight', row: 0, col: 0, rotation: 0 }],
+      buildings: [],
+    }
+    const next = placePiece(seeded, 'sweepRight', 0, 0, 90)
+    expect(next).toBe(seeded)
   })
 })
 

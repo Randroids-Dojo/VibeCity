@@ -60,15 +60,30 @@ export interface PaletteEntry {
 }
 
 /**
- * v1 cardinal-only street palette (REQ-017). Ordering is the render
- * order. Future slices append `scurve` / `sweepRight` / etc as they
- * land (REQ-018), and the `intersection` / multi-cell / corner-connector
- * pieces in their own slices.
+ * v1 cardinal-only street palette (REQ-017, REQ-018). Ordering is the
+ * render order. The first three entries are the cardinal-only basics
+ * (REQ-017); the last four extend the palette with single-cell sweep
+ * and S-curve pieces that share the same cardinal connector pattern
+ * (REQ-018). Future slices append the `intersection` (REQ-019),
+ * multi-cell mega-sweep / hairpin (REQ-058 / REQ-060), and corner-
+ * connector arc45 / diagonal (REQ-061 / REQ-062) pieces in their own
+ * slices.
+ *
+ * The REQ-018 entries are placed after the REQ-017 entries so existing
+ * keyboard / palette muscle memory (Straight as the first entry,
+ * default selection) is unchanged. SCurve pairs sit before Sweep
+ * pairs because S-curves are the more common starter shape for a
+ * city loop; sweep pieces are the longer-radius variant a builder
+ * reaches for after the basic shape is in place.
  */
 export const STREET_PALETTE: readonly PaletteEntry[] = [
   { type: 'straight', label: 'Straight' },
   { type: 'left90', label: 'Left 90' },
   { type: 'right90', label: 'Right 90' },
+  { type: 'scurve', label: 'S-Curve' },
+  { type: 'scurveLeft', label: 'S-Curve Left' },
+  { type: 'sweepRight', label: 'Sweep Right' },
+  { type: 'sweepLeft', label: 'Sweep Left' },
 ]
 
 /**
