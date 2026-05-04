@@ -10,6 +10,12 @@ import {
   occupiedBuildingCells,
   occupiedPieceCells,
 } from './snapGrid'
+import {
+  PREVIEW_FILL,
+  PREVIEW_FILL_OPACITY,
+  PREVIEW_STROKE,
+  type PreviewCell,
+} from './editorPreview'
 
 /**
  * Render the editor snap-grid (REQ-016, REQ-020, REQ-022, REQ-028).
@@ -29,14 +35,27 @@ import {
  * (not-allowed); the cell-click contract itself is owned by the
  * caller. Pan / zoom (REQ-024) lives in its own slice on top of this
  * surface.
+ *
+ * Hover preview (ghost cell): when the caller wires `onCellEnter` /
+ * `onCellLeave` and passes a `previewCell`, the matching cell renders
+ * a translucent ghost overlay communicating what the next click would
+ * do (place valid, place invalid because the cell is occupied, erase
+ * target, or erase no-op). The overlay is non-interactive so it does
+ * not steal hover events from the underlying clickable cell.
  */
 export function SnapGrid({
   city,
   onCellClick,
+  onCellEnter,
+  onCellLeave,
+  previewCell,
   cursorMode = 'place',
 }: {
   city: City
   onCellClick?: (row: number, col: number) => void
+  onCellEnter?: (row: number, col: number) => void
+  onCellLeave?: (row: number, col: number) => void
+  previewCell?: PreviewCell | null
   cursorMode?: 'place' | 'erase'
 }) {
   const cells = gridCells()
@@ -48,6 +67,9 @@ export function SnapGrid({
     : cursorMode === 'erase'
       ? 'not-allowed'
       : 'crosshair'
+  const previewKey = previewCell
+    ? cellKey(previewCell.row, previewCell.col)
+    : null
 
   return (
     <svg
@@ -60,6 +82,9 @@ export function SnapGrid({
       data-occupied-count={occupiedPieces.size}
       data-building-count={occupiedBuildings.size}
       data-cursor-mode={interactive ? cursorMode : 'none'}
+      data-preview-kind={previewCell ? previewCell.kind : 'none'}
+      data-preview-row={previewCell ? previewCell.row : ''}
+      data-preview-col={previewCell ? previewCell.col : ''}
       width={GRID_PIXEL_SIZE}
       height={GRID_PIXEL_SIZE}
       viewBox={`0 0 ${GRID_PIXEL_SIZE} ${GRID_PIXEL_SIZE}`}
@@ -87,6 +112,7 @@ export function SnapGrid({
               ? '#efe7d2'
               : 'transparent'
         const occupiedKind = isPiece ? 'piece' : isBuilding ? 'building' : 'none'
+        const isPreviewed = previewKey !== null && previewKey === key
         return (
           <rect
             key={key}
@@ -101,6 +127,7 @@ export function SnapGrid({
             data-cell-col={cell.col}
             data-cell-occupied={isPiece || isBuilding ? 'true' : 'false'}
             data-cell-occupied-kind={occupiedKind}
+            data-cell-previewed={isPreviewed ? 'true' : 'false'}
             onClick={
               interactive
                 ? () => {
@@ -108,10 +135,41 @@ export function SnapGrid({
                   }
                 : undefined
             }
+            onMouseEnter={
+              onCellEnter
+                ? () => {
+                    onCellEnter(cell.row, cell.col)
+                  }
+                : undefined
+            }
+            onMouseLeave={
+              onCellLeave
+                ? () => {
+                    onCellLeave(cell.row, cell.col)
+                  }
+                : undefined
+            }
             style={interactive ? { cursor } : undefined}
           />
         )
       })}
+      {previewCell ? (
+        <rect
+          data-testid="editor-preview-ghost"
+          data-preview-kind={previewCell.kind}
+          data-preview-row={previewCell.row}
+          data-preview-col={previewCell.col}
+          x={cellToPixel(previewCell).x}
+          y={cellToPixel(previewCell).y}
+          width={CELL_PIXELS}
+          height={CELL_PIXELS}
+          fill={PREVIEW_FILL[previewCell.kind]}
+          fillOpacity={PREVIEW_FILL_OPACITY[previewCell.kind]}
+          stroke={PREVIEW_STROKE[previewCell.kind]}
+          strokeWidth={2}
+          pointerEvents="none"
+        />
+      ) : null}
     </svg>
   )
 }

@@ -40,6 +40,7 @@ import {
   undoHistory,
   type EditorHistory,
 } from './editorHistory'
+import { previewKindFor, type PreviewCell } from './editorPreview'
 import { SnapGrid } from './SnapGridView'
 
 /**
@@ -98,6 +99,14 @@ import { SnapGrid } from './SnapGridView'
  * post-undo state. The initial city (loaded via `loadCity` server-side)
  * is treated as already-saved; the first PUT only fires after the first
  * accepted mutation.
+ *
+ * Hover preview (REQ-024 partial: ghost piece): tracks which cell the
+ * pointer is over, runs `previewKindFor` against the live city / active
+ * palette category / active tool mode, and passes the resulting
+ * `PreviewCell` into `SnapGrid` so a translucent ghost overlay reads
+ * out what the next click would do. The ghost reflects place mode
+ * (valid vs. occupied-and-rejected) and erase mode (target vs. no-op)
+ * with no extra state for the author to track.
  */
 export function EditorClient({
   slug,
@@ -133,8 +142,46 @@ export function EditorClient({
   const [toolMode, setToolMode] = useState<ToolMode>(DEFAULT_TOOL_MODE)
   const [autosaveStatus, setAutosaveStatus] =
     useState<AutosaveStatus>('idle')
+  const [hoverCell, setHoverCell] = useState<{ row: number; col: number } | null>(
+    null,
+  )
   const undoAvailable = canUndo(history)
   const redoAvailable = canRedo(history)
+
+  // Hover preview cell (REQ-024 partial: ghost piece). Recomputed
+  // from the live city, the active palette category, and the active
+  // tool mode so a rotation flip, palette change, or place / erase
+  // toggle updates the ghost without waiting for a fresh hover. Null
+  // when the pointer is not over the grid so the SVG renders no
+  // overlay. The pure `previewKindFor` helper owns the place /
+  // erase / occupied logic; this component only wires the React
+  // state.
+  const previewCell: PreviewCell | null = hoverCell
+    ? {
+        row: hoverCell.row,
+        col: hoverCell.col,
+        kind: previewKindFor({
+          city,
+          category: paletteCategory,
+          toolMode,
+          row: hoverCell.row,
+          col: hoverCell.col,
+        }),
+      }
+    : null
+
+  const handleCellEnter = useCallback((row: number, col: number) => {
+    setHoverCell({ row, col })
+  }, [])
+
+  const handleCellLeave = useCallback((row: number, col: number) => {
+    setHoverCell((current) => {
+      if (current && current.row === row && current.col === col) {
+        return null
+      }
+      return current
+    })
+  }, [])
 
   // Track the last city the network successfully persisted (or the
   // server-loaded initial city). The autosave effect compares the live
@@ -592,6 +639,9 @@ export function EditorClient({
       <SnapGrid
         city={city}
         onCellClick={handleCellClick}
+        onCellEnter={handleCellEnter}
+        onCellLeave={handleCellLeave}
+        previewCell={previewCell}
         cursorMode={toolMode}
       />
     </div>
