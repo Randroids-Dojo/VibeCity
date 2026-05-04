@@ -4,6 +4,7 @@ import {
   CONNECTOR_DIR_LABEL,
   GLYPH_RADIUS_PIXELS,
   cityConnectorGlyphs,
+  countMatchedGlyphs,
   pieceConnectorGlyphs,
   type ConnectorGlyph,
 } from '@/app/[slug]/edit/connectorGlyphs'
@@ -260,5 +261,193 @@ describe('ConnectorGlyph type shape', () => {
     expect(typeof glyph!.pieceIndex).toBe('number')
     expect(typeof glyph!.cellRow).toBe('number')
     expect(typeof glyph!.cellCol).toBe('number')
+    expect(['matched', 'open']).toContain(glyph!.status)
+  })
+})
+
+describe('connector match status (REQ-019, REQ-063)', () => {
+  it('every glyph reports open by default for a single-piece city', () => {
+    const piece: Piece = { type: 'straight', row: 0, col: 0, rotation: 0 }
+    const glyphs = pieceConnectorGlyphs(piece, 0)
+    for (const g of glyphs) {
+      expect(g.status).toBe('open')
+    }
+  })
+
+  it('two stacked straights both report matched on the shared edge', () => {
+    // Straight at (0, 0) has ports facing N (row -1) and S (row 1).
+    // Straight at (1, 0) has ports facing N (row 0) and S (row 2).
+    // The S port of the first straight faces the N port of the second.
+    const pieces: Piece[] = [
+      { type: 'straight', row: 0, col: 0, rotation: 0 },
+      { type: 'straight', row: 1, col: 0, rotation: 0 },
+    ]
+    const glyphs = cityConnectorGlyphs(pieces)
+    const firstSouth = glyphs.find(
+      (g) => g.pieceIndex === 0 && g.dir === DIR_S,
+    )!
+    const secondNorth = glyphs.find(
+      (g) => g.pieceIndex === 1 && g.dir === DIR_N,
+    )!
+    expect(firstSouth.status).toBe('matched')
+    expect(secondNorth.status).toBe('matched')
+  })
+
+  it('the open ends of a two-straight stack stay open', () => {
+    const pieces: Piece[] = [
+      { type: 'straight', row: 0, col: 0, rotation: 0 },
+      { type: 'straight', row: 1, col: 0, rotation: 0 },
+    ]
+    const glyphs = cityConnectorGlyphs(pieces)
+    const firstNorth = glyphs.find(
+      (g) => g.pieceIndex === 0 && g.dir === DIR_N,
+    )!
+    const secondSouth = glyphs.find(
+      (g) => g.pieceIndex === 1 && g.dir === DIR_S,
+    )!
+    expect(firstNorth.status).toBe('open')
+    expect(secondSouth.status).toBe('open')
+  })
+
+  it('a straight against an empty cell reports both ports open', () => {
+    const pieces: Piece[] = [
+      { type: 'straight', row: 0, col: 0, rotation: 0 },
+    ]
+    const glyphs = cityConnectorGlyphs(pieces)
+    for (const g of glyphs) {
+      expect(g.status).toBe('open')
+    }
+  })
+
+  it('two adjacent straights at right angles do not match (cardinal-vs-cardinal opposite check fails)', () => {
+    // First straight at (0, 0) faces N / S.
+    // Second straight at (0, 1) (rotated 90deg) faces E / W.
+    // No port pair faces opposite each other across the shared edge.
+    const pieces: Piece[] = [
+      { type: 'straight', row: 0, col: 0, rotation: 0 },
+      { type: 'straight', row: 0, col: 1, rotation: 0 },
+    ]
+    const glyphs = cityConnectorGlyphs(pieces)
+    for (const g of glyphs) {
+      expect(g.status).toBe('open')
+    }
+  })
+
+  it('an intersection links to a straight on each cardinal arm', () => {
+    // Intersection at (0, 0) has N / E / S / W ports.
+    // Place a straight at (1, 0) (S of intersection): the intersection's
+    // S port faces the straight's N port -> matched.
+    const pieces: Piece[] = [
+      { type: 'intersection', row: 0, col: 0, rotation: 0 },
+      { type: 'straight', row: 1, col: 0, rotation: 0 },
+    ]
+    const glyphs = cityConnectorGlyphs(pieces)
+    const intersectionS = glyphs.find(
+      (g) => g.pieceIndex === 0 && g.dir === DIR_S,
+    )!
+    const straightN = glyphs.find(
+      (g) => g.pieceIndex === 1 && g.dir === DIR_N,
+    )!
+    expect(intersectionS.status).toBe('matched')
+    expect(straightN.status).toBe('matched')
+    // The intersection's other three arms remain open.
+    const otherArms = glyphs.filter(
+      (g) => g.pieceIndex === 0 && g.dir !== DIR_S,
+    )
+    for (const g of otherArms) {
+      expect(g.status).toBe('open')
+    }
+  })
+
+  it('a port does not match itself even when its piece has another port at the same cell', () => {
+    // An intersection has four ports on the same cell. A port facing N
+    // walks one cell north and looks for an opposite (S) port on a
+    // different piece. Without a neighbor, the port stays open even
+    // though the source piece has its own E / S / W ports on the cell.
+    const pieces: Piece[] = [
+      { type: 'intersection', row: 0, col: 0, rotation: 0 },
+    ]
+    const glyphs = cityConnectorGlyphs(pieces)
+    for (const g of glyphs) {
+      expect(g.status).toBe('open')
+    }
+  })
+
+  it('two diagonals laid end-to-end report matched on the shared corner', () => {
+    // Diagonal at (0, 0) has SW + NE ports both anchored at cell (0, 0).
+    // The NE port walks one cell NE to cell (-1, 1) looking for a SW
+    // port at (-1, 1). Diagonal at (-1, 1) has SW + NE ports anchored
+    // at cell (-1, 1), so the SW port at (-1, 1) faces back toward
+    // (0, 0). These two ports face each other.
+    const pieces: Piece[] = [
+      { type: 'diagonal', row: 0, col: 0, rotation: 0 },
+      { type: 'diagonal', row: -1, col: 1, rotation: 0 },
+    ]
+    const glyphs = cityConnectorGlyphs(pieces)
+    const firstNE = glyphs.find(
+      (g) => g.pieceIndex === 0 && g.dir === DIR_NE,
+    )!
+    const secondSW = glyphs.find(
+      (g) => g.pieceIndex === 1 && g.dir === DIR_SW,
+    )!
+    expect(firstNE.status).toBe('matched')
+    expect(secondSW.status).toBe('matched')
+  })
+
+  it('rotation propagates through to the match check', () => {
+    // First straight at (0, 0) rotation 90 faces E / W.
+    // Second straight at (0, 1) rotation 90 faces E / W.
+    // The first's E port (cell (0, 1)) meets the second's W port.
+    const pieces: Piece[] = [
+      { type: 'straight', row: 0, col: 0, rotation: 90 },
+      { type: 'straight', row: 0, col: 1, rotation: 90 },
+    ]
+    const glyphs = cityConnectorGlyphs(pieces)
+    const firstE = glyphs.find(
+      (g) => g.pieceIndex === 0 && g.dir === DIR_E,
+    )!
+    const secondW = glyphs.find(
+      (g) => g.pieceIndex === 1 && g.dir === DIR_W,
+    )!
+    expect(firstE.status).toBe('matched')
+    expect(secondW.status).toBe('matched')
+  })
+})
+
+describe('countMatchedGlyphs', () => {
+  it('returns zero for an empty glyph list', () => {
+    expect(countMatchedGlyphs([])).toBe(0)
+  })
+
+  it('returns zero when every glyph is open', () => {
+    const glyphs = cityConnectorGlyphs([
+      { type: 'straight', row: 0, col: 0, rotation: 0 },
+    ])
+    expect(countMatchedGlyphs(glyphs)).toBe(0)
+  })
+
+  it('counts only the matched glyphs (two-straight stack: 2 matched, 2 open)', () => {
+    const glyphs = cityConnectorGlyphs([
+      { type: 'straight', row: 0, col: 0, rotation: 0 },
+      { type: 'straight', row: 1, col: 0, rotation: 0 },
+    ])
+    expect(countMatchedGlyphs(glyphs)).toBe(2)
+    expect(glyphs).toHaveLength(4)
+  })
+
+  it('counts every matched glyph when an intersection links four straights', () => {
+    // Intersection at (0, 0) plus straights at N, E, S, W neighbors.
+    const pieces: Piece[] = [
+      { type: 'intersection', row: 0, col: 0, rotation: 0 },
+      { type: 'straight', row: -1, col: 0, rotation: 0 },
+      { type: 'straight', row: 1, col: 0, rotation: 0 },
+      { type: 'straight', row: 0, col: -1, rotation: 90 },
+      { type: 'straight', row: 0, col: 1, rotation: 90 },
+    ]
+    const glyphs = cityConnectorGlyphs(pieces)
+    // Each straight has exactly one matched arm to the intersection
+    // and one open arm pointing away. The intersection has all four
+    // arms matched. Total matched: 4 (intersection) + 4 (straights) = 8.
+    expect(countMatchedGlyphs(glyphs)).toBe(8)
   })
 })
