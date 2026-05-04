@@ -32,8 +32,8 @@ import {
  * `npm run build` plus the Playwright spec for the editor route.
  */
 
-describe('STREET_PALETTE (REQ-017, REQ-018, REQ-019)', () => {
-  it('exposes the v1 cardinal basics, then the curve / sweep pieces, then the intersection', () => {
+describe('STREET_PALETTE (REQ-017, REQ-018, REQ-019, REQ-061, REQ-062)', () => {
+  it('exposes the v1 cardinal basics, the curve / sweep pieces, the intersection, then the corner-connector pieces', () => {
     expect(STREET_PALETTE.map((p) => p.type)).toEqual([
       'straight',
       'left90',
@@ -43,6 +43,8 @@ describe('STREET_PALETTE (REQ-017, REQ-018, REQ-019)', () => {
       'sweepRight',
       'sweepLeft',
       'intersection',
+      'arc45',
+      'diagonal',
     ])
   })
 
@@ -85,16 +87,23 @@ describe('STREET_PALETTE (REQ-017, REQ-018, REQ-019)', () => {
     const indexOf = (t: string) =>
       STREET_PALETTE.findIndex((p) => p.type === t)
     expect(indexOf('sweepLeft')).toBeLessThan(indexOf('intersection'))
-    expect(indexOf('intersection')).toBe(STREET_PALETTE.length - 1)
   })
 
-  it('does not advertise pieces from later slices (REQ-058, REQ-060, REQ-061, REQ-062)', () => {
+  it('orders the REQ-061 arc45 and REQ-062 diagonal after the intersection', () => {
+    const indexOf = (t: string) =>
+      STREET_PALETTE.findIndex((p) => p.type === t)
+    expect(indexOf('intersection')).toBeLessThan(indexOf('arc45'))
+    expect(indexOf('arc45')).toBeLessThan(indexOf('diagonal'))
+    // diagonal is the trailing entry so the corner-connector block stays
+    // grouped at the end of the palette.
+    expect(indexOf('diagonal')).toBe(STREET_PALETTE.length - 1)
+  })
+
+  it('does not advertise pieces from later slices (REQ-058, REQ-060)', () => {
     const types = new Set(STREET_PALETTE.map((p) => p.type))
     expect(types.has('megaSweepRight')).toBe(false)
     expect(types.has('megaSweepLeft')).toBe(false)
     expect(types.has('hairpin')).toBe(false)
-    expect(types.has('arc45')).toBe(false)
-    expect(types.has('diagonal')).toBe(false)
   })
 
   it('does not duplicate any piece type', () => {
@@ -182,6 +191,62 @@ describe('placePiece with REQ-019 intersection', () => {
   it('returns a city that still validates against CitySchema', () => {
     const next = placePiece(EMPTY_CITY, 'intersection', 0, 0, 180)
     expect(() => CitySchema.parse(next)).not.toThrow()
+  })
+})
+
+describe('placePiece with REQ-061 arc45 and REQ-062 diagonal', () => {
+  it('places arc45 as a single-cell piece', () => {
+    const next = placePiece(EMPTY_CITY, 'arc45', 0, 0)
+    expect(next.pieces).toHaveLength(1)
+    expect(next.pieces[0]).toEqual({
+      type: 'arc45',
+      row: 0,
+      col: 0,
+      rotation: 0,
+    })
+    expect(next.pieces[0].footprint).toBeUndefined()
+  })
+
+  it('places diagonal as a single-cell piece', () => {
+    const next = placePiece(EMPTY_CITY, 'diagonal', 1, 2)
+    expect(next.pieces).toHaveLength(1)
+    expect(next.pieces[0]).toEqual({
+      type: 'diagonal',
+      row: 1,
+      col: 2,
+      rotation: 0,
+    })
+    expect(next.pieces[0].footprint).toBeUndefined()
+  })
+
+  it('records rotation when the click handler passes one', () => {
+    const placedArc = placePiece(EMPTY_CITY, 'arc45', 3, 4, 90)
+    expect(placedArc.pieces[0].rotation).toBe(90)
+    const placedDiagonal = placePiece(EMPTY_CITY, 'diagonal', 5, 6, 270)
+    expect(placedDiagonal.pieces[0].rotation).toBe(270)
+  })
+
+  it('rejects placement on a cell already occupied by a piece', () => {
+    const seeded: City = {
+      pieces: [{ type: 'straight', row: 0, col: 0, rotation: 0 }],
+      buildings: [],
+    }
+    expect(placePiece(seeded, 'arc45', 0, 0)).toBe(seeded)
+    expect(placePiece(seeded, 'diagonal', 0, 0)).toBe(seeded)
+  })
+
+  it('round-trips with erasePiece', () => {
+    const placedArc = placePiece(EMPTY_CITY, 'arc45', 2, 3)
+    expect(erasePiece(placedArc, 2, 3).pieces).toHaveLength(0)
+    const placedDiagonal = placePiece(EMPTY_CITY, 'diagonal', -1, -2)
+    expect(erasePiece(placedDiagonal, -1, -2).pieces).toHaveLength(0)
+  })
+
+  it('returns a city that still validates against CitySchema', () => {
+    const arcCity = placePiece(EMPTY_CITY, 'arc45', 0, 0, 180)
+    expect(() => CitySchema.parse(arcCity)).not.toThrow()
+    const diagonalCity = placePiece(EMPTY_CITY, 'diagonal', 0, 1, 90)
+    expect(() => CitySchema.parse(diagonalCity)).not.toThrow()
   })
 })
 

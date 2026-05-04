@@ -72,15 +72,16 @@ export interface PaletteEntry {
 }
 
 /**
- * v1 street palette (REQ-017, REQ-018, REQ-019). Ordering is the
- * render order. The first three entries are the cardinal-only basics
- * (REQ-017); the next four extend the palette with single-cell sweep
- * and S-curve pieces that share the same cardinal connector pattern
- * (REQ-018); the last entry is the 4-way `intersection` (REQ-019), a
- * single-cell piece with four cardinal connectors so streets can
- * branch. Future slices append the multi-cell mega-sweep / hairpin
- * (REQ-058 / REQ-060) and corner-connector arc45 / diagonal
- * (REQ-061 / REQ-062) pieces in their own slices.
+ * v1 street palette (REQ-017, REQ-018, REQ-019, REQ-061, REQ-062).
+ * Ordering is the render order. The first three entries are the
+ * cardinal-only basics (REQ-017); the next four extend the palette
+ * with single-cell sweep and S-curve pieces that share the same
+ * cardinal connector pattern (REQ-018); the next entry is the 4-way
+ * `intersection` (REQ-019), a single-cell piece with four cardinal
+ * connectors so streets can branch; the last two entries are the
+ * single-cell corner-connector pieces `arc45` (REQ-061) and
+ * `diagonal` (REQ-062) per F-007. Future slices append the multi-cell
+ * mega-sweep / hairpin (REQ-058 / REQ-060) pieces.
  *
  * The REQ-018 entries are placed after the REQ-017 entries so existing
  * keyboard / palette muscle memory (Straight as the first entry,
@@ -88,8 +89,24 @@ export interface PaletteEntry {
  * pairs because S-curves are the more common starter shape for a
  * city loop; sweep pieces are the longer-radius variant a builder
  * reaches for after the basic shape is in place. Intersection lands
- * at the end of the palette because branching is the next conceptual
- * step after a builder has the basic shape and the curves in hand.
+ * after the cardinal sweep / curve pairs because branching is the
+ * next conceptual step after a builder has the basic shape and the
+ * curves in hand. The corner-connector pieces (arc45 then diagonal)
+ * land at the end so the cardinal-only block stays grouped at the
+ * front of the palette; arc45 sits before diagonal because arc45 is
+ * the bridge piece that introduces a corner connector at all and
+ * diagonal is the run-of-corner piece a builder reaches for once
+ * the bridge is in place.
+ *
+ * REQ-061 and REQ-062 ship the editor surface only in this slice;
+ * the runtime concerns (sampled centerlines per F-003, wheel
+ * contact per F-004, pace notes per F-005, difficulty scoring per
+ * F-006, and the 8-direction connector validation per REQ-063) wait
+ * for the drive scene scaffold (REQ-031) to land. The palette entry
+ * lets a builder record a placement; the schema (PieceTypeSchema)
+ * already accepts these types and `placePiece` treats them as
+ * single-cell pieces (the schema entry has no `footprint`, so the
+ * implicit `(row, col)` single-cell footprint applies).
  */
 export const STREET_PALETTE: readonly PaletteEntry[] = [
   { type: 'straight', label: 'Straight' },
@@ -100,6 +117,8 @@ export const STREET_PALETTE: readonly PaletteEntry[] = [
   { type: 'sweepRight', label: 'Sweep Right' },
   { type: 'sweepLeft', label: 'Sweep Left' },
   { type: 'intersection', label: 'Intersection' },
+  { type: 'arc45', label: 'Arc 45' },
+  { type: 'diagonal', label: 'Diagonal' },
 ]
 
 /**

@@ -3,6 +3,7 @@
   "_comment_2": "Allowed status values: not_started | partial | done | out_of_scope. Every row should carry implementationRefs and testRefs once status >= partial. followupRefs link to F-NNN entries in FOLLOWUPS.md.",
   "_comment_3": "gddRef paths may not yet exist when a row is seeded; the slice that picks the row creates the section file.",
   "updatedAt": "2026-05-04",
+  "_comment_12": "REQ-061 (arc45) + REQ-062 (diagonal) editor palette entries landed per F-007: src/app/[slug]/edit/editorState.ts STREET_PALETTE extended with single-cell { type: 'arc45', label: 'Arc 45' } and { type: 'diagonal', label: 'Diagonal' } entries appended after the REQ-019 intersection so the corner-connector block stays grouped at the trailing edge of the palette (arc45 sits before diagonal because arc45 is the bridge piece that introduces a corner connector and diagonal is the run-of-corner piece a builder reaches for once the bridge is in place). Both entries are single-cell with the implicit (row, col) footprint so the existing placePiece / erasePiece reducer paths cover them without 8-direction connector or sampled-centerline plumbing. tests/app/editorState.test.ts refreshed the STREET_PALETTE enumeration test, added an ordering assertion (arc45 after intersection, diagonal at STREET_PALETTE.length - 1), dropped arc45 / diagonal from the deferred-piece exclusion guard, added a 6-case placePiece block covering single-cell placement for each type, rotation pass-through, overlap rejection on a piece-occupied cell, round-trip with erasePiece, and CitySchema validity. e2e/editor.spec.ts gained a /corner-palette-spec/edit spec that asserts both buttons are visible with the right text, picks Arc 45, places at origin and asserts data-cell-occupied-kind, switches to Diagonal, places at (0, 1), and confirms a duplicate click on an occupied cell stays a no-op. REQ-061 and REQ-062 stay partial because the runtime concerns (F-003 sampled centerlines, F-004 wheel contact, F-005 pace notes, F-006 difficulty scoring, REQ-063 8-direction connector validation) wait for the drive scene scaffold (REQ-031). F-007 resolved. See PROGRESS_LOG.md.",
   "_comment_11": "REQ-019 (intersection 4-way piece in palette) landed: src/app/[slug]/edit/editorState.ts STREET_PALETTE extended with a single { type: 'intersection', label: 'Intersection' } entry appended after the REQ-018 sweep / S-curve pieces (so it is the trailing palette entry and Straight remains the default selection). Single-cell footprint matches the REQ-017 cardinal basics so the existing placePiece / erasePiece reducer paths cover it without footprint plumbing (REQ-059) or 8-direction connectors (REQ-063). tests/app/editorState.test.ts refreshed enumeration test, added ordering assertion (intersection at STREET_PALETTE.length - 1), dropped intersection from the deferred-piece exclusion guard, added 6-case placePiece with REQ-019 block (single-cell placement, rotation pass-through, overlap reject on piece-occupied cell, accept over a building cell to match every other street piece, round-trip with erasePiece, CitySchema validity). e2e/editor.spec.ts gained a /intersection-spec/edit spec that asserts the Intersection button is visible with the right text, picks Intersection, places at origin and (0, 2), and confirms a duplicate click on an occupied cell is a no-op. See PROGRESS_LOG.md.",
   "_comment_10": "REQ-028 + REQ-029 (building palette placeholder primitives + place / rotate / erase parity) landed: src/app/[slug]/edit/editorState.ts gained PaletteCategory ('street' | 'building') with DEFAULT_PALETTE_CATEGORY = 'street', BUILDING_PALETTE (small-house / mid-house / shop / factory single-cell entries), DEFAULT_BUILDING_TYPE = 'small-house', pure placeBuilding(city, type, row, col, rotation?) reducer (rejects on overlap with any piece footprint cell or any existing building cell, identity short-circuit on reject), pure eraseBuilding(city, row, col) reducer (identity short-circuit when no building covers cell). src/app/[slug]/edit/snapGrid.ts gained occupiedBuildingCells(city) helper paralleling occupiedPieceCells. src/app/[slug]/edit/SnapGridView.tsx renders building cells with olive fill (#6b7d4a vs piece brown #7d6b4a), exposes data-cell-occupied-kind ('piece' | 'building' | 'none') and data-building-count attribute on the SVG root. src/app/[slug]/edit/EditorClient.tsx adds a category switcher (role='tablist', data-testid='editor-palette-category', per-tab data-testid 'editor-palette-category-street' / 'editor-palette-category-building', aria-selected mirroring active tab), separate selectedBuildingType state, palette buttons swap based on category, click handler dispatches placeBuilding / eraseBuilding when in building category (place and erase both follow the active category), the same rotate / undo / redo / autosave / Drive controls service both categories, piece-count readout grows to include 'Buildings placed: N' when any building is on the grid (data-building-count on the readout). docs/gdd/08-buildings.md created as canonical spec. tests/app/snapGrid.test.ts gained 5 occupiedBuildingCells cases plus a parallel-array exclusion guard on occupiedPieceCells. tests/app/editorState.test.ts gained 4 BUILDING_PALETTE assertions, DEFAULT_BUILDING_TYPE / DEFAULT_PALETTE_CATEGORY checks, 12 placeBuilding cases, 11 eraseBuilding cases. e2e/editor.spec.ts gained a /building-palette-spec/edit spec walking the category switch, placing a piece then a building, asserting overlap rejection in both directions, switching building types, exercising erase in both categories, and confirming rotation flows through to building placement. See PROGRESS_LOG.md.",
   "_comment_9": "REQ-023 (editor undo / redo via immutable history stack) landed: src/app/[slug]/edit/editorHistory.ts ports VibeRacer's editorHistory.ts (createHistory / pushHistory / undoHistory / redoHistory / canUndo / canRedo, EDITOR_HISTORY_MAX_PAST = 100, identity-equality short-circuit so idempotent setters do not pollute the past stack); src/app/[slug]/edit/EditorClient.tsx wraps the working city in EditorHistory<City>, every accepted placePiece / erasePiece pushes a new entry, undo / redo handlers trigger autosave (status flips to pending so the resulting city persists), toolbar gains Undo / Redo buttons (data-testid editor-undo / editor-redo, data-can-undo / data-can-redo attributes, disabled when stack is empty), keyboard listener adds Cmd+Z / Ctrl+Z for undo and Cmd+Shift+Z / Ctrl+Shift+Z plus Cmd+Y / Ctrl+Y for redo while still ignoring text-input targets and modifier-held R / E. tests/app/editorHistory.test.ts (20 cases covering create / push / undo / redo / cap / no-op short-circuit / round-trip with placePiece). e2e/editor.spec.ts gained a /undo-redo-spec/edit spec that places, undoes, redoes via both buttons and shortcuts, asserts disabled state, and confirms a fresh placement clears the redo stack. See PROGRESS_LOG.md.",
@@ -261,18 +262,34 @@
       "requirement": "Editor: 45-arc piece type (2x2 footprint, cardinal-to-corner connector bridge) per VibeRacer Phase 1c. Required if diagonal pieces are adopted. Adopt once VibeRacer ships it.",
       "gddRef": "docs/gdd/06-city-schema.md",
       "status": "partial",
-      "implementationRefs": ["src/lib/schemas.ts"],
-      "testRefs": ["tests/lib/schemas.test.ts"],
-      "followupRefs": ["F-002", "F-003", "F-004", "F-005", "F-006", "F-007"]
+      "implementationRefs": [
+        "src/lib/schemas.ts",
+        "src/app/[slug]/edit/editorState.ts",
+        "src/app/[slug]/edit/EditorClient.tsx"
+      ],
+      "testRefs": [
+        "tests/lib/schemas.test.ts",
+        "tests/app/editorState.test.ts",
+        "e2e/editor.spec.ts"
+      ],
+      "followupRefs": ["F-002", "F-003", "F-004", "F-005", "F-006"]
     },
     {
       "id": "REQ-062",
       "requirement": "Editor: diagonal piece type (1x1 footprint, two corner connectors NE-SW or NW-SE, length CELL_SIZE * sqrt(2)) per VibeRacer Phase 1d. Adopt once VibeRacer ships it.",
       "gddRef": "docs/gdd/06-city-schema.md",
       "status": "partial",
-      "implementationRefs": ["src/lib/schemas.ts"],
-      "testRefs": ["tests/lib/schemas.test.ts"],
-      "followupRefs": ["F-002", "F-003", "F-004", "F-005", "F-006", "F-007"]
+      "implementationRefs": [
+        "src/lib/schemas.ts",
+        "src/app/[slug]/edit/editorState.ts",
+        "src/app/[slug]/edit/EditorClient.tsx"
+      ],
+      "testRefs": [
+        "tests/lib/schemas.test.ts",
+        "tests/app/editorState.test.ts",
+        "e2e/editor.spec.ts"
+      ],
+      "followupRefs": ["F-002", "F-003", "F-004", "F-005", "F-006"]
     },
     {
       "id": "REQ-063",
