@@ -17,9 +17,9 @@ import { DEFAULT_KEY_BINDINGS, MAX_SPEED } from '@/app/[slug]/driveControls'
  */
 
 describe('HUD_CONTROLS_HINT_LINES', () => {
-  it('lists every default action plus the pause hint', () => {
-    // Five actions: throttle, brake, steerLeft, steerRight, pause.
-    expect(HUD_CONTROLS_HINT_LINES).toHaveLength(5)
+  it('lists every default action plus the respawn and pause hints', () => {
+    // Six rows: throttle, steerLeft, brake, steerRight, respawn, pause.
+    expect(HUD_CONTROLS_HINT_LINES).toHaveLength(6)
   })
 
   it('mentions every action label from the default key bindings', () => {
@@ -51,6 +51,12 @@ describe('HUD_CONTROLS_HINT_LINES', () => {
     const text = HUD_CONTROLS_HINT_LINES.join(' ')
     expect(text).toContain('Esc')
     expect(text.toLowerCase()).toContain('pause')
+  })
+
+  it('mentions R for respawn (REQ-067)', () => {
+    const text = HUD_CONTROLS_HINT_LINES.join(' ')
+    expect(text).toContain('R')
+    expect(text.toLowerCase()).toContain('respawn')
   })
 
   it('emits non-empty trimmed strings on every line', () => {

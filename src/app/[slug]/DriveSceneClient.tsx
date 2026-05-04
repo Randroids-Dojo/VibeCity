@@ -73,6 +73,7 @@ import {
   speedDirection,
   speedFraction,
 } from './driveHud'
+import { RESPAWN_KEY_CODE, respawnVehicle } from './respawn'
 
 /**
  * Drive scene scaffold (REQ-044, REQ-045, REQ-046, REQ-053) plus the
@@ -526,6 +527,52 @@ export function DriveSceneClient({
       updateCameraAttrs()
     }
 
+    // Respawn key (REQ-067). R resets the car to the spawn anchor with
+    // zero speed so a player who tipped off the world or wedged against
+    // a building can recover without reloading the page. Skipped while
+    // paused so a paused world cannot teleport the car mid-pause; the
+    // pressed-key set is cleared so a held throttle does not relaunch
+    // the freshly-spawned car on the next frame. The text-target guard
+    // mirrors the WASD / Esc handlers so a future input on the drive
+    // surface keeps R-as-text working. The chase camera rig snaps to
+    // the new pose so it does not ease in from the wreck position on
+    // the next tick.
+    const handleRespawnKey = (event: KeyboardEvent) => {
+      if (event.code !== RESPAWN_KEY_CODE) return
+      if (isTextTarget(event.target)) return
+      if (isPaused(pauseStateRef.current)) return
+      if (!vehicle || !car) return
+      event.preventDefault()
+      vehicle = respawnVehicle(city.pieces)
+      car.position.x = vehicle.x
+      car.position.z = vehicle.z
+      car.rotation.y = vehicle.heading
+      pressedKeys.clear()
+      updatePressedAttr()
+      updateVehicleAttrs()
+      updateOnBuildingAttr(
+        isOnBuildingCell(vehicle.x, vehicle.z, buildingCells),
+      )
+      updateOffStreetAttr(
+        !isOnStreetCell(vehicle.x, vehicle.z, streetCells),
+      )
+      updateHud()
+      if (rig) {
+        const snap = createCameraRig(vehicle.x, vehicle.z, vehicle.heading)
+        rig.position.x = snap.position.x
+        rig.position.y = snap.position.y
+        rig.position.z = snap.position.z
+        rig.target.x = snap.target.x
+        rig.target.y = snap.target.y
+        rig.target.z = snap.target.z
+        applyChaseCamera()
+        updateCameraAttrs()
+      }
+    }
+    if (car) {
+      window.addEventListener('keydown', handleRespawnKey)
+    }
+
     const tick = (timestamp: number) => {
       frameHandle = window.requestAnimationFrame(tick)
       if (lastTimestamp === null) {
@@ -608,6 +655,7 @@ export function DriveSceneClient({
         window.removeEventListener('keyup', handleKeyUp)
         window.removeEventListener('blur', handleBlur)
         window.removeEventListener('keydown', handlePauseKey)
+        window.removeEventListener('keydown', handleRespawnKey)
       }
       // Dispose every geometry / material attached to the scene so
       // navigating away does not leak GPU memory across slugs.

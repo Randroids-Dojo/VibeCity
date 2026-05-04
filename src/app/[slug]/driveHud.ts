@@ -24,14 +24,16 @@ import { MAX_SPEED } from './driveControls'
  * three.js scene state.
  *
  * The order is the conventional WASD layout (top, left, down, right),
- * followed by the pause-menu hint. Each row is `Keys: action` so a
- * screen reader reads the binding before the action label.
+ * followed by the respawn hint (REQ-067) and the pause-menu hint
+ * (REQ-039). Each row is `Keys: action` so a screen reader reads the
+ * binding before the action label.
  */
 export const HUD_CONTROLS_HINT_LINES: ReadonlyArray<string> = [
   'W / Up: throttle',
   'A / Left: steer left',
   'S / Down: brake',
   'D / Right: steer right',
+  'R: respawn',
   'Esc: pause',
 ]
 
