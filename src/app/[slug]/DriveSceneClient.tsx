@@ -88,6 +88,7 @@ import {
   minimapBoundsForCity,
   worldToMinimap,
 } from './driveMinimap'
+import { SceneTransitionCurtain } from './SceneTransitionCurtain'
 
 /**
  * Drive scene scaffold (REQ-044, REQ-045, REQ-046, REQ-053) plus the
@@ -958,6 +959,7 @@ export function DriveSceneClient({
         }}
       >
         Edit
+        <SceneTransitionCurtain target="edit" />
       </Link>
       {isEmpty ? (
         <div
@@ -1026,6 +1028,7 @@ export function DriveSceneClient({
             }}
           >
             Open editor
+            <SceneTransitionCurtain target="edit" />
           </Link>
         </div>
       ) : null}
@@ -1318,6 +1321,7 @@ export function DriveSceneClient({
               }}
             >
               Edit
+              <SceneTransitionCurtain target="edit" />
             </Link>
           </div>
           <p
