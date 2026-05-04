@@ -255,6 +255,50 @@ test('autosave PUTs after every accepted mutation (REQ-025)', async ({
   expect(requestedSlugs.length).toBeGreaterThan(before)
 })
 
+test('toolbar Drive CTA links to /<slug> and navigates on click (REQ-026)', async ({
+  page,
+}) => {
+  // Intercept autosave PUTs so the editor opens cleanly without
+  // requiring KV configured against the Playwright webServer.
+  await page.route('**/api/city/**', async (route) => {
+    if (route.request().method() !== 'PUT') {
+      await route.continue()
+      return
+    }
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        slug: 'drive-cta-spec',
+        versionHash:
+          '0000000000000000000000000000000000000000000000000000000000000000',
+        updatedAt: Date.now(),
+      }),
+    })
+  })
+
+  const response = await page.goto('/drive-cta-spec/edit')
+  expect(response?.status()).toBe(200)
+
+  const palette = page.getByTestId('editor-palette')
+  const driveCta = page.getByTestId('editor-drive-cta')
+
+  // The Drive CTA lives inside the editor toolbar (REQ-026), not as a
+  // separate page-level link.
+  await expect(driveCta).toBeVisible()
+  await expect(palette.getByTestId('editor-drive-cta')).toBeVisible()
+
+  // The CTA points at the slug's drive view at /<slug>.
+  await expect(driveCta).toHaveAttribute('href', '/drive-cta-spec')
+  await expect(driveCta).toHaveAttribute('data-slug', 'drive-cta-spec')
+  await expect(driveCta).toHaveText('Drive')
+
+  // Clicking the Drive CTA navigates to /<slug>.
+  await driveCta.click()
+  await page.waitForURL('**/drive-cta-spec')
+  expect(page.url()).toMatch(/\/drive-cta-spec$/)
+})
+
 test('autosave surfaces save failures via the status indicator (REQ-025)', async ({
   page,
 }) => {
