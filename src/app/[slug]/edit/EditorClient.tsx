@@ -19,20 +19,30 @@ import {
   isCityContentEqual,
   type AutosaveStatus,
 } from './autosaveStatus'
+import {
+  canRedo,
+  canUndo,
+  createHistory,
+  pushHistory,
+  redoHistory,
+  undoHistory,
+  type EditorHistory,
+} from './editorHistory'
 import { SnapGrid } from './SnapGridView'
 
 /**
- * Editor client surface (REQ-017, REQ-020, REQ-021, REQ-022, REQ-025,
- * REQ-026).
+ * Editor client surface (REQ-017, REQ-020, REQ-021, REQ-022, REQ-023,
+ * REQ-025, REQ-026).
  *
  * Wraps the snap-grid (REQ-016) with the v1 cardinal-only street
  * palette, a click-to-place tool, a rotate tool that cycles the
  * selected piece's rotation in 90deg increments, an erase tool that
- * flips the cell-click contract from place to erase, autosave that
- * writes through PUT `/api/city/<slug>` (REQ-014) on every mutation,
- * and a Drive CTA in the toolbar that navigates to `/<slug>` so the
- * build / drive loop round-trips from a single control surface
- * (REQ-026).
+ * flips the cell-click contract from place to erase, undo / redo that
+ * walks an immutable history stack across every accepted mutation,
+ * autosave that writes through PUT `/api/city/<slug>` (REQ-014) on
+ * every mutation, and a Drive CTA in the toolbar that navigates to
+ * `/<slug>` so the build / drive loop round-trips from a single
+ * control surface (REQ-026).
  *
  * Placement uses the pure `placePiece` reducer from `editorState.ts`
  * so the UI does not need to inline footprint validation. Clicks on
@@ -47,6 +57,16 @@ import { SnapGrid } from './SnapGridView'
  * Rotation cycles via `nextRotation`. The rotate tool is exposed two
  * ways: a Rotate button in the toolbar and the `R` keyboard shortcut.
  *
+ * Undo / redo (REQ-023) wraps the working `City` in an
+ * `EditorHistory<City>` from `editorHistory.ts`. Every accepted
+ * placement / erase pushes the new city onto the past stack; rejected
+ * mutations (overlap, empty-cell erase) keep the prior reference and
+ * the history helpers' identity-equality short-circuit prevents duplicate
+ * entries. The toolbar exposes Undo / Redo buttons (disabled when the
+ * respective stack is empty) and the `Cmd+Z` / `Ctrl+Z` shortcut for
+ * undo plus `Cmd+Shift+Z` / `Ctrl+Shift+Z` and `Cmd+Y` / `Ctrl+Y` for
+ * redo.
+ *
  * Autosave (REQ-025): every accepted mutation marks the working city
  * dirty and a debounced effect (DEFAULT_AUTOSAVE_DEBOUNCE_MS) issues a
  * single PUT once the streak settles. The status indicator surfaces
@@ -54,8 +74,10 @@ import { SnapGrid } from './SnapGridView'
  * via the `editor-autosave-status` test id and a `data-autosave-status`
  * attribute. Rejected placements (overlap, identity equality from the
  * reducer) do not trigger a save because the city reference is
- * unchanged. The initial city (loaded via `loadCity` server-side) is
- * treated as already-saved; the first PUT only fires after the first
+ * unchanged. Undo / redo also flow through autosave: the resulting
+ * city is a fresh reference so the debounce kicks in and persists the
+ * post-undo state. The initial city (loaded via `loadCity` server-side)
+ * is treated as already-saved; the first PUT only fires after the first
  * accepted mutation.
  */
 export function EditorClient({
@@ -67,7 +89,19 @@ export function EditorClient({
   initialCity: City
   autosaveDebounceMs?: number
 }) {
-  const [city, setCity] = useState<City>(initialCity)
+  const [history, setHistory] = useState<EditorHistory<City>>(() =>
+    createHistory(initialCity),
+  )
+  const city = history.present
+  const setCityWithHistory = useCallback(
+    (updater: (current: City) => City) => {
+      setHistory((prev) => {
+        const next = updater(prev.present)
+        return pushHistory(prev, next)
+      })
+    },
+    [],
+  )
   const [selectedType, setSelectedType] = useState<PieceType>(
     DEFAULT_PALETTE_TYPE,
   )
@@ -75,6 +109,8 @@ export function EditorClient({
   const [toolMode, setToolMode] = useState<ToolMode>(DEFAULT_TOOL_MODE)
   const [autosaveStatus, setAutosaveStatus] =
     useState<AutosaveStatus>('idle')
+  const undoAvailable = canUndo(history)
+  const redoAvailable = canRedo(history)
 
   // Track the last city the network successfully persisted (or the
   // server-loaded initial city). The autosave effect compares the live
@@ -101,16 +137,32 @@ export function EditorClient({
     setToolMode((current) => (current === 'erase' ? 'place' : 'erase'))
   }, [])
 
+  const handleUndo = useCallback(() => {
+    setHistory((prev) => {
+      const next = undoHistory(prev)
+      if (next !== prev) setAutosaveStatus('pending')
+      return next
+    })
+  }, [])
+
+  const handleRedo = useCallback(() => {
+    setHistory((prev) => {
+      const next = redoHistory(prev)
+      if (next !== prev) setAutosaveStatus('pending')
+      return next
+    })
+  }, [])
+
   const handleCellClick = (row: number, col: number) => {
     if (toolMode === 'erase') {
-      setCity((current) => {
+      setCityWithHistory((current) => {
         const next = erasePiece(current, row, col)
         if (next !== current) setAutosaveStatus('pending')
         return next
       })
       return
     }
-    setCity((current) => {
+    setCityWithHistory((current) => {
       const next = placePiece(current, selectedType, row, col, rotation)
       if (next !== current) setAutosaveStatus('pending')
       return next
@@ -118,16 +170,16 @@ export function EditorClient({
   }
 
   // Keyboard shortcuts: `R` rotates the selected piece (REQ-021),
-  // `E` toggles erase mode (REQ-022). Ignored when the user is typing
-  // in an input / textarea or holding a modifier so the shortcuts do
-  // not collide with browser refresh (Cmd+R / Ctrl+R) or in-place
-  // text editing.
+  // `E` toggles erase mode (REQ-022), `Cmd+Z` / `Ctrl+Z` undoes the
+  // last accepted mutation (REQ-023), and `Cmd+Shift+Z` /
+  // `Ctrl+Shift+Z` plus `Cmd+Y` / `Ctrl+Y` redo. Ignored when the user
+  // is typing in an input / textarea so the shortcuts do not collide
+  // with in-place text editing. Plain `R` and `E` ignore modifier
+  // presses so browser refresh (Cmd+R / Ctrl+R) keeps working; the
+  // undo / redo shortcut path explicitly requires the modifier so the
+  // single `z` / `y` keys stay free for typing.
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
-      if (event.metaKey || event.ctrlKey || event.altKey) return
-      const isRotate = event.key === 'r' || event.key === 'R'
-      const isErase = event.key === 'e' || event.key === 'E'
-      if (!isRotate && !isErase) return
       const target = event.target as HTMLElement | null
       if (target) {
         const tag = target.tagName
@@ -135,6 +187,30 @@ export function EditorClient({
           return
         }
       }
+      const modifier = event.metaKey || event.ctrlKey
+      if (modifier) {
+        if (event.altKey) return
+        const key = event.key.toLowerCase()
+        if (key === 'z') {
+          event.preventDefault()
+          if (event.shiftKey) {
+            handleRedo()
+          } else {
+            handleUndo()
+          }
+          return
+        }
+        if (key === 'y') {
+          event.preventDefault()
+          handleRedo()
+          return
+        }
+        return
+      }
+      if (event.altKey) return
+      const isRotate = event.key === 'r' || event.key === 'R'
+      const isErase = event.key === 'e' || event.key === 'E'
+      if (!isRotate && !isErase) return
       event.preventDefault()
       if (isRotate) {
         handleRotate()
@@ -146,7 +222,7 @@ export function EditorClient({
     return () => {
       window.removeEventListener('keydown', onKeyDown)
     }
-  }, [handleRotate, handleToggleErase])
+  }, [handleRotate, handleToggleErase, handleUndo, handleRedo])
 
   // Autosave (REQ-025). Every mutation that produces a fresh city
   // reference flips the status to `pending` (above). This effect waits
@@ -310,6 +386,50 @@ export function EditorClient({
           }}
         >
           {eraseActive ? 'Erasing' : 'Erase'}
+        </button>
+        <button
+          type="button"
+          data-testid="editor-undo"
+          data-can-undo={undoAvailable ? 'true' : 'false'}
+          aria-label="Undo last edit"
+          title="Undo (Cmd+Z / Ctrl+Z)"
+          onClick={handleUndo}
+          disabled={!undoAvailable}
+          style={{
+            padding: '8px 14px',
+            fontSize: 14,
+            fontFamily: 'inherit',
+            color: '#222',
+            background: '#efe7d2',
+            border: '1px solid #d6cfbf',
+            borderRadius: 4,
+            cursor: undoAvailable ? 'pointer' : 'not-allowed',
+            opacity: undoAvailable ? 1 : 0.5,
+          }}
+        >
+          Undo
+        </button>
+        <button
+          type="button"
+          data-testid="editor-redo"
+          data-can-redo={redoAvailable ? 'true' : 'false'}
+          aria-label="Redo last undone edit"
+          title="Redo (Cmd+Shift+Z / Ctrl+Y)"
+          onClick={handleRedo}
+          disabled={!redoAvailable}
+          style={{
+            padding: '8px 14px',
+            fontSize: 14,
+            fontFamily: 'inherit',
+            color: '#222',
+            background: '#efe7d2',
+            border: '1px solid #d6cfbf',
+            borderRadius: 4,
+            cursor: redoAvailable ? 'pointer' : 'not-allowed',
+            opacity: redoAvailable ? 1 : 0.5,
+          }}
+        >
+          Redo
         </button>
         <Link
           href={`/${slug}`}

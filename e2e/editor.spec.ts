@@ -241,6 +241,103 @@ test('erase tool removes pieces and toggles via button and E key', async ({
   await expect(eraseButton).toHaveAttribute('aria-pressed', 'false')
 })
 
+test('undo and redo walk the history stack via toolbar buttons and keyboard shortcuts (REQ-023)', async ({
+  page,
+}) => {
+  // Intercept autosave so the editor opens cleanly without KV.
+  await page.route('**/api/city/**', async (route) => {
+    if (route.request().method() !== 'PUT') {
+      await route.continue()
+      return
+    }
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        slug: 'undo-redo-spec',
+        versionHash:
+          '0000000000000000000000000000000000000000000000000000000000000000',
+        updatedAt: Date.now(),
+      }),
+    })
+  })
+
+  const response = await page.goto('/undo-redo-spec/edit')
+  expect(response?.status()).toBe(200)
+
+  const grid = page.getByTestId('editor-snap-grid')
+  const pieceCount = page.getByTestId('editor-piece-count')
+  const undoButton = page.getByTestId('editor-undo')
+  const redoButton = page.getByTestId('editor-redo')
+
+  // Both controls are visible inside the toolbar.
+  await expect(undoButton).toBeVisible()
+  await expect(redoButton).toBeVisible()
+
+  // Both start disabled because the history is fresh.
+  await expect(undoButton).toBeDisabled()
+  await expect(undoButton).toHaveAttribute('data-can-undo', 'false')
+  await expect(redoButton).toBeDisabled()
+  await expect(redoButton).toHaveAttribute('data-can-redo', 'false')
+
+  // Place two pieces. Undo should be enabled after the first push.
+  await grid.locator('[data-cell-row="0"][data-cell-col="0"]').click()
+  await expect(pieceCount).toHaveText('Pieces placed: 1')
+  await expect(undoButton).toBeEnabled()
+  await expect(undoButton).toHaveAttribute('data-can-undo', 'true')
+  await expect(redoButton).toBeDisabled()
+
+  await grid.locator('[data-cell-row="0"][data-cell-col="1"]').click()
+  await expect(pieceCount).toHaveText('Pieces placed: 2')
+
+  // Undo by clicking the toolbar button: piece count should drop to 1
+  // and the second cell goes back to unoccupied.
+  await undoButton.click()
+  await expect(pieceCount).toHaveText('Pieces placed: 1')
+  await expect(grid).toHaveAttribute('data-occupied-count', '1')
+  await expect(
+    grid.locator('[data-cell-row="0"][data-cell-col="1"]'),
+  ).toHaveAttribute('data-cell-occupied', 'false')
+  await expect(redoButton).toBeEnabled()
+
+  // Redo via the button restores the second placement.
+  await redoButton.click()
+  await expect(pieceCount).toHaveText('Pieces placed: 2')
+  await expect(
+    grid.locator('[data-cell-row="0"][data-cell-col="1"]'),
+  ).toHaveAttribute('data-cell-occupied', 'true')
+  await expect(redoButton).toBeDisabled()
+
+  // Undo via the keyboard (Control+Z works on every platform; macOS
+  // Meta+Z lands on the same shortcut path).
+  await page.keyboard.press('Control+z')
+  await expect(pieceCount).toHaveText('Pieces placed: 1')
+
+  // Redo via Control+Shift+Z.
+  await page.keyboard.press('Control+Shift+z')
+  await expect(pieceCount).toHaveText('Pieces placed: 2')
+
+  // Redo also works via Control+Y (Windows convention).
+  await page.keyboard.press('Control+z')
+  await expect(pieceCount).toHaveText('Pieces placed: 1')
+  await page.keyboard.press('Control+y')
+  await expect(pieceCount).toHaveText('Pieces placed: 2')
+
+  // Performing a fresh placement after an undo clears the redo stack.
+  await page.keyboard.press('Control+z')
+  await expect(pieceCount).toHaveText('Pieces placed: 1')
+  await expect(redoButton).toBeEnabled()
+  await grid.locator('[data-cell-row="1"][data-cell-col="0"]').click()
+  await expect(pieceCount).toHaveText('Pieces placed: 2')
+  await expect(redoButton).toBeDisabled()
+
+  // Walking back to the empty city disables the undo button.
+  await undoButton.click()
+  await undoButton.click()
+  await expect(pieceCount).toHaveText('Pieces placed: 0')
+  await expect(undoButton).toBeDisabled()
+})
+
 test('autosave PUTs after every accepted mutation (REQ-025)', async ({
   page,
 }) => {

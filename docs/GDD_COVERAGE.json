@@ -3,6 +3,7 @@
   "_comment_2": "Allowed status values: not_started | partial | done | out_of_scope. Every row should carry implementationRefs and testRefs once status >= partial. followupRefs link to F-NNN entries in FOLLOWUPS.md.",
   "_comment_3": "gddRef paths may not yet exist when a row is seeded; the slice that picks the row creates the section file.",
   "updatedAt": "2026-05-04",
+  "_comment_9": "REQ-023 (editor undo / redo via immutable history stack) landed: src/app/[slug]/edit/editorHistory.ts ports VibeRacer's editorHistory.ts (createHistory / pushHistory / undoHistory / redoHistory / canUndo / canRedo, EDITOR_HISTORY_MAX_PAST = 100, identity-equality short-circuit so idempotent setters do not pollute the past stack); src/app/[slug]/edit/EditorClient.tsx wraps the working city in EditorHistory<City>, every accepted placePiece / erasePiece pushes a new entry, undo / redo handlers trigger autosave (status flips to pending so the resulting city persists), toolbar gains Undo / Redo buttons (data-testid editor-undo / editor-redo, data-can-undo / data-can-redo attributes, disabled when stack is empty), keyboard listener adds Cmd+Z / Ctrl+Z for undo and Cmd+Shift+Z / Ctrl+Shift+Z plus Cmd+Y / Ctrl+Y for redo while still ignoring text-input targets and modifier-held R / E. tests/app/editorHistory.test.ts (20 cases covering create / push / undo / redo / cap / no-op short-circuit / round-trip with placePiece). e2e/editor.spec.ts gained a /undo-redo-spec/edit spec that places, undoes, redoes via both buttons and shortcuts, asserts disabled state, and confirms a fresh placement clears the redo stack. See PROGRESS_LOG.md.",
   "_comment_8": "REQ-018 (curve and sweep palette entries) landed: src/app/[slug]/edit/editorState.ts STREET_PALETTE extended with scurve / scurveLeft / sweepRight / sweepLeft single-cell entries placed after the REQ-017 cardinal basics so Straight remains the first entry and default selection. tests/app/editorState.test.ts refreshed the palette enumeration test, added ordering and duplicate-type guards, and added place-and-overlap-reject coverage for the new types. e2e/editor.spec.ts gained a /curve-palette-spec/edit spec that places one piece with each new palette entry. See PROGRESS_LOG.md.",
   "_comment_7": "REQ-026 (Drive CTA in editor toolbar) landed: src/app/[slug]/edit/EditorClient.tsx now imports next/link and renders a prefetched Drive button at the end of the toolbar (data-testid='editor-drive-cta', data-slug attribute, aria-label naming the slug, dark-button styling matching the prior page-level CTA). src/app/[slug]/edit/page.tsx removed the page-level Drive link below the grid (the toolbar now owns the CTA per the GDD spec) and the unused next/link import; CTA copy under the heading points the author at the toolbar Drive button. e2e/editor.spec.ts gained a new spec that intercepts autosave PUTs, asserts the Drive CTA is inside the toolbar with the right href / data-slug / aria-label, and clicks through to /<slug>. See PROGRESS_LOG.md.",
   "_comment_6": "REQ-025 (editor autosave) landed: src/middleware.ts issues the vibecity.builderId cookie on first visit (httpOnly / sameSite=lax / path=/ / 1y maxAge); src/app/[slug]/edit/autosaveStatus.ts exports the AutosaveStatus union ('idle' | 'pending' | 'saving' | 'saved' | 'error'), DEFAULT_AUTOSAVE_DEBOUNCE_MS = 600, AUTOSAVE_STATUS_LABEL map, and isCityContentEqual helper; src/app/[slug]/edit/EditorClient.tsx accepts a slug prop, flips status to pending on every fresh-reference mutation, debounced effect issues a single PUT /api/city/<slug> per settled streak with AbortController-based supersedence, mid-flight edits keep status pending so the next debounce queues another save, status indicator carries data-testid='editor-autosave-status' and data-autosave-status attribute with aria-live='polite'; src/app/[slug]/edit/page.tsx now async-loads the city via loadCity(slug) (REQ-015 read-side) so the editor restores saved cities on reload, falls back to EMPTY_CITY when KV is unset. REQ-007 (edit route) flipped to done: route now loads the saved city and renders the full editor surface with autosave. See PROGRESS_LOG.md.",
@@ -344,9 +345,16 @@
       "id": "REQ-023",
       "requirement": "Editor: undo / redo via immutable history stack ported from VibeRacer editorHistory.ts",
       "gddRef": "docs/gdd/07-editor.md",
-      "status": "not_started",
-      "implementationRefs": [],
-      "testRefs": [],
+      "status": "done",
+      "implementationRefs": [
+        "src/app/[slug]/edit/editorHistory.ts",
+        "src/app/[slug]/edit/EditorClient.tsx",
+        "src/app/[slug]/edit/page.tsx"
+      ],
+      "testRefs": [
+        "tests/app/editorHistory.test.ts",
+        "e2e/editor.spec.ts"
+      ],
       "followupRefs": []
     },
     {
