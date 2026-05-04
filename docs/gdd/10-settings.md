@@ -1,6 +1,6 @@
 # Settings
 
-**Status:** partial
+**Status:** done
 
 VibeCity ships a settings pane that lets a player tune the chase camera, rebind
 keyboard controls, and pick a touch input mode. All settings persist to the
@@ -63,6 +63,72 @@ join point a converter would target.
 
 ### Build log
 
+- 2026-05-04: REQ-041 shipped. Added `src/app/[slug]/keyboardSettings.ts`
+  with `DRIVE_ACTION_OPTIONS` (per-action `{ action, label, description }`
+  records ordered throttle / brake / steerLeft / steerRight so a player
+  reads forward / backward before left / right), `clampKeyBindings(input)`
+  (runs `unknown` through `KeyBindingsSchema.safeParse` and falls back to
+  `DEFAULT_KEY_BINDINGS` on a malformed payload), `bindingsByAction`
+  (groups a `KeyBindings` map into per-action sorted code lists),
+  `REBINDABLE_KEY_CODES` and `RESERVED_KEY_CODES` (the allowlist of codes
+  the panel will accept and the reserved Esc / KeyM / KeyR set the panel
+  refuses), `isRebindableKeyCode(code)`, `keyCodeDisplayLabel(code)`
+  (renders `KeyW` as `W`, `ArrowUp` as `Up`, `Space` as `Space`),
+  `setBinding` / `clearBinding` (atomic add / remove on a fresh map),
+  and `keyBindingSignature` (deterministic sorted `code:action,...`
+  string used by the scene root's `data-key-bindings` mirror). Added
+  `src/app/[slug]/KeyboardSettingsPanel.tsx` rendering a controlled-
+  component panel inside the pause menu (REQ-039) with one row per
+  drive action, a Rebind capture button that listens for the next
+  `KeyboardEvent` on `window` and commits if the code is in the
+  rebindable allowlist (Escape cancels, reserved codes are silently
+  ignored), a Cancel button while capturing, and a Clear button per
+  row that removes every binding for that action. Wired
+  `src/app/[slug]/DriveSceneClient.tsx` to load the persisted bindings
+  on the same first-mount `useEffect` that hydrates the camera tuning
+  and touch mode, hold them in React state plus a ref the integration
+  loop reads each frame so a rebind made while paused takes effect on
+  resume without re-attaching the integration effect, persist via
+  `saveControls({ keyBindings })` on every change, route
+  `inputFromPressedKeys(pressedKeys, keyBindingsRef.current)` through
+  the live ref, gate the keydown / keyup listeners on the live ref's
+  binding shape so a rebind to a non-default key starts working
+  immediately, expose `data-key-bindings` on the scene root for tests,
+  and render `<KeyboardSettingsPanel />` immediately after
+  `<TouchSettingsPanel />` inside the pause menu so the three panels
+  stack as a single settings drawer. The reserved key codes
+  (Escape / KeyM / KeyR) cannot be bound via the capture so the
+  pause toggle (REQ-039), engine mute toggle (REQ-068), and respawn
+  key (REQ-067) cannot collide with a player rebind. 45 unit tests in
+  `tests/app/keyboardSettings.test.ts` cover the action options
+  invariants (one option per `DriveActionSchema` enum value, no
+  extras, every option has a non-empty label and description, unique
+  values, throttle / brake before steerLeft / steerRight, race-term
+  vocabulary lockdown), `clampKeyBindings` (non-object collapse,
+  unknown-action collapse, valid pass-through, idempotent, fresh
+  object, defaults pass-through, empty map valid), `bindingsByAction`
+  (default grouping, alphabetical sort, empty map, fresh object),
+  `REBINDABLE_KEY_CODES` (contains every default-binding code, every
+  reserved code rejected by `isRebindableKeyCode`, unique entries),
+  `isRebindableKeyCode` (WASD accepted, arrows accepted, Esc / M / R
+  rejected, unknown codes rejected, empty rejected),
+  `keyCodeDisplayLabel` (Key prefix stripped, Digit prefix stripped,
+  arrow compass labels, Space verbatim, fallback for unknown shapes,
+  empty input), `setBinding` (fresh add, replace existing, no mutation,
+  no-op for non-rebindable codes, no-op for unknown actions, preserves
+  other bindings, schema-valid), `clearBinding` (removes binding, no
+  mutation, no-op for absent code, preserves others), and
+  `keyBindingSignature` (sorted comma-separated, order-independent,
+  empty map, default-bindings literal). E2e drive specs assert the
+  scene root carries the default
+  `data-key-bindings='ArrowDown:brake,ArrowLeft:steerLeft,ArrowRight:steerRight,ArrowUp:throttle,KeyA:steerLeft,KeyD:steerRight,KeyS:brake,KeyW:throttle'`
+  attribute and that the `drive-keyboard-settings` testid resolves to
+  zero elements when the pause menu is closed (the panel only mounts
+  inside the pause menu which itself only opens with a car mounted).
+  Files: `src/app/[slug]/keyboardSettings.ts`,
+  `src/app/[slug]/KeyboardSettingsPanel.tsx`,
+  `src/app/[slug]/DriveSceneClient.tsx`, `e2e/drive.spec.ts`,
+  `tests/app/keyboardSettings.test.ts`. PR #N.
 - 2026-05-04: REQ-042 shipped. Added `src/app/[slug]/touchSettings.ts` with
   `TOUCH_MODE_OPTIONS` (per-mode `{ value, label, description }` records,
   dual-stick first as the default and the more capable layout, single-stick

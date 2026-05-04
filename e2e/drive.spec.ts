@@ -126,6 +126,18 @@ test('drive route mounts the canvas with the slug label and Edit CTA', async ({
   await expect(root).toHaveAttribute('data-touch-mode', 'dual-stick')
   await expect(page.getByTestId('drive-touch-settings')).toHaveCount(0)
 
+  // REQ-041: keyboard rebinding panel mirrors the live bindings via the
+  // `data-key-bindings` attribute on the scene root. The panel itself
+  // only renders inside the pause menu (REQ-039); without a car mounted
+  // the menu cannot open and the panel stays absent. The default
+  // signature is the WASD plus arrow keys map sorted alphabetically by
+  // KeyboardEvent.code.
+  await expect(root).toHaveAttribute(
+    'data-key-bindings',
+    'ArrowDown:brake,ArrowLeft:steerLeft,ArrowRight:steerRight,ArrowUp:throttle,KeyA:steerLeft,KeyD:steerRight,KeyS:brake,KeyW:throttle',
+  )
+  await expect(page.getByTestId('drive-keyboard-settings')).toHaveCount(0)
+
   // REQ-037: drive mode is a city-builder loop, not a racing game. The
   // anti-feature lockdown asserts that no lap timer, checkpoint banner,
   // race timer, or other race-HUD element ever ships on the drive
@@ -212,6 +224,15 @@ test('drive route shows the empty-state prompt for a fresh slug (REQ-053)', asyn
   // listener is gated on the car-mounted branch.
   await expect(root).toHaveAttribute('data-touch-mode', 'dual-stick')
   await expect(page.getByTestId('drive-touch-settings')).toHaveCount(0)
+
+  // REQ-041: keyboard rebinding data attribute rides on the root even
+  // on the empty grid; the panel itself stays absent because the pause
+  // menu listener is gated on the car-mounted branch.
+  await expect(root).toHaveAttribute(
+    'data-key-bindings',
+    'ArrowDown:brake,ArrowLeft:steerLeft,ArrowRight:steerRight,ArrowUp:throttle,KeyA:steerLeft,KeyD:steerRight,KeyS:brake,KeyW:throttle',
+  )
+  await expect(page.getByTestId('drive-keyboard-settings')).toHaveCount(0)
 
   // REQ-037: race-HUD anti-feature lockdown also applies on the empty
   // grid. The forbidden testids must not exist regardless of whether a

@@ -779,9 +779,17 @@
       "id": "REQ-041",
       "requirement": "Settings pane: keyboard rebinding ported from VibeRacer",
       "gddRef": "docs/gdd/10-settings.md",
-      "status": "not_started",
-      "implementationRefs": [],
-      "testRefs": [],
+      "status": "done",
+      "implementationRefs": [
+        "src/app/[slug]/keyboardSettings.ts",
+        "src/app/[slug]/KeyboardSettingsPanel.tsx",
+        "src/app/[slug]/DriveSceneClient.tsx",
+        "src/lib/controlsPersistence.ts"
+      ],
+      "testRefs": [
+        "tests/app/keyboardSettings.test.ts",
+        "e2e/drive.spec.ts"
+      ],
       "followupRefs": []
     },
     {

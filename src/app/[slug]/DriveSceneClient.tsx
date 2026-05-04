@@ -41,7 +41,6 @@ import {
   spawnAnchor,
 } from './driveScene'
 import {
-  DEFAULT_KEY_BINDINGS,
   applyDriveStep,
   createVehicleState,
   inputFromPressedKeys,
@@ -55,12 +54,16 @@ import {
 import { CameraSettingsPanel } from './CameraSettingsPanel'
 import { clampTouchMode } from './touchSettings'
 import { TouchSettingsPanel } from './TouchSettingsPanel'
+import { clampKeyBindings, keyBindingSignature } from './keyboardSettings'
+import { KeyboardSettingsPanel } from './KeyboardSettingsPanel'
 import {
   DEFAULT_CAMERA_TUNING,
+  DEFAULT_KEY_BINDINGS,
   DEFAULT_TOUCH_MODE,
   loadControls,
   saveControls,
   type CameraTuning,
+  type KeyBindings,
   type TouchMode,
 } from '@/lib/controlsPersistence'
 import {
@@ -219,6 +222,22 @@ export function DriveSceneClient({
   // input handler (REQ-035) is deferred to its own slice; this state
   // currently only drives the picker UI and the persistence layer.
   const [touchMode, setTouchMode] = useState<TouchMode>(DEFAULT_TOUCH_MODE)
+  // Key bindings state (REQ-041). Loaded from localStorage on the same
+  // first-mount effect as the camera tuning and touch mode so a
+  // returning player sees the same control layout. The integration
+  // loop reads `keyBindingsRef.current` each frame so a rebind made
+  // while paused (the panel renders inside the pause menu) takes
+  // effect immediately on resume without re-attaching the integration
+  // effect; the keydown / keyup listeners attached inside the
+  // integration effect also read the live ref so a rebound key starts
+  // working as soon as the panel commits the change.
+  const [keyBindings, setKeyBindings] = useState<KeyBindings>(
+    DEFAULT_KEY_BINDINGS,
+  )
+  const keyBindingsRef = useRef<KeyBindings>(DEFAULT_KEY_BINDINGS)
+  useEffect(() => {
+    keyBindingsRef.current = keyBindings
+  }, [keyBindings])
   useEffect(() => {
     // Hydrate from localStorage on first mount. The server-render
     // already used the defaults so a fresh visit sees the same framing
@@ -228,6 +247,7 @@ export function DriveSceneClient({
     const persisted = loadControls()
     setCameraTuning(clampCameraTuning(persisted.camera))
     setTouchMode(clampTouchMode(persisted.touchMode))
+    setKeyBindings(clampKeyBindings(persisted.keyBindings))
   }, [])
   const handleCameraTuningChange = useCallback((next: CameraTuning) => {
     const clamped = clampCameraTuning(next)
@@ -256,6 +276,15 @@ export function DriveSceneClient({
   const handleTouchModeReset = useCallback(() => {
     setTouchMode(DEFAULT_TOUCH_MODE)
     saveControls({ touchMode: DEFAULT_TOUCH_MODE })
+  }, [])
+  const handleKeyBindingsChange = useCallback((next: KeyBindings) => {
+    const clamped = clampKeyBindings(next)
+    setKeyBindings(clamped)
+    saveControls({ keyBindings: clamped })
+  }, [])
+  const handleKeyBindingsReset = useCallback(() => {
+    setKeyBindings(DEFAULT_KEY_BINDINGS)
+    saveControls({ keyBindings: DEFAULT_KEY_BINDINGS })
   }, [])
 
   // Memoize the bounds so the effect re-fits the camera only when the
@@ -527,7 +556,7 @@ export function DriveSceneClient({
       return target.isContentEditable
     }
     const isBoundKey = (code: string): boolean =>
-      Object.prototype.hasOwnProperty.call(DEFAULT_KEY_BINDINGS, code)
+      Object.prototype.hasOwnProperty.call(keyBindingsRef.current, code)
     const root = rootRef.current
     const updatePressedAttr = () => {
       if (!root) return
@@ -856,7 +885,7 @@ export function DriveSceneClient({
       const dt = (timestamp - lastTimestamp) / 1000
       lastTimestamp = timestamp
       if (vehicle && car) {
-        const input = inputFromPressedKeys(pressedKeys)
+        const input = inputFromPressedKeys(pressedKeys, keyBindingsRef.current)
         vehicle = applyDriveStep(vehicle, input, dt)
         // Off-street penalty (REQ-054). Applied first so a player who
         // veers off the road bleeds before any building-cell stack on
@@ -1016,6 +1045,7 @@ export function DriveSceneClient({
       data-camera-follow-speed={cameraTuning.followSpeed}
       data-camera-fov={cameraTuning.fov}
       data-touch-mode={touchMode}
+      data-key-bindings={keyBindingSignature(keyBindings)}
       style={{
         position: 'fixed',
         inset: 0,
@@ -1453,6 +1483,11 @@ export function DriveSceneClient({
             mode={touchMode}
             onChange={handleTouchModeChange}
             onReset={handleTouchModeReset}
+          />
+          <KeyboardSettingsPanel
+            bindings={keyBindings}
+            onChange={handleKeyBindingsChange}
+            onReset={handleKeyBindingsReset}
           />
         </div>
       ) : null}
