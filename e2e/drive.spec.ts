@@ -61,6 +61,11 @@ test('drive route mounts the canvas with the slug label and Edit CTA', async ({
   // toggles the menu, but with no car mounted the listener is dormant
   // and the overlay must not render even after pressing Esc.
   await expect(root).toHaveAttribute('data-pause-state', 'running')
+
+  // REQ-030: building collision penalty flag defaults to false. With no
+  // car mounted the per-frame integration loop is dormant so the flag
+  // never flips. Unit tests cover the populated case.
+  await expect(root).toHaveAttribute('data-on-building', 'false')
 })
 
 test('drive route shows the empty-state prompt for a fresh slug (REQ-053)', async ({
@@ -86,6 +91,9 @@ test('drive route shows the empty-state prompt for a fresh slug (REQ-053)', asyn
   // REQ-039: pause state defaults to running; the listener is gated to
   // the car-mounted branch so an empty grid cannot toggle the menu.
   await expect(root).toHaveAttribute('data-pause-state', 'running')
+  // REQ-030: building collision flag stays false on the empty grid;
+  // there is no car to land on a building cell.
+  await expect(root).toHaveAttribute('data-on-building', 'false')
 
   const prompt = page.getByTestId('drive-empty-prompt')
   await expect(prompt).toBeVisible()
