@@ -1,12 +1,14 @@
 import { notFound } from 'next/navigation'
 import { loadCity } from '@/lib/loadCity'
+import { readVersionParam } from '@/lib/cityVersion'
 import { parseSlugParam } from '../slugRoute'
 import { EditorClient } from './EditorClient'
 
 /**
- * Editor route at `/<slug>/edit` (REQ-007).
+ * Editor route at `/<slug>/edit` (REQ-007, REQ-048).
  *
- * v1 scope: validate the slug, load the saved city via `loadCity`
+ * v1 scope: validate the slug, optionally pin to a historical version
+ * via `?v=<hash>` (REQ-048), load the saved city via `loadCity`
  * (REQ-015), then render the editor client surface (REQ-016 grid +
  * REQ-017 palette + REQ-020 click-to-place + REQ-021 rotate +
  * REQ-022 erase + REQ-023 undo / redo + REQ-025 autosave + REQ-026
@@ -20,13 +22,25 @@ import { EditorClient } from './EditorClient'
  * round-trips from a single control surface, not a separate page-level
  * link below the grid.
  *
+ * `?v=<hash>` (REQ-048): pins the editor's initial load to a specific
+ * historical version. Hash format is sha256 hex (64 lowercase hex
+ * chars) per REQ-013. A malformed hash fails the route via
+ * `notFound()`. Loading a pinned version into the editor and then
+ * making an edit forks: the next autosave PUT writes a fresh `:latest`
+ * pointer, mirroring VibeRacer's "edit-from-history" semantics. v1
+ * does not surface a "you are viewing a historical version" banner;
+ * the URL itself is the only signal. Adding the banner is a separate
+ * polish slice.
+ *
  * Invalid slugs return 404 via `notFound()` so unsharable URLs do not
  * leak into the editor.
  */
 export default async function EditCityPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ slug: string }>
+  searchParams: Promise<{ v?: string | string[] }>
 }) {
   const { slug: raw } = await params
   const slug = parseSlugParam(raw)
@@ -34,7 +48,13 @@ export default async function EditCityPage({
     notFound()
   }
 
-  const { city } = await loadCity(slug)
+  const { v: vRaw } = await searchParams
+  const pinned = vRaw === undefined ? null : readVersionParam(vRaw)
+  if (vRaw !== undefined && pinned === null) {
+    notFound()
+  }
+
+  const { city } = await loadCity(slug, pinned ?? undefined)
 
   return (
     <main
