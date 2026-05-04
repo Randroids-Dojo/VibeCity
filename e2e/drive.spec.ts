@@ -51,6 +51,11 @@ test('drive route mounts the canvas with the slug label and Edit CTA', async ({
   // empty city keeps the listeners dormant so an author cannot
   // accidentally trigger driving with no vehicle on screen.
   await expect(root).toHaveAttribute('data-controls-active', 'false')
+
+  // REQ-033: chase camera engages only when a car is mounted; an empty
+  // city stays in the orbit framing so the empty-state prompt reads
+  // against a neutral backdrop centered on the grid origin.
+  await expect(root).toHaveAttribute('data-camera-mode', 'orbit')
 })
 
 test('drive route shows the empty-state prompt for a fresh slug (REQ-053)', async ({
@@ -70,6 +75,9 @@ test('drive route shows the empty-state prompt for a fresh slug (REQ-053)', asyn
   await expect(root).toHaveAttribute('data-vehicle', 'false')
   // REQ-034: keyboard controls stay dormant on the empty grid.
   await expect(root).toHaveAttribute('data-controls-active', 'false')
+  // REQ-033: chase camera stays out of the empty grid; the orbit aim
+  // keeps the empty-state prompt centered against a neutral backdrop.
+  await expect(root).toHaveAttribute('data-camera-mode', 'orbit')
 
   const prompt = page.getByTestId('drive-empty-prompt')
   await expect(prompt).toBeVisible()

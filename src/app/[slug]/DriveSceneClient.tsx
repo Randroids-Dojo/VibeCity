@@ -46,17 +46,20 @@ import {
   createVehicleState,
   inputFromPressedKeys,
 } from './driveControls'
+import { createCameraRig, updateCameraRig } from './cameraRig'
 
 /**
- * Drive scene scaffold (REQ-044, REQ-045, REQ-046, REQ-053).
+ * Drive scene scaffold (REQ-044, REQ-045, REQ-046, REQ-053) plus the
+ * driveable runtime (REQ-031 keyboard physics, REQ-033 chase camera,
+ * REQ-034 keyboard input, REQ-047 placeholder car).
  *
  * Mounts a raw three.js scene on a canvas the React component owns.
- * v1 ships an aerial / orbit view: a fixed camera tilts down at the
- * city center so an author can see the city they just built. Physics
- * (REQ-031), wheel contact (REQ-032), the chase camera (REQ-033),
- * keyboard input (REQ-034), and touch input (REQ-035) all land in
- * their own slices once the segment-based path (REQ-064) and
- * multi-cell footprint plumbing (REQ-059) ship.
+ * When the city has at least one piece, the placeholder car spawns
+ * at the deterministic spawn anchor (REQ-036), the keyboard listeners
+ * attach to `window`, the integration loop runs `applyDriveStep` per
+ * frame, and the chase camera rig (REQ-033) eases behind the car.
+ * Empty cities keep the static aerial / orbit camera so the
+ * empty-state prompt reads against a neutral framing of the origin.
  *
  * Streets render as flat colored quads at their grid cell, rotated by
  * the persisted rotation around the world Y axis. Buildings render as
@@ -146,18 +149,20 @@ export function DriveSceneClient({
     // Aim the camera at the bounds center so a small starter city
     // fits in frame on first load. When the city is empty the bounds
     // are null and the camera frames the origin so the empty-state
-    // overlay reads against the same neutral background.
-    const target = new THREE.Vector3(
+    // overlay reads against the same neutral background. When a car
+    // is mounted the chase rig (REQ-033) takes over below and the
+    // initial frame is set to the rig's spawn pose.
+    const orbitTarget = new THREE.Vector3(
       bounds?.centerX ?? 0,
       0,
       bounds?.centerZ ?? 0,
     )
     camera.position.set(
-      target.x + CAMERA_DISTANCE,
+      orbitTarget.x + CAMERA_DISTANCE,
       CAMERA_HEIGHT,
-      target.z + CAMERA_DISTANCE,
+      orbitTarget.z + CAMERA_DISTANCE,
     )
-    camera.lookAt(target)
+    camera.lookAt(orbitTarget)
 
     // Street pieces (REQ-045). Flat colored quads at the cell center,
     // lifted slightly above the ground to avoid z-fighting and rotated
@@ -365,6 +370,32 @@ export function DriveSceneClient({
     }
     if (vehicle) updateVehicleAttrs()
 
+    // Chase camera rig (REQ-033). Initialized from the spawn pose so
+    // the first rendered frame already has the camera behind the car
+    // instead of starting at the orbit pose and lerping in. Updated
+    // each tick toward the latest car pose; the rig's per-frame lerp
+    // makes the camera ease through turns instead of snapping.
+    const rig =
+      vehicle && car
+        ? createCameraRig(vehicle.x, vehicle.z, vehicle.heading)
+        : null
+    const cameraLookTarget = new THREE.Vector3()
+    const applyChaseCamera = () => {
+      if (!rig) return
+      camera.position.set(rig.position.x, rig.position.y, rig.position.z)
+      cameraLookTarget.set(rig.target.x, rig.target.y, rig.target.z)
+      camera.lookAt(cameraLookTarget)
+    }
+    const updateCameraAttrs = () => {
+      if (!root || !rig) return
+      root.setAttribute('data-camera-x', rig.position.x.toFixed(3))
+      root.setAttribute('data-camera-z', rig.position.z.toFixed(3))
+    }
+    if (rig) {
+      applyChaseCamera()
+      updateCameraAttrs()
+    }
+
     const tick = (timestamp: number) => {
       frameHandle = window.requestAnimationFrame(tick)
       if (lastTimestamp === null) {
@@ -381,6 +412,11 @@ export function DriveSceneClient({
         car.position.z = vehicle.z
         car.rotation.y = vehicle.heading
         updateVehicleAttrs()
+      }
+      if (rig && vehicle) {
+        updateCameraRig(rig, vehicle.x, vehicle.z, vehicle.heading)
+        applyChaseCamera()
+        updateCameraAttrs()
       }
       renderer.render(scene, camera)
     }
@@ -441,6 +477,7 @@ export function DriveSceneClient({
       data-spawn-col={spawn.col}
       data-vehicle={hasVehicle ? 'true' : 'false'}
       data-controls-active={hasVehicle ? 'true' : 'false'}
+      data-camera-mode={hasVehicle ? 'chase' : 'orbit'}
       style={{
         position: 'fixed',
         inset: 0,
