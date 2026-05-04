@@ -116,12 +116,15 @@ export class FakeKv {
   }
 
   /**
-   * Remove members ranked between `start` and `stop` (inclusive) by
-   * score, ascending. Negative indices count from the end (-1 is the
-   * highest-scored entry). Returns the number of members removed.
-   * Mirrors Redis `ZREMRANGEBYRANK`: if the resolved range is empty
-   * (e.g. `stop` resolves below `start`, or below 0), no members are
-   * removed.
+   * Remove members whose rank (0-based index in ascending score order)
+   * falls between `start` and `stop` inclusive. The set is implicitly
+   * ordered by score ascending; the indices are positions in that
+   * ordering, NOT scores themselves (`zremrangebyscore` is the
+   * score-keyed variant). Negative indices count from the end (-1 is
+   * the highest-rank / highest-scored entry). Returns the number of
+   * members removed. Mirrors Redis `ZREMRANGEBYRANK`: if the resolved
+   * range is empty (e.g. `stop` resolves below `start`, or below 0),
+   * no members are removed.
    */
   async zremrangebyrank(
     key: string,
