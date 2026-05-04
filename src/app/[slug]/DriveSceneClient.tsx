@@ -17,12 +17,17 @@ import {
   GROUND_COLOR,
   PIECE_GROUND_LIFT,
   SKY_COLOR,
+  SPAWN_MARKER_COLOR,
+  SPAWN_MARKER_HEIGHT,
+  SPAWN_MARKER_LENGTH,
+  SPAWN_MARKER_WIDTH,
   buildingColorFor,
   buildingHeightFor,
   cellToWorld,
   cityWorldBounds,
   pieceColorFor,
   rotationToRadians,
+  spawnAnchor,
 } from './driveScene'
 
 /**
@@ -65,6 +70,12 @@ export function DriveSceneClient({
     () => cityWorldBounds(city.pieces, city.buildings),
     [city.pieces, city.buildings],
   )
+
+  // The deterministic spawn anchor (REQ-036). The marker renders only
+  // when at least one piece exists; on an empty grid the empty-state
+  // prompt owns the visual focus and a marker on the origin would just
+  // sit on the ground plane with nothing to spawn against.
+  const spawn = useMemo(() => spawnAnchor(city.pieces), [city.pieces])
 
   useEffect(() => {
     const canvas = canvasRef.current
@@ -169,6 +180,27 @@ export function DriveSceneClient({
       scene.add(mesh)
     }
 
+    // Spawn anchor marker (REQ-036). A small chevron-shaped placeholder
+    // mesh at the deterministic spawn cell so an author can see where
+    // the future vehicle (REQ-047) will appear when the physics slice
+    // (REQ-031) lands. Rendered only when the city has at least one
+    // piece; an empty city shows the empty-state prompt instead.
+    if (city.pieces.length > 0) {
+      const { x, z } = cellToWorld(spawn.row, spawn.col)
+      const markerGeometry = new THREE.BoxGeometry(
+        SPAWN_MARKER_WIDTH,
+        SPAWN_MARKER_HEIGHT,
+        SPAWN_MARKER_LENGTH,
+      )
+      const markerMaterial = new THREE.MeshLambertMaterial({
+        color: SPAWN_MARKER_COLOR,
+      })
+      const marker = new THREE.Mesh(markerGeometry, markerMaterial)
+      marker.position.set(x, SPAWN_MARKER_HEIGHT / 2, z)
+      marker.rotation.y = rotationToRadians(city.pieces[0].rotation)
+      scene.add(marker)
+    }
+
     // Resize handling. The canvas fills its parent; we read the parent
     // box size on mount and on resize so the renderer / camera stay in
     // sync as the page reflows.
@@ -219,7 +251,7 @@ export function DriveSceneClient({
       })
       renderer.dispose()
     }
-  }, [city.pieces, city.buildings, bounds])
+  }, [city.pieces, city.buildings, bounds, spawn])
 
   return (
     <div
@@ -228,6 +260,8 @@ export function DriveSceneClient({
       data-piece-count={city.pieces.length}
       data-building-count={city.buildings.length}
       data-empty={isEmpty ? 'true' : 'false'}
+      data-spawn-row={spawn.row}
+      data-spawn-col={spawn.col}
       style={{
         position: 'fixed',
         inset: 0,

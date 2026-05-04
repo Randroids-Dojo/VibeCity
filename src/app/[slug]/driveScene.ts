@@ -225,3 +225,44 @@ export function cityWorldBounds(
 export function rotationToRadians(rotation: number): number {
   return (rotation * Math.PI) / 180
 }
+
+/**
+ * Spawn-marker visual defaults (REQ-036). v1 ships a small chevron-shaped
+ * placeholder mesh at the spawn anchor so an author can see where their
+ * future vehicle (REQ-047) will appear when the physics slice (REQ-031)
+ * lands. The size is a fraction of `CELL_SIZE` so the marker reads as a
+ * point of interest without overpowering the placed pieces.
+ */
+export const SPAWN_MARKER_COLOR = 0xd94f3a
+export const SPAWN_MARKER_LENGTH = CELL_SIZE * 0.6
+export const SPAWN_MARKER_WIDTH = CELL_SIZE * 0.32
+export const SPAWN_MARKER_HEIGHT = CELL_SIZE * 0.22
+
+/**
+ * The deterministic spawn cell for a city (REQ-036).
+ *
+ * Returns `(piece.row, piece.col)` of the first placed street piece,
+ * or the grid origin `(0, 0)` when no street pieces exist. This is
+ * the cell the vehicle will spawn on once the physics slice (REQ-031)
+ * lands; v1 visualizes it as a chevron-shaped placeholder marker so a
+ * builder can see where the car will appear before driving.
+ *
+ * "First placed" is the first piece in `city.pieces`. The editor's
+ * `placePiece` reducer appends to that array (REQ-020) so the array
+ * order is the placement order, and the spawn anchor stays stable as
+ * long as the first piece is not erased. Erasing the first piece
+ * shifts the anchor to the next-placed piece, which is the simplest
+ * consistent behavior for a builder who can re-place the original
+ * piece to restore the anchor.
+ *
+ * Buildings do not affect the spawn anchor because v1 cannot drive
+ * through buildings (REQ-030 off-street penalty); spawning on a
+ * building cell would put the car off-street from frame zero.
+ */
+export function spawnAnchor(
+  pieces: readonly Piece[],
+): { row: number; col: number } {
+  const first = pieces[0]
+  if (!first) return { row: 0, col: 0 }
+  return { row: first.row, col: first.col }
+}
