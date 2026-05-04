@@ -76,6 +76,18 @@ import {
 } from './driveHud'
 import { RESPAWN_KEY_CODE, respawnVehicle } from './respawn'
 import { ENGINE_MUTE_KEY_CODE, EngineAudioRig } from './engineAudio'
+import {
+  MINIMAP_BACKGROUND_COLOR,
+  MINIMAP_BORDER_COLOR,
+  MINIMAP_BUILDING_COLOR,
+  MINIMAP_CAR_COLOR,
+  MINIMAP_CAR_SIZE_PX,
+  MINIMAP_PIECE_COLOR,
+  MINIMAP_SIZE_PX,
+  headingToMinimapDegrees,
+  minimapBoundsForCity,
+  worldToMinimap,
+} from './driveMinimap'
 
 /**
  * Drive scene scaffold (REQ-044, REQ-045, REQ-046, REQ-053) plus the
@@ -118,6 +130,12 @@ export function DriveSceneClient({
   // controls hint) renders through the React tree below.
   const hudSpeedValueRef = useRef<HTMLSpanElement | null>(null)
   const hudSpeedBarFillRef = useRef<HTMLDivElement | null>(null)
+  // Minimap car marker ref (REQ-069). The integration loop writes the
+  // live `transform` attribute on the SVG group each tick so the
+  // marker tracks the car position and heading without forcing a
+  // React re-render. The static silhouette (piece / building rects)
+  // renders through the React tree once per city change.
+  const minimapCarRef = useRef<SVGGElement | null>(null)
   const isEmpty = city.pieces.length === 0 && city.buildings.length === 0
 
   // Pause state (REQ-039). The integration loop reads the live value
@@ -188,6 +206,14 @@ export function DriveSceneClient({
   const streetCells = useMemo(
     () => streetCellSet(city.pieces),
     [city.pieces],
+  )
+
+  // Minimap bounds (REQ-069). Memoized so the projection only
+  // recomputes when the city footprint changes; the per-frame loop
+  // reuses the same bounds to project the live car position.
+  const minimapBounds = useMemo(
+    () => minimapBoundsForCity(city.pieces, city.buildings),
+    [city.pieces, city.buildings],
   )
 
   useEffect(() => {
@@ -572,6 +598,37 @@ export function DriveSceneClient({
         root.setAttribute('data-hud-direction', direction)
       }
     }
+    // Minimap car marker mirror (REQ-069). The integration loop writes
+    // the live position and heading onto the SVG group's transform each
+    // tick so the marker tracks the car without a React re-render. The
+    // bounds are null on an empty grid (no city footprint to project)
+    // and the car is also unmounted in that branch, so the helper is a
+    // no-op when either is missing. Live coords are also mirrored on
+    // the scene root as `data-minimap-car-*` so a test can read the
+    // projection without inspecting the SVG transform.
+    const updateMinimap = () => {
+      if (!vehicle || !minimapBounds) return
+      const projected = worldToMinimap(vehicle.x, vehicle.z, minimapBounds)
+      if (!Number.isFinite(projected.x) || !Number.isFinite(projected.y)) {
+        return
+      }
+      const rotationDeg = headingToMinimapDegrees(vehicle.heading)
+      const marker = minimapCarRef.current
+      if (marker) {
+        marker.setAttribute(
+          'transform',
+          `translate(${projected.x.toFixed(3)} ${projected.y.toFixed(3)}) rotate(${rotationDeg.toFixed(3)})`,
+        )
+      }
+      if (root) {
+        root.setAttribute('data-minimap-car-x', projected.x.toFixed(3))
+        root.setAttribute('data-minimap-car-y', projected.y.toFixed(3))
+        root.setAttribute(
+          'data-minimap-car-rotation',
+          rotationDeg.toFixed(3),
+        )
+      }
+    }
     // Building collision flag mirror (REQ-030). True only when the car
     // center cell sits on a building cell so a test can assert the
     // penalty is engaged without sampling the speed history.
@@ -595,6 +652,7 @@ export function DriveSceneClient({
         !isOnStreetCell(vehicle.x, vehicle.z, streetCells),
       )
       updateHud()
+      updateMinimap()
     }
 
     // Chase camera rig (REQ-033). Initialized from the spawn pose so
@@ -653,6 +711,7 @@ export function DriveSceneClient({
         !isOnStreetCell(vehicle.x, vehicle.z, streetCells),
       )
       updateHud()
+      updateMinimap()
       if (rig) {
         const snap = createCameraRig(vehicle.x, vehicle.z, vehicle.heading)
         rig.position.x = snap.position.x
@@ -734,6 +793,7 @@ export function DriveSceneClient({
         updateOnBuildingAttr(onBuilding)
         updateOffStreetAttr(!onStreet)
         updateHud()
+        updateMinimap()
         // Engine audio (REQ-068). The rig's `update` is a no-op until
         // `start()` resolves and is also a no-op while muted, so the
         // call here is unconditional. Once the rig is live the
@@ -803,6 +863,7 @@ export function DriveSceneClient({
     spawn,
     buildingCells,
     streetCells,
+    minimapBounds,
     handleToggleEngineMute,
   ])
 
@@ -841,6 +902,9 @@ export function DriveSceneClient({
       data-hud-direction="idle"
       data-engine-audio-muted={engineMuted ? 'true' : 'false'}
       data-engine-audio-started="false"
+      data-minimap-visible={hasVehicle && !showPauseMenu ? 'true' : 'false'}
+      data-minimap-piece-count={city.pieces.length}
+      data-minimap-building-count={city.buildings.length}
       style={{
         position: 'fixed',
         inset: 0,
@@ -1066,6 +1130,83 @@ export function DriveSceneClient({
             <div key={line}>{line}</div>
           ))}
           <div>M: {engineMuted ? 'unmute' : 'mute'} engine</div>
+        </div>
+      ) : null}
+      {hasVehicle && !showPauseMenu && minimapBounds ? (
+        <div
+          data-testid="drive-minimap"
+          aria-label="Minimap"
+          style={{
+            position: 'absolute',
+            top: 64,
+            right: 16,
+            width: MINIMAP_SIZE_PX,
+            height: MINIMAP_SIZE_PX,
+            padding: 4,
+            borderRadius: 6,
+            background: MINIMAP_BACKGROUND_COLOR,
+            border: `1px solid ${MINIMAP_BORDER_COLOR}`,
+            pointerEvents: 'none',
+          }}
+        >
+          <svg
+            data-testid="drive-minimap-svg"
+            xmlns="http://www.w3.org/2000/svg"
+            width={MINIMAP_SIZE_PX}
+            height={MINIMAP_SIZE_PX}
+            viewBox={`0 0 ${MINIMAP_SIZE_PX} ${MINIMAP_SIZE_PX}`}
+            style={{ display: 'block' }}
+          >
+            {city.pieces.flatMap((piece, pieceIndex) =>
+              pieceFootprintWorldCells(piece).map((cell, cellIndex) => {
+                const center = worldToMinimap(cell.x, cell.z, minimapBounds)
+                const size = CELL_SIZE * minimapBounds.scale
+                return (
+                  <rect
+                    key={`piece-${pieceIndex}-${cellIndex}`}
+                    data-testid="drive-minimap-piece"
+                    x={center.x - size / 2}
+                    y={center.y - size / 2}
+                    width={size}
+                    height={size}
+                    fill={MINIMAP_PIECE_COLOR}
+                  />
+                )
+              }),
+            )}
+            {city.buildings.map((b, buildingIndex) => {
+              const worldPos = cellToWorld(b.row, b.col)
+              const center = worldToMinimap(
+                worldPos.x,
+                worldPos.z,
+                minimapBounds,
+              )
+              const size = CELL_SIZE * minimapBounds.scale * 0.85
+              return (
+                <rect
+                  key={`building-${buildingIndex}`}
+                  data-testid="drive-minimap-building"
+                  x={center.x - size / 2}
+                  y={center.y - size / 2}
+                  width={size}
+                  height={size}
+                  fill={MINIMAP_BUILDING_COLOR}
+                />
+              )
+            })}
+            <g
+              ref={minimapCarRef}
+              data-testid="drive-minimap-car"
+              transform={`translate(${(MINIMAP_SIZE_PX / 2).toFixed(3)} ${(MINIMAP_SIZE_PX / 2).toFixed(3)}) rotate(0)`}
+            >
+              <polygon
+                points={`0,${-MINIMAP_CAR_SIZE_PX / 2} ${MINIMAP_CAR_SIZE_PX / 2.4},${MINIMAP_CAR_SIZE_PX / 2} ${-MINIMAP_CAR_SIZE_PX / 2.4},${MINIMAP_CAR_SIZE_PX / 2}`}
+                fill={MINIMAP_CAR_COLOR}
+                stroke="#f7f4ee"
+                strokeWidth={0.75}
+              />
+            </g>
+          </svg>
         </div>
       ) : null}
       {hasVehicle ? (

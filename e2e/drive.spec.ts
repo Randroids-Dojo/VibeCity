@@ -95,6 +95,15 @@ test('drive route mounts the canvas with the slug label and Edit CTA', async ({
   await expect(root).toHaveAttribute('data-engine-audio-muted', 'false')
   await expect(root).toHaveAttribute('data-engine-audio-started', 'false')
   await expect(page.getByTestId('drive-engine-mute-toggle')).toHaveCount(0)
+
+  // REQ-069: minimap renders only when a car is mounted and the pause
+  // menu is closed. The playwright webServer runs without KV so the
+  // city is empty; the minimap stays hidden and the data attributes
+  // mirror the dormant state.
+  await expect(root).toHaveAttribute('data-minimap-visible', 'false')
+  await expect(root).toHaveAttribute('data-minimap-piece-count', '0')
+  await expect(root).toHaveAttribute('data-minimap-building-count', '0')
+  await expect(page.getByTestId('drive-minimap')).toHaveCount(0)
 })
 
 test('drive route shows the empty-state prompt for a fresh slug (REQ-053)', async ({
@@ -148,6 +157,11 @@ test('drive route shows the empty-state prompt for a fresh slug (REQ-053)', asyn
   await expect(root).toHaveAttribute('data-engine-audio-muted', 'false')
   await expect(root).toHaveAttribute('data-engine-audio-started', 'false')
   await expect(page.getByTestId('drive-engine-mute-toggle')).toHaveCount(0)
+
+  // REQ-069: minimap stays hidden on the empty grid; the bounds are
+  // null when the city has no footprint so the SVG layer never mounts.
+  await expect(root).toHaveAttribute('data-minimap-visible', 'false')
+  await expect(page.getByTestId('drive-minimap')).toHaveCount(0)
 
   const prompt = page.getByTestId('drive-empty-prompt')
   await expect(prompt).toBeVisible()
