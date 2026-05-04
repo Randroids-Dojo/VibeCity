@@ -1,19 +1,33 @@
-import Link from 'next/link'
 import { notFound } from 'next/navigation'
+import { loadCity } from '@/lib/loadCity'
 import { parseSlugParam } from './slugRoute'
+import { DriveSceneClient } from './DriveSceneClient'
 
 /**
- * Drive-view route at `/<slug>` (REQ-006).
+ * Drive-view route at `/<slug>` (REQ-006, REQ-044, REQ-045, REQ-046,
+ * REQ-053).
  *
- * v1 scope: validate the slug, render the empty-city landing with a
- * Create CTA linking to `/<slug>/edit` (REQ-010). The drive scene
- * (REQ-031 onward) and saved-city load (REQ-015) land in their own
- * slices; until then every visit shows the landing.
+ * v1 scope: validate the slug, load the saved city via `loadCity`
+ * (REQ-015), and mount the three.js drive scene scaffold seeded with
+ * that city. The scaffold renders street pieces as flat colored quads
+ * (REQ-045), buildings as extruded boxes (REQ-046), with a noon-style
+ * lighting rig over a flat ground plane (REQ-044), and an empty-state
+ * prompt that asks the author to place a road first when the city has
+ * zero pieces and zero buildings (REQ-053). The Edit CTA in the
+ * scene's top-right corner returns to `/<slug>/edit` so the build /
+ * drive loop round-trips from a single control surface.
+ *
+ * Physics (REQ-031), wheel contact (REQ-032), the chase camera
+ * (REQ-033), and keyboard / touch input (REQ-034 / REQ-035) all land
+ * in their own slices once the segment-based path (REQ-064) and
+ * multi-cell footprint plumbing (REQ-059) ship. v1 ships an aerial /
+ * orbit view so the build / drive round trip can be experienced ahead
+ * of a drivable car.
  *
  * Invalid slugs return 404 via `notFound()` so unsharable URLs do not
- * leak into the editor.
+ * leak into the drive view.
  */
-export default async function SlugLandingPage({
+export default async function SlugDrivePage({
   params,
 }: {
   params: Promise<{ slug: string }>
@@ -24,42 +38,7 @@ export default async function SlugLandingPage({
     notFound()
   }
 
-  return (
-    <main
-      style={{
-        minHeight: '100vh',
-        display: 'flex',
-        flexDirection: 'column',
-        alignItems: 'center',
-        justifyContent: 'center',
-        gap: 16,
-        fontFamily: 'system-ui, sans-serif',
-        background: '#f7f4ee',
-        color: '#222',
-        padding: 24,
-      }}
-    >
-      <p style={{ fontSize: 14, margin: 0, opacity: 0.55, letterSpacing: 1 }}>
-        VIBECITY
-      </p>
-      <h1 style={{ fontSize: 48, margin: 0, wordBreak: 'break-all' }}>{slug}</h1>
-      <p style={{ fontSize: 18, margin: 0, opacity: 0.75, textAlign: 'center' }}>
-        No city is here yet. Be the first to build one.
-      </p>
-      <Link
-        href={`/${slug}/edit`}
-        style={{
-          marginTop: 16,
-          padding: '12px 24px',
-          background: '#222',
-          color: '#f7f4ee',
-          textDecoration: 'none',
-          fontSize: 16,
-          borderRadius: 4,
-        }}
-      >
-        Create this city
-      </Link>
-    </main>
-  )
+  const { city } = await loadCity(slug)
+
+  return <DriveSceneClient slug={slug} city={city} />
 }
