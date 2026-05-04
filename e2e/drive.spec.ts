@@ -35,6 +35,12 @@ test('drive route mounts the canvas with the slug label and Edit CTA', async ({
   await expect(editCta).toHaveAttribute('href', '/drive-scaffold-spec/edit')
   await expect(editCta).toHaveAttribute('data-slug', 'drive-scaffold-spec')
   await expect(editCta).toHaveText('Edit')
+
+  // REQ-036: spawn anchor data attributes are present on the root. The
+  // playwright webServer runs without KV, so loadCity falls back to the
+  // empty city; the anchor reads as the grid origin.
+  await expect(root).toHaveAttribute('data-spawn-row', '0')
+  await expect(root).toHaveAttribute('data-spawn-col', '0')
 })
 
 test('drive route shows the empty-state prompt for a fresh slug (REQ-053)', async ({
@@ -47,6 +53,9 @@ test('drive route shows the empty-state prompt for a fresh slug (REQ-053)', asyn
   await expect(root).toHaveAttribute('data-empty', 'true')
   await expect(root).toHaveAttribute('data-piece-count', '0')
   await expect(root).toHaveAttribute('data-building-count', '0')
+  // REQ-036: spawn anchor falls back to grid origin when no pieces.
+  await expect(root).toHaveAttribute('data-spawn-row', '0')
+  await expect(root).toHaveAttribute('data-spawn-col', '0')
 
   const prompt = page.getByTestId('drive-empty-prompt')
   await expect(prompt).toBeVisible()

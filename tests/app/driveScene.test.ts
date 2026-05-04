@@ -16,12 +16,17 @@ import {
   PIECE_COLORS,
   PIECE_GROUND_LIFT,
   SKY_COLOR,
+  SPAWN_MARKER_COLOR,
+  SPAWN_MARKER_HEIGHT,
+  SPAWN_MARKER_LENGTH,
+  SPAWN_MARKER_WIDTH,
   buildingColorFor,
   buildingHeightFor,
   cellToWorld,
   cityWorldBounds,
   pieceColorFor,
   rotationToRadians,
+  spawnAnchor,
 } from '@/app/[slug]/driveScene'
 import type { Building, BuildingType, Piece, PieceType } from '@/lib/schemas'
 import { BuildingTypeSchema, PieceTypeSchema } from '@/lib/schemas'
@@ -267,3 +272,76 @@ describe('cityWorldBounds (REQ-053 empty-state pivot)', () => {
 // Local alias so the multi-type test reads cleanly without importing
 // the BuildingType union twice.
 type BuildingExt = Building & { type: BuildingType }
+
+describe('spawnAnchor (REQ-036)', () => {
+  it('returns the grid origin when no pieces are placed', () => {
+    expect(spawnAnchor([])).toEqual({ row: 0, col: 0 })
+  })
+
+  it('returns the first placed piece cell as the anchor', () => {
+    const a: Piece = { type: 'straight', row: 2, col: 3, rotation: 0 }
+    const b: Piece = { type: 'straight', row: -1, col: -4, rotation: 90 }
+    expect(spawnAnchor([a, b])).toEqual({ row: 2, col: 3 })
+  })
+
+  it('the second piece is ignored even when placed earlier in space', () => {
+    // Order in the array is insertion order from the editor's
+    // `placePiece` reducer. The anchor follows array order, not the
+    // numerical order of `(row, col)`.
+    const a: Piece = { type: 'straight', row: 5, col: 5, rotation: 0 }
+    const b: Piece = { type: 'straight', row: 0, col: 0, rotation: 0 }
+    expect(spawnAnchor([a, b])).toEqual({ row: 5, col: 5 })
+  })
+
+  it('handles negative coordinates', () => {
+    const piece: Piece = {
+      type: 'straight',
+      row: -3,
+      col: -7,
+      rotation: 180,
+    }
+    expect(spawnAnchor([piece])).toEqual({ row: -3, col: -7 })
+  })
+
+  it('a single-piece city produces a stable anchor across rotations', () => {
+    for (const rotation of [0, 90, 180, 270] as const) {
+      const piece: Piece = {
+        type: 'left90',
+        row: 1,
+        col: 1,
+        rotation,
+      }
+      expect(spawnAnchor([piece])).toEqual({ row: 1, col: 1 })
+    }
+  })
+
+  it('returns a fresh object on each call (no shared mutable result)', () => {
+    const piece: Piece = { type: 'straight', row: 0, col: 0, rotation: 0 }
+    const a = spawnAnchor([piece])
+    const b = spawnAnchor([piece])
+    expect(a).not.toBe(b)
+    expect(a).toEqual(b)
+  })
+})
+
+describe('SPAWN_MARKER_* constants (REQ-036)', () => {
+  it('SPAWN_MARKER_COLOR is a valid 24-bit hex value', () => {
+    expect(SPAWN_MARKER_COLOR).toBeGreaterThanOrEqual(0)
+    expect(SPAWN_MARKER_COLOR).toBeLessThanOrEqual(0xffffff)
+  })
+
+  it('marker dimensions are positive and bounded by CELL_SIZE', () => {
+    for (const dim of [
+      SPAWN_MARKER_WIDTH,
+      SPAWN_MARKER_HEIGHT,
+      SPAWN_MARKER_LENGTH,
+    ]) {
+      expect(dim).toBeGreaterThan(0)
+      expect(dim).toBeLessThanOrEqual(CELL_SIZE)
+    }
+  })
+
+  it('marker length is greater than width so the chevron has a forward axis', () => {
+    expect(SPAWN_MARKER_LENGTH).toBeGreaterThan(SPAWN_MARKER_WIDTH)
+  })
+})
