@@ -646,6 +646,74 @@ test('building palette places, switches category, and erases (REQ-028, REQ-029)'
   await expect(grid).toHaveAttribute('data-building-count', '2')
 })
 
+test('palette exposes the REQ-061 arc45 and REQ-062 diagonal pieces and places them', async ({
+  page,
+}) => {
+  // Intercept autosave so the editor opens cleanly without KV.
+  await page.route('**/api/city/**', async (route) => {
+    if (route.request().method() !== 'PUT') {
+      await route.continue()
+      return
+    }
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        slug: 'corner-palette-spec',
+        versionHash:
+          '0000000000000000000000000000000000000000000000000000000000000000',
+        updatedAt: Date.now(),
+      }),
+    })
+  })
+
+  const response = await page.goto('/corner-palette-spec/edit')
+  expect(response?.status()).toBe(200)
+
+  const palette = page.getByTestId('editor-palette')
+  await expect(palette).toBeVisible()
+
+  // Both corner-connector entries are visible at the trailing edge of
+  // the street palette.
+  const arc45 = palette.locator('[data-piece-type="arc45"]')
+  const diagonal = palette.locator('[data-piece-type="diagonal"]')
+  await expect(arc45).toBeVisible()
+  await expect(arc45).toHaveText('Arc 45')
+  await expect(diagonal).toBeVisible()
+  await expect(diagonal).toHaveText('Diagonal')
+
+  // Default selection is still Straight (REQ-017); neither corner piece
+  // is pressed on first render.
+  await expect(arc45).toHaveAttribute('aria-pressed', 'false')
+  await expect(diagonal).toHaveAttribute('aria-pressed', 'false')
+
+  const grid = page.getByTestId('editor-snap-grid')
+  const pieceCount = page.getByTestId('editor-piece-count')
+
+  // Pick Arc 45, place at the origin.
+  await arc45.click()
+  await expect(arc45).toHaveAttribute('aria-pressed', 'true')
+  await grid.locator('[data-cell-row="0"][data-cell-col="0"]').click()
+  await expect(pieceCount).toHaveText('Pieces placed: 1')
+  await expect(grid).toHaveAttribute('data-occupied-count', '1')
+  await expect(
+    grid.locator('[data-cell-row="0"][data-cell-col="0"]'),
+  ).toHaveAttribute('data-cell-occupied-kind', 'piece')
+
+  // Switch to Diagonal, place at an adjacent cell.
+  await diagonal.click()
+  await expect(diagonal).toHaveAttribute('aria-pressed', 'true')
+  await expect(arc45).toHaveAttribute('aria-pressed', 'false')
+  await grid.locator('[data-cell-row="0"][data-cell-col="1"]').click()
+  await expect(pieceCount).toHaveText('Pieces placed: 2')
+  await expect(grid).toHaveAttribute('data-occupied-count', '2')
+
+  // Clicking an occupied cell with diagonal selected stays a no-op
+  // (REQ-027 reducer-level overlap rejection).
+  await grid.locator('[data-cell-row="0"][data-cell-col="0"]').click()
+  await expect(pieceCount).toHaveText('Pieces placed: 2')
+})
+
 test('autosave surfaces save failures via the status indicator (REQ-025)', async ({
   page,
 }) => {
