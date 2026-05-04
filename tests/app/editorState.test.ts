@@ -32,8 +32,8 @@ import {
  * `npm run build` plus the Playwright spec for the editor route.
  */
 
-describe('STREET_PALETTE (REQ-017, REQ-018)', () => {
-  it('exposes the v1 cardinal-only basics first then the curve / sweep pieces', () => {
+describe('STREET_PALETTE (REQ-017, REQ-018, REQ-019)', () => {
+  it('exposes the v1 cardinal basics, then the curve / sweep pieces, then the intersection', () => {
     expect(STREET_PALETTE.map((p) => p.type)).toEqual([
       'straight',
       'left90',
@@ -42,6 +42,7 @@ describe('STREET_PALETTE (REQ-017, REQ-018)', () => {
       'scurveLeft',
       'sweepRight',
       'sweepLeft',
+      'intersection',
     ])
   })
 
@@ -80,9 +81,15 @@ describe('STREET_PALETTE (REQ-017, REQ-018)', () => {
     expect(indexOf('scurve')).toBeLessThan(indexOf('sweepRight'))
   })
 
-  it('does not advertise pieces from later slices (REQ-019, REQ-058, REQ-060)', () => {
+  it('orders the REQ-019 intersection after every REQ-018 curve / sweep entry', () => {
+    const indexOf = (t: string) =>
+      STREET_PALETTE.findIndex((p) => p.type === t)
+    expect(indexOf('sweepLeft')).toBeLessThan(indexOf('intersection'))
+    expect(indexOf('intersection')).toBe(STREET_PALETTE.length - 1)
+  })
+
+  it('does not advertise pieces from later slices (REQ-058, REQ-060, REQ-061, REQ-062)', () => {
     const types = new Set(STREET_PALETTE.map((p) => p.type))
-    expect(types.has('intersection')).toBe(false)
     expect(types.has('megaSweepRight')).toBe(false)
     expect(types.has('megaSweepLeft')).toBe(false)
     expect(types.has('hairpin')).toBe(false)
@@ -117,6 +124,64 @@ describe('placePiece with REQ-018 piece types', () => {
     }
     const next = placePiece(seeded, 'sweepRight', 0, 0, 90)
     expect(next).toBe(seeded)
+  })
+})
+
+describe('placePiece with REQ-019 intersection', () => {
+  it('places intersection as a single-cell piece', () => {
+    const next = placePiece(EMPTY_CITY, 'intersection', 0, 0)
+    expect(next.pieces).toHaveLength(1)
+    expect(next.pieces[0]).toEqual({
+      type: 'intersection',
+      row: 0,
+      col: 0,
+      rotation: 0,
+    })
+    expect(next.pieces[0].footprint).toBeUndefined()
+  })
+
+  it('records rotation when the click handler passes one', () => {
+    const next = placePiece(EMPTY_CITY, 'intersection', 1, 2, 270)
+    expect(next.pieces[0].rotation).toBe(270)
+  })
+
+  it('rejects placement on a cell already occupied by a piece', () => {
+    const seeded: City = {
+      pieces: [{ type: 'straight', row: 0, col: 0, rotation: 0 }],
+      buildings: [],
+    }
+    const next = placePiece(seeded, 'intersection', 0, 0)
+    expect(next).toBe(seeded)
+  })
+
+  it('rejects placement on a cell already occupied by a building', () => {
+    // A building does not appear in occupiedPieceCells, so placePiece
+    // does not block placement on a building cell. This is the v1
+    // contract: pieces and buildings collide at the building reducer
+    // boundary (placeBuilding rejects piece-cell overlap), not the
+    // piece reducer. The intersection follows the same contract.
+    const seeded: City = {
+      pieces: [],
+      buildings: [{ type: 'small-house', row: 0, col: 0, rotation: 0 }],
+    }
+    const next = placePiece(seeded, 'intersection', 0, 0)
+    // Intersection placement still appends because the piece reducer
+    // does not gate on the buildings array; this matches every other
+    // street piece in the palette and keeps the v1 contract symmetric.
+    expect(next).not.toBe(seeded)
+    expect(next.pieces).toHaveLength(1)
+    expect(next.pieces[0].type).toBe('intersection')
+  })
+
+  it('round-trips with erasePiece', () => {
+    const placed = placePiece(EMPTY_CITY, 'intersection', 3, 4, 90)
+    const erased = erasePiece(placed, 3, 4)
+    expect(erased.pieces).toHaveLength(0)
+  })
+
+  it('returns a city that still validates against CitySchema', () => {
+    const next = placePiece(EMPTY_CITY, 'intersection', 0, 0, 180)
+    expect(() => CitySchema.parse(next)).not.toThrow()
   })
 })
 

@@ -123,6 +123,67 @@ test('palette exposes REQ-018 curve and sweep pieces and places them', async ({
   await expect(grid).toHaveAttribute('data-occupied-count', '4')
 })
 
+test('palette exposes the REQ-019 intersection piece and places it', async ({
+  page,
+}) => {
+  // Intercept autosave so the editor opens cleanly without KV.
+  await page.route('**/api/city/**', async (route) => {
+    if (route.request().method() !== 'PUT') {
+      await route.continue()
+      return
+    }
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        slug: 'intersection-spec',
+        versionHash:
+          '0000000000000000000000000000000000000000000000000000000000000000',
+        updatedAt: Date.now(),
+      }),
+    })
+  })
+
+  const response = await page.goto('/intersection-spec/edit')
+  expect(response?.status()).toBe(200)
+
+  const palette = page.getByTestId('editor-palette')
+  await expect(palette).toBeVisible()
+
+  // The intersection entry sits at the end of the street palette.
+  const intersection = palette.locator('[data-piece-type="intersection"]')
+  await expect(intersection).toBeVisible()
+  await expect(intersection).toHaveText('Intersection')
+
+  // Default selection is still Straight (REQ-017); intersection is not
+  // pressed on first render.
+  await expect(intersection).toHaveAttribute('aria-pressed', 'false')
+
+  const grid = page.getByTestId('editor-snap-grid')
+  const pieceCount = page.getByTestId('editor-piece-count')
+
+  // Pick Intersection, place at the origin.
+  await intersection.click()
+  await expect(intersection).toHaveAttribute('aria-pressed', 'true')
+  await grid.locator('[data-cell-row="0"][data-cell-col="0"]').click()
+  await expect(pieceCount).toHaveText('Pieces placed: 1')
+  await expect(grid).toHaveAttribute('data-occupied-count', '1')
+  await expect(
+    grid.locator('[data-cell-row="0"][data-cell-col="0"]'),
+  ).toHaveAttribute('data-cell-occupied-kind', 'piece')
+
+  // Place a second intersection at an adjacent cell so a builder can
+  // sketch a 4-way junction next to a single-cell run.
+  await grid.locator('[data-cell-row="0"][data-cell-col="2"]').click()
+  await expect(pieceCount).toHaveText('Pieces placed: 2')
+  await expect(grid).toHaveAttribute('data-occupied-count', '2')
+
+  // Clicking an already-occupied cell with intersection selected stays
+  // a no-op (REQ-027 reducer-level overlap rejection).
+  await grid.locator('[data-cell-row="0"][data-cell-col="0"]').click()
+  await expect(pieceCount).toHaveText('Pieces placed: 2')
+})
+
 test('rotate tool cycles 0 to 90 to 180 to 270 to 0 via button and R key', async ({
   page,
 }) => {

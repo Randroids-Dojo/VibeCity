@@ -72,21 +72,24 @@ export interface PaletteEntry {
 }
 
 /**
- * v1 cardinal-only street palette (REQ-017, REQ-018). Ordering is the
+ * v1 street palette (REQ-017, REQ-018, REQ-019). Ordering is the
  * render order. The first three entries are the cardinal-only basics
- * (REQ-017); the last four extend the palette with single-cell sweep
+ * (REQ-017); the next four extend the palette with single-cell sweep
  * and S-curve pieces that share the same cardinal connector pattern
- * (REQ-018). Future slices append the `intersection` (REQ-019),
- * multi-cell mega-sweep / hairpin (REQ-058 / REQ-060), and corner-
- * connector arc45 / diagonal (REQ-061 / REQ-062) pieces in their own
- * slices.
+ * (REQ-018); the last entry is the 4-way `intersection` (REQ-019), a
+ * single-cell piece with four cardinal connectors so streets can
+ * branch. Future slices append the multi-cell mega-sweep / hairpin
+ * (REQ-058 / REQ-060) and corner-connector arc45 / diagonal
+ * (REQ-061 / REQ-062) pieces in their own slices.
  *
  * The REQ-018 entries are placed after the REQ-017 entries so existing
  * keyboard / palette muscle memory (Straight as the first entry,
  * default selection) is unchanged. SCurve pairs sit before Sweep
  * pairs because S-curves are the more common starter shape for a
  * city loop; sweep pieces are the longer-radius variant a builder
- * reaches for after the basic shape is in place.
+ * reaches for after the basic shape is in place. Intersection lands
+ * at the end of the palette because branching is the next conceptual
+ * step after a builder has the basic shape and the curves in hand.
  */
 export const STREET_PALETTE: readonly PaletteEntry[] = [
   { type: 'straight', label: 'Straight' },
@@ -96,6 +99,7 @@ export const STREET_PALETTE: readonly PaletteEntry[] = [
   { type: 'scurveLeft', label: 'S-Curve Left' },
   { type: 'sweepRight', label: 'Sweep Right' },
   { type: 'sweepLeft', label: 'Sweep Left' },
+  { type: 'intersection', label: 'Intersection' },
 ]
 
 /**
