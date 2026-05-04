@@ -714,6 +714,84 @@ test('palette exposes the REQ-061 arc45 and REQ-062 diagonal pieces and places t
   await expect(pieceCount).toHaveText('Pieces placed: 2')
 })
 
+test('palette exposes REQ-058 megaSweepRight / megaSweepLeft and resolves the 2x2 footprint', async ({
+  page,
+}) => {
+  const response = await page.goto('/mega-sweep-spec/edit')
+  expect(response?.status()).toBe(200)
+
+  const palette = page.getByTestId('editor-palette')
+  await expect(palette).toBeVisible()
+
+  const megaSweepRight = palette.locator('[data-piece-type="megaSweepRight"]')
+  const megaSweepLeft = palette.locator('[data-piece-type="megaSweepLeft"]')
+  await expect(megaSweepRight).toBeVisible()
+  await expect(megaSweepRight).toHaveText('Mega Sweep Right')
+  await expect(megaSweepLeft).toBeVisible()
+  await expect(megaSweepLeft).toHaveText('Mega Sweep Left')
+
+  // Default selection is still Straight (REQ-017); neither mega sweep
+  // is pressed on first render.
+  await expect(megaSweepRight).toHaveAttribute('aria-pressed', 'false')
+  await expect(megaSweepLeft).toHaveAttribute('aria-pressed', 'false')
+
+  const grid = page.getByTestId('editor-snap-grid')
+  const pieceCount = page.getByTestId('editor-piece-count')
+
+  // Pick Mega Sweep Right, place anchored at (1, 1). The canonical 2x2
+  // footprint covers (0, 0), (0, 1), (1, 0), (1, 1) so the SVG should
+  // mark all four cells occupied even though the click only landed on
+  // the anchor.
+  await megaSweepRight.click()
+  await expect(megaSweepRight).toHaveAttribute('aria-pressed', 'true')
+  await grid.locator('[data-cell-row="1"][data-cell-col="1"]').click()
+  await expect(pieceCount).toHaveText('Pieces placed: 1')
+  await expect(grid).toHaveAttribute('data-occupied-count', '4')
+  for (const [row, col] of [
+    [0, 0],
+    [0, 1],
+    [1, 0],
+    [1, 1],
+  ] as const) {
+    await expect(
+      grid.locator(`[data-cell-row="${row}"][data-cell-col="${col}"]`),
+    ).toHaveAttribute('data-cell-occupied', 'true')
+  }
+
+  // A second mega sweep that would overlap any footprint cell is
+  // rejected by the reducer; piece count and occupied count stay flat.
+  await grid.locator('[data-cell-row="1"][data-cell-col="2"]').click()
+  await expect(pieceCount).toHaveText('Pieces placed: 1')
+  await expect(grid).toHaveAttribute('data-occupied-count', '4')
+
+  // Switch to Mega Sweep Left, place anchored at (5, 5). The canonical
+  // 2x2 footprint covers (4, 5), (4, 6), (5, 5), (5, 6).
+  await megaSweepLeft.click()
+  await expect(megaSweepLeft).toHaveAttribute('aria-pressed', 'true')
+  await expect(megaSweepRight).toHaveAttribute('aria-pressed', 'false')
+  await grid.locator('[data-cell-row="5"][data-cell-col="5"]').click()
+  await expect(pieceCount).toHaveText('Pieces placed: 2')
+  await expect(grid).toHaveAttribute('data-occupied-count', '8')
+  for (const [row, col] of [
+    [4, 5],
+    [4, 6],
+    [5, 5],
+    [5, 6],
+  ] as const) {
+    await expect(
+      grid.locator(`[data-cell-row="${row}"][data-cell-col="${col}"]`),
+    ).toHaveAttribute('data-cell-occupied', 'true')
+  }
+
+  // Erase mode toggled, click any footprint cell of the first mega
+  // sweep (not the anchor) and the entire 2x2 piece comes out
+  // atomically.
+  await page.getByTestId('editor-erase').click()
+  await grid.locator('[data-cell-row="0"][data-cell-col="0"]').click()
+  await expect(pieceCount).toHaveText('Pieces placed: 1')
+  await expect(grid).toHaveAttribute('data-occupied-count', '4')
+})
+
 test('autosave surfaces save failures via the status indicator (REQ-025)', async ({
   page,
 }) => {

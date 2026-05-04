@@ -638,4 +638,65 @@ describe('pieceFootprintWorldCells (REQ-045 multi-cell ground meshes)', () => {
       expect(cell.z + half).toBeLessThanOrEqual(bounds.maxZ + 1e-9)
     }
   })
+
+  it('falls back to the type-driven default for megaSweepRight without an explicit footprint (REQ-058)', () => {
+    // The placePiece reducer never records an explicit footprint for a
+    // mega sweep, so the drive scene must derive the 2x2 footprint from
+    // the piece type alone or it would render a single ground quad and
+    // leave three visible holes through the placed piece.
+    const piece: Piece = {
+      type: 'megaSweepRight',
+      row: 5,
+      col: 5,
+      rotation: 0,
+    }
+    const cells = pieceFootprintWorldCells(piece)
+    expect(cells).toHaveLength(4)
+    const coords = new Set(cells.map((c) => `${c.row},${c.col}`))
+    expect(coords).toEqual(new Set(['4,4', '4,5', '5,4', '5,5']))
+  })
+
+  it('falls back to the type-driven default for megaSweepLeft without an explicit footprint (REQ-058)', () => {
+    const piece: Piece = {
+      type: 'megaSweepLeft',
+      row: 0,
+      col: 0,
+      rotation: 0,
+    }
+    const cells = pieceFootprintWorldCells(piece)
+    expect(cells).toHaveLength(4)
+    const coords = new Set(cells.map((c) => `${c.row},${c.col}`))
+    expect(coords).toEqual(new Set(['-1,0', '-1,1', '0,0', '0,1']))
+  })
+
+  it('rotates the type-driven default with the piece rotation field (REQ-058)', () => {
+    // megaSweepRight at rotation 90 covers (-1, 0), (-1, 1), (0, 0),
+    // (0, 1) anchored at (10, 10), so absolute cells are (9, 10),
+    // (9, 11), (10, 10), (10, 11).
+    const piece: Piece = {
+      type: 'megaSweepRight',
+      row: 10,
+      col: 10,
+      rotation: 90,
+    }
+    const cells = pieceFootprintWorldCells(piece)
+    expect(cells).toHaveLength(4)
+    const coords = new Set(cells.map((c) => `${c.row},${c.col}`))
+    expect(coords).toEqual(new Set(['9,10', '9,11', '10,10', '10,11']))
+  })
+
+  it('still uses cellToWorld for every type-driven default cell so world coords agree with the editor scene', () => {
+    const piece: Piece = {
+      type: 'megaSweepRight',
+      row: 3,
+      col: -2,
+      rotation: 0,
+    }
+    const cells = pieceFootprintWorldCells(piece)
+    for (const cell of cells) {
+      const expected = cellToWorld(cell.row, cell.col)
+      expect(cell.x).toBeCloseTo(expected.x, 10)
+      expect(cell.z).toBeCloseTo(expected.z, 10)
+    }
+  })
 })

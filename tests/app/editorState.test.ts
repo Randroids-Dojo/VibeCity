@@ -32,8 +32,8 @@ import {
  * `npm run build` plus the Playwright spec for the editor route.
  */
 
-describe('STREET_PALETTE (REQ-017, REQ-018, REQ-019, REQ-061, REQ-062)', () => {
-  it('exposes the v1 cardinal basics, the curve / sweep pieces, the intersection, then the corner-connector pieces', () => {
+describe('STREET_PALETTE (REQ-017, REQ-018, REQ-019, REQ-058, REQ-061, REQ-062)', () => {
+  it('exposes the v1 cardinal basics, the curve / sweep pieces, the mega sweep pair, the intersection, then the corner-connector pieces', () => {
     expect(STREET_PALETTE.map((p) => p.type)).toEqual([
       'straight',
       'left90',
@@ -42,6 +42,8 @@ describe('STREET_PALETTE (REQ-017, REQ-018, REQ-019, REQ-061, REQ-062)', () => {
       'scurveLeft',
       'sweepRight',
       'sweepLeft',
+      'megaSweepRight',
+      'megaSweepLeft',
       'intersection',
       'arc45',
       'diagonal',
@@ -83,10 +85,17 @@ describe('STREET_PALETTE (REQ-017, REQ-018, REQ-019, REQ-061, REQ-062)', () => {
     expect(indexOf('scurve')).toBeLessThan(indexOf('sweepRight'))
   })
 
-  it('orders the REQ-019 intersection after every REQ-018 curve / sweep entry', () => {
+  it('orders the REQ-058 mega sweep pair immediately after the REQ-018 sweep pair', () => {
     const indexOf = (t: string) =>
       STREET_PALETTE.findIndex((p) => p.type === t)
-    expect(indexOf('sweepLeft')).toBeLessThan(indexOf('intersection'))
+    expect(indexOf('sweepLeft')).toBeLessThan(indexOf('megaSweepRight'))
+    expect(indexOf('megaSweepRight')).toBeLessThan(indexOf('megaSweepLeft'))
+  })
+
+  it('orders the REQ-019 intersection after the REQ-058 mega sweep pair', () => {
+    const indexOf = (t: string) =>
+      STREET_PALETTE.findIndex((p) => p.type === t)
+    expect(indexOf('megaSweepLeft')).toBeLessThan(indexOf('intersection'))
   })
 
   it('orders the REQ-061 arc45 and REQ-062 diagonal after the intersection', () => {
@@ -99,10 +108,8 @@ describe('STREET_PALETTE (REQ-017, REQ-018, REQ-019, REQ-061, REQ-062)', () => {
     expect(indexOf('diagonal')).toBe(STREET_PALETTE.length - 1)
   })
 
-  it('does not advertise pieces from later slices (REQ-058, REQ-060)', () => {
+  it('does not advertise pieces from later slices (REQ-060)', () => {
     const types = new Set(STREET_PALETTE.map((p) => p.type))
-    expect(types.has('megaSweepRight')).toBe(false)
-    expect(types.has('megaSweepLeft')).toBe(false)
     expect(types.has('hairpin')).toBe(false)
   })
 
@@ -247,6 +254,107 @@ describe('placePiece with REQ-061 arc45 and REQ-062 diagonal', () => {
     expect(() => CitySchema.parse(arcCity)).not.toThrow()
     const diagonalCity = placePiece(EMPTY_CITY, 'diagonal', 0, 1, 90)
     expect(() => CitySchema.parse(diagonalCity)).not.toThrow()
+  })
+})
+
+describe('placePiece with REQ-058 megaSweepRight / megaSweepLeft', () => {
+  it('places megaSweepRight without recording an explicit footprint', () => {
+    const next = placePiece(EMPTY_CITY, 'megaSweepRight', 5, 5)
+    expect(next.pieces).toHaveLength(1)
+    expect(next.pieces[0]).toEqual({
+      type: 'megaSweepRight',
+      row: 5,
+      col: 5,
+      rotation: 0,
+    })
+    expect(next.pieces[0].footprint).toBeUndefined()
+  })
+
+  it('places megaSweepLeft without recording an explicit footprint', () => {
+    const next = placePiece(EMPTY_CITY, 'megaSweepLeft', 0, 0, 180)
+    expect(next.pieces).toHaveLength(1)
+    expect(next.pieces[0]).toEqual({
+      type: 'megaSweepLeft',
+      row: 0,
+      col: 0,
+      rotation: 180,
+    })
+    expect(next.pieces[0].footprint).toBeUndefined()
+  })
+
+  it('rejects a megaSweepRight placement that would overlap any of its 2x2 footprint cells', () => {
+    // megaSweepRight at (1, 1) rotation 0 covers (0, 0), (0, 1), (1, 0),
+    // (1, 1). A straight piece at (0, 0) collides with the back-left
+    // footprint cell so the placement must be rejected even though the
+    // anchor cell (1, 1) is free.
+    const seeded: City = {
+      pieces: [{ type: 'straight', row: 0, col: 0, rotation: 0 }],
+      buildings: [],
+    }
+    const rejected = placePiece(seeded, 'megaSweepRight', 1, 1)
+    expect(rejected).toBe(seeded)
+  })
+
+  it('rejects a megaSweepLeft placement that would overlap any of its 2x2 footprint cells', () => {
+    // megaSweepLeft at (1, 0) rotation 0 covers (0, 0), (0, 1), (1, 0),
+    // (1, 1). A straight piece at (1, 1) collides with the front-right
+    // footprint cell.
+    const seeded: City = {
+      pieces: [{ type: 'straight', row: 1, col: 1, rotation: 0 }],
+      buildings: [],
+    }
+    const rejected = placePiece(seeded, 'megaSweepLeft', 1, 0)
+    expect(rejected).toBe(seeded)
+  })
+
+  it('accepts a megaSweepRight placement when the full 2x2 footprint is clear', () => {
+    const next = placePiece(EMPTY_CITY, 'megaSweepRight', 1, 1)
+    expect(next.pieces).toHaveLength(1)
+  })
+
+  it('rejects a second megaSweepRight that overlaps the first piece footprint', () => {
+    const first = placePiece(EMPTY_CITY, 'megaSweepRight', 1, 1)
+    // Second mega sweep at (1, 2) covers (0, 1), (0, 2), (1, 1), (1, 2)
+    // which overlaps the first at (0, 1) and (1, 1). Must reject.
+    const rejected = placePiece(first, 'megaSweepRight', 1, 2)
+    expect(rejected).toBe(first)
+  })
+
+  it('rotates the footprint with the rotation argument', () => {
+    // megaSweepRight at rotation 0 covers (-1, -1), (-1, 0), (0, -1),
+    // (0, 0) anchored at (anchor.row, anchor.col). After a 90deg
+    // clockwise rotate the footprint covers (-1, 0), (-1, 1), (0, 0),
+    // (0, 1) (i.e. the 2x2 block now extends to the right of the
+    // anchor instead of to the left). A straight at (0, 1) collides
+    // with the rotated footprint but not with the unrotated one.
+    const seeded: City = {
+      pieces: [{ type: 'straight', row: 0, col: 1, rotation: 0 }],
+      buildings: [],
+    }
+    // Unrotated mega sweep at (0, 0): footprint covers (-1, -1) ..
+    // (0, 0), no overlap with (0, 1).
+    const unrotated = placePiece(seeded, 'megaSweepRight', 0, 0, 0)
+    expect(unrotated).not.toBe(seeded)
+    expect(unrotated.pieces).toHaveLength(2)
+    // Rotated 90deg mega sweep at (0, 0): footprint reaches (0, 1)
+    // and overlaps the seeded straight piece.
+    const rotated = placePiece(seeded, 'megaSweepRight', 0, 0, 90)
+    expect(rotated).toBe(seeded)
+  })
+
+  it('round-trips with erasePiece atomically (any footprint cell removes the whole piece)', () => {
+    const placed = placePiece(EMPTY_CITY, 'megaSweepRight', 1, 1)
+    // Erase by clicking the back-left footprint cell rather than the
+    // anchor; the whole piece must come out in one click.
+    const erased = erasePiece(placed, 0, 0)
+    expect(erased.pieces).toHaveLength(0)
+  })
+
+  it('returns a city that still validates against CitySchema', () => {
+    const next = placePiece(EMPTY_CITY, 'megaSweepRight', 0, 0, 270)
+    expect(() => CitySchema.parse(next)).not.toThrow()
+    const left = placePiece(EMPTY_CITY, 'megaSweepLeft', 0, 0, 90)
+    expect(() => CitySchema.parse(left)).not.toThrow()
   })
 })
 

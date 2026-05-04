@@ -4,6 +4,7 @@ import type {
   Piece,
   PieceFootprintCell,
   PieceType,
+  Rotation,
 } from '@/lib/schemas'
 
 /**
@@ -234,13 +235,76 @@ export function rotationToRadians(rotation: number): number {
 
 /**
  * Default single-cell footprint used when a piece does not declare its
- * own. Mirrors the canonical default in `edit/snapGrid.ts`'s
- * `pieceFootprintCells`; duplicated here so this module stays free of
- * the editor-only dependency tree.
+ * own and its `type` does not carry a multi-cell default. Mirrors the
+ * canonical default in `edit/snapGrid.ts`'s `pieceFootprintCells`;
+ * duplicated here so this module stays free of the editor-only
+ * dependency tree.
  */
 const DEFAULT_PIECE_FOOTPRINT: readonly PieceFootprintCell[] = [
   { dr: 0, dc: 0 },
 ]
+
+/**
+ * Canonical mega-sweep footprints (REQ-058). Mirror the constants in
+ * `edit/snapGrid.ts`; duplicated here so this module stays free of the
+ * editor-only dependency tree (matches the rest of the duplication
+ * pattern in `pieceFootprintWorldCells`).
+ */
+const MEGA_SWEEP_RIGHT_FOOTPRINT: readonly PieceFootprintCell[] = [
+  { dr: -1, dc: -1 },
+  { dr: -1, dc: 0 },
+  { dr: 0, dc: -1 },
+  { dr: 0, dc: 0 },
+]
+
+const MEGA_SWEEP_LEFT_FOOTPRINT: readonly PieceFootprintCell[] = [
+  { dr: -1, dc: 0 },
+  { dr: -1, dc: 1 },
+  { dr: 0, dc: 0 },
+  { dr: 0, dc: 1 },
+]
+
+function rotateFootprintLocal(
+  footprint: readonly PieceFootprintCell[],
+  rotation: Rotation,
+): PieceFootprintCell[] {
+  let cells = footprint.map((c) => ({ dr: c.dr, dc: c.dc }))
+  const steps = rotation / 90
+  for (let i = 0; i < steps; i++) {
+    cells = cells.map((cell) => ({
+      dr: cell.dc,
+      dc: -cell.dr,
+    }))
+  }
+  return cells.map((cell) => ({
+    dr: Object.is(cell.dr, -0) ? 0 : cell.dr,
+    dc: Object.is(cell.dc, -0) ? 0 : cell.dc,
+  }))
+}
+
+/**
+ * Resolve a piece's canonical default footprint from its `type` and
+ * `rotation` (REQ-058, REQ-059).
+ *
+ * Mirrors `defaultFootprintForPiece` in `edit/snapGrid.ts`; duplicated
+ * locally so the drive scene stays free of the editor-only dependency
+ * tree. When a piece has no explicit `footprint` field, multi-cell
+ * types (`megaSweepRight` / `megaSweepLeft`) return their canonical
+ * 2x2 offsets rotated by the piece's `rotation`; single-cell types
+ * return the single anchor offset.
+ */
+function defaultFootprintForPiece(
+  piece: Pick<Piece, 'type' | 'rotation'>,
+): readonly PieceFootprintCell[] {
+  switch (piece.type) {
+    case 'megaSweepRight':
+      return rotateFootprintLocal(MEGA_SWEEP_RIGHT_FOOTPRINT, piece.rotation)
+    case 'megaSweepLeft':
+      return rotateFootprintLocal(MEGA_SWEEP_LEFT_FOOTPRINT, piece.rotation)
+    default:
+      return DEFAULT_PIECE_FOOTPRINT
+  }
+}
 
 /**
  * Resolve a piece's footprint to absolute cell coordinates, paired with
@@ -250,7 +314,10 @@ const DEFAULT_PIECE_FOOTPRINT: readonly PieceFootprintCell[] = [
  * multi-cell pieces (mega sweep, hairpin, future arc45 / diagonal once
  * REQ-059 lands) expand to one entry per declared cell so a placed
  * piece never leaves visual holes on the ground plane while the
- * footprint contract is satisfied.
+ * footprint contract is satisfied. When the `footprint` field is
+ * omitted, the type-driven default from `defaultFootprintForPiece`
+ * fills it in so a placed mega-sweep piece renders all four ground
+ * quads even though `placePiece` does not record an explicit footprint.
  *
  * Returns a fresh array on each call so callers cannot mutate a shared
  * singleton.
@@ -258,7 +325,7 @@ const DEFAULT_PIECE_FOOTPRINT: readonly PieceFootprintCell[] = [
 export function pieceFootprintWorldCells(
   piece: Piece,
 ): { row: number; col: number; x: number; z: number }[] {
-  const footprint = piece.footprint ?? DEFAULT_PIECE_FOOTPRINT
+  const footprint = piece.footprint ?? defaultFootprintForPiece(piece)
   return footprint.map((cell) => {
     const row = piece.row + cell.dr
     const col = piece.col + cell.dc
