@@ -53,11 +53,15 @@ import {
   toCameraRigParams,
 } from './cameraSettings'
 import { CameraSettingsPanel } from './CameraSettingsPanel'
+import { clampTouchMode } from './touchSettings'
+import { TouchSettingsPanel } from './TouchSettingsPanel'
 import {
   DEFAULT_CAMERA_TUNING,
+  DEFAULT_TOUCH_MODE,
   loadControls,
   saveControls,
   type CameraTuning,
+  type TouchMode,
 } from '@/lib/controlsPersistence'
 import {
   DEFAULT_PAUSE_STATE,
@@ -209,6 +213,12 @@ export function DriveSceneClient({
   // tearing down and rebuilding the scene; the projection matrix is
   // refreshed in the panel's onChange branch below.
   const perspectiveCameraRef = useRef<THREE.PerspectiveCamera | null>(null)
+  // Touch mode state (REQ-042). Loaded from localStorage on the same
+  // first-mount effect as the camera tuning so a returning player sees
+  // the same touch layout choice across visits. The runtime touch
+  // input handler (REQ-035) is deferred to its own slice; this state
+  // currently only drives the picker UI and the persistence layer.
+  const [touchMode, setTouchMode] = useState<TouchMode>(DEFAULT_TOUCH_MODE)
   useEffect(() => {
     // Hydrate from localStorage on first mount. The server-render
     // already used the defaults so a fresh visit sees the same framing
@@ -217,6 +227,7 @@ export function DriveSceneClient({
     // re-frame on the next animation tick.
     const persisted = loadControls()
     setCameraTuning(clampCameraTuning(persisted.camera))
+    setTouchMode(clampTouchMode(persisted.touchMode))
   }, [])
   const handleCameraTuningChange = useCallback((next: CameraTuning) => {
     const clamped = clampCameraTuning(next)
@@ -236,6 +247,15 @@ export function DriveSceneClient({
       camera.fov = DEFAULT_CAMERA_TUNING.fov
       camera.updateProjectionMatrix()
     }
+  }, [])
+  const handleTouchModeChange = useCallback((next: TouchMode) => {
+    const clamped = clampTouchMode(next)
+    setTouchMode(clamped)
+    saveControls({ touchMode: clamped })
+  }, [])
+  const handleTouchModeReset = useCallback(() => {
+    setTouchMode(DEFAULT_TOUCH_MODE)
+    saveControls({ touchMode: DEFAULT_TOUCH_MODE })
   }, [])
 
   // Memoize the bounds so the effect re-fits the camera only when the
@@ -995,6 +1015,7 @@ export function DriveSceneClient({
       data-camera-look-ahead={cameraTuning.lookAhead}
       data-camera-follow-speed={cameraTuning.followSpeed}
       data-camera-fov={cameraTuning.fov}
+      data-touch-mode={touchMode}
       style={{
         position: 'fixed',
         inset: 0,
@@ -1427,6 +1448,11 @@ export function DriveSceneClient({
             tuning={cameraTuning}
             onChange={handleCameraTuningChange}
             onReset={handleCameraTuningReset}
+          />
+          <TouchSettingsPanel
+            mode={touchMode}
+            onChange={handleTouchModeChange}
+            onReset={handleTouchModeReset}
           />
         </div>
       ) : null}

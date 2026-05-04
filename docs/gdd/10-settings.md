@@ -63,6 +63,39 @@ join point a converter would target.
 
 ### Build log
 
+- 2026-05-04: REQ-042 shipped. Added `src/app/[slug]/touchSettings.ts` with
+  `TOUCH_MODE_OPTIONS` (per-mode `{ value, label, description }` records,
+  dual-stick first as the default and the more capable layout, single-stick
+  second), `clampTouchMode(input)` (runs `unknown` through
+  `TouchModeSchema.safeParse` and falls back to `DEFAULT_TOUCH_MODE` on a
+  non-string or unknown enum value), and re-exports for `DEFAULT_TOUCH_MODE`
+  and `TouchMode`. Added `src/app/[slug]/TouchSettingsPanel.tsx` rendering a
+  controlled-component `role='radiogroup'` with one `role='radio'` button per
+  option (button-as-radio so the entire label / description box is tappable;
+  `aria-checked` and `data-selected` mirror the live selection) plus a Reset
+  button inside the pause menu (REQ-039). Wired
+  `src/app/[slug]/DriveSceneClient.tsx` to load the persisted touch mode on
+  the same first-mount `useEffect` that hydrates the camera tuning, hold it
+  in React state, persist via `saveControls({ touchMode })` on every change,
+  expose `data-touch-mode` on the scene root for tests, and render
+  `<TouchSettingsPanel />` immediately after `<CameraSettingsPanel />` inside
+  the pause menu so the two panels stack as a single settings drawer. The
+  runtime touch input handler (REQ-035) stays deferred to its own slice; the
+  picker only persists the choice and the runtime layer will read
+  `loadControls().touchMode` once REQ-035 lands. 10 unit tests in
+  `tests/app/touchSettings.test.ts` cover the option-list invariants (one
+  option per `TouchModeSchema` enum value, no extras, every option has a
+  non-empty label and description, unique values, default-first ordering,
+  race-term vocabulary lockdown), `clampTouchMode` (non-string collapse,
+  unknown-enum collapse, valid pass-through, idempotent), and the
+  `DEFAULT_TOUCH_MODE` re-export shape. E2e drive specs assert
+  `data-touch-mode='dual-stick'` rides on the scene root and the
+  `drive-touch-settings` testid resolves to zero elements when the pause menu
+  is closed (the panel only mounts inside the pause menu which itself only
+  opens with a car mounted). Files: `src/app/[slug]/touchSettings.ts`,
+  `src/app/[slug]/TouchSettingsPanel.tsx`,
+  `src/app/[slug]/DriveSceneClient.tsx`, `e2e/drive.spec.ts`,
+  `tests/app/touchSettings.test.ts`. PR #N.
 - 2026-05-04: REQ-040 shipped. Added `src/app/[slug]/cameraSettings.ts`
   with `CAMERA_SLIDER_BOUNDS` (per-field min / max / step / label),
   `clampCameraTuning(input)` (snaps every field to its slider step;
