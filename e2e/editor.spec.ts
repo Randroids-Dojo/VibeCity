@@ -745,3 +745,88 @@ test('autosave surfaces save failures via the status indicator (REQ-025)', async
   })
   await expect(status).toHaveText('Save failed')
 })
+
+test('hover preview ghost flips kind across place / erase and category', async ({
+  page,
+}) => {
+  // Intercept autosave so the editor opens cleanly without KV.
+  await page.route('**/api/city/**', async (route) => {
+    if (route.request().method() !== 'PUT') {
+      await route.continue()
+      return
+    }
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        slug: 'preview-spec',
+        versionHash:
+          '0000000000000000000000000000000000000000000000000000000000000000',
+        updatedAt: Date.now(),
+      }),
+    })
+  })
+
+  const response = await page.goto('/preview-spec/edit')
+  expect(response?.status()).toBe(200)
+
+  const grid = page.getByTestId('editor-snap-grid')
+  await expect(grid).toBeVisible()
+  await expect(grid).toHaveAttribute('data-preview-kind', 'none')
+
+  const ghost = page.getByTestId('editor-preview-ghost')
+  await expect(ghost).toHaveCount(0)
+
+  // Hover an empty cell in the default street + place mode. The ghost
+  // appears in place-valid (street brown) state.
+  const empty = grid.locator('[data-cell-row="0"][data-cell-col="0"]')
+  await empty.hover()
+  await expect(grid).toHaveAttribute('data-preview-kind', 'place-valid')
+  await expect(grid).toHaveAttribute('data-preview-row', '0')
+  await expect(grid).toHaveAttribute('data-preview-col', '0')
+  await expect(ghost).toHaveCount(1)
+  await expect(ghost).toHaveAttribute('data-preview-kind', 'place-valid')
+  await expect(empty).toHaveAttribute('data-cell-previewed', 'true')
+
+  // Place a piece, then hover it again. Now the same cell reads
+  // place-invalid because the reducer would reject the next click.
+  await empty.click()
+  await empty.hover()
+  await expect(grid).toHaveAttribute('data-preview-kind', 'place-invalid')
+  await expect(ghost).toHaveAttribute('data-preview-kind', 'place-invalid')
+
+  // Toggle erase mode. The pointer leaves the grid to click the
+  // toolbar button so the hover state clears; re-hover the same cell
+  // and it now reads erase-target because the cell holds the placed
+  // piece.
+  await page.getByTestId('editor-erase').click()
+  await empty.hover()
+  await expect(grid).toHaveAttribute('data-preview-kind', 'erase-target')
+  await expect(ghost).toHaveAttribute('data-preview-kind', 'erase-target')
+
+  // Hover an empty cell while still in erase mode: erase-empty (no-op).
+  const otherEmpty = grid.locator('[data-cell-row="2"][data-cell-col="2"]')
+  await otherEmpty.hover()
+  await expect(grid).toHaveAttribute('data-preview-kind', 'erase-empty')
+  await expect(ghost).toHaveAttribute('data-preview-kind', 'erase-empty')
+
+  // Switch back to place mode and over to the building category. An
+  // empty cell stays place-valid (the building reducer would accept).
+  await page.getByTestId('editor-erase').click()
+  await page.getByTestId('editor-palette-category-building').click()
+  await otherEmpty.hover()
+  await expect(grid).toHaveAttribute('data-preview-kind', 'place-valid')
+  await expect(ghost).toHaveAttribute('data-preview-kind', 'place-valid')
+
+  // The previously-placed piece cell now reads place-invalid in
+  // building mode because place rejects on any occupied cell across
+  // both layers (matches the placeBuilding reducer rule).
+  await empty.hover()
+  await expect(grid).toHaveAttribute('data-preview-kind', 'place-invalid')
+  await expect(ghost).toHaveAttribute('data-preview-kind', 'place-invalid')
+
+  // Mouse out of the grid: the ghost disappears.
+  await page.mouse.move(0, 0)
+  await expect(grid).toHaveAttribute('data-preview-kind', 'none')
+  await expect(ghost).toHaveCount(0)
+})
