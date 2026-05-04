@@ -66,6 +66,16 @@ test('drive route mounts the canvas with the slug label and Edit CTA', async ({
   // car mounted the per-frame integration loop is dormant so the flag
   // never flips. Unit tests cover the populated case.
   await expect(root).toHaveAttribute('data-on-building', 'false')
+
+  // REQ-066: drive HUD overlays render only when a car is mounted. The
+  // playwright webServer is unconfigured KV so the city is empty and
+  // the HUD is hidden. The fallback data attributes still ride on the
+  // root so the contract is observable.
+  await expect(root).toHaveAttribute('data-hud-visible', 'false')
+  await expect(root).toHaveAttribute('data-hud-speed', '0')
+  await expect(root).toHaveAttribute('data-hud-direction', 'idle')
+  await expect(page.getByTestId('drive-hud-speed')).toHaveCount(0)
+  await expect(page.getByTestId('drive-hud-controls')).toHaveCount(0)
 })
 
 test('drive route shows the empty-state prompt for a fresh slug (REQ-053)', async ({
@@ -94,6 +104,12 @@ test('drive route shows the empty-state prompt for a fresh slug (REQ-053)', asyn
   // REQ-030: building collision flag stays false on the empty grid;
   // there is no car to land on a building cell.
   await expect(root).toHaveAttribute('data-on-building', 'false')
+  // REQ-066: drive HUD stays hidden on the empty grid; the listener
+  // gate that mounts the car also gates the HUD overlays so an author
+  // cannot see a speed readout for a car that is not on screen.
+  await expect(root).toHaveAttribute('data-hud-visible', 'false')
+  await expect(page.getByTestId('drive-hud-speed')).toHaveCount(0)
+  await expect(page.getByTestId('drive-hud-controls')).toHaveCount(0)
 
   const prompt = page.getByTestId('drive-empty-prompt')
   await expect(prompt).toBeVisible()

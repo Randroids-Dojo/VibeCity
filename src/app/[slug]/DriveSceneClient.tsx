@@ -60,6 +60,14 @@ import {
   buildingCellSet,
   isOnBuildingCell,
 } from './buildingCollision'
+import {
+  HUD_CONTROLS_HINT_LINES,
+  HUD_SPEED_LABEL,
+  HUD_SPEED_UNIT,
+  formatSpeed,
+  speedDirection,
+  speedFraction,
+} from './driveHud'
 
 /**
  * Drive scene scaffold (REQ-044, REQ-045, REQ-046, REQ-053) plus the
@@ -96,6 +104,12 @@ export function DriveSceneClient({
 }) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null)
   const rootRef = useRef<HTMLDivElement | null>(null)
+  // HUD refs (REQ-066). The integration loop writes the live speed
+  // readout and the bar fill imperatively so the React tree does not
+  // re-render every frame; only the static text content (label, unit,
+  // controls hint) renders through the React tree below.
+  const hudSpeedValueRef = useRef<HTMLSpanElement | null>(null)
+  const hudSpeedBarFillRef = useRef<HTMLDivElement | null>(null)
   const isEmpty = city.pieces.length === 0 && city.buildings.length === 0
 
   // Pause state (REQ-039). The integration loop reads the live value
@@ -421,6 +435,32 @@ export function DriveSceneClient({
       root.setAttribute('data-car-heading', vehicle.heading.toFixed(4))
       root.setAttribute('data-car-speed', vehicle.speed.toFixed(3))
     }
+    // HUD speed readout + bar fill (REQ-066). The integration loop
+    // writes the readout text and the bar transform imperatively so
+    // the React tree does not re-render every frame; the static label
+    // / unit / controls hint render through React below. The mirror
+    // also exposes `data-hud-speed` and `data-hud-direction` on the
+    // scene root so a test can read driving state without inspecting
+    // the WebGL scene graph.
+    const updateHud = () => {
+      if (!vehicle) return
+      const valueText = formatSpeed(vehicle.speed)
+      const direction = speedDirection(vehicle.speed)
+      const fraction = speedFraction(vehicle.speed)
+      if (hudSpeedValueRef.current) {
+        hudSpeedValueRef.current.textContent = valueText
+      }
+      if (hudSpeedBarFillRef.current) {
+        // CSS `transform: scaleX(...)` keeps the bar's reflow-free; the
+        // bar element is the inner fill so the outer track is the full
+        // width and the fill scales from the left origin.
+        hudSpeedBarFillRef.current.style.transform = `scaleX(${fraction})`
+      }
+      if (root) {
+        root.setAttribute('data-hud-speed', valueText)
+        root.setAttribute('data-hud-direction', direction)
+      }
+    }
     // Building collision flag mirror (REQ-030). True only when the car
     // center cell sits on a building cell so a test can assert the
     // penalty is engaged without sampling the speed history.
@@ -433,6 +473,7 @@ export function DriveSceneClient({
       updateOnBuildingAttr(
         isOnBuildingCell(vehicle.x, vehicle.z, buildingCells),
       )
+      updateHud()
     }
 
     // Chase camera rig (REQ-033). Initialized from the spawn pose so
@@ -500,6 +541,7 @@ export function DriveSceneClient({
         car.rotation.y = vehicle.heading
         updateVehicleAttrs()
         updateOnBuildingAttr(onBuilding)
+        updateHud()
       }
       if (rig && vehicle) {
         updateCameraRig(rig, vehicle.x, vehicle.z, vehicle.heading)
@@ -576,6 +618,9 @@ export function DriveSceneClient({
       data-camera-mode={hasVehicle ? 'chase' : 'orbit'}
       data-pause-state={pauseState}
       data-on-building="false"
+      data-hud-visible={hasVehicle && !showPauseMenu ? 'true' : 'false'}
+      data-hud-speed="0"
+      data-hud-direction="idle"
       style={{
         position: 'fixed',
         inset: 0,
@@ -698,6 +743,108 @@ export function DriveSceneClient({
           >
             Open editor
           </Link>
+        </div>
+      ) : null}
+      {hasVehicle && !showPauseMenu ? (
+        <div
+          data-testid="drive-hud-speed"
+          aria-live="off"
+          style={{
+            position: 'absolute',
+            bottom: 16,
+            left: 16,
+            padding: '8px 12px',
+            borderRadius: 4,
+            background: 'rgba(34, 34, 34, 0.7)',
+            color: '#f7f4ee',
+            fontFamily: 'system-ui, sans-serif',
+            fontSize: 14,
+            letterSpacing: 0.5,
+            minWidth: 140,
+            pointerEvents: 'none',
+          }}
+        >
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'baseline',
+              justifyContent: 'space-between',
+              gap: 8,
+            }}
+          >
+            <span style={{ fontSize: 12, opacity: 0.7 }}>
+              {HUD_SPEED_LABEL}
+            </span>
+            <span style={{ fontSize: 12, opacity: 0.5 }}>
+              {HUD_SPEED_UNIT}
+            </span>
+          </div>
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'baseline',
+              gap: 6,
+            }}
+          >
+            <span
+              ref={hudSpeedValueRef}
+              data-testid="drive-hud-speed-value"
+              style={{
+                fontSize: 28,
+                fontVariantNumeric: 'tabular-nums',
+                fontWeight: 600,
+              }}
+            >
+              0
+            </span>
+          </div>
+          <div
+            data-testid="drive-hud-speed-bar"
+            style={{
+              marginTop: 6,
+              height: 4,
+              width: '100%',
+              background: 'rgba(255, 255, 255, 0.18)',
+              borderRadius: 2,
+              overflow: 'hidden',
+            }}
+          >
+            <div
+              ref={hudSpeedBarFillRef}
+              data-testid="drive-hud-speed-bar-fill"
+              style={{
+                height: '100%',
+                width: '100%',
+                background: '#f7f4ee',
+                transformOrigin: 'left center',
+                transform: 'scaleX(0)',
+              }}
+            />
+          </div>
+        </div>
+      ) : null}
+      {hasVehicle && !showPauseMenu ? (
+        <div
+          data-testid="drive-hud-controls"
+          style={{
+            position: 'absolute',
+            bottom: 16,
+            right: 16,
+            padding: '8px 12px',
+            borderRadius: 4,
+            background: 'rgba(34, 34, 34, 0.7)',
+            color: '#f7f4ee',
+            fontFamily: 'system-ui, sans-serif',
+            fontSize: 12,
+            letterSpacing: 0.3,
+            lineHeight: 1.6,
+            pointerEvents: 'none',
+            textAlign: 'right',
+          }}
+        >
+          {HUD_CONTROLS_HINT_LINES.map((line) => (
+            <div key={line}>{line}</div>
+          ))}
         </div>
       ) : null}
       {showPauseMenu ? (
