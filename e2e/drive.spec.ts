@@ -126,6 +126,16 @@ test('drive route mounts the canvas with the slug label and Edit CTA', async ({
   await expect(root).toHaveAttribute('data-touch-mode', 'dual-stick')
   await expect(page.getByTestId('drive-touch-settings')).toHaveCount(0)
 
+  // REQ-035: touch input runtime reports both joysticks as inactive on
+  // a fresh load. The pointer event listeners install only when a car
+  // is mounted, so the empty-grid drive scene never flips these flags;
+  // the data-attribute mirror is observable so a future seeded-city
+  // playwright fixture (F-008) can assert the active branch end-to-end.
+  await expect(root).toHaveAttribute('data-touch-steer-active', 'false')
+  await expect(root).toHaveAttribute('data-touch-throttle-active', 'false')
+  await expect(page.getByTestId('drive-touch-steer-ring')).toHaveCount(0)
+  await expect(page.getByTestId('drive-touch-throttle-ring')).toHaveCount(0)
+
   // REQ-041: keyboard rebinding panel mirrors the live bindings via the
   // `data-key-bindings` attribute on the scene root. The panel itself
   // only renders inside the pause menu (REQ-039); without a car mounted
@@ -224,6 +234,15 @@ test('drive route shows the empty-state prompt for a fresh slug (REQ-053)', asyn
   // listener is gated on the car-mounted branch.
   await expect(root).toHaveAttribute('data-touch-mode', 'dual-stick')
   await expect(page.getByTestId('drive-touch-settings')).toHaveCount(0)
+
+  // REQ-035: touch input runtime stays dormant on the empty grid; the
+  // pointer event listeners are gated on the car being mounted so a
+  // stray tap on the empty-state branch does not start a steering
+  // joystick. The data-attribute mirrors confirm the dormant state.
+  await expect(root).toHaveAttribute('data-touch-steer-active', 'false')
+  await expect(root).toHaveAttribute('data-touch-throttle-active', 'false')
+  await expect(page.getByTestId('drive-touch-steer-ring')).toHaveCount(0)
+  await expect(page.getByTestId('drive-touch-throttle-ring')).toHaveCount(0)
 
   // REQ-041: keyboard rebinding data attribute rides on the root even
   // on the empty grid; the panel itself stays absent because the pause

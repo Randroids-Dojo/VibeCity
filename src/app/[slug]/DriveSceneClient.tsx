@@ -54,6 +54,17 @@ import {
 import { CameraSettingsPanel } from './CameraSettingsPanel'
 import { clampTouchMode } from './touchSettings'
 import { TouchSettingsPanel } from './TouchSettingsPanel'
+import {
+  JOYSTICK_RADIUS,
+  beginJoystick,
+  createJoystick,
+  endJoystick,
+  joystickForTouch,
+  joysticksToInput,
+  mergeDriveInputs,
+  moveJoystick,
+  type JoystickState,
+} from './touchInput'
 import { clampKeyBindings, keyBindingSignature } from './keyboardSettings'
 import { KeyboardSettingsPanel } from './KeyboardSettingsPanel'
 import {
@@ -134,6 +145,71 @@ import { SceneTransitionCurtain } from './SceneTransitionCurtain'
  * `requestAnimationFrame` to avoid thrashing the renderer when the
  * viewport reflows during the editor / drive transition.
  */
+/**
+ * Visible joystick ring overlay for the touch input runtime (REQ-035).
+ *
+ * Renders a fixed-position circle anchored at the joystick's origin
+ * with a smaller filled dot at the thumb position, clamped to the
+ * radius along the angle of travel so the dot never escapes the ring.
+ * The component does NOT subscribe to the joystick ref; the parent
+ * triggers a re-render via the React state mirror flag every time the
+ * pointer event listeners commit a state change, and the per-frame
+ * thumb position update is reflected on the next React tick. The ring
+ * is purely decorative; the integration loop reads the joystick state
+ * directly via `joysticksToInput` for its sub-frame accuracy.
+ */
+function TouchJoystickRing({
+  state,
+  testid,
+}: {
+  state: JoystickState
+  testid: string
+}) {
+  if (!state.active) return null
+  const dx = state.currentX - state.originX
+  const dy = state.currentY - state.originY
+  const len = Math.hypot(dx, dy)
+  const clampedDx = len <= JOYSTICK_RADIUS ? dx : (dx / len) * JOYSTICK_RADIUS
+  const clampedDy = len <= JOYSTICK_RADIUS ? dy : (dy / len) * JOYSTICK_RADIUS
+  // The ring sits at the origin; the thumb dot sits at the (clamped)
+  // offset. The whole layer is `pointerEvents: 'none'` so it never
+  // steals the next pointer event from the underlying canvas.
+  return (
+    <div
+      data-testid={testid}
+      style={{
+        position: 'fixed',
+        left: state.originX - JOYSTICK_RADIUS,
+        top: state.originY - JOYSTICK_RADIUS,
+        width: JOYSTICK_RADIUS * 2,
+        height: JOYSTICK_RADIUS * 2,
+        pointerEvents: 'none',
+      }}
+    >
+      <div
+        style={{
+          position: 'absolute',
+          inset: 0,
+          borderRadius: '50%',
+          border: '2px solid rgba(247, 244, 238, 0.6)',
+          background: 'rgba(34, 34, 34, 0.25)',
+        }}
+      />
+      <div
+        style={{
+          position: 'absolute',
+          left: JOYSTICK_RADIUS + clampedDx - JOYSTICK_RADIUS / 4,
+          top: JOYSTICK_RADIUS + clampedDy - JOYSTICK_RADIUS / 4,
+          width: JOYSTICK_RADIUS / 2,
+          height: JOYSTICK_RADIUS / 2,
+          borderRadius: '50%',
+          background: 'rgba(247, 244, 238, 0.85)',
+        }}
+      />
+    </div>
+  )
+}
+
 export function DriveSceneClient({
   slug,
   city,
@@ -219,9 +295,29 @@ export function DriveSceneClient({
   // Touch mode state (REQ-042). Loaded from localStorage on the same
   // first-mount effect as the camera tuning so a returning player sees
   // the same touch layout choice across visits. The runtime touch
-  // input handler (REQ-035) is deferred to its own slice; this state
-  // currently only drives the picker UI and the persistence layer.
+  // input handler (REQ-035) reads `touchModeRef.current` each pointer
+  // event and each frame so a mode change committed in the pause menu
+  // takes effect immediately on resume without re-attaching the
+  // integration effect.
   const [touchMode, setTouchMode] = useState<TouchMode>(DEFAULT_TOUCH_MODE)
+  const touchModeRef = useRef<TouchMode>(DEFAULT_TOUCH_MODE)
+  useEffect(() => {
+    touchModeRef.current = touchMode
+  }, [touchMode])
+  // Touch joystick state (REQ-035). The drive scene's pointer event
+  // listeners drive `beginJoystick` / `moveJoystick` / `endJoystick`
+  // on these refs; the integration loop reads them via
+  // `joysticksToInput` each frame and merges with the keyboard input.
+  // Two refs (steer / throttle) so a dual-stick player can hold both
+  // sticks simultaneously; the single-stick mode just leaves the
+  // throttle ref inactive.
+  const steerStickRef = useRef<JoystickState>(createJoystick())
+  const throttleStickRef = useRef<JoystickState>(createJoystick())
+  // React state for the visible joystick rings. Bumped via setActive*
+  // when a stick activates / deactivates / moves so the SVG overlay
+  // re-renders; the underlying joystick state is the ref above.
+  const [steerStickActive, setSteerStickActive] = useState<boolean>(false)
+  const [throttleStickActive, setThrottleStickActive] = useState<boolean>(false)
   // Key bindings state (REQ-041). Loaded from localStorage on the same
   // first-mount effect as the camera tuning and touch mode so a
   // returning player sees the same control layout. The integration
@@ -328,6 +424,12 @@ export function DriveSceneClient({
   useEffect(() => {
     const canvas = canvasRef.current
     if (!canvas) return
+    // Capture the joystick refs once at effect-entry so the cleanup
+    // branch reads the same `JoystickState` instances the listeners
+    // wrote to (REQ-035). The ref values are pure data objects, not
+    // DOM nodes, so capturing the identity is safe across re-renders.
+    const capturedSteerStick = steerStickRef.current
+    const capturedThrottleStick = throttleStickRef.current
 
     // Renderer + scene + camera bootstrap. The canvas is owned by
     // React so the renderer attaches to it directly instead of
@@ -667,6 +769,97 @@ export function DriveSceneClient({
     }
     updatePressedAttr()
 
+    // Touch input (REQ-035). Pointer event listeners attach to `window`
+    // so the canvas does not need focus for steering to work; touches
+    // on interactive surfaces (buttons, links inside the pause menu)
+    // skip the gesture so a tap on the Resume button does not also
+    // start a steering joystick. Mirrors the keyboard handler's
+    // text-target guard semantics.
+    const isInteractiveTarget = (target: EventTarget | null): boolean => {
+      if (!(target instanceof Element)) return false
+      return target.closest('button, input, textarea, select, a') !== null
+    }
+    const updateTouchAttrs = () => {
+      if (!root) return
+      const steer = steerStickRef.current
+      const thr = throttleStickRef.current
+      root.setAttribute(
+        'data-touch-steer-active',
+        steer.active ? 'true' : 'false',
+      )
+      root.setAttribute(
+        'data-touch-throttle-active',
+        thr.active ? 'true' : 'false',
+      )
+    }
+    const handlePointerDown = (event: PointerEvent) => {
+      if (event.pointerType !== 'touch') return
+      if (isInteractiveTarget(event.target)) return
+      const steer = steerStickRef.current
+      const thr = throttleStickRef.current
+      const which = joystickForTouch({
+        mode: touchModeRef.current,
+        clientX: event.clientX,
+        viewportWidth:
+          typeof window !== 'undefined' ? window.innerWidth : 0,
+        steerActive: steer.active,
+        throttleActive: thr.active,
+      })
+      if (which === 'none') return
+      const target = which === 'steer' ? steer : thr
+      beginJoystick(target, event.pointerId, event.clientX, event.clientY)
+      // The first touch is also the user gesture that unlocks the engine
+      // audio rig (REQ-068). Mirrors the keydown handler's gesture trigger
+      // so a touch-only player still gets engine sound.
+      ensureEngineAudio()
+      if (which === 'steer') setSteerStickActive(true)
+      else setThrottleStickActive(true)
+      updateTouchAttrs()
+      // Prevent the browser from scrolling / pinch-zooming the page
+      // while the player is steering.
+      event.preventDefault()
+    }
+    const handlePointerMove = (event: PointerEvent) => {
+      if (event.pointerType !== 'touch') return
+      const steer = steerStickRef.current
+      const thr = throttleStickRef.current
+      if (steer.pointerId === event.pointerId) {
+        moveJoystick(steer, event.clientX, event.clientY)
+        setSteerStickActive(true)
+      } else if (thr.pointerId === event.pointerId) {
+        moveJoystick(thr, event.clientX, event.clientY)
+        setThrottleStickActive(true)
+      } else {
+        return
+      }
+    }
+    const handlePointerUp = (event: PointerEvent) => {
+      if (event.pointerType !== 'touch') return
+      const steer = steerStickRef.current
+      const thr = throttleStickRef.current
+      let changed = false
+      if (steer.pointerId === event.pointerId) {
+        endJoystick(steer)
+        setSteerStickActive(false)
+        changed = true
+      }
+      if (thr.pointerId === event.pointerId) {
+        endJoystick(thr)
+        setThrottleStickActive(false)
+        changed = true
+      }
+      if (changed) updateTouchAttrs()
+    }
+    if (car) {
+      window.addEventListener('pointerdown', handlePointerDown, {
+        passive: false,
+      })
+      window.addEventListener('pointermove', handlePointerMove)
+      window.addEventListener('pointerup', handlePointerUp)
+      window.addEventListener('pointercancel', handlePointerUp)
+    }
+    updateTouchAttrs()
+
     // Vehicle integration loop (REQ-031 first slice). Runs only when
     // the car is mounted; an empty city renders a single static frame
     // so the empty-state prompt is the visual focus and the integrator
@@ -885,7 +1078,19 @@ export function DriveSceneClient({
       const dt = (timestamp - lastTimestamp) / 1000
       lastTimestamp = timestamp
       if (vehicle && car) {
-        const input = inputFromPressedKeys(pressedKeys, keyBindingsRef.current)
+        const keyboardInput = inputFromPressedKeys(
+          pressedKeys,
+          keyBindingsRef.current,
+        )
+        // Touch input (REQ-035). Merged with the keyboard input via a
+        // per-action OR so a player can hold W and tap touch at the
+        // same time and the integrator just sees throttle on.
+        const touchInputForFrame = joysticksToInput(
+          steerStickRef.current,
+          throttleStickRef.current,
+          touchModeRef.current,
+        )
+        const input = mergeDriveInputs(keyboardInput, touchInputForFrame)
         vehicle = applyDriveStep(vehicle, input, dt)
         // Off-street penalty (REQ-054). Applied first so a player who
         // veers off the road bleeds before any building-cell stack on
@@ -963,6 +1168,17 @@ export function DriveSceneClient({
         window.removeEventListener('keydown', handlePauseKey)
         window.removeEventListener('keydown', handleRespawnKey)
         window.removeEventListener('keydown', handleEngineMuteKey)
+        window.removeEventListener('pointerdown', handlePointerDown)
+        window.removeEventListener('pointermove', handlePointerMove)
+        window.removeEventListener('pointerup', handlePointerUp)
+        window.removeEventListener('pointercancel', handlePointerUp)
+        // Release any active joysticks so a tab switch mid-touch does
+        // not leave the throttle stuck on. Refs captured inside the
+        // effect closure so the cleanup branch reads the same instance
+        // the listeners wrote to (the ref values are JoystickState
+        // objects, not DOM nodes, so they cannot have changed identity).
+        endJoystick(capturedSteerStick)
+        endJoystick(capturedThrottleStick)
       }
       // Drop the camera ref (REQ-040) so a stale slider change after
       // the scene unmounts cannot poke the disposed projection matrix.
@@ -1045,6 +1261,8 @@ export function DriveSceneClient({
       data-camera-follow-speed={cameraTuning.followSpeed}
       data-camera-fov={cameraTuning.fov}
       data-touch-mode={touchMode}
+      data-touch-steer-active={steerStickActive ? 'true' : 'false'}
+      data-touch-throttle-active={throttleStickActive ? 'true' : 'false'}
       data-key-bindings={keyBindingSignature(keyBindings)}
       style={{
         position: 'fixed',
@@ -1351,6 +1569,21 @@ export function DriveSceneClient({
             </g>
           </svg>
         </div>
+      ) : null}
+      {hasVehicle && !showPauseMenu && steerStickActive ? (
+        <TouchJoystickRing
+          state={steerStickRef.current}
+          testid="drive-touch-steer-ring"
+        />
+      ) : null}
+      {hasVehicle &&
+      !showPauseMenu &&
+      throttleStickActive &&
+      touchMode === 'dual-stick' ? (
+        <TouchJoystickRing
+          state={throttleStickRef.current}
+          testid="drive-touch-throttle-ring"
+        />
       ) : null}
       {hasVehicle ? (
         <button

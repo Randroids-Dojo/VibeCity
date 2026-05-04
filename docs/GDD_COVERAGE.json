@@ -694,10 +694,18 @@
       "id": "REQ-035",
       "requirement": "Drive mode: touch input via VibeRacer useTouchControls hook (dual-stick default)",
       "gddRef": "docs/gdd/09-drive-mode.md",
-      "status": "not_started",
-      "implementationRefs": [],
-      "testRefs": [],
-      "followupRefs": []
+      "status": "done",
+      "implementationRefs": [
+        "src/app/[slug]/touchInput.ts",
+        "src/app/[slug]/DriveSceneClient.tsx"
+      ],
+      "testRefs": [
+        "tests/app/touchInput.test.ts",
+        "e2e/drive.spec.ts"
+      ],
+      "followupRefs": [
+        "F-008"
+      ]
     },
     {
       "id": "REQ-036",
