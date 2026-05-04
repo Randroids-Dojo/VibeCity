@@ -54,8 +54,13 @@
       "requirement": "Project bootstrap: Vitest unit test runner wired with one passing smoke test",
       "gddRef": "docs/gdd/02-tech-stack.md",
       "status": "done",
-      "implementationRefs": ["vitest.config.ts", "package.json"],
-      "testRefs": ["tests/smoke.test.ts"],
+      "implementationRefs": [
+        "vitest.config.ts",
+        "package.json"
+      ],
+      "testRefs": [
+        "tests/smoke.test.ts"
+      ],
       "followupRefs": []
     },
     {
@@ -69,7 +74,9 @@
         "tsconfig.json",
         ".github/workflows/ci.yml"
       ],
-      "testRefs": ["e2e/smoke.spec.ts"],
+      "testRefs": [
+        "e2e/smoke.spec.ts"
+      ],
       "followupRefs": []
     },
     {
@@ -77,8 +84,13 @@
       "requirement": "Project bootstrap: @upstash/redis client module ported as src/lib/kv.ts with city: key namespace",
       "gddRef": "docs/gdd/03-persistence.md",
       "status": "done",
-      "implementationRefs": ["src/lib/kv.ts", "package.json"],
-      "testRefs": ["tests/lib/kv.test.ts"],
+      "implementationRefs": [
+        "src/lib/kv.ts",
+        "package.json"
+      ],
+      "testRefs": [
+        "tests/lib/kv.test.ts"
+      ],
       "followupRefs": []
     },
     {
@@ -86,7 +98,10 @@
       "requirement": "Project bootstrap: production build (next build) green",
       "gddRef": "docs/gdd/02-tech-stack.md",
       "status": "done",
-      "implementationRefs": ["package.json", "next.config.mjs"],
+      "implementationRefs": [
+        "package.json",
+        "next.config.mjs"
+      ],
       "testRefs": [],
       "followupRefs": []
     },
@@ -117,7 +132,10 @@
         "src/app/[slug]/edit/page.tsx",
         "src/app/[slug]/edit/EditorClient.tsx"
       ],
-      "testRefs": ["tests/app/editRoute.test.ts", "e2e/editor.spec.ts"],
+      "testRefs": [
+        "tests/app/editRoute.test.ts",
+        "e2e/editor.spec.ts"
+      ],
       "followupRefs": []
     },
     {
@@ -125,8 +143,13 @@
       "requirement": "Slug validation: kebab-case, 1 to 128 chars, [a-z0-9][a-z0-9-]* via zod schema (port from VibeRacer)",
       "gddRef": "docs/gdd/04-slug-routing.md",
       "status": "done",
-      "implementationRefs": ["src/lib/schemas.ts", "package.json"],
-      "testRefs": ["tests/lib/schemas.test.ts"],
+      "implementationRefs": [
+        "src/lib/schemas.ts",
+        "package.json"
+      ],
+      "testRefs": [
+        "tests/lib/schemas.test.ts"
+      ],
       "followupRefs": []
     },
     {
@@ -134,8 +157,13 @@
       "requirement": "Anonymous owner identity: cookie-issued UUID per visitor (port VibeRacer racerId.ts as builderId.ts)",
       "gddRef": "docs/gdd/05-identity.md",
       "status": "done",
-      "implementationRefs": ["src/lib/builderId.ts", "src/lib/schemas.ts"],
-      "testRefs": ["tests/lib/builderId.test.ts"],
+      "implementationRefs": [
+        "src/lib/builderId.ts",
+        "src/lib/schemas.ts"
+      ],
+      "testRefs": [
+        "tests/lib/builderId.test.ts"
+      ],
       "followupRefs": []
     },
     {
@@ -143,8 +171,12 @@
       "requirement": "Fresh-slug landing: /<slug> with no saved city offers Create CTA linking to /<slug>/edit",
       "gddRef": "docs/gdd/04-slug-routing.md",
       "status": "done",
-      "implementationRefs": ["src/app/[slug]/page.tsx"],
-      "testRefs": ["tests/app/slugRoute.test.ts"],
+      "implementationRefs": [
+        "src/app/[slug]/page.tsx"
+      ],
+      "testRefs": [
+        "tests/app/slugRoute.test.ts"
+      ],
       "followupRefs": []
     },
     {
@@ -152,8 +184,14 @@
       "requirement": "Fresh-slug landing: Load existing list reads top-N recently-updated slugs from city:index sorted set",
       "gddRef": "docs/gdd/12-home-page.md",
       "status": "done",
-      "implementationRefs": ["src/lib/recentSlugs.ts", "src/app/page.tsx"],
-      "testRefs": ["tests/lib/recentSlugs.test.ts", "e2e/home.spec.ts"],
+      "implementationRefs": [
+        "src/lib/recentSlugs.ts",
+        "src/app/page.tsx"
+      ],
+      "testRefs": [
+        "tests/lib/recentSlugs.test.ts",
+        "e2e/home.spec.ts"
+      ],
       "followupRefs": []
     },
     {
@@ -161,8 +199,12 @@
       "requirement": "City schema: zod CitySchema with pieces[], buildings[], optional mood; strict reject on unknown fields",
       "gddRef": "docs/gdd/06-city-schema.md",
       "status": "done",
-      "implementationRefs": ["src/lib/schemas.ts"],
-      "testRefs": ["tests/lib/schemas.test.ts"],
+      "implementationRefs": [
+        "src/lib/schemas.ts"
+      ],
+      "testRefs": [
+        "tests/lib/schemas.test.ts"
+      ],
       "followupRefs": []
     },
     {
@@ -170,8 +212,12 @@
       "requirement": "City versioning: hashCity() over pieces+buildings (mood excluded) returns stable hash, mirroring VibeRacer hashTrack pattern",
       "gddRef": "docs/gdd/06-city-schema.md",
       "status": "done",
-      "implementationRefs": ["src/lib/hashCity.ts"],
-      "testRefs": ["tests/lib/hashCity.test.ts"],
+      "implementationRefs": [
+        "src/lib/hashCity.ts"
+      ],
+      "testRefs": [
+        "tests/lib/hashCity.test.ts"
+      ],
       "followupRefs": []
     },
     {
@@ -183,7 +229,10 @@
         "src/app/api/city/[slug]/route.ts",
         "src/lib/kv.ts"
       ],
-      "testRefs": ["tests/app/cityRoute.test.ts", "tests/lib/kv.test.ts"],
+      "testRefs": [
+        "tests/app/cityRoute.test.ts",
+        "tests/lib/kv.test.ts"
+      ],
       "followupRefs": []
     },
     {
@@ -195,7 +244,10 @@
         "src/lib/loadCity.ts",
         "src/app/api/city/[slug]/route.ts"
       ],
-      "testRefs": ["tests/lib/loadCity.test.ts", "tests/app/cityRoute.test.ts"],
+      "testRefs": [
+        "tests/lib/loadCity.test.ts",
+        "tests/app/cityRoute.test.ts"
+      ],
       "followupRefs": []
     },
     {
@@ -208,7 +260,9 @@
         "src/app/[slug]/edit/SnapGridView.tsx",
         "src/app/[slug]/edit/page.tsx"
       ],
-      "testRefs": ["tests/app/snapGrid.test.ts"],
+      "testRefs": [
+        "tests/app/snapGrid.test.ts"
+      ],
       "followupRefs": []
     },
     {
@@ -256,25 +310,52 @@
         "tests/app/editorState.test.ts",
         "e2e/editor.spec.ts"
       ],
-      "followupRefs": ["F-002"]
+      "followupRefs": [
+        "F-002"
+      ]
     },
     {
       "id": "REQ-058",
       "requirement": "Editor: street piece palette extended with megaSweepRight, megaSweepLeft (3x3 footprint, 49-sample centerline, MEGA_SWEEP_ARC_RADIUS = 1.5 * CELL_SIZE). Port from VibeRacer PR #80.",
       "gddRef": "docs/gdd/07-editor.md",
-      "status": "not_started",
-      "implementationRefs": [],
-      "testRefs": [],
-      "followupRefs": ["F-002"]
+      "status": "done",
+      "implementationRefs": [
+        "src/app/[slug]/edit/snapGrid.ts",
+        "src/app/[slug]/edit/editorState.ts",
+        "src/app/[slug]/driveScene.ts"
+      ],
+      "testRefs": [
+        "tests/app/snapGrid.test.ts",
+        "tests/app/editorState.test.ts",
+        "tests/app/driveScene.test.ts",
+        "e2e/editor.spec.ts"
+      ],
+      "followupRefs": [
+        "F-002"
+      ]
     },
     {
       "id": "REQ-059",
       "requirement": "Multi-cell footprint plumbing: PieceSchema.footprint?: { dr, dc }[] with default [{0,0}] omitted from canonical JSON, validateClosedLoop marks every footprint cell occupied, editor place / remove / select / move / rotate / flip operate on the footprint union atomically. Port from VibeRacer Phase 0c (src/game/trackFootprint.ts).",
       "gddRef": "docs/gdd/06-city-schema.md",
-      "status": "not_started",
-      "implementationRefs": [],
-      "testRefs": [],
-      "followupRefs": ["F-002"]
+      "status": "partial",
+      "implementationRefs": [
+        "src/app/[slug]/edit/snapGrid.ts",
+        "src/app/[slug]/edit/editorState.ts",
+        "src/app/[slug]/driveScene.ts",
+        "src/lib/schemas.ts",
+        "src/lib/hashCity.ts"
+      ],
+      "testRefs": [
+        "tests/app/snapGrid.test.ts",
+        "tests/app/editorState.test.ts",
+        "tests/app/driveScene.test.ts",
+        "tests/lib/schemas.test.ts",
+        "tests/lib/hashCity.test.ts"
+      ],
+      "followupRefs": [
+        "F-002"
+      ]
     },
     {
       "id": "REQ-060",
@@ -283,7 +364,9 @@
       "status": "not_started",
       "implementationRefs": [],
       "testRefs": [],
-      "followupRefs": ["F-002"]
+      "followupRefs": [
+        "F-002"
+      ]
     },
     {
       "id": "REQ-061",
@@ -300,7 +383,13 @@
         "tests/app/editorState.test.ts",
         "e2e/editor.spec.ts"
       ],
-      "followupRefs": ["F-002", "F-003", "F-004", "F-005", "F-006"]
+      "followupRefs": [
+        "F-002",
+        "F-003",
+        "F-004",
+        "F-005",
+        "F-006"
+      ]
     },
     {
       "id": "REQ-062",
@@ -317,7 +406,13 @@
         "tests/app/editorState.test.ts",
         "e2e/editor.spec.ts"
       ],
-      "followupRefs": ["F-002", "F-003", "F-004", "F-005", "F-006"]
+      "followupRefs": [
+        "F-002",
+        "F-003",
+        "F-004",
+        "F-005",
+        "F-006"
+      ]
     },
     {
       "id": "REQ-063",
@@ -326,7 +421,9 @@
       "status": "not_started",
       "implementationRefs": [],
       "testRefs": [],
-      "followupRefs": ["F-002"]
+      "followupRefs": [
+        "F-002"
+      ]
     },
     {
       "id": "REQ-064",
@@ -335,7 +432,9 @@
       "status": "not_started",
       "implementationRefs": [],
       "testRefs": [],
-      "followupRefs": ["F-002"]
+      "followupRefs": [
+        "F-002"
+      ]
     },
     {
       "id": "REQ-065",
@@ -344,7 +443,9 @@
       "status": "not_started",
       "implementationRefs": [],
       "testRefs": [],
-      "followupRefs": ["F-002"]
+      "followupRefs": [
+        "F-002"
+      ]
     },
     {
       "id": "REQ-020",
@@ -538,7 +639,9 @@
       "testRefs": [
         "tests/app/driveControls.test.ts"
       ],
-      "followupRefs": ["F-008"]
+      "followupRefs": [
+        "F-008"
+      ]
     },
     {
       "id": "REQ-032",
@@ -547,7 +650,9 @@
       "status": "not_started",
       "implementationRefs": [],
       "testRefs": [],
-      "followupRefs": ["F-002"]
+      "followupRefs": [
+        "F-002"
+      ]
     },
     {
       "id": "REQ-033",
@@ -577,7 +682,9 @@
         "tests/app/driveControls.test.ts",
         "e2e/drive.spec.ts"
       ],
-      "followupRefs": ["F-008"]
+      "followupRefs": [
+        "F-008"
+      ]
     },
     {
       "id": "REQ-035",
@@ -608,8 +715,13 @@
       "requirement": "Drive mode: NO laps, NO checkpoints, NO HUD lap timer (anti-feature, explicit)",
       "gddRef": "docs/gdd/09-drive-mode.md",
       "status": "done",
-      "implementationRefs": ["src/app/[slug]/driveAntiFeatures.ts"],
-      "testRefs": ["tests/app/driveAntiFeatures.test.ts", "e2e/drive.spec.ts"],
+      "implementationRefs": [
+        "src/app/[slug]/driveAntiFeatures.ts"
+      ],
+      "testRefs": [
+        "tests/app/driveAntiFeatures.test.ts",
+        "e2e/drive.spec.ts"
+      ],
       "followupRefs": []
     },
     {
@@ -784,7 +896,10 @@
         "src/app/HomeCreateForm.tsx",
         "src/lib/recentSlugs.ts"
       ],
-      "testRefs": ["tests/lib/recentSlugs.test.ts", "e2e/home.spec.ts"],
+      "testRefs": [
+        "tests/lib/recentSlugs.test.ts",
+        "e2e/home.spec.ts"
+      ],
       "followupRefs": []
     },
     {
@@ -797,7 +912,9 @@
         ".github/workflows/ci.yml",
         "package.json"
       ],
-      "testRefs": ["tests/scripts/checkNoDashes.test.ts"],
+      "testRefs": [
+        "tests/scripts/checkNoDashes.test.ts"
+      ],
       "followupRefs": []
     },
     {
@@ -869,7 +986,9 @@
       "requirement": "Out-of-scope file: 99-out-of-scope.md fence is referenced from AGENTS.md so loop knows the boundary",
       "gddRef": "docs/gdd/99-out-of-scope.md",
       "status": "done",
-      "implementationRefs": ["docs/gdd/99-out-of-scope.md"],
+      "implementationRefs": [
+        "docs/gdd/99-out-of-scope.md"
+      ],
       "testRefs": [],
       "followupRefs": []
     },
@@ -878,7 +997,9 @@
       "requirement": "Vision and pillars: 01-vision-and-pillars.md drafted; pitch, three pillars, NOT-list, reuse map, out-of-scope index",
       "gddRef": "docs/gdd/01-vision-and-pillars.md",
       "status": "done",
-      "implementationRefs": ["docs/gdd/01-vision-and-pillars.md"],
+      "implementationRefs": [
+        "docs/gdd/01-vision-and-pillars.md"
+      ],
       "testRefs": [],
       "followupRefs": []
     },
@@ -895,7 +1016,9 @@
         "tests/app/driveHud.test.ts",
         "e2e/drive.spec.ts"
       ],
-      "followupRefs": ["F-008"]
+      "followupRefs": [
+        "F-008"
+      ]
     },
     {
       "id": "REQ-067",
@@ -912,7 +1035,9 @@
         "tests/app/driveHud.test.ts",
         "e2e/drive.spec.ts"
       ],
-      "followupRefs": ["F-008"]
+      "followupRefs": [
+        "F-008"
+      ]
     },
     {
       "id": "REQ-068",
@@ -927,7 +1052,9 @@
         "tests/app/engineAudio.test.ts",
         "e2e/drive.spec.ts"
       ],
-      "followupRefs": ["F-008"]
+      "followupRefs": [
+        "F-008"
+      ]
     },
     {
       "id": "REQ-069",
@@ -942,7 +1069,9 @@
         "tests/app/driveMinimap.test.ts",
         "e2e/drive.spec.ts"
       ],
-      "followupRefs": ["F-008"]
+      "followupRefs": [
+        "F-008"
+      ]
     }
   ]
 }

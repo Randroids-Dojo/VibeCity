@@ -1,4 +1,4 @@
-import type { City, Piece, PieceFootprintCell } from '@/lib/schemas'
+import type { City, Piece, PieceFootprintCell, Rotation } from '@/lib/schemas'
 
 /**
  * Snap-grid configuration for the editor surface (REQ-016).
@@ -41,17 +41,113 @@ export function cellKey(row: number, col: number): string {
 
 /**
  * Default single-cell footprint used when a piece does not declare
- * its own. Mirrors the canonical default in REQ-059.
+ * its own and its `type` does not carry a multi-cell default. Mirrors
+ * the canonical default in REQ-059.
  */
 const DEFAULT_FOOTPRINT: readonly PieceFootprintCell[] = [{ dr: 0, dc: 0 }]
 
 /**
+ * Canonical footprint for `megaSweepRight` at rotation 0 (REQ-058).
+ *
+ * The mega sweep occupies a 2x2 block of cells. The anchor cell is the
+ * bottom-right of the block, so the offsets reach back and up to fill
+ * the 2x2 footprint while the connectors hang off the south and east
+ * edges (the `S -> E` connector pattern from VibeRacer's track entry).
+ * Ported from VibeRacer's `MEGA_SWEEP_RIGHT_FOOTPRINT` (PR #80).
+ */
+export const MEGA_SWEEP_RIGHT_FOOTPRINT: readonly PieceFootprintCell[] = [
+  { dr: -1, dc: -1 },
+  { dr: -1, dc: 0 },
+  { dr: 0, dc: -1 },
+  { dr: 0, dc: 0 },
+]
+
+/**
+ * Canonical footprint for `megaSweepLeft` at rotation 0 (REQ-058).
+ *
+ * Mirror of `MEGA_SWEEP_RIGHT_FOOTPRINT` across the north-south axis.
+ * The anchor cell is the bottom-left of the 2x2 block, so the offsets
+ * reach back and right to fill the 2x2 footprint while the connectors
+ * hang off the south and west edges (the `S -> W` connector pattern
+ * from VibeRacer's track entry). Ported from VibeRacer's
+ * `MEGA_SWEEP_LEFT_FOOTPRINT` (PR #80).
+ */
+export const MEGA_SWEEP_LEFT_FOOTPRINT: readonly PieceFootprintCell[] = [
+  { dr: -1, dc: 0 },
+  { dr: -1, dc: 1 },
+  { dr: 0, dc: 0 },
+  { dr: 0, dc: 1 },
+]
+
+/**
+ * Rotate a footprint clockwise by `rotation` degrees around the anchor
+ * cell. Rotation is in 90deg increments; non-cardinal values would
+ * mean the schema accepted an invalid `Rotation` and that is a bug
+ * upstream so this helper is allowed to walk the canonical cycle.
+ *
+ * Mirrors VibeRacer's `rotateFootprintByRotation` (trackFootprint.ts).
+ * The 90deg clockwise step `(dr, dc) -> (dc, -dr)` matches the
+ * editor's canonical clockwise rotation direction so the visual
+ * footprint after a 90deg rotate-tool press lines up with the visible
+ * piece glyph. `-0` collapses to `0` so two pieces that resolve to the
+ * same footprint always produce equal cell objects.
+ */
+function rotateFootprint(
+  footprint: readonly PieceFootprintCell[],
+  rotation: Rotation,
+): PieceFootprintCell[] {
+  let cells = footprint.map((c) => ({ dr: c.dr, dc: c.dc }))
+  const steps = rotation / 90
+  for (let i = 0; i < steps; i++) {
+    cells = cells.map((cell) => ({
+      dr: cell.dc,
+      dc: -cell.dr,
+    }))
+  }
+  return cells.map((cell) => ({
+    dr: Object.is(cell.dr, -0) ? 0 : cell.dr,
+    dc: Object.is(cell.dc, -0) ? 0 : cell.dc,
+  }))
+}
+
+/**
+ * Resolve a piece's canonical default footprint from its `type` and
+ * `rotation` (REQ-058, REQ-059).
+ *
+ * Used by `pieceFootprintCells` when a piece has no explicit
+ * `footprint` field. Multi-cell pieces (`megaSweepRight` /
+ * `megaSweepLeft`) return their canonical 2x2 offsets rotated by the
+ * piece's `rotation`. Single-cell pieces return the canonical single
+ * `[{ dr: 0, dc: 0 }]` so a hand-edited or future-imported city with
+ * the field omitted continues to be treated as a single anchor cell.
+ *
+ * Future multi-cell pieces (REQ-060 hairpin) extend this resolver
+ * rather than the schema; the schema's `footprint` field is the
+ * override path for hand-authored or imported cities that want to
+ * record a non-canonical shape.
+ */
+export function defaultFootprintForPiece(
+  piece: Pick<Piece, 'type' | 'rotation'>,
+): readonly PieceFootprintCell[] {
+  switch (piece.type) {
+    case 'megaSweepRight':
+      return rotateFootprint(MEGA_SWEEP_RIGHT_FOOTPRINT, piece.rotation)
+    case 'megaSweepLeft':
+      return rotateFootprint(MEGA_SWEEP_LEFT_FOOTPRINT, piece.rotation)
+    default:
+      return DEFAULT_FOOTPRINT
+  }
+}
+
+/**
  * Resolve a piece's footprint to absolute cell coordinates on the
- * grid. Pieces with no `footprint` field expand to a single cell at
- * `(piece.row, piece.col)`.
+ * grid. Pieces with no `footprint` field fall back to the type-driven
+ * default from `defaultFootprintForPiece`; single-cell types resolve
+ * to a single anchor cell, multi-cell types (mega sweep, future
+ * hairpin) resolve to their canonical rotated footprint.
  */
 export function pieceFootprintCells(piece: Piece): GridCellCoord[] {
-  const footprint = piece.footprint ?? DEFAULT_FOOTPRINT
+  const footprint = piece.footprint ?? defaultFootprintForPiece(piece)
   return footprint.map((cell) => ({
     row: piece.row + cell.dr,
     col: piece.col + cell.dc,
