@@ -1,12 +1,17 @@
 import { describe, expect, it } from 'vitest'
 import {
+  BUILDING_PALETTE,
+  DEFAULT_BUILDING_TYPE,
+  DEFAULT_PALETTE_CATEGORY,
   DEFAULT_PALETTE_TYPE,
   DEFAULT_ROTATION,
   DEFAULT_TOOL_MODE,
   ROTATIONS,
   STREET_PALETTE,
+  eraseBuilding,
   erasePiece,
   nextRotation,
+  placeBuilding,
   placePiece,
 } from '@/app/[slug]/edit/editorState'
 import {
@@ -459,6 +464,302 @@ describe('erasePiece (REQ-022)', () => {
       buildings: [],
     }
     const next = erasePiece(seeded, 0, 0)
+    expect(() => CitySchema.parse(next)).not.toThrow()
+  })
+})
+
+describe('BUILDING_PALETTE (REQ-028)', () => {
+  it('exposes the v1 four placeholder primitive types in order', () => {
+    expect(BUILDING_PALETTE.map((b) => b.type)).toEqual([
+      'small-house',
+      'mid-house',
+      'shop',
+      'factory',
+    ])
+  })
+
+  it('every entry carries a non-empty label', () => {
+    for (const entry of BUILDING_PALETTE) {
+      expect(typeof entry.label).toBe('string')
+      expect(entry.label.length).toBeGreaterThan(0)
+    }
+  })
+
+  it('every entry is a valid BuildingType in the schema', () => {
+    const sampleCity: City = {
+      pieces: [],
+      buildings: BUILDING_PALETTE.map((entry, index) => ({
+        type: entry.type,
+        row: index,
+        col: 0,
+        rotation: 0,
+      })),
+    }
+    expect(() => CitySchema.parse(sampleCity)).not.toThrow()
+  })
+
+  it('does not duplicate any building type', () => {
+    const types = BUILDING_PALETTE.map((b) => b.type)
+    expect(new Set(types).size).toBe(types.length)
+  })
+})
+
+describe('DEFAULT_BUILDING_TYPE (REQ-028)', () => {
+  it('matches the first entry in BUILDING_PALETTE', () => {
+    expect(DEFAULT_BUILDING_TYPE).toBe(BUILDING_PALETTE[0].type)
+  })
+
+  it('is small-house (smallest primitive, lowest-friction default)', () => {
+    expect(DEFAULT_BUILDING_TYPE).toBe('small-house')
+  })
+})
+
+describe('DEFAULT_PALETTE_CATEGORY (REQ-028)', () => {
+  it('opens in street category so a first placement is a road', () => {
+    expect(DEFAULT_PALETTE_CATEGORY).toBe('street')
+  })
+})
+
+describe('placeBuilding (REQ-028, REQ-029)', () => {
+  it('appends a single building to the empty city', () => {
+    const next = placeBuilding(EMPTY_CITY, 'small-house', 0, 0)
+    expect(next.buildings).toHaveLength(1)
+    expect(next.buildings[0]).toEqual({
+      type: 'small-house',
+      row: 0,
+      col: 0,
+      rotation: 0,
+    })
+  })
+
+  it('preserves the original city (immutable update)', () => {
+    const next = placeBuilding(EMPTY_CITY, 'mid-house', 1, 1)
+    expect(EMPTY_CITY.buildings).toHaveLength(0)
+    expect(next).not.toBe(EMPTY_CITY)
+  })
+
+  it('respects an explicit rotation argument', () => {
+    const next = placeBuilding(EMPTY_CITY, 'shop', 1, 2, 90)
+    expect(next.buildings[0]).toEqual({
+      type: 'shop',
+      row: 1,
+      col: 2,
+      rotation: 90,
+    })
+  })
+
+  it('defaults rotation to 0 when omitted', () => {
+    const next = placeBuilding(EMPTY_CITY, 'factory', -1, -1)
+    expect(next.buildings[0].rotation).toBe(0)
+  })
+
+  it('supports negative cell coordinates', () => {
+    const next = placeBuilding(EMPTY_CITY, 'small-house', -3, -7)
+    expect(next.buildings[0]).toEqual({
+      type: 'small-house',
+      row: -3,
+      col: -7,
+      rotation: 0,
+    })
+  })
+
+  it('appends buildings in placement order', () => {
+    let city: City = EMPTY_CITY
+    city = placeBuilding(city, 'small-house', 0, 0)
+    city = placeBuilding(city, 'mid-house', 0, 1)
+    city = placeBuilding(city, 'shop', 1, 0)
+    expect(city.buildings.map((b) => b.type)).toEqual([
+      'small-house',
+      'mid-house',
+      'shop',
+    ])
+  })
+
+  it('rejects placement on a cell already occupied by a piece (no street-building stacking)', () => {
+    const seeded: City = {
+      pieces: [{ type: 'straight', row: 0, col: 0, rotation: 0 }],
+      buildings: [],
+    }
+    const next = placeBuilding(seeded, 'small-house', 0, 0)
+    expect(next).toBe(seeded)
+  })
+
+  it('rejects placement on a cell already occupied by another building', () => {
+    const seeded: City = {
+      pieces: [],
+      buildings: [{ type: 'small-house', row: 0, col: 0, rotation: 0 }],
+    }
+    const next = placeBuilding(seeded, 'shop', 0, 0)
+    expect(next).toBe(seeded)
+  })
+
+  it('rejects placement on a multi-cell piece footprint cell', () => {
+    const seeded: City = {
+      pieces: [
+        {
+          type: 'megaSweepRight',
+          row: 0,
+          col: 0,
+          rotation: 0,
+          footprint: [
+            { dr: 0, dc: 0 },
+            { dr: 0, dc: 1 },
+            { dr: 1, dc: 0 },
+          ],
+        },
+      ],
+      buildings: [],
+    }
+    const next = placeBuilding(seeded, 'small-house', 1, 0)
+    expect(next).toBe(seeded)
+  })
+
+  it('accepts placement adjacent to an existing piece', () => {
+    const seeded: City = {
+      pieces: [{ type: 'straight', row: 0, col: 0, rotation: 0 }],
+      buildings: [],
+    }
+    const next = placeBuilding(seeded, 'small-house', 1, 0)
+    expect(next).not.toBe(seeded)
+    expect(next.buildings).toHaveLength(1)
+  })
+
+  it('preserves the pieces array on accept and reject', () => {
+    const seeded: City = {
+      pieces: [{ type: 'straight', row: 0, col: 0, rotation: 0 }],
+      buildings: [],
+    }
+    const accepted = placeBuilding(seeded, 'small-house', 1, 1)
+    expect(accepted.pieces).toBe(seeded.pieces)
+    const rejected = placeBuilding(seeded, 'small-house', 0, 0)
+    expect(rejected.pieces).toBe(seeded.pieces)
+  })
+
+  it('does not mutate the input city (functional update)', () => {
+    const seeded: City = {
+      pieces: [],
+      buildings: [{ type: 'small-house', row: 0, col: 0, rotation: 0 }],
+    }
+    const before = JSON.stringify(seeded)
+    placeBuilding(seeded, 'mid-house', 1, 1)
+    expect(JSON.stringify(seeded)).toBe(before)
+  })
+
+  it('returns a city that still validates against CitySchema', () => {
+    const next = placeBuilding(EMPTY_CITY, 'shop', 0, 0, 90)
+    expect(() => CitySchema.parse(next)).not.toThrow()
+  })
+})
+
+describe('eraseBuilding (REQ-029)', () => {
+  it('removes the building at the target cell', () => {
+    const seeded: City = {
+      pieces: [],
+      buildings: [
+        { type: 'small-house', row: 0, col: 0, rotation: 0 },
+        { type: 'mid-house', row: 0, col: 1, rotation: 0 },
+      ],
+    }
+    const next = eraseBuilding(seeded, 0, 0)
+    expect(next.buildings).toHaveLength(1)
+    expect(next.buildings[0]).toEqual({
+      type: 'mid-house',
+      row: 0,
+      col: 1,
+      rotation: 0,
+    })
+  })
+
+  it('returns the original city when no building occupies the cell', () => {
+    const seeded: City = {
+      pieces: [],
+      buildings: [{ type: 'small-house', row: 0, col: 0, rotation: 0 }],
+    }
+    const next = eraseBuilding(seeded, 5, 5)
+    expect(next).toBe(seeded)
+  })
+
+  it('returns the original empty city when there is nothing to erase', () => {
+    const next = eraseBuilding(EMPTY_CITY, 0, 0)
+    expect(next).toBe(EMPTY_CITY)
+  })
+
+  it('does not touch the pieces array', () => {
+    const seeded: City = {
+      pieces: [{ type: 'straight', row: 0, col: 0, rotation: 0 }],
+      buildings: [{ type: 'small-house', row: 1, col: 1, rotation: 0 }],
+    }
+    const next = eraseBuilding(seeded, 1, 1)
+    expect(next.pieces).toBe(seeded.pieces)
+  })
+
+  it('does not erase a piece that happens to share the cell', () => {
+    const seeded: City = {
+      pieces: [{ type: 'straight', row: 0, col: 0, rotation: 0 }],
+      buildings: [],
+    }
+    // Even if a building palette click landed on a piece cell (which
+    // placeBuilding rejects), erase should not pull a piece by mistake.
+    const next = eraseBuilding(seeded, 0, 0)
+    expect(next).toBe(seeded)
+    expect(next.pieces).toHaveLength(1)
+  })
+
+  it('does not mutate the input city (functional update)', () => {
+    const seeded: City = {
+      pieces: [],
+      buildings: [{ type: 'small-house', row: 0, col: 0, rotation: 0 }],
+    }
+    const before = JSON.stringify(seeded)
+    eraseBuilding(seeded, 0, 0)
+    expect(JSON.stringify(seeded)).toBe(before)
+  })
+
+  it('only removes the first matching building when two share a cell', () => {
+    // placeBuilding prevents this state, but a hand-edited city could
+    // produce it; the reducer must be deterministic.
+    const seeded: City = {
+      pieces: [],
+      buildings: [
+        { type: 'small-house', row: 0, col: 0, rotation: 0 },
+        { type: 'shop', row: 0, col: 0, rotation: 0 },
+      ],
+    }
+    const next = eraseBuilding(seeded, 0, 0)
+    expect(next.buildings).toHaveLength(1)
+    expect(next.buildings[0].type).toBe('shop')
+  })
+
+  it('preserves placement order of remaining buildings', () => {
+    const seeded: City = {
+      pieces: [],
+      buildings: [
+        { type: 'small-house', row: 0, col: 0, rotation: 0 },
+        { type: 'mid-house', row: 0, col: 1, rotation: 0 },
+        { type: 'shop', row: 1, col: 0, rotation: 0 },
+      ],
+    }
+    const next = eraseBuilding(seeded, 0, 1)
+    expect(next.buildings.map((b) => b.type)).toEqual(['small-house', 'shop'])
+  })
+
+  it('round-trips with placeBuilding (place then erase yields the original)', () => {
+    const placed = placeBuilding(EMPTY_CITY, 'small-house', 2, 3)
+    expect(placed.buildings).toHaveLength(1)
+    const erased = eraseBuilding(placed, 2, 3)
+    expect(erased.buildings).toHaveLength(0)
+    expect(erased.pieces).toEqual(EMPTY_CITY.pieces)
+  })
+
+  it('returns a city that still validates against CitySchema', () => {
+    const seeded: City = {
+      pieces: [],
+      buildings: [
+        { type: 'small-house', row: 0, col: 0, rotation: 0 },
+        { type: 'shop', row: 0, col: 1, rotation: 0 },
+      ],
+    }
+    const next = eraseBuilding(seeded, 0, 0)
     expect(() => CitySchema.parse(next)).not.toThrow()
   })
 })

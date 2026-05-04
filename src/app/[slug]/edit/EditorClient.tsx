@@ -2,15 +2,27 @@
 
 import Link from 'next/link'
 import { useCallback, useEffect, useRef, useState } from 'react'
-import type { City, PieceType, Rotation, Slug } from '@/lib/schemas'
+import type {
+  BuildingType,
+  City,
+  PieceType,
+  Rotation,
+  Slug,
+} from '@/lib/schemas'
 import {
+  BUILDING_PALETTE,
+  DEFAULT_BUILDING_TYPE,
+  DEFAULT_PALETTE_CATEGORY,
   DEFAULT_PALETTE_TYPE,
   DEFAULT_ROTATION,
   DEFAULT_TOOL_MODE,
   STREET_PALETTE,
+  type PaletteCategory,
   type ToolMode,
+  eraseBuilding,
   erasePiece,
   nextRotation,
+  placeBuilding,
   placePiece,
 } from './editorState'
 import {
@@ -32,11 +44,11 @@ import { SnapGrid } from './SnapGridView'
 
 /**
  * Editor client surface (REQ-017, REQ-020, REQ-021, REQ-022, REQ-023,
- * REQ-025, REQ-026).
+ * REQ-025, REQ-026, REQ-028, REQ-029).
  *
- * Wraps the snap-grid (REQ-016) with the v1 cardinal-only street
- * palette, a click-to-place tool, a rotate tool that cycles the
- * selected piece's rotation in 90deg increments, an erase tool that
+ * Wraps the snap-grid (REQ-016) with two palette categories (street
+ * and building), a click-to-place tool, a rotate tool that cycles the
+ * selected entry's rotation in 90deg increments, an erase tool that
  * flips the cell-click contract from place to erase, undo / redo that
  * walks an immutable history stack across every accepted mutation,
  * autosave that writes through PUT `/api/city/<slug>` (REQ-014) on
@@ -44,15 +56,22 @@ import { SnapGrid } from './SnapGridView'
  * `/<slug>` so the build / drive loop round-trips from a single
  * control surface (REQ-026).
  *
- * Placement uses the pure `placePiece` reducer from `editorState.ts`
- * so the UI does not need to inline footprint validation. Clicks on
- * an already-occupied cell are no-ops in place mode (REQ-027).
+ * Placement uses the pure `placePiece` / `placeBuilding` reducers from
+ * `editorState.ts` so the UI does not need to inline footprint
+ * validation. Clicks on an already-occupied cell are no-ops in place
+ * mode (REQ-027). Buildings reject placement on any cell already
+ * occupied by a piece OR another building so the two layers never
+ * stack.
  *
- * Erase uses the pure `erasePiece` reducer. In erase mode a click on
- * any cell of a piece's footprint removes the whole piece atomically;
- * clicks on empty cells are no-ops. Toggling the Erase button (or
- * pressing `E`) flips the active mode; the place / erase modes are
- * mutually exclusive so the cell-click contract stays unambiguous.
+ * Erase uses the pure `erasePiece` / `eraseBuilding` reducers. In
+ * erase mode a click on any cell of a piece's footprint removes the
+ * whole piece atomically; in building category, erase removes the
+ * building at the clicked cell. Clicks on empty cells are no-ops.
+ * Toggling the Erase button (or pressing `E`) flips the active mode;
+ * the place / erase modes are mutually exclusive so the cell-click
+ * contract stays unambiguous. The active palette category gates which
+ * array a click mutates so an author cannot accidentally erase a
+ * piece while in building category (and vice versa).
  *
  * Rotation cycles via `nextRotation`. The rotate tool is exposed two
  * ways: a Rotate button in the toolbar and the `R` keyboard shortcut.
@@ -102,9 +121,14 @@ export function EditorClient({
     },
     [],
   )
+  const [paletteCategory, setPaletteCategory] = useState<PaletteCategory>(
+    DEFAULT_PALETTE_CATEGORY,
+  )
   const [selectedType, setSelectedType] = useState<PieceType>(
     DEFAULT_PALETTE_TYPE,
   )
+  const [selectedBuildingType, setSelectedBuildingType] =
+    useState<BuildingType>(DEFAULT_BUILDING_TYPE)
   const [rotation, setRotation] = useState<Rotation>(DEFAULT_ROTATION)
   const [toolMode, setToolMode] = useState<ToolMode>(DEFAULT_TOOL_MODE)
   const [autosaveStatus, setAutosaveStatus] =
@@ -156,14 +180,20 @@ export function EditorClient({
   const handleCellClick = (row: number, col: number) => {
     if (toolMode === 'erase') {
       setCityWithHistory((current) => {
-        const next = erasePiece(current, row, col)
+        const next =
+          paletteCategory === 'building'
+            ? eraseBuilding(current, row, col)
+            : erasePiece(current, row, col)
         if (next !== current) setAutosaveStatus('pending')
         return next
       })
       return
     }
     setCityWithHistory((current) => {
-      const next = placePiece(current, selectedType, row, col, rotation)
+      const next =
+        paletteCategory === 'building'
+          ? placeBuilding(current, selectedBuildingType, row, col, rotation)
+          : placePiece(current, selectedType, row, col, rotation)
       if (next !== current) setAutosaveStatus('pending')
       return next
     })
@@ -293,6 +323,10 @@ export function EditorClient({
 
   const eraseActive = toolMode === 'erase'
 
+  const handleSelectCategory = useCallback((next: PaletteCategory) => {
+    setPaletteCategory(next)
+  }, [])
+
   return (
     <div
       style={{
@@ -303,10 +337,10 @@ export function EditorClient({
       }}
     >
       <div
-        role="toolbar"
-        aria-label="Editor tools"
-        data-testid="editor-palette"
-        data-tool-mode={toolMode}
+        role="tablist"
+        aria-label="Palette category"
+        data-testid="editor-palette-category"
+        data-palette-category={paletteCategory}
         style={{
           display: 'flex',
           gap: 8,
@@ -315,33 +349,104 @@ export function EditorClient({
           alignItems: 'center',
         }}
       >
-        {STREET_PALETTE.map((entry) => {
-          const isSelected = entry.type === selectedType
+        {(['street', 'building'] as const).map((category) => {
+          const isActive = category === paletteCategory
+          const label = category === 'street' ? 'Streets' : 'Buildings'
           return (
             <button
-              key={entry.type}
+              key={category}
               type="button"
-              aria-pressed={isSelected}
-              data-piece-type={entry.type}
-              data-selected={isSelected ? 'true' : 'false'}
-              onClick={() => {
-                setSelectedType(entry.type)
-              }}
+              role="tab"
+              aria-selected={isActive}
+              data-testid={`editor-palette-category-${category}`}
+              data-palette-category={category}
+              data-active={isActive ? 'true' : 'false'}
+              onClick={() => handleSelectCategory(category)}
               style={{
-                padding: '8px 14px',
-                fontSize: 14,
+                padding: '6px 12px',
+                fontSize: 13,
                 fontFamily: 'inherit',
-                color: isSelected ? '#f7f4ee' : '#222',
-                background: isSelected ? '#222' : '#efe7d2',
+                color: isActive ? '#f7f4ee' : '#222',
+                background: isActive ? '#3a4a3a' : '#efe7d2',
                 border: '1px solid #d6cfbf',
                 borderRadius: 4,
                 cursor: 'pointer',
               }}
             >
-              {entry.label}
+              {label}
             </button>
           )
         })}
+      </div>
+      <div
+        role="toolbar"
+        aria-label="Editor tools"
+        data-testid="editor-palette"
+        data-tool-mode={toolMode}
+        data-palette-category={paletteCategory}
+        style={{
+          display: 'flex',
+          gap: 8,
+          flexWrap: 'wrap',
+          justifyContent: 'center',
+          alignItems: 'center',
+        }}
+      >
+        {paletteCategory === 'street'
+          ? STREET_PALETTE.map((entry) => {
+              const isSelected = entry.type === selectedType
+              return (
+                <button
+                  key={entry.type}
+                  type="button"
+                  aria-pressed={isSelected}
+                  data-piece-type={entry.type}
+                  data-selected={isSelected ? 'true' : 'false'}
+                  onClick={() => {
+                    setSelectedType(entry.type)
+                  }}
+                  style={{
+                    padding: '8px 14px',
+                    fontSize: 14,
+                    fontFamily: 'inherit',
+                    color: isSelected ? '#f7f4ee' : '#222',
+                    background: isSelected ? '#222' : '#efe7d2',
+                    border: '1px solid #d6cfbf',
+                    borderRadius: 4,
+                    cursor: 'pointer',
+                  }}
+                >
+                  {entry.label}
+                </button>
+              )
+            })
+          : BUILDING_PALETTE.map((entry) => {
+              const isSelected = entry.type === selectedBuildingType
+              return (
+                <button
+                  key={entry.type}
+                  type="button"
+                  aria-pressed={isSelected}
+                  data-building-type={entry.type}
+                  data-selected={isSelected ? 'true' : 'false'}
+                  onClick={() => {
+                    setSelectedBuildingType(entry.type)
+                  }}
+                  style={{
+                    padding: '8px 14px',
+                    fontSize: 14,
+                    fontFamily: 'inherit',
+                    color: isSelected ? '#f7f4ee' : '#222',
+                    background: isSelected ? '#3a4a3a' : '#efe7d2',
+                    border: '1px solid #d6cfbf',
+                    borderRadius: 4,
+                    cursor: 'pointer',
+                  }}
+                >
+                  {entry.label}
+                </button>
+              )
+            })}
         <button
           type="button"
           data-testid="editor-rotate"
@@ -458,6 +563,7 @@ export function EditorClient({
       </div>
       <p
         data-testid="editor-piece-count"
+        data-building-count={city.buildings.length}
         style={{
           fontSize: 12,
           margin: 0,
@@ -465,6 +571,9 @@ export function EditorClient({
         }}
       >
         Pieces placed: {city.pieces.length}
+        {city.buildings.length > 0
+          ? ` / Buildings placed: ${city.buildings.length}`
+          : ''}
       </p>
       <p
         role="status"

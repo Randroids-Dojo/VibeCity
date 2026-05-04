@@ -7,6 +7,7 @@ import {
   cellKey,
   cellToPixel,
   gridCells,
+  occupiedBuildingCells,
   occupiedPieceCells,
   pieceFootprintCells,
 } from '@/app/[slug]/edit/snapGrid'
@@ -216,5 +217,70 @@ describe('occupiedPieceCells (REQ-016, REQ-027 prep)', () => {
       buildings: [],
     }
     expect(occupiedPieceCells(city).size).toBe(1)
+  })
+
+  it('does not include building cells (parallel helper covers buildings)', () => {
+    const city: City = {
+      pieces: [{ type: 'straight', row: 0, col: 0, rotation: 0 }],
+      buildings: [{ type: 'small-house', row: 1, col: 1, rotation: 0 }],
+    }
+    const occupied = occupiedPieceCells(city)
+    expect(occupied.size).toBe(1)
+    expect(occupied.has('0,0')).toBe(true)
+    expect(occupied.has('1,1')).toBe(false)
+  })
+})
+
+describe('occupiedBuildingCells (REQ-028, REQ-029)', () => {
+  it('returns an empty set for the empty city', () => {
+    expect(occupiedBuildingCells(EMPTY_CITY).size).toBe(0)
+  })
+
+  it('aggregates one cell per single-cell building', () => {
+    const city: City = {
+      pieces: [],
+      buildings: [
+        { type: 'small-house', row: 0, col: 0, rotation: 0 },
+        { type: 'mid-house', row: 0, col: 1, rotation: 0 },
+        { type: 'shop', row: 1, col: 0, rotation: 0 },
+        { type: 'factory', row: 1, col: 1, rotation: 0 },
+      ],
+    }
+    const occupied = occupiedBuildingCells(city)
+    expect(occupied.size).toBe(4)
+    expect(occupied.has('0,0')).toBe(true)
+    expect(occupied.has('0,1')).toBe(true)
+    expect(occupied.has('1,0')).toBe(true)
+    expect(occupied.has('1,1')).toBe(true)
+  })
+
+  it('does not include piece cells (parallel helper covers pieces)', () => {
+    const city: City = {
+      pieces: [{ type: 'straight', row: 5, col: 5, rotation: 0 }],
+      buildings: [{ type: 'small-house', row: 1, col: 1, rotation: 0 }],
+    }
+    const occupied = occupiedBuildingCells(city)
+    expect(occupied.size).toBe(1)
+    expect(occupied.has('1,1')).toBe(true)
+    expect(occupied.has('5,5')).toBe(false)
+  })
+
+  it('dedupes overlapping building cells (raw set semantics)', () => {
+    const city: City = {
+      pieces: [],
+      buildings: [
+        { type: 'small-house', row: 0, col: 0, rotation: 0 },
+        { type: 'shop', row: 0, col: 0, rotation: 90 },
+      ],
+    }
+    expect(occupiedBuildingCells(city).size).toBe(1)
+  })
+
+  it('preserves negative cell coordinates', () => {
+    const city: City = {
+      pieces: [],
+      buildings: [{ type: 'small-house', row: -3, col: -7, rotation: 0 }],
+    }
+    expect(occupiedBuildingCells(city).has('-3,-7')).toBe(true)
   })
 })
