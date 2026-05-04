@@ -59,13 +59,14 @@ export function pieceFootprintCells(piece: Piece): GridCellCoord[] {
 }
 
 /**
- * Resolve every occupied cell across a city's pieces. Buildings are
- * not included here because v1 buildings are single-cell only (Q-004
- * default B); a future slice that wires building palette can extend
- * this helper as needed.
+ * Resolve every occupied cell across a city's pieces. Buildings live
+ * in the parallel `occupiedBuildingCells` helper because the editor
+ * renders them with a distinct visual treatment and the place / erase
+ * reducers gate on which array the active palette category is
+ * mutating.
  *
- * Returns a `Set<string>` keyed by `cellKey` so future place / erase
- * slices can do constant-time occupancy checks (REQ-027).
+ * Returns a `Set<string>` keyed by `cellKey` so the place / erase
+ * reducers can do constant-time occupancy checks (REQ-027).
  */
 export function occupiedPieceCells(city: City): Set<string> {
   const out = new Set<string>()
@@ -73,6 +74,21 @@ export function occupiedPieceCells(city: City): Set<string> {
     for (const cell of pieceFootprintCells(piece)) {
       out.add(cellKey(cell.row, cell.col))
     }
+  }
+  return out
+}
+
+/**
+ * Resolve every occupied cell across a city's buildings (REQ-028,
+ * REQ-029). v1 buildings are single-cell (Q-004 default B), so the
+ * cell key is just `(row, col)` for each building. Returned as a
+ * `Set<string>` keyed by `cellKey` for the same constant-time
+ * occupancy lookups that `occupiedPieceCells` supports.
+ */
+export function occupiedBuildingCells(city: City): Set<string> {
+  const out = new Set<string>()
+  for (const building of city.buildings) {
+    out.add(cellKey(building.row, building.col))
   }
   return out
 }

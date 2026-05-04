@@ -450,6 +450,141 @@ test('toolbar Drive CTA links to /<slug> and navigates on click (REQ-026)', asyn
   expect(page.url()).toMatch(/\/drive-cta-spec$/)
 })
 
+test('building palette places, switches category, and erases (REQ-028, REQ-029)', async ({
+  page,
+}) => {
+  // Intercept autosave so the editor opens cleanly without KV.
+  await page.route('**/api/city/**', async (route) => {
+    if (route.request().method() !== 'PUT') {
+      await route.continue()
+      return
+    }
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        slug: 'building-palette-spec',
+        versionHash:
+          '0000000000000000000000000000000000000000000000000000000000000000',
+        updatedAt: Date.now(),
+      }),
+    })
+  })
+
+  const response = await page.goto('/building-palette-spec/edit')
+  expect(response?.status()).toBe(200)
+
+  const grid = page.getByTestId('editor-snap-grid')
+  const pieceCount = page.getByTestId('editor-piece-count')
+  const palette = page.getByTestId('editor-palette')
+  const categoryGroup = page.getByTestId('editor-palette-category')
+  const streetTab = page.getByTestId('editor-palette-category-street')
+  const buildingTab = page.getByTestId('editor-palette-category-building')
+
+  // Editor opens in street category.
+  await expect(categoryGroup).toBeVisible()
+  await expect(categoryGroup).toHaveAttribute('data-palette-category', 'street')
+  await expect(streetTab).toHaveAttribute('aria-selected', 'true')
+  await expect(buildingTab).toHaveAttribute('aria-selected', 'false')
+  await expect(palette).toHaveAttribute('data-palette-category', 'street')
+
+  // Place a street piece at (0, 0) so the building overlap path has
+  // something to bump into.
+  await grid.locator('[data-cell-row="0"][data-cell-col="0"]').click()
+  await expect(pieceCount).toHaveText('Pieces placed: 1')
+  await expect(grid).toHaveAttribute('data-occupied-count', '1')
+  await expect(grid).toHaveAttribute('data-building-count', '0')
+
+  // Switch to the building category.
+  await buildingTab.click()
+  await expect(categoryGroup).toHaveAttribute(
+    'data-palette-category',
+    'building',
+  )
+  await expect(buildingTab).toHaveAttribute('aria-selected', 'true')
+  await expect(streetTab).toHaveAttribute('aria-selected', 'false')
+  await expect(palette).toHaveAttribute('data-palette-category', 'building')
+
+  // The four building palette entries are visible; the street palette
+  // entries are hidden because the toolbar swaps based on category.
+  const smallHouse = palette.locator('[data-building-type="small-house"]')
+  const midHouse = palette.locator('[data-building-type="mid-house"]')
+  const shop = palette.locator('[data-building-type="shop"]')
+  const factory = palette.locator('[data-building-type="factory"]')
+  await expect(smallHouse).toBeVisible()
+  await expect(midHouse).toBeVisible()
+  await expect(shop).toBeVisible()
+  await expect(factory).toBeVisible()
+  await expect(smallHouse).toHaveAttribute('aria-pressed', 'true')
+
+  // Place a small house at (1, 1).
+  await grid.locator('[data-cell-row="1"][data-cell-col="1"]').click()
+  await expect(grid).toHaveAttribute('data-building-count', '1')
+  await expect(grid).toHaveAttribute('data-occupied-count', '1')
+  await expect(
+    grid.locator('[data-cell-row="1"][data-cell-col="1"]'),
+  ).toHaveAttribute('data-cell-occupied-kind', 'building')
+  await expect(pieceCount).toContainText('Buildings placed: 1')
+
+  // Building click on the street piece cell is rejected (no stacking).
+  await grid.locator('[data-cell-row="0"][data-cell-col="0"]').click()
+  await expect(grid).toHaveAttribute('data-building-count', '1')
+  await expect(grid).toHaveAttribute('data-occupied-count', '1')
+  await expect(
+    grid.locator('[data-cell-row="0"][data-cell-col="0"]'),
+  ).toHaveAttribute('data-cell-occupied-kind', 'piece')
+
+  // Building click on an existing building cell is also rejected.
+  await grid.locator('[data-cell-row="1"][data-cell-col="1"]').click()
+  await expect(grid).toHaveAttribute('data-building-count', '1')
+
+  // Switch building type and place another building.
+  await shop.click()
+  await expect(shop).toHaveAttribute('aria-pressed', 'true')
+  await expect(smallHouse).toHaveAttribute('aria-pressed', 'false')
+  await grid.locator('[data-cell-row="2"][data-cell-col="2"]').click()
+  await expect(grid).toHaveAttribute('data-building-count', '2')
+  await expect(pieceCount).toContainText('Buildings placed: 2')
+
+  // Erase mode in building category removes a building, not a piece,
+  // even when both share the click target.
+  const eraseButton = page.getByTestId('editor-erase')
+  await eraseButton.click()
+  await expect(eraseButton).toHaveAttribute('aria-pressed', 'true')
+
+  // Click a piece cell while in building category + erase: nothing
+  // happens (the piece is left alone because erase follows the active
+  // category).
+  await grid.locator('[data-cell-row="0"][data-cell-col="0"]').click()
+  await expect(grid).toHaveAttribute('data-occupied-count', '1')
+  await expect(grid).toHaveAttribute('data-building-count', '2')
+
+  // Click a building cell: the building disappears.
+  await grid.locator('[data-cell-row="1"][data-cell-col="1"]').click()
+  await expect(grid).toHaveAttribute('data-building-count', '1')
+  await expect(
+    grid.locator('[data-cell-row="1"][data-cell-col="1"]'),
+  ).toHaveAttribute('data-cell-occupied', 'false')
+
+  // Switch back to street category in erase mode and erase the piece.
+  await streetTab.click()
+  await expect(palette).toHaveAttribute('data-palette-category', 'street')
+  await grid.locator('[data-cell-row="0"][data-cell-col="0"]').click()
+  await expect(grid).toHaveAttribute('data-occupied-count', '0')
+  await expect(pieceCount).toHaveText(/Pieces placed: 0/)
+
+  // Toggle erase off, switch back to building category, place via the
+  // rotate angle to confirm rotation flows through to building placement.
+  await eraseButton.click()
+  await buildingTab.click()
+  const rotateButton = page.getByTestId('editor-rotate')
+  await rotateButton.click()
+  await expect(rotateButton).toHaveAttribute('data-rotation', '90')
+  await factory.click()
+  await grid.locator('[data-cell-row="-2"][data-cell-col="-2"]').click()
+  await expect(grid).toHaveAttribute('data-building-count', '2')
+})
+
 test('autosave surfaces save failures via the status indicator (REQ-025)', async ({
   page,
 }) => {

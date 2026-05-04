@@ -1,5 +1,17 @@
-import type { City, Piece, PieceType, Rotation } from '@/lib/schemas'
-import { cellKey, occupiedPieceCells, pieceFootprintCells } from './snapGrid'
+import type {
+  Building,
+  BuildingType,
+  City,
+  Piece,
+  PieceType,
+  Rotation,
+} from '@/lib/schemas'
+import {
+  cellKey,
+  occupiedBuildingCells,
+  occupiedPieceCells,
+  pieceFootprintCells,
+} from './snapGrid'
 
 /**
  * Editor palette and placement helpers (REQ-017, REQ-020, REQ-021,
@@ -180,8 +192,9 @@ export function placePiece(
  * only the first match is removed; the next click clears the next
  * match.
  *
- * Buildings are intentionally not touched; building erase lands with
- * REQ-029 (building palette parity).
+ * Buildings are intentionally not touched here; the building dual is
+ * `eraseBuilding` (REQ-029) so the editor's tool category stays the
+ * source of truth for which array a click affects.
  */
 export function erasePiece(city: City, row: number, col: number): City {
   const targetKey = cellKey(row, col)
@@ -201,6 +214,127 @@ export function erasePiece(city: City, row: number, col: number): City {
     pieces: [
       ...city.pieces.slice(0, matchIndex),
       ...city.pieces.slice(matchIndex + 1),
+    ],
+  }
+}
+
+/**
+ * Editor palette category (REQ-028, REQ-029).
+ *
+ * `street` selects pieces from `STREET_PALETTE`; `building` selects
+ * buildings from `BUILDING_PALETTE`. The category gates which array a
+ * click mutates so a placed building never accidentally lands in the
+ * pieces array (and vice versa). The erase tool (REQ-022, REQ-029)
+ * also follows the active category: erasing in street mode removes a
+ * piece, erasing in building mode removes a building.
+ */
+export type PaletteCategory = 'street' | 'building'
+
+/**
+ * Default palette category on first render (REQ-028).
+ *
+ * Streets are the editor's primary affordance because the build /
+ * drive loop turns on a placed road, so the editor opens with the
+ * street category active. A first-time author can place a road
+ * without first picking a category.
+ */
+export const DEFAULT_PALETTE_CATEGORY: PaletteCategory = 'street'
+
+export interface BuildingPaletteEntry {
+  type: BuildingType
+  /** Human-readable label rendered in the palette button. */
+  label: string
+}
+
+/**
+ * v1 building palette (REQ-028, Q-004 default B).
+ *
+ * Four placeholder primitive types render as colored cells on the
+ * editor grid (REQ-046 will turn them into extruded boxes for the
+ * drive scene). Ordering matches the "smaller to larger" mental model
+ * a first-time author expects: house, then mid-house, then shop, then
+ * factory. Multi-cell footprints (Q-004 default C) stay out of v1.
+ */
+export const BUILDING_PALETTE: readonly BuildingPaletteEntry[] = [
+  { type: 'small-house', label: 'Small House' },
+  { type: 'mid-house', label: 'Mid House' },
+  { type: 'shop', label: 'Shop' },
+  { type: 'factory', label: 'Factory' },
+]
+
+/**
+ * Default selected building entry on first render (REQ-028).
+ *
+ * `small-house` is the lowest-friction default: it is the smallest
+ * primitive and the one a first-time author is most likely to drop
+ * along a street to test the build / drive loop.
+ */
+export const DEFAULT_BUILDING_TYPE: BuildingType = BUILDING_PALETTE[0].type
+
+/**
+ * Place a building on the grid (REQ-028, REQ-029).
+ *
+ * Returns a fresh `City` with the new building appended at `(row,
+ * col)` and `rotation` (defaults to `0`). v1 buildings are single-cell
+ * (Q-004 default B) so the overlap check is a single-cell lookup
+ * against the union of street piece footprint cells and existing
+ * building cells. When the target cell is already occupied by either
+ * a piece or another building, the original city is returned
+ * unchanged so callers can branch on identity equality
+ * (`next === city ? rejected : accepted`), matching the `placePiece`
+ * contract.
+ *
+ * Buildings are appended in placement order; deterministic ordering
+ * for the persistence hash is handled by `hashCity` (REQ-013).
+ */
+export function placeBuilding(
+  city: City,
+  type: BuildingType,
+  row: number,
+  col: number,
+  rotation: Rotation = 0,
+): City {
+  const targetKey = cellKey(row, col)
+  const occupiedPieces = occupiedPieceCells(city)
+  if (occupiedPieces.has(targetKey)) {
+    return city
+  }
+  const occupiedBuildings = occupiedBuildingCells(city)
+  if (occupiedBuildings.has(targetKey)) {
+    return city
+  }
+  const candidate: Building = { type, row, col, rotation }
+  return {
+    ...city,
+    buildings: [...city.buildings, candidate],
+  }
+}
+
+/**
+ * Remove the building occupying `(row, col)` (REQ-029).
+ *
+ * Returns a fresh `City` with the building at the target cell
+ * removed. When no building occupies the cell, the original city is
+ * returned unchanged so callers can branch on identity equality
+ * (`next === city ? noop : erased`), matching the `erasePiece`
+ * contract.
+ *
+ * Pieces are intentionally not touched here; the piece dual is
+ * `erasePiece`. The editor's palette category gates which dual the
+ * cell-click handler dispatches.
+ */
+export function eraseBuilding(city: City, row: number, col: number): City {
+  const matchIndex = city.buildings.findIndex(
+    (building) => building.row === row && building.col === col,
+  )
+  if (matchIndex === -1) {
+    return city
+  }
+  return {
+    ...city,
+    buildings: [
+      ...city.buildings.slice(0, matchIndex),
+      ...city.buildings.slice(matchIndex + 1),
     ],
   }
 }
