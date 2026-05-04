@@ -20,7 +20,7 @@ v1 ships no input handling. Keyboard and touch input land with the car (REQ-034 
 
 ## Spawn anchor (REQ-036)
 
-The vehicle spawns on a deterministic anchor cell: `(piece.row, piece.col)` of the first placed street piece, or the grid origin `(0, 0)` when no pieces exist. v1 ships the helper `spawnAnchor(pieces)` and a chevron-shaped placeholder marker mesh at the anchor position so a builder can see where the future vehicle will appear; the marker is omitted on an empty grid because the empty-state prompt owns that visual focus. The persisted rotation of the first piece flows through to the marker so a build / drive author can see the orientation the future vehicle will face. The actual vehicle (REQ-047) and the physics that move it from the spawn anchor (REQ-031) wait for their own slices.
+The vehicle spawns on a deterministic anchor cell: `(piece.row, piece.col)` of the first placed street piece, or the grid origin `(0, 0)` when no pieces exist. v1 ships the helper `spawnAnchor(pieces)` and a placeholder vehicle (REQ-047) at the anchor position so a builder can see where the car will appear; the vehicle is omitted on an empty grid because the empty-state prompt owns that visual focus. The persisted rotation of the first piece flows through to the vehicle group so a build / drive author can see the orientation the car will face. The earliest v1 release shipped a chevron-shaped marker at this anchor; the placeholder car composition (REQ-047) replaced it in a follow-up slice. The physics that move the car from the spawn anchor (REQ-031) wait for their own slice.
 
 ## Empty grid (REQ-053)
 

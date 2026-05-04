@@ -8,6 +8,21 @@ import {
   CAMERA_FOV,
   CAMERA_HEIGHT,
   CAMERA_NEAR,
+  CAR_AXLE_OFFSET,
+  CAR_BODY_COLOR,
+  CAR_BODY_HEIGHT,
+  CAR_CABIN_COLOR,
+  CAR_CABIN_HEIGHT,
+  CAR_CABIN_LENGTH,
+  CAR_CABIN_OFFSET,
+  CAR_CABIN_WIDTH,
+  CAR_GROUND_LIFT,
+  CAR_LENGTH,
+  CAR_WHEEL_COLOR,
+  CAR_WHEEL_INSET,
+  CAR_WHEEL_RADIUS,
+  CAR_WHEEL_THICKNESS,
+  CAR_WIDTH,
   CELL_SIZE,
   DEFAULT_PIECE_COLOR,
   DIRECTIONAL_LIGHT_INTENSITY,
@@ -22,6 +37,9 @@ import {
   SPAWN_MARKER_WIDTH,
   buildingColorFor,
   buildingHeightFor,
+  carBodyY,
+  carCabinY,
+  carWheelOffsets,
   cellToWorld,
   cityWorldBounds,
   pieceColorFor,
@@ -343,5 +361,157 @@ describe('SPAWN_MARKER_* constants (REQ-036)', () => {
 
   it('marker length is greater than width so the chevron has a forward axis', () => {
     expect(SPAWN_MARKER_LENGTH).toBeGreaterThan(SPAWN_MARKER_WIDTH)
+  })
+})
+
+describe('CAR_* constants (REQ-047)', () => {
+  it('CAR_BODY_COLOR / CAR_CABIN_COLOR / CAR_WHEEL_COLOR are valid 24-bit hex values', () => {
+    for (const color of [CAR_BODY_COLOR, CAR_CABIN_COLOR, CAR_WHEEL_COLOR]) {
+      expect(color).toBeGreaterThanOrEqual(0)
+      expect(color).toBeLessThanOrEqual(0xffffff)
+    }
+  })
+
+  it('body color and cabin color are distinct so the cabin reads against the body', () => {
+    expect(CAR_BODY_COLOR).not.toBe(CAR_CABIN_COLOR)
+  })
+
+  it('every car dimension is positive and bounded by CELL_SIZE', () => {
+    for (const dim of [
+      CAR_LENGTH,
+      CAR_WIDTH,
+      CAR_BODY_HEIGHT,
+      CAR_CABIN_LENGTH,
+      CAR_CABIN_WIDTH,
+      CAR_CABIN_HEIGHT,
+      CAR_WHEEL_RADIUS,
+      CAR_WHEEL_THICKNESS,
+      CAR_WHEEL_INSET,
+      CAR_AXLE_OFFSET,
+      CAR_GROUND_LIFT,
+    ]) {
+      expect(dim).toBeGreaterThan(0)
+      expect(dim).toBeLessThanOrEqual(CELL_SIZE)
+    }
+  })
+
+  it('CAR_LENGTH is greater than CAR_WIDTH so the forward axis is unambiguous', () => {
+    expect(CAR_LENGTH).toBeGreaterThan(CAR_WIDTH)
+  })
+
+  it('the cabin footprint stays inside the body footprint', () => {
+    expect(CAR_CABIN_LENGTH).toBeLessThan(CAR_LENGTH)
+    expect(CAR_CABIN_WIDTH).toBeLessThanOrEqual(CAR_WIDTH)
+  })
+
+  it('the wheels fit inside the body width once inset is applied', () => {
+    // The wheel center sits at body half-width minus the inset; the
+    // inset must be smaller than half the body width or wheels would
+    // poke out past the body silhouette.
+    expect(CAR_WHEEL_INSET).toBeLessThan(CAR_WIDTH / 2)
+  })
+
+  it('the front and rear axles are inside the body length', () => {
+    // Axle offset is measured from the body's center along the local
+    // z axis; the wheel must sit inside the body, not past its nose.
+    expect(CAR_AXLE_OFFSET).toBeLessThan(CAR_LENGTH / 2)
+  })
+
+  it('CAR_CABIN_OFFSET keeps the cabin inside the body footprint', () => {
+    // The cabin sits slightly toward the rear so the windscreen line
+    // reads forward; the offset plus half the cabin length must fit
+    // inside half the body length.
+    expect(Math.abs(CAR_CABIN_OFFSET) + CAR_CABIN_LENGTH / 2).toBeLessThanOrEqual(
+      CAR_LENGTH / 2,
+    )
+  })
+})
+
+describe('carWheelOffsets (REQ-047)', () => {
+  it('returns four wheels: two front, two rear, two left, two right', () => {
+    const offsets = carWheelOffsets()
+    expect(offsets).toHaveLength(4)
+    const fronts = offsets.filter((o) => o.axle === 'front')
+    const rears = offsets.filter((o) => o.axle === 'rear')
+    const lefts = offsets.filter((o) => o.side === 'left')
+    const rights = offsets.filter((o) => o.side === 'right')
+    expect(fronts).toHaveLength(2)
+    expect(rears).toHaveLength(2)
+    expect(lefts).toHaveLength(2)
+    expect(rights).toHaveLength(2)
+  })
+
+  it('left and right wheels mirror across the body x axis', () => {
+    const offsets = carWheelOffsets()
+    const leftFront = offsets.find(
+      (o) => o.side === 'left' && o.axle === 'front',
+    )
+    const rightFront = offsets.find(
+      (o) => o.side === 'right' && o.axle === 'front',
+    )
+    expect(leftFront).toBeDefined()
+    expect(rightFront).toBeDefined()
+    if (!leftFront || !rightFront) return
+    expect(leftFront.x).toBeCloseTo(-rightFront.x, 10)
+    expect(leftFront.z).toBeCloseTo(rightFront.z, 10)
+  })
+
+  it('front and rear wheels mirror across the body z axis', () => {
+    const offsets = carWheelOffsets()
+    const leftFront = offsets.find(
+      (o) => o.side === 'left' && o.axle === 'front',
+    )
+    const leftRear = offsets.find(
+      (o) => o.side === 'left' && o.axle === 'rear',
+    )
+    expect(leftFront).toBeDefined()
+    expect(leftRear).toBeDefined()
+    if (!leftFront || !leftRear) return
+    expect(leftFront.x).toBeCloseTo(leftRear.x, 10)
+    expect(leftFront.z).toBeCloseTo(-leftRear.z, 10)
+  })
+
+  it('returns a fresh array on each call so callers cannot mutate a singleton', () => {
+    const a = carWheelOffsets()
+    const b = carWheelOffsets()
+    expect(a).not.toBe(b)
+    expect(a).toEqual(b)
+  })
+
+  it('every wheel sits inside the body footprint', () => {
+    for (const offset of carWheelOffsets()) {
+      // Account for the wheel thickness on the x axis: the wheel was
+      // rotated to lie on its side, so its width along x is
+      // CAR_WHEEL_THICKNESS, not the radius.
+      expect(Math.abs(offset.x) + CAR_WHEEL_THICKNESS / 2).toBeLessThanOrEqual(
+        CAR_WIDTH / 2,
+      )
+      expect(Math.abs(offset.z) + CAR_WHEEL_RADIUS).toBeLessThanOrEqual(
+        CAR_LENGTH / 2,
+      )
+    }
+  })
+})
+
+describe('carBodyY / carCabinY (REQ-047)', () => {
+  it('the body sits above the wheels by the ground lift plus the wheel radius', () => {
+    expect(carBodyY()).toBeCloseTo(
+      CAR_GROUND_LIFT + CAR_WHEEL_RADIUS + CAR_BODY_HEIGHT / 2,
+      10,
+    )
+  })
+
+  it('the cabin sits on top of the body', () => {
+    expect(carCabinY()).toBeCloseTo(
+      CAR_GROUND_LIFT +
+        CAR_WHEEL_RADIUS +
+        CAR_BODY_HEIGHT +
+        CAR_CABIN_HEIGHT / 2,
+      10,
+    )
+  })
+
+  it('cabin y is greater than body y so the silhouette reads as a car', () => {
+    expect(carCabinY()).toBeGreaterThan(carBodyY())
   })
 })
