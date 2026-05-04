@@ -75,6 +75,7 @@ import {
   speedFraction,
 } from './driveHud'
 import { RESPAWN_KEY_CODE, respawnVehicle } from './respawn'
+import { ENGINE_MUTE_KEY_CODE, EngineAudioRig } from './engineAudio'
 
 /**
  * Drive scene scaffold (REQ-044, REQ-045, REQ-046, REQ-053) plus the
@@ -133,6 +134,30 @@ export function DriveSceneClient({
 
   const handleResume = useCallback(() => {
     setPauseState((prev) => closePauseMenu(prev))
+  }, [])
+
+  // Engine audio mute (REQ-068). The rig itself is lazily created on
+  // the first user gesture inside the integration effect; the React
+  // state here only tracks the mute toggle so the button label stays in
+  // sync with the rig's silence and the data attribute mirror is
+  // observable. The ref mirror lets the keyboard handler read the live
+  // value without a stale closure capture across re-renders.
+  const [engineMuted, setEngineMuted] = useState<boolean>(false)
+  const engineMutedRef = useRef<boolean>(false)
+  useEffect(() => {
+    engineMutedRef.current = engineMuted
+  }, [engineMuted])
+  // The live rig handle. Stays null until the first user gesture inside
+  // the integration effect creates it; the toggle button reads the ref
+  // to call `setMuted` without re-rendering.
+  const engineRigRef = useRef<EngineAudioRig | null>(null)
+  const handleToggleEngineMute = useCallback(() => {
+    setEngineMuted((prev) => {
+      const next = !prev
+      const rig = engineRigRef.current
+      if (rig) rig.setMuted(next)
+      return next
+    })
   }, [])
 
   // Memoize the bounds so the effect re-fits the camera only when the
@@ -397,6 +422,49 @@ export function DriveSceneClient({
       const list = Array.from(pressedKeys).sort().join(' ')
       root.setAttribute('data-keys-pressed', list)
     }
+    // Lazy engine audio rig (REQ-068). Browsers gate `AudioContext`
+    // creation on the first user gesture; we build the rig the first
+    // time the player presses a bound drive key so the page does not
+    // log an autoplay warning on load. The rig handle is published to
+    // the parent ref so the mute toggle button can read it without a
+    // re-render and so the unmount cleanup branch can stop it.
+    const ensureEngineAudio = () => {
+      if (engineRigRef.current) return
+      // The Web Audio API is only available in the browser; the
+      // playwright webServer renders the empty city so this branch
+      // never fires there, but the typeof guard keeps the SSR / Node
+      // build green just in case.
+      if (typeof window === 'undefined') return
+      const Ctor =
+        window.AudioContext ??
+        (window as unknown as {
+          webkitAudioContext?: typeof AudioContext
+        }).webkitAudioContext
+      if (!Ctor) return
+      try {
+        const ctx = new Ctor()
+        const rig = new EngineAudioRig(ctx)
+        engineRigRef.current = rig
+        // Apply the live mute state before start so a player who muted
+        // before the first gesture stays muted on first sound.
+        rig.setMuted(engineMutedRef.current)
+        // Fire-and-forget the resume / start; the rig's update calls
+        // before the promise resolves are safely swallowed (start is a
+        // no-op while not started).
+        rig.start().catch(() => {
+          // Swallow autoplay rejections; a future user gesture will
+          // re-trigger this branch via `ensureEngineAudio`.
+        })
+        if (root) {
+          root.setAttribute('data-engine-audio-started', 'true')
+        }
+      } catch {
+        // AudioContext construction can throw on locked-down browsers
+        // (cross-origin iframes, Safari private mode). The drive scene
+        // stays fully playable without sound; the mute button keeps
+        // working as a no-op so the UI does not regress.
+      }
+    }
     const handleKeyDown = (event: KeyboardEvent) => {
       if (!isBoundKey(event.code)) return
       if (isTextTarget(event.target)) return
@@ -405,6 +473,10 @@ export function DriveSceneClient({
       event.preventDefault()
       pressedKeys.add(event.code)
       updatePressedAttr()
+      // First-gesture trigger for the engine audio rig. The keydown
+      // event is the gesture; subsequent presses are no-ops once the
+      // rig exists (`ensureEngineAudio` short-circuits on the ref).
+      ensureEngineAudio()
     }
     const handleKeyUp = (event: KeyboardEvent) => {
       if (!isBoundKey(event.code)) return
@@ -432,11 +504,25 @@ export function DriveSceneClient({
       event.preventDefault()
       setPauseState((prev) => togglePauseState(prev))
     }
+    // Engine audio mute toggle (REQ-068). M flips the mute state and
+    // also counts as the first user gesture so a player who lands on
+    // the drive surface and presses M before any drive key still gets
+    // the rig built (and immediately silenced). The text-target guard
+    // mirrors the WASD / Esc handlers so a future input keeps M-as-text
+    // working.
+    const handleEngineMuteKey = (event: KeyboardEvent) => {
+      if (event.code !== ENGINE_MUTE_KEY_CODE) return
+      if (isTextTarget(event.target)) return
+      event.preventDefault()
+      ensureEngineAudio()
+      handleToggleEngineMute()
+    }
     if (car) {
       window.addEventListener('keydown', handleKeyDown)
       window.addEventListener('keyup', handleKeyUp)
       window.addEventListener('blur', handleBlur)
       window.addEventListener('keydown', handlePauseKey)
+      window.addEventListener('keydown', handleEngineMuteKey)
     }
     updatePressedAttr()
 
@@ -578,6 +664,11 @@ export function DriveSceneClient({
         applyChaseCamera()
         updateCameraAttrs()
       }
+      // Engine audio (REQ-068). Snap the rig to the idle pitch on
+      // respawn so a player who was at full throttle when they pressed
+      // R does not hear the engine note hold over from the wreck.
+      const rigEngine = engineRigRef.current
+      if (rigEngine) rigEngine.update(0)
     }
     if (car) {
       window.addEventListener('keydown', handleRespawnKey)
@@ -596,6 +687,14 @@ export function DriveSceneClient({
       // after resume does not back-integrate the elapsed pause duration.
       if (isPaused(pauseStateRef.current)) {
         lastTimestamp = timestamp
+        // Engine audio (REQ-068). A paused world should fall silent so
+        // the menu reads against quiet. The rig respects the explicit
+        // mute toggle (M) by re-applying the player's choice on resume
+        // through the per-frame `update` call below; here we just call
+        // `update(0)` so the gain ramps to idle and the pitch settles
+        // to the idle frequency without a click.
+        const rigPaused = engineRigRef.current
+        if (rigPaused) rigPaused.update(0)
         renderer.render(scene, camera)
         return
       }
@@ -635,6 +734,12 @@ export function DriveSceneClient({
         updateOnBuildingAttr(onBuilding)
         updateOffStreetAttr(!onStreet)
         updateHud()
+        // Engine audio (REQ-068). The rig's `update` is a no-op until
+        // `start()` resolves and is also a no-op while muted, so the
+        // call here is unconditional. Once the rig is live the
+        // oscillator frequency and the gain track the live speed.
+        const rig = engineRigRef.current
+        if (rig) rig.update(vehicle.speed)
       }
       if (rig && vehicle) {
         updateCameraRig(rig, vehicle.x, vehicle.z, vehicle.heading)
@@ -666,6 +771,16 @@ export function DriveSceneClient({
         window.removeEventListener('blur', handleBlur)
         window.removeEventListener('keydown', handlePauseKey)
         window.removeEventListener('keydown', handleRespawnKey)
+        window.removeEventListener('keydown', handleEngineMuteKey)
+      }
+      // Tear down the engine audio rig (REQ-068) so navigating away
+      // from the slug does not leave an oscillator humming. The rig
+      // owns its `AudioContext`; the `stop()` call ramps the gain to
+      // zero before stopping so the silence does not click.
+      const rigToStop = engineRigRef.current
+      if (rigToStop) {
+        rigToStop.stop()
+        engineRigRef.current = null
       }
       // Dispose every geometry / material attached to the scene so
       // navigating away does not leak GPU memory across slugs.
@@ -681,7 +796,15 @@ export function DriveSceneClient({
       })
       renderer.dispose()
     }
-  }, [city.pieces, city.buildings, bounds, spawn, buildingCells, streetCells])
+  }, [
+    city.pieces,
+    city.buildings,
+    bounds,
+    spawn,
+    buildingCells,
+    streetCells,
+    handleToggleEngineMute,
+  ])
 
   // The placeholder car (REQ-047) renders only when at least one piece
   // exists. Mirrors the spawn-marker / empty-state branch above; we
@@ -716,6 +839,8 @@ export function DriveSceneClient({
       data-hud-visible={hasVehicle && !showPauseMenu ? 'true' : 'false'}
       data-hud-speed="0"
       data-hud-direction="idle"
+      data-engine-audio-muted={engineMuted ? 'true' : 'false'}
+      data-engine-audio-started="false"
       style={{
         position: 'fixed',
         inset: 0,
@@ -940,7 +1065,32 @@ export function DriveSceneClient({
           {HUD_CONTROLS_HINT_LINES.map((line) => (
             <div key={line}>{line}</div>
           ))}
+          <div>M: {engineMuted ? 'unmute' : 'mute'} engine</div>
         </div>
+      ) : null}
+      {hasVehicle ? (
+        <button
+          type="button"
+          data-testid="drive-engine-mute-toggle"
+          aria-pressed={engineMuted}
+          aria-label={engineMuted ? 'Unmute engine' : 'Mute engine'}
+          onClick={handleToggleEngineMute}
+          style={{
+            position: 'absolute',
+            top: 16,
+            right: 80,
+            padding: '8px 12px',
+            fontSize: 14,
+            fontFamily: 'system-ui, sans-serif',
+            color: '#f7f4ee',
+            background: 'rgba(34, 34, 34, 0.7)',
+            border: '1px solid #444',
+            borderRadius: 4,
+            cursor: 'pointer',
+          }}
+        >
+          {engineMuted ? 'Sound off' : 'Sound on'}
+        </button>
       ) : null}
       {showPauseMenu ? (
         <div
