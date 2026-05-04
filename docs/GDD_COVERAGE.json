@@ -784,9 +784,17 @@
       "id": "REQ-042",
       "requirement": "Settings pane: touch mode (dual-stick / single-stick) ported from VibeRacer",
       "gddRef": "docs/gdd/10-settings.md",
-      "status": "not_started",
-      "implementationRefs": [],
-      "testRefs": [],
+      "status": "done",
+      "implementationRefs": [
+        "src/app/[slug]/touchSettings.ts",
+        "src/app/[slug]/TouchSettingsPanel.tsx",
+        "src/app/[slug]/DriveSceneClient.tsx",
+        "src/lib/controlsPersistence.ts"
+      ],
+      "testRefs": [
+        "tests/app/touchSettings.test.ts",
+        "e2e/drive.spec.ts"
+      ],
       "followupRefs": []
     },
     {
