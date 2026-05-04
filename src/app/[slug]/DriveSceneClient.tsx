@@ -61,6 +61,11 @@ import {
   isOnBuildingCell,
 } from './buildingCollision'
 import {
+  applyOffStreetPenalty,
+  isOnStreetCell,
+  streetCellSet,
+} from './offStreetPenalty'
+import {
   HUD_CONTROLS_HINT_LINES,
   HUD_SPEED_LABEL,
   HUD_SPEED_UNIT,
@@ -147,6 +152,15 @@ export function DriveSceneClient({
   const buildingCells = useMemo(
     () => buildingCellSet(city.buildings),
     [city.buildings],
+  )
+
+  // Street cell set for the off-street penalty (REQ-054). Mirrors the
+  // building cell set above so the per-frame lookup is constant time;
+  // multi-cell pieces (mega sweep, hairpin) expand to their full
+  // footprint via `streetCellSet`.
+  const streetCells = useMemo(
+    () => streetCellSet(city.pieces),
+    [city.pieces],
   )
 
   useEffect(() => {
@@ -468,10 +482,20 @@ export function DriveSceneClient({
       if (!root) return
       root.setAttribute('data-on-building', onBuilding ? 'true' : 'false')
     }
+    // Off-street flag mirror (REQ-054). True when the car center cell
+    // is NOT covered by any street piece so a test can assert the
+    // penalty engages without sampling the speed history.
+    const updateOffStreetAttr = (offStreet: boolean) => {
+      if (!root) return
+      root.setAttribute('data-off-street', offStreet ? 'true' : 'false')
+    }
     if (vehicle) {
       updateVehicleAttrs()
       updateOnBuildingAttr(
         isOnBuildingCell(vehicle.x, vehicle.z, buildingCells),
+      )
+      updateOffStreetAttr(
+        !isOnStreetCell(vehicle.x, vehicle.z, streetCells),
       )
       updateHud()
     }
@@ -523,6 +547,17 @@ export function DriveSceneClient({
       if (vehicle && car) {
         const input = inputFromPressedKeys(pressedKeys)
         vehicle = applyDriveStep(vehicle, input, dt)
+        // Off-street penalty (REQ-054). Applied first so a player who
+        // veers off the road bleeds before any building-cell stack on
+        // top fires. The two penalties stack at the same call site
+        // because a building cell is also off-street; the more
+        // aggressive of the two (the building cap is tighter) wins.
+        const onStreet = isOnStreetCell(
+          vehicle.x,
+          vehicle.z,
+          streetCells,
+        )
+        vehicle = applyOffStreetPenalty(vehicle, onStreet, dt)
         // Building cell penalty (REQ-030, Q-005 default A). After the
         // integrator advances the car, check whether the new center
         // cell sits on a building cell and pull the speed back to the
@@ -541,6 +576,7 @@ export function DriveSceneClient({
         car.rotation.y = vehicle.heading
         updateVehicleAttrs()
         updateOnBuildingAttr(onBuilding)
+        updateOffStreetAttr(!onStreet)
         updateHud()
       }
       if (rig && vehicle) {
@@ -587,7 +623,7 @@ export function DriveSceneClient({
       })
       renderer.dispose()
     }
-  }, [city.pieces, city.buildings, bounds, spawn, buildingCells])
+  }, [city.pieces, city.buildings, bounds, spawn, buildingCells, streetCells])
 
   // The placeholder car (REQ-047) renders only when at least one piece
   // exists. Mirrors the spawn-marker / empty-state branch above; we
@@ -618,6 +654,7 @@ export function DriveSceneClient({
       data-camera-mode={hasVehicle ? 'chase' : 'orbit'}
       data-pause-state={pauseState}
       data-on-building="false"
+      data-off-street="false"
       data-hud-visible={hasVehicle && !showPauseMenu ? 'true' : 'false'}
       data-hud-speed="0"
       data-hud-direction="idle"
