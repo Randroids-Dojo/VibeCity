@@ -1,3 +1,4 @@
+import type { PointerEvent as ReactPointerEvent, WheelEvent as ReactWheelEvent } from 'react'
 import type { City } from '@/lib/schemas'
 import {
   CELL_PIXELS,
@@ -16,6 +17,12 @@ import {
   PREVIEW_STROKE,
   type PreviewCell,
 } from './editorPreview'
+import {
+  DEFAULT_VIEWPORT,
+  isDefaultViewport,
+  viewportToViewBoxString,
+  type Viewport,
+} from './gridViewport'
 
 /**
  * Render the editor snap-grid (REQ-016, REQ-020, REQ-022, REQ-028).
@@ -42,6 +49,14 @@ import {
  * do (place valid, place invalid because the cell is occupied, erase
  * target, or erase no-op). The overlay is non-interactive so it does
  * not steal hover events from the underlying clickable cell.
+ *
+ * Pan / zoom (REQ-024): when `viewport` is provided the SVG `viewBox`
+ * is derived from it (panX, panY, GRID_PIXEL_SIZE / zoom). The SVG's
+ * outer pixel size stays at `GRID_PIXEL_SIZE` so layout is stable
+ * across zoom levels. Wheel and pointer-drag handlers (`onWheel`,
+ * `onSurfacePointerDown`) are forwarded through so the parent can
+ * own the viewport state machine. The default viewport renders
+ * exactly the same as before this slice.
  */
 export function SnapGrid({
   city,
@@ -50,6 +65,9 @@ export function SnapGrid({
   onCellLeave,
   previewCell,
   cursorMode = 'place',
+  viewport = DEFAULT_VIEWPORT,
+  onSurfaceWheel,
+  onSurfacePointerDown,
 }: {
   city: City
   onCellClick?: (row: number, col: number) => void
@@ -57,6 +75,9 @@ export function SnapGrid({
   onCellLeave?: (row: number, col: number) => void
   previewCell?: PreviewCell | null
   cursorMode?: 'place' | 'erase'
+  viewport?: Viewport
+  onSurfaceWheel?: (event: ReactWheelEvent<SVGSVGElement>) => void
+  onSurfacePointerDown?: (event: ReactPointerEvent<SVGSVGElement>) => void
 }) {
   const cells = gridCells()
   const occupiedPieces = occupiedPieceCells(city)
@@ -70,6 +91,8 @@ export function SnapGrid({
   const previewKey = previewCell
     ? cellKey(previewCell.row, previewCell.col)
     : null
+  const viewBox = viewportToViewBoxString(viewport)
+  const viewportIsDefault = isDefaultViewport(viewport)
 
   return (
     <svg
@@ -85,9 +108,15 @@ export function SnapGrid({
       data-preview-kind={previewCell ? previewCell.kind : 'none'}
       data-preview-row={previewCell ? previewCell.row : ''}
       data-preview-col={previewCell ? previewCell.col : ''}
+      data-viewport-pan-x={viewport.panX}
+      data-viewport-pan-y={viewport.panY}
+      data-viewport-zoom={viewport.zoom}
+      data-viewport-default={viewportIsDefault ? 'true' : 'false'}
       width={GRID_PIXEL_SIZE}
       height={GRID_PIXEL_SIZE}
-      viewBox={`0 0 ${GRID_PIXEL_SIZE} ${GRID_PIXEL_SIZE}`}
+      viewBox={viewBox}
+      onWheel={onSurfaceWheel}
+      onPointerDown={onSurfacePointerDown}
       style={{
         display: 'block',
         background: '#fdfaf2',
@@ -96,6 +125,7 @@ export function SnapGrid({
         maxWidth: '100%',
         height: 'auto',
         cursor,
+        touchAction: 'none',
       }}
     >
       {cells.map((cell) => {
