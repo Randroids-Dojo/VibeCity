@@ -41,6 +41,11 @@ test('drive route mounts the canvas with the slug label and Edit CTA', async ({
   // empty city; the anchor reads as the grid origin.
   await expect(root).toHaveAttribute('data-spawn-row', '0')
   await expect(root).toHaveAttribute('data-spawn-col', '0')
+
+  // REQ-047: placeholder car renders only when at least one piece is
+  // placed. The webServer is unconfigured KV, so the city is empty and
+  // the vehicle flag is false; the unit tests cover the populated case.
+  await expect(root).toHaveAttribute('data-vehicle', 'false')
 })
 
 test('drive route shows the empty-state prompt for a fresh slug (REQ-053)', async ({
@@ -56,6 +61,8 @@ test('drive route shows the empty-state prompt for a fresh slug (REQ-053)', asyn
   // REQ-036: spawn anchor falls back to grid origin when no pieces.
   await expect(root).toHaveAttribute('data-spawn-row', '0')
   await expect(root).toHaveAttribute('data-spawn-col', '0')
+  // REQ-047: placeholder car is omitted on the empty grid.
+  await expect(root).toHaveAttribute('data-vehicle', 'false')
 
   const prompt = page.getByTestId('drive-empty-prompt')
   await expect(prompt).toBeVisible()

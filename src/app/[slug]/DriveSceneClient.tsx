@@ -11,18 +11,29 @@ import {
   CAMERA_FOV,
   CAMERA_HEIGHT,
   CAMERA_NEAR,
+  CAR_BODY_COLOR,
+  CAR_BODY_HEIGHT,
+  CAR_CABIN_COLOR,
+  CAR_CABIN_HEIGHT,
+  CAR_CABIN_LENGTH,
+  CAR_CABIN_OFFSET,
+  CAR_CABIN_WIDTH,
+  CAR_LENGTH,
+  CAR_WHEEL_COLOR,
+  CAR_WHEEL_RADIUS,
+  CAR_WHEEL_THICKNESS,
+  CAR_WIDTH,
   CELL_SIZE,
   DIRECTIONAL_LIGHT_INTENSITY,
   DIRECTIONAL_LIGHT_POSITION,
   GROUND_COLOR,
   PIECE_GROUND_LIFT,
   SKY_COLOR,
-  SPAWN_MARKER_COLOR,
-  SPAWN_MARKER_HEIGHT,
-  SPAWN_MARKER_LENGTH,
-  SPAWN_MARKER_WIDTH,
   buildingColorFor,
   buildingHeightFor,
+  carBodyY,
+  carCabinY,
+  carWheelOffsets,
   cellToWorld,
   cityWorldBounds,
   pieceColorFor,
@@ -180,25 +191,68 @@ export function DriveSceneClient({
       scene.add(mesh)
     }
 
-    // Spawn anchor marker (REQ-036). A small chevron-shaped placeholder
-    // mesh at the deterministic spawn cell so an author can see where
-    // the future vehicle (REQ-047) will appear when the physics slice
-    // (REQ-031) lands. Rendered only when the city has at least one
-    // piece; an empty city shows the empty-state prompt instead.
+    // Placeholder player vehicle (REQ-047). A primitive-composed car
+    // (body + cabin + four wheels) sits at the deterministic spawn
+    // anchor (REQ-036) so the build / drive loop has a visible vehicle
+    // ahead of the physics slice (REQ-031), the input slices (REQ-034
+    // / REQ-035), and the chase camera (REQ-033). The car is grouped
+    // under a single THREE.Group so subsequent slices can attach a
+    // physics-driven transform to one node without re-walking the
+    // children. Rendered only when the city has at least one piece;
+    // an empty city shows the empty-state prompt instead.
     if (city.pieces.length > 0) {
       const { x, z } = cellToWorld(spawn.row, spawn.col)
-      const markerGeometry = new THREE.BoxGeometry(
-        SPAWN_MARKER_WIDTH,
-        SPAWN_MARKER_HEIGHT,
-        SPAWN_MARKER_LENGTH,
-      )
-      const markerMaterial = new THREE.MeshLambertMaterial({
-        color: SPAWN_MARKER_COLOR,
+      const car = new THREE.Group()
+      car.name = 'placeholder-car'
+      car.position.set(x, 0, z)
+      car.rotation.y = rotationToRadians(city.pieces[0].rotation)
+
+      const bodyMaterial = new THREE.MeshLambertMaterial({
+        color: CAR_BODY_COLOR,
       })
-      const marker = new THREE.Mesh(markerGeometry, markerMaterial)
-      marker.position.set(x, SPAWN_MARKER_HEIGHT / 2, z)
-      marker.rotation.y = rotationToRadians(city.pieces[0].rotation)
-      scene.add(marker)
+      const bodyMesh = new THREE.Mesh(
+        new THREE.BoxGeometry(CAR_WIDTH, CAR_BODY_HEIGHT, CAR_LENGTH),
+        bodyMaterial,
+      )
+      bodyMesh.position.set(0, carBodyY(), 0)
+      car.add(bodyMesh)
+
+      const cabinMaterial = new THREE.MeshLambertMaterial({
+        color: CAR_CABIN_COLOR,
+      })
+      const cabinMesh = new THREE.Mesh(
+        new THREE.BoxGeometry(
+          CAR_CABIN_WIDTH,
+          CAR_CABIN_HEIGHT,
+          CAR_CABIN_LENGTH,
+        ),
+        cabinMaterial,
+      )
+      // Cabin sits slightly toward the rear so the windscreen line
+      // reads forward; the orbit camera then sees a clear nose.
+      cabinMesh.position.set(0, carCabinY(), CAR_CABIN_OFFSET)
+      car.add(cabinMesh)
+
+      const wheelGeometry = new THREE.CylinderGeometry(
+        CAR_WHEEL_RADIUS,
+        CAR_WHEEL_RADIUS,
+        CAR_WHEEL_THICKNESS,
+        16,
+      )
+      // Cylinder is created along its local Y axis. Rotating around Z
+      // by 90deg lays it on its side so the round face is the contact
+      // patch and the axis runs left / right of the car body.
+      wheelGeometry.rotateZ(Math.PI / 2)
+      const wheelMaterial = new THREE.MeshLambertMaterial({
+        color: CAR_WHEEL_COLOR,
+      })
+      for (const offset of carWheelOffsets()) {
+        const wheel = new THREE.Mesh(wheelGeometry, wheelMaterial)
+        wheel.position.set(offset.x, CAR_WHEEL_RADIUS, offset.z)
+        car.add(wheel)
+      }
+
+      scene.add(car)
     }
 
     // Resize handling. The canvas fills its parent; we read the parent
@@ -253,6 +307,13 @@ export function DriveSceneClient({
     }
   }, [city.pieces, city.buildings, bounds, spawn])
 
+  // The placeholder car (REQ-047) renders only when at least one piece
+  // exists. Mirrors the spawn-marker / empty-state branch above; we
+  // expose the flag as a data attribute so Playwright can assert the
+  // car is mounted on a non-empty city without inspecting the WebGL
+  // scene graph.
+  const hasVehicle = city.pieces.length > 0
+
   return (
     <div
       data-testid="drive-scene-root"
@@ -262,6 +323,7 @@ export function DriveSceneClient({
       data-empty={isEmpty ? 'true' : 'false'}
       data-spawn-row={spawn.row}
       data-spawn-col={spawn.col}
+      data-vehicle={hasVehicle ? 'true' : 'false'}
       style={{
         position: 'fixed',
         inset: 0,

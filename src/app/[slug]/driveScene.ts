@@ -232,11 +232,101 @@ export function rotationToRadians(rotation: number): number {
  * future vehicle (REQ-047) will appear when the physics slice (REQ-031)
  * lands. The size is a fraction of `CELL_SIZE` so the marker reads as a
  * point of interest without overpowering the placed pieces.
+ *
+ * The placeholder car (REQ-047) sits at the same spawn anchor and reads
+ * as the player vehicle from frame zero. We keep the marker constants
+ * exported so a future slice that swaps the car for a higher-fidelity
+ * model can still reference the same anchor footprint while the
+ * placeholder car is in flight.
  */
 export const SPAWN_MARKER_COLOR = 0xd94f3a
 export const SPAWN_MARKER_LENGTH = CELL_SIZE * 0.6
 export const SPAWN_MARKER_WIDTH = CELL_SIZE * 0.32
 export const SPAWN_MARKER_HEIGHT = CELL_SIZE * 0.22
+
+/**
+ * Placeholder player-vehicle visual defaults (REQ-047).
+ *
+ * v1 ships a small primitive-composed car (body + cabin + four wheels)
+ * at the spawn anchor so the build / drive loop has a visible vehicle
+ * ahead of the physics slice (REQ-031) and the chase camera (REQ-033).
+ * The car is a static mesh in v1; it does not move. The next slices
+ * attach the keyboard input (REQ-034), physics integrator (REQ-031),
+ * and chase camera (REQ-033) to the same mesh.
+ *
+ * Dimensions are sized so the car reads from the orbit camera without
+ * overpowering the placed pieces (a single CELL_SIZE quad is the road
+ * surface). `CAR_LENGTH > CAR_WIDTH` so the forward axis is visually
+ * unambiguous; the body sits above the wheels so the silhouette is
+ * recognizable as a car, not a chevron.
+ *
+ * Colors pick a saturated red body so the car reads against the
+ * asphalt-grey pieces and the cream ground plane; the cabin is a
+ * slightly darker shade so the windscreen line is legible from the
+ * orbit camera; wheels are near-black so the contact patch reads.
+ */
+export const CAR_BODY_COLOR = 0xc0392b
+export const CAR_CABIN_COLOR = 0x8e2a1f
+export const CAR_WHEEL_COLOR = 0x1c1c1c
+
+export const CAR_LENGTH = CELL_SIZE * 0.7
+export const CAR_WIDTH = CELL_SIZE * 0.36
+export const CAR_BODY_HEIGHT = CELL_SIZE * 0.18
+export const CAR_CABIN_LENGTH = CELL_SIZE * 0.34
+export const CAR_CABIN_WIDTH = CELL_SIZE * 0.32
+export const CAR_CABIN_HEIGHT = CELL_SIZE * 0.14
+export const CAR_CABIN_OFFSET = CELL_SIZE * 0.06
+export const CAR_WHEEL_RADIUS = CELL_SIZE * 0.08
+export const CAR_WHEEL_THICKNESS = CELL_SIZE * 0.05
+export const CAR_WHEEL_INSET = CELL_SIZE * 0.04
+export const CAR_AXLE_OFFSET = CELL_SIZE * 0.22
+export const CAR_GROUND_LIFT = CELL_SIZE * 0.02
+
+/**
+ * Pure description of where the four wheels of the placeholder car sit
+ * relative to the car body's local origin. The local space convention
+ * matches the placed mesh: `+x` is the right side, `-z` is the forward
+ * axis (so a car pointing along `+z = 0` faces the camera in the orbit
+ * view), and the body origin is centered. Returns a fresh array so a
+ * caller cannot mutate a shared singleton.
+ */
+export function carWheelOffsets(): readonly {
+  x: number
+  z: number
+  side: 'left' | 'right'
+  axle: 'front' | 'rear'
+}[] {
+  const halfWidth = CAR_WIDTH / 2 - CAR_WHEEL_INSET
+  return [
+    { x: -halfWidth, z: -CAR_AXLE_OFFSET, side: 'left', axle: 'front' },
+    { x: halfWidth, z: -CAR_AXLE_OFFSET, side: 'right', axle: 'front' },
+    { x: -halfWidth, z: CAR_AXLE_OFFSET, side: 'left', axle: 'rear' },
+    { x: halfWidth, z: CAR_AXLE_OFFSET, side: 'right', axle: 'rear' },
+  ]
+}
+
+/**
+ * Vertical position of the car body's geometric center above the
+ * ground plane. Lifts by `CAR_GROUND_LIFT` so the wheels touch the
+ * ground without z-fighting, then by half the body height so the
+ * BoxGeometry center sits at the body's middle.
+ */
+export function carBodyY(): number {
+  return CAR_GROUND_LIFT + CAR_WHEEL_RADIUS + CAR_BODY_HEIGHT / 2
+}
+
+/**
+ * Vertical position of the cabin's geometric center. Sits on top of
+ * the body, offset upward by half the cabin height.
+ */
+export function carCabinY(): number {
+  return (
+    CAR_GROUND_LIFT +
+    CAR_WHEEL_RADIUS +
+    CAR_BODY_HEIGHT +
+    CAR_CABIN_HEIGHT / 2
+  )
+}
 
 /**
  * The deterministic spawn cell for a city (REQ-036).
