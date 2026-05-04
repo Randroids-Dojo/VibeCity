@@ -605,9 +605,9 @@
       "id": "REQ-037",
       "requirement": "Drive mode: NO laps, NO checkpoints, NO HUD lap timer (anti-feature, explicit)",
       "gddRef": "docs/gdd/09-drive-mode.md",
-      "status": "not_started",
-      "implementationRefs": [],
-      "testRefs": [],
+      "status": "done",
+      "implementationRefs": ["src/app/[slug]/driveAntiFeatures.ts"],
+      "testRefs": ["tests/app/driveAntiFeatures.test.ts", "e2e/drive.spec.ts"],
       "followupRefs": []
     },
     {
