@@ -792,6 +792,62 @@ test('palette exposes REQ-058 megaSweepRight / megaSweepLeft and resolves the 2x
   await expect(grid).toHaveAttribute('data-occupied-count', '4')
 })
 
+test('palette exposes REQ-060 hairpin and resolves the 2x3 footprint', async ({
+  page,
+}) => {
+  const response = await page.goto('/hairpin-spec/edit')
+  expect(response?.status()).toBe(200)
+
+  const palette = page.getByTestId('editor-palette')
+  await expect(palette).toBeVisible()
+
+  const hairpin = palette.locator('[data-piece-type="hairpin"]')
+  await expect(hairpin).toBeVisible()
+  await expect(hairpin).toHaveText('Hairpin')
+
+  // Default selection is still Straight (REQ-017); the hairpin is not
+  // pressed on first render.
+  await expect(hairpin).toHaveAttribute('aria-pressed', 'false')
+
+  const grid = page.getByTestId('editor-snap-grid')
+  const pieceCount = page.getByTestId('editor-piece-count')
+
+  // Pick Hairpin, place anchored at (1, 1). The canonical 2x3 footprint
+  // covers (0, 1), (0, 2), (1, 1), (1, 2), (2, 1), (2, 2) so the SVG
+  // should mark all six cells occupied even though the click only
+  // landed on the anchor.
+  await hairpin.click()
+  await expect(hairpin).toHaveAttribute('aria-pressed', 'true')
+  await grid.locator('[data-cell-row="1"][data-cell-col="1"]').click()
+  await expect(pieceCount).toHaveText('Pieces placed: 1')
+  await expect(grid).toHaveAttribute('data-occupied-count', '6')
+  for (const [row, col] of [
+    [0, 1],
+    [0, 2],
+    [1, 1],
+    [1, 2],
+    [2, 1],
+    [2, 2],
+  ] as const) {
+    await expect(
+      grid.locator(`[data-cell-row="${row}"][data-cell-col="${col}"]`),
+    ).toHaveAttribute('data-cell-occupied', 'true')
+  }
+
+  // A second hairpin that would overlap any footprint cell is rejected
+  // by the reducer; piece count and occupied count stay flat.
+  await grid.locator('[data-cell-row="1"][data-cell-col="2"]').click()
+  await expect(pieceCount).toHaveText('Pieces placed: 1')
+  await expect(grid).toHaveAttribute('data-occupied-count', '6')
+
+  // Erase mode toggled, click any footprint cell of the hairpin (not
+  // the anchor) and the entire 2x3 piece comes out atomically.
+  await page.getByTestId('editor-erase').click()
+  await grid.locator('[data-cell-row="2"][data-cell-col="2"]').click()
+  await expect(pieceCount).toHaveText('Pieces placed: 0')
+  await expect(grid).toHaveAttribute('data-occupied-count', '0')
+})
+
 test('autosave surfaces save failures via the status indicator (REQ-025)', async ({
   page,
 }) => {

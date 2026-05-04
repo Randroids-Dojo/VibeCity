@@ -264,6 +264,21 @@ const MEGA_SWEEP_LEFT_FOOTPRINT: readonly PieceFootprintCell[] = [
   { dr: 0, dc: 1 },
 ]
 
+/**
+ * Canonical hairpin footprint (REQ-060). Mirrors the constant in
+ * `edit/snapGrid.ts`; duplicated here so this module stays free of the
+ * editor-only dependency tree (matches the rest of the duplication
+ * pattern in `pieceFootprintWorldCells`).
+ */
+const HAIRPIN_FOOTPRINT: readonly PieceFootprintCell[] = [
+  { dr: -1, dc: 0 },
+  { dr: -1, dc: 1 },
+  { dr: 0, dc: 0 },
+  { dr: 0, dc: 1 },
+  { dr: 1, dc: 0 },
+  { dr: 1, dc: 1 },
+]
+
 function rotateFootprintLocal(
   footprint: readonly PieceFootprintCell[],
   rotation: Rotation,
@@ -284,14 +299,14 @@ function rotateFootprintLocal(
 
 /**
  * Resolve a piece's canonical default footprint from its `type` and
- * `rotation` (REQ-058, REQ-059).
+ * `rotation` (REQ-058, REQ-059, REQ-060).
  *
  * Mirrors `defaultFootprintForPiece` in `edit/snapGrid.ts`; duplicated
  * locally so the drive scene stays free of the editor-only dependency
  * tree. When a piece has no explicit `footprint` field, multi-cell
- * types (`megaSweepRight` / `megaSweepLeft`) return their canonical
- * 2x2 offsets rotated by the piece's `rotation`; single-cell types
- * return the single anchor offset.
+ * types (`megaSweepRight` / `megaSweepLeft`, `hairpin`) return their
+ * canonical offsets rotated by the piece's `rotation`; single-cell
+ * types return the single anchor offset.
  */
 function defaultFootprintForPiece(
   piece: Pick<Piece, 'type' | 'rotation'>,
@@ -301,6 +316,8 @@ function defaultFootprintForPiece(
       return rotateFootprintLocal(MEGA_SWEEP_RIGHT_FOOTPRINT, piece.rotation)
     case 'megaSweepLeft':
       return rotateFootprintLocal(MEGA_SWEEP_LEFT_FOOTPRINT, piece.rotation)
+    case 'hairpin':
+      return rotateFootprintLocal(HAIRPIN_FOOTPRINT, piece.rotation)
     default:
       return DEFAULT_PIECE_FOOTPRINT
   }
