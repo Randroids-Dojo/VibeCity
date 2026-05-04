@@ -144,11 +144,12 @@ export interface PathLocator {
 
 /**
  * One connected component of the city's piece graph, walked in
- * order. v1 emits at most one segment (the connected component
- * starting at the first piece in `city.pieces`); pieces in a different
- * component are not included. A future slice can extend the walker to
- * emit multiple segments when the editor surface needs branching
- * (intersections per REQ-019).
+ * order. The walker emits one segment per connected component; the
+ * segment containing `city.pieces[0]` is named `main` and subsequent
+ * components are named `segment-1`, `segment-2`, etc. in placement
+ * order of their first unvisited piece. Branching at intersections
+ * (multiple segments through one piece) is still deferred to its own
+ * slice when the editor surface needs it (REQ-019).
  */
 export interface PathSegment {
   id: string
@@ -159,16 +160,19 @@ export interface PathSegment {
 /**
  * The path substrate built from a city's pieces.
  *
- * - `segments`: every connected component the walker produced. v1
- *   produces zero (empty city) or one segment.
+ * - `segments`: every connected component the walker produced. The
+ *   first segment is always named `main`; additional components get
+ *   `segment-1`, `segment-2`, and so on in placement order of their
+ *   first unvisited piece.
  * - `cellToOrderIdx`: anchor-cell key -> index in segment 0's `order`
  *   array. Single-cell pieces map their `(row, col)` to their index.
+ *   Pieces in non-main segments are addressed via `cellToLocators`.
  * - `cellToLocators`: every footprint cell key (including non-anchor
- *   cells of multi-cell pieces) -> list of locators. Multi-cell pieces
- *   produce one locator per footprint cell, all pointing at the same
- *   `(segmentId, idx)`. Future slices that emit multiple segments can
- *   layer additional locators on the same cell key (e.g. an
- *   intersection cell that participates in two segments).
+ *   cells of multi-cell pieces) -> list of locators across every
+ *   segment. Multi-cell pieces produce one locator per footprint cell.
+ *   Future slices that emit multiple segments through the same cell
+ *   (e.g. an intersection cell that participates in two segments) can
+ *   layer additional locators on the same cell key.
  */
 export interface TrackPath {
   segments: PathSegment[]
@@ -178,6 +182,10 @@ export interface TrackPath {
 
 const MAIN_SEGMENT_ID = 'main'
 
+function segmentIdForIndex(index: number): string {
+  return index === 0 ? MAIN_SEGMENT_ID : `segment-${index}`
+}
+
 /**
  * Build the path substrate from a city.
  *
@@ -186,13 +194,20 @@ const MAIN_SEGMENT_ID = 'main'
  * the drive scene mounts on an empty city. VibeRacer throws on empty
  * pieces because a track must have a start; a city does not.
  *
- * v1 walker behaviour:
+ * Walker behaviour:
  *
- * - Start at `city.pieces[0]`. Pick the second port from
- *   `connectorPortsOf` as the exit (matches VibeRacer's
- *   `getStartExitPort` fallback when only one piece is placed). If
- *   the second piece is connected to the first, prefer the exit that
- *   faces the second piece.
+ * - Walk every connected component in the piece graph. The component
+ *   that contains `city.pieces[0]` becomes the `main` segment; each
+ *   subsequent component (in placement order of its first unvisited
+ *   piece) becomes `segment-1`, `segment-2`, and so on. A piece with
+ *   no connector ports (degenerate input) emits a one-piece segment
+ *   so it is still addressable by `cellToLocators`.
+ * - Inside each component the walker picks a deterministic start exit
+ *   on the first piece: prefer the port that connects to any other
+ *   unvisited piece in the city so the segment walks toward the rest
+ *   of the component, otherwise fall back to the last port returned
+ *   by `connectorPortsOf` (matches VibeRacer's `getStartExitPort`
+ *   fallback when only one piece is placed).
  * - At each step, follow the exit port to a connected neighbor via
  *   `findConnectedNeighbor`. Stop on dead end (no neighbor) or
  *   loop closure (current cell already in `seen`).
@@ -200,60 +215,113 @@ const MAIN_SEGMENT_ID = 'main'
  *   `intersection`), the next exit is the port that is not the entry.
  *   For the 4-way `intersection`, v1 picks the port directly opposite
  *   the entry so a straight pass through reads as the natural
- *   continuation. Non-pass-through branching at intersections is
- *   deferred to the multi-segment walker slice.
- * - Pieces in a disconnected component are not included in the
- *   segment. They produce no entries in `cellToOrderIdx` or
- *   `cellToLocators`. A future slice can emit additional segments per
- *   component when a real drive surface needs them.
+ *   continuation. Non-pass-through branching at intersections (one
+ *   intersection emitting more than one segment) stays deferred to
+ *   its own slice.
+ * - `cellToOrderIdx` only carries anchors of the `main` segment so
+ *   the existing single-segment consumers stay backward compatible;
+ *   pieces in non-main segments are addressed via `cellToLocators`,
+ *   which carries every segment's locators across every footprint
+ *   cell.
  */
 export function buildTrackPath(city: Pick<City, 'pieces'>): TrackPath {
   const pieces = city.pieces
+  const segments: PathSegment[] = []
+  const cellToOrderIdx = new Map<string, number>()
+  const cellToLocators = new Map<string, PathLocator[]>()
+
   if (pieces.length === 0) {
-    return {
-      segments: [],
-      cellToOrderIdx: new Map(),
-      cellToLocators: new Map(),
+    return { segments, cellToOrderIdx, cellToLocators }
+  }
+
+  const visitedAnchors = new Set<string>()
+
+  for (const start of pieces) {
+    const startKey = cellKey(start.row, start.col)
+    if (visitedAnchors.has(startKey)) continue
+
+    const order = walkComponent(start, pieces, visitedAnchors)
+    if (order.length === 0) continue
+
+    const segmentIndex = segments.length
+    const segmentId = segmentIdForIndex(segmentIndex)
+    const first = order[0]
+    const last = order[order.length - 1]
+    // The walker stops on loop closure by re-encountering the start
+    // anchor. The piece graph is undirected so a closed loop also
+    // shows up as `last.exitPort` connecting back to `first.piece`.
+    const closesLoop = portsConnect(last.piece, last.exitPort, first.piece)
+
+    const segment: PathSegment = {
+      id: segmentId,
+      order,
+      closesLoop,
+    }
+    segments.push(segment)
+
+    for (let i = 0; i < order.length; i++) {
+      const p = order[i].piece
+      if (segmentIndex === 0) {
+        cellToOrderIdx.set(cellKey(p.row, p.col), i)
+      }
+      for (const cell of pieceFootprintCells(p)) {
+        const fpKey = cellKey(cell.row, cell.col)
+        const list = cellToLocators.get(fpKey) ?? []
+        list.push({ segmentId, idx: i })
+        cellToLocators.set(fpKey, list)
+      }
     }
   }
 
-  const first = pieces[0]
-  const firstPorts = connectorPortsOf(first)
-  if (firstPorts.length === 0) {
-    return {
-      segments: [],
-      cellToOrderIdx: new Map(),
-      cellToLocators: new Map(),
-    }
-  }
+  return { segments, cellToOrderIdx, cellToLocators }
+}
 
-  // Pick a deterministic start exit. With two pieces we prefer the
-  // port that connects to the second piece so the path walks toward
-  // the rest of the city. Otherwise fall back to the second port
-  // (matches VibeRacer's `getStartExitPort` fallback).
-  let exitPort = firstPorts[firstPorts.length - 1]
-  if (pieces.length >= 2) {
-    const second = pieces[1]
-    const matching = firstPorts.find((port) =>
-      portsConnect(first, port, second),
+/**
+ * Walk one connected component starting at `start`. Marks every
+ * visited piece's anchor in `visitedAnchors` so the outer loop skips
+ * pieces already absorbed into an earlier segment.
+ *
+ * Returns an empty array when the start has no connector ports
+ * (defensive; the v1 piece taxonomy always emits ports). Callers
+ * treat an empty result as "no segment to emit".
+ */
+function walkComponent(
+  start: Piece,
+  pieces: readonly Piece[],
+  visitedAnchors: Set<string>,
+): OrderedPiece[] {
+  const startPorts = connectorPortsOf(start)
+  if (startPorts.length === 0) return []
+
+  // Prefer the start exit that connects to any other unvisited piece
+  // so the walker walks toward the rest of the component. Fall back
+  // to the last port (matches VibeRacer's `getStartExitPort` for the
+  // single-piece case).
+  let exitPort = startPorts[startPorts.length - 1]
+  for (const port of startPorts) {
+    const neighbor = findUnvisitedConnectedNeighbor(
+      start,
+      port,
+      pieces,
+      visitedAnchors,
     )
-    if (matching) exitPort = matching
+    if (neighbor) {
+      exitPort = port
+      break
+    }
   }
 
-  let entryPort: ConnectorPort = pickEntryPort(first, exitPort)
-  let current: Piece = first
+  let entryPort: ConnectorPort = pickEntryPort(start, exitPort)
+  let current: Piece = start
 
   const order: OrderedPiece[] = []
   const seen = new Set<string>()
-  let closesLoop = false
 
   while (order.length < pieces.length) {
     const key = cellKey(current.row, current.col)
-    if (seen.has(key)) {
-      closesLoop = true
-      break
-    }
+    if (seen.has(key)) break
     seen.add(key)
+    visitedAnchors.add(key)
     order.push({
       piece: current,
       entryPort,
@@ -272,29 +340,27 @@ export function buildTrackPath(city: Pick<City, 'pieces'>): TrackPath {
     exitPort = nextExit
   }
 
-  const segment: PathSegment = {
-    id: MAIN_SEGMENT_ID,
-    order,
-    closesLoop,
-  }
-  const cellToOrderIdx = new Map<string, number>()
-  const cellToLocators = new Map<string, PathLocator[]>()
-  for (let i = 0; i < order.length; i++) {
-    const p = order[i].piece
-    cellToOrderIdx.set(cellKey(p.row, p.col), i)
-    for (const cell of pieceFootprintCells(p)) {
-      const fpKey = cellKey(cell.row, cell.col)
-      const list = cellToLocators.get(fpKey) ?? []
-      list.push({ segmentId: segment.id, idx: i })
-      cellToLocators.set(fpKey, list)
-    }
-  }
+  return order
+}
 
-  return {
-    segments: [segment],
-    cellToOrderIdx,
-    cellToLocators,
+/**
+ * Variant of `findConnectedNeighbor` that ignores pieces whose anchor
+ * is already in `visitedAnchors`. Used by the start-exit heuristic
+ * inside the multi-component walker so a fresh segment does not
+ * choose a port that points back into an already-walked segment.
+ */
+function findUnvisitedConnectedNeighbor(
+  piece: Piece,
+  port: ConnectorPort,
+  pieces: readonly Piece[],
+  visitedAnchors: ReadonlySet<string>,
+): Piece | null {
+  for (const candidate of pieces) {
+    if (candidate === piece) continue
+    if (visitedAnchors.has(cellKey(candidate.row, candidate.col))) continue
+    if (portsConnect(piece, port, candidate)) return candidate
   }
+  return null
 }
 
 /**

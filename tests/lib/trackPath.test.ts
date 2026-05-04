@@ -231,14 +231,26 @@ describe('buildTrackPath (REQ-064)', () => {
     expect(path.cellToOrderIdx.get('1,0')).toBe(1)
   })
 
-  it('drops disconnected pieces from the segment', () => {
+  it('emits a separate segment per disconnected piece', () => {
     const a = piece('straight', 0, 0, 0)
     const b = piece('straight', 1, 0, 0)
     const c = piece('straight', 5, 5, 0)
     const path = buildTrackPath({ pieces: [a, b, c] })
+    // Main segment contains the connected (a, b) chain; segment-1
+    // contains the disconnected island piece c.
+    expect(path.segments).toHaveLength(2)
+    expect(path.segments[0].id).toBe('main')
     expect(path.segments[0].order).toHaveLength(2)
+    expect(path.segments[1].id).toBe('segment-1')
+    expect(path.segments[1].order.map((o) => o.piece)).toEqual([c])
+    // cellToOrderIdx is scoped to the main segment so the disconnected
+    // anchor stays absent there.
     expect(path.cellToOrderIdx.has('5,5')).toBe(false)
-    expect(path.cellToLocators.has('5,5')).toBe(false)
+    // cellToLocators carries every segment so the disconnected anchor
+    // is now addressable via segment-1.
+    expect(path.cellToLocators.get('5,5')).toEqual([
+      { segmentId: 'segment-1', idx: 0 },
+    ])
   })
 
   it('emits one locator per footprint cell of a multi-cell hairpin', () => {
@@ -313,10 +325,11 @@ describe('buildTrackPath (REQ-064)', () => {
     expect(path.segments[0].order).toHaveLength(2)
   })
 
-  it('drops a disconnected island piece from the segment', () => {
+  it('keeps a disconnected island piece out of the main segment', () => {
     // a connects to its second neighbor c; b is a far island. Putting
     // c at index 1 lets the walker prefer the c-facing exit on the
-    // start. b never appears in the order list or in either lookup map.
+    // start. b appears in its own segment-1 so the main segment stays
+    // restricted to the (a, c) chain.
     const a = piece('straight', 0, 0, 0)
     const c = piece('straight', 1, 0, 0)
     const b = piece('straight', 5, 5, 0)
@@ -325,8 +338,15 @@ describe('buildTrackPath (REQ-064)', () => {
     expect(orderPieces).toContain(a)
     expect(orderPieces).toContain(c)
     expect(orderPieces).not.toContain(b)
+    // Main-segment lookup stays scoped to the connected chain.
     expect(path.cellToOrderIdx.has('5,5')).toBe(false)
-    expect(path.cellToLocators.has('5,5')).toBe(false)
+    // The island piece becomes its own segment.
+    expect(path.segments).toHaveLength(2)
+    expect(path.segments[1].id).toBe('segment-1')
+    expect(path.segments[1].order.map((o) => o.piece)).toEqual([b])
+    expect(path.cellToLocators.get('5,5')).toEqual([
+      { segmentId: 'segment-1', idx: 0 },
+    ])
   })
 
   it('cellToOrderIdx is keyed by anchor cell only, not by every footprint cell', () => {
@@ -355,5 +375,135 @@ describe('buildTrackPath (REQ-064)', () => {
     const path = buildTrackPath({ pieces: [inter] })
     expect(path.segments[0].order).toHaveLength(1)
     expect(path.segments[0].order[0].piece).toBe(inter)
+  })
+
+  it('emits one segment per disconnected component in placement order', () => {
+    // Two separate two-piece chains. The first chain anchors at (0,0)
+    // and the second at (5,5). Each component becomes its own segment.
+    const a = piece('straight', 0, 0, 0)
+    const b = piece('straight', 1, 0, 0)
+    const c = piece('straight', 5, 5, 0)
+    const d = piece('straight', 6, 5, 0)
+    const path = buildTrackPath({ pieces: [a, b, c, d] })
+    expect(path.segments).toHaveLength(2)
+    expect(path.segments[0].id).toBe('main')
+    expect(path.segments[0].order.map((o) => o.piece)).toEqual([a, b])
+    expect(path.segments[1].id).toBe('segment-1')
+    expect(path.segments[1].order.map((o) => o.piece)).toEqual([c, d])
+  })
+
+  it('walks three disconnected components into segment-2', () => {
+    const a = piece('straight', 0, 0, 0)
+    const b = piece('straight', 5, 5, 0)
+    const c = piece('straight', -3, -3, 0)
+    const path = buildTrackPath({ pieces: [a, b, c] })
+    expect(path.segments).toHaveLength(3)
+    expect(path.segments.map((s) => s.id)).toEqual([
+      'main',
+      'segment-1',
+      'segment-2',
+    ])
+    expect(path.segments[0].order[0].piece).toBe(a)
+    expect(path.segments[1].order[0].piece).toBe(b)
+    expect(path.segments[2].order[0].piece).toBe(c)
+  })
+
+  it('cellToLocators carries locators for every segment, not just main', () => {
+    const a = piece('straight', 0, 0, 0)
+    const island = piece('straight', 5, 5, 0)
+    const path = buildTrackPath({ pieces: [a, island] })
+    expect(path.cellToLocators.get('0,0')).toEqual([
+      { segmentId: 'main', idx: 0 },
+    ])
+    expect(path.cellToLocators.get('5,5')).toEqual([
+      { segmentId: 'segment-1', idx: 0 },
+    ])
+  })
+
+  it('cellToOrderIdx stays scoped to the main segment', () => {
+    const a = piece('straight', 0, 0, 0)
+    const island = piece('straight', 5, 5, 0)
+    const path = buildTrackPath({ pieces: [a, island] })
+    expect(path.cellToOrderIdx.get('0,0')).toBe(0)
+    expect(path.cellToOrderIdx.has('5,5')).toBe(false)
+    expect(path.cellToOrderIdx.size).toBe(1)
+  })
+
+  it('emits a multi-cell footprint for each isolated segment correctly', () => {
+    // Two isolated multi-cell pieces become separate segments with
+    // their own footprint locator entries.
+    const m = piece('megaSweepRight', 0, 0, 0)
+    const h = piece('hairpin', 5, 5, 0)
+    const path = buildTrackPath({ pieces: [m, h] })
+    expect(path.segments).toHaveLength(2)
+    // megaSweepRight canonical 2x2 anchored at bottom-right (0, 0):
+    // (-1, -1), (-1, 0), (0, -1), (0, 0).
+    const sweepKeys = ['-1,-1', '-1,0', '0,-1', '0,0']
+    for (const key of sweepKeys) {
+      expect(path.cellToLocators.get(key)).toEqual([
+        { segmentId: 'main', idx: 0 },
+      ])
+    }
+    // Hairpin canonical 2x3 footprint anchored at (5, 5):
+    // (4, 5), (4, 6), (5, 5), (5, 6), (6, 5), (6, 6).
+    const hairpinKeys = ['4,5', '4,6', '5,5', '5,6', '6,5', '6,6']
+    for (const key of hairpinKeys) {
+      expect(path.cellToLocators.get(key)).toEqual([
+        { segmentId: 'segment-1', idx: 0 },
+      ])
+    }
+  })
+
+  it('returns segments in placement order, not anchor order', () => {
+    // First piece in the array seeds the main segment regardless of
+    // its anchor coordinates. A piece at (10, 10) listed first still
+    // becomes the main segment.
+    const far = piece('straight', 10, 10, 0)
+    const near = piece('straight', 0, 0, 0)
+    const path = buildTrackPath({ pieces: [far, near] })
+    expect(path.segments[0].id).toBe('main')
+    expect(path.segments[0].order[0].piece).toBe(far)
+    expect(path.segments[1].id).toBe('segment-1')
+    expect(path.segments[1].order[0].piece).toBe(near)
+  })
+
+  it('walks the full main chain even when an island piece is listed first', () => {
+    // Pieces in placement order: island, chain-a, chain-b. The walker
+    // gives the main segment to the island (because it is first), but
+    // the second segment captures the connected (chain-a, chain-b)
+    // chain in placement order.
+    const island = piece('straight', 5, 5, 0)
+    const chainA = piece('straight', 0, 0, 0)
+    const chainB = piece('straight', 1, 0, 0)
+    const path = buildTrackPath({ pieces: [island, chainA, chainB] })
+    expect(path.segments[0].order.map((o) => o.piece)).toEqual([island])
+    expect(path.segments[1].order.map((o) => o.piece)).toEqual([
+      chainA,
+      chainB,
+    ])
+  })
+
+  it('every visited piece appears in exactly one segment', () => {
+    // Sanity invariant: with N pieces, the sum of segment lengths
+    // equals N because the walker visits every piece once.
+    const a = piece('straight', 0, 0, 0)
+    const b = piece('straight', 1, 0, 0)
+    const c = piece('straight', 5, 5, 0)
+    const d = piece('straight', 6, 5, 0)
+    const e = piece('straight', -3, -3, 0)
+    const path = buildTrackPath({ pieces: [a, b, c, d, e] })
+    const total = path.segments.reduce((n, seg) => n + seg.order.length, 0)
+    expect(total).toBe(5)
+  })
+
+  it('disconnected segments do not share locator entries', () => {
+    // Two islands at (0,0) and (5,5). Each cellToLocators key carries
+    // exactly one locator (no spurious cross-segment entries).
+    const a = piece('straight', 0, 0, 0)
+    const b = piece('straight', 5, 5, 0)
+    const path = buildTrackPath({ pieces: [a, b] })
+    for (const list of path.cellToLocators.values()) {
+      expect(list).toHaveLength(1)
+    }
   })
 })
