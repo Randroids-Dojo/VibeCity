@@ -3,6 +3,7 @@
   "_comment_2": "Allowed status values: not_started | partial | done | out_of_scope. Every row should carry implementationRefs and testRefs once status >= partial. followupRefs link to F-NNN entries in FOLLOWUPS.md.",
   "_comment_3": "gddRef paths may not yet exist when a row is seeded; the slice that picks the row creates the section file.",
   "updatedAt": "2026-05-04",
+  "_comment_13": "Drive scene scaffold landed (REQ-044, REQ-045, REQ-046, REQ-053): added `three` and `@types/three` dependencies (raw three per AGENTS.md Rule 3, no R3F). Created `src/app/[slug]/driveScene.ts` (pure helper module: CELL_SIZE = 4 matching VibeRacer world units; SKY_COLOR / GROUND_COLOR; AMBIENT_LIGHT_INTENSITY / DIRECTIONAL_LIGHT_INTENSITY / DIRECTIONAL_LIGHT_POSITION for the noon lighting rig; CAMERA_FOV / CAMERA_NEAR / CAMERA_FAR / CAMERA_HEIGHT / CAMERA_DISTANCE for the aerial / orbit camera; PIECE_GROUND_LIFT to avoid z-fighting with the ground plane; BUILDING_HEIGHTS + BUILDING_COLORS per-type maps for the four placeholder building primitives; PIECE_COLORS partial map plus DEFAULT_PIECE_COLOR fallback so any future piece type still renders; pieceColorFor / buildingColorFor / buildingHeightFor lookups; cellToWorld(row, col) that matches the editor convention (row -> z south, col -> x east); cityWorldBounds(pieces, buildings) returns null for empty cities so the empty-state branch is a single null check; rotationToRadians). Created `src/app/[slug]/DriveSceneClient.tsx` (use-client three.js mount: builds renderer / scene / camera, attaches ambient + directional lights, lays down the ground plane at y = 0, renders street pieces as flat PlaneGeometry quads lifted by PIECE_GROUND_LIFT and rotated around world Y by the persisted rotation, renders buildings as BoxGeometry extrusions sized to the cell footprint with per-type heights, fits the camera to the bounds center, exposes the slug label and Edit CTA in fixed-position DOM overlays, renders the empty-state prompt when the city has zero pieces and zero buildings, cleans up renderer / scene materials on unmount via a Mesh traverse + dispose pass). Updated `src/app/[slug]/page.tsx` to validate the slug, load the saved city via loadCity, and mount DriveSceneClient. Created `tests/app/driveScene.test.ts` (29 cases: constants invariants, pieceColorFor / buildingColorFor / buildingHeightFor totality and silhouette ordering, cellToWorld symmetry across the four cardinal directions, rotationToRadians for every 90deg increment, cityWorldBounds empty / single-piece / two-piece / multi-cell-footprint / building-only / mixed cases). Created `e2e/drive.spec.ts` (canvas mounts with slug label + Edit CTA; empty-state prompt renders for a fresh slug and the Open editor link routes back to the editor). Created `docs/gdd/09-drive-mode.md` and `docs/gdd/11-scene.md` as the canonical specs. REQ-006 flips partial -> done because the drive view route now loads and renders the saved city. REQ-044, REQ-045, REQ-046, REQ-053 flip not_started -> done. Physics (REQ-031), wheel contact (REQ-032), chase camera (REQ-033), input (REQ-034 / REQ-035), spawn anchor (REQ-036), pause / Edit-from-pause (REQ-038 / REQ-039), and off-street penalty (REQ-054) stay deferred to their own slices. See PROGRESS_LOG.md.",
   "_comment_12": "REQ-061 (arc45) + REQ-062 (diagonal) editor palette entries landed per F-007: src/app/[slug]/edit/editorState.ts STREET_PALETTE extended with single-cell { type: 'arc45', label: 'Arc 45' } and { type: 'diagonal', label: 'Diagonal' } entries appended after the REQ-019 intersection so the corner-connector block stays grouped at the trailing edge of the palette (arc45 sits before diagonal because arc45 is the bridge piece that introduces a corner connector and diagonal is the run-of-corner piece a builder reaches for once the bridge is in place). Both entries are single-cell with the implicit (row, col) footprint so the existing placePiece / erasePiece reducer paths cover them without 8-direction connector or sampled-centerline plumbing. tests/app/editorState.test.ts refreshed the STREET_PALETTE enumeration test, added an ordering assertion (arc45 after intersection, diagonal at STREET_PALETTE.length - 1), dropped arc45 / diagonal from the deferred-piece exclusion guard, added a 6-case placePiece block covering single-cell placement for each type, rotation pass-through, overlap rejection on a piece-occupied cell, round-trip with erasePiece, and CitySchema validity. e2e/editor.spec.ts gained a /corner-palette-spec/edit spec that asserts both buttons are visible with the right text, picks Arc 45, places at origin and asserts data-cell-occupied-kind, switches to Diagonal, places at (0, 1), and confirms a duplicate click on an occupied cell stays a no-op. REQ-061 and REQ-062 stay partial because the runtime concerns (F-003 sampled centerlines, F-004 wheel contact, F-005 pace notes, F-006 difficulty scoring, REQ-063 8-direction connector validation) wait for the drive scene scaffold (REQ-031). F-007 resolved. See PROGRESS_LOG.md.",
   "_comment_11": "REQ-019 (intersection 4-way piece in palette) landed: src/app/[slug]/edit/editorState.ts STREET_PALETTE extended with a single { type: 'intersection', label: 'Intersection' } entry appended after the REQ-018 sweep / S-curve pieces (so it is the trailing palette entry and Straight remains the default selection). Single-cell footprint matches the REQ-017 cardinal basics so the existing placePiece / erasePiece reducer paths cover it without footprint plumbing (REQ-059) or 8-direction connectors (REQ-063). tests/app/editorState.test.ts refreshed enumeration test, added ordering assertion (intersection at STREET_PALETTE.length - 1), dropped intersection from the deferred-piece exclusion guard, added 6-case placePiece with REQ-019 block (single-cell placement, rotation pass-through, overlap reject on piece-occupied cell, accept over a building cell to match every other street piece, round-trip with erasePiece, CitySchema validity). e2e/editor.spec.ts gained a /intersection-spec/edit spec that asserts the Intersection button is visible with the right text, picks Intersection, places at origin and (0, 2), and confirms a duplicate click on an occupied cell is a no-op. See PROGRESS_LOG.md.",
   "_comment_10": "REQ-028 + REQ-029 (building palette placeholder primitives + place / rotate / erase parity) landed: src/app/[slug]/edit/editorState.ts gained PaletteCategory ('street' | 'building') with DEFAULT_PALETTE_CATEGORY = 'street', BUILDING_PALETTE (small-house / mid-house / shop / factory single-cell entries), DEFAULT_BUILDING_TYPE = 'small-house', pure placeBuilding(city, type, row, col, rotation?) reducer (rejects on overlap with any piece footprint cell or any existing building cell, identity short-circuit on reject), pure eraseBuilding(city, row, col) reducer (identity short-circuit when no building covers cell). src/app/[slug]/edit/snapGrid.ts gained occupiedBuildingCells(city) helper paralleling occupiedPieceCells. src/app/[slug]/edit/SnapGridView.tsx renders building cells with olive fill (#6b7d4a vs piece brown #7d6b4a), exposes data-cell-occupied-kind ('piece' | 'building' | 'none') and data-building-count attribute on the SVG root. src/app/[slug]/edit/EditorClient.tsx adds a category switcher (role='tablist', data-testid='editor-palette-category', per-tab data-testid 'editor-palette-category-street' / 'editor-palette-category-building', aria-selected mirroring active tab), separate selectedBuildingType state, palette buttons swap based on category, click handler dispatches placeBuilding / eraseBuilding when in building category (place and erase both follow the active category), the same rotate / undo / redo / autosave / Drive controls service both categories, piece-count readout grows to include 'Buildings placed: N' when any building is on the grid (data-building-count on the readout). docs/gdd/08-buildings.md created as canonical spec. tests/app/snapGrid.test.ts gained 5 occupiedBuildingCells cases plus a parallel-array exclusion guard on occupiedPieceCells. tests/app/editorState.test.ts gained 4 BUILDING_PALETTE assertions, DEFAULT_BUILDING_TYPE / DEFAULT_PALETTE_CATEGORY checks, 12 placeBuilding cases, 11 eraseBuilding cases. e2e/editor.spec.ts gained a /building-palette-spec/edit spec walking the category switch, placing a piece then a building, asserting overlap rejection in both directions, switching building types, exercising erase in both categories, and confirming rotation flows through to building placement. See PROGRESS_LOG.md.",
@@ -75,9 +76,18 @@
       "id": "REQ-006",
       "requirement": "Slug routing: /[slug] App Router route renders an empty city or a fresh-slug landing",
       "gddRef": "docs/gdd/04-slug-routing.md",
-      "status": "partial",
-      "implementationRefs": ["src/app/[slug]/page.tsx", "src/app/[slug]/slugRoute.ts"],
-      "testRefs": ["tests/app/slugRoute.test.ts"],
+      "status": "done",
+      "implementationRefs": [
+        "src/app/[slug]/page.tsx",
+        "src/app/[slug]/slugRoute.ts",
+        "src/app/[slug]/DriveSceneClient.tsx",
+        "src/app/[slug]/driveScene.ts"
+      ],
+      "testRefs": [
+        "tests/app/slugRoute.test.ts",
+        "tests/app/driveScene.test.ts",
+        "e2e/drive.spec.ts"
+      ],
       "followupRefs": []
     },
     {
@@ -606,27 +616,46 @@
       "id": "REQ-044",
       "requirement": "Three.js scene: ground plane, sky, ambient + directional light (VibeRacer noon preset as default)",
       "gddRef": "docs/gdd/11-scene.md",
-      "status": "not_started",
-      "implementationRefs": [],
-      "testRefs": [],
+      "status": "done",
+      "implementationRefs": [
+        "src/app/[slug]/driveScene.ts",
+        "src/app/[slug]/DriveSceneClient.tsx",
+        "src/app/[slug]/page.tsx"
+      ],
+      "testRefs": [
+        "tests/app/driveScene.test.ts",
+        "e2e/drive.spec.ts"
+      ],
       "followupRefs": []
     },
     {
       "id": "REQ-045",
       "requirement": "Three.js scene: street pieces render as flat textured / colored quads on the grid (placeholder visuals)",
       "gddRef": "docs/gdd/11-scene.md",
-      "status": "not_started",
-      "implementationRefs": [],
-      "testRefs": [],
+      "status": "done",
+      "implementationRefs": [
+        "src/app/[slug]/driveScene.ts",
+        "src/app/[slug]/DriveSceneClient.tsx"
+      ],
+      "testRefs": [
+        "tests/app/driveScene.test.ts",
+        "e2e/drive.spec.ts"
+      ],
       "followupRefs": []
     },
     {
       "id": "REQ-046",
       "requirement": "Three.js scene: building pieces render as extruded boxes with placeholder colors per type",
       "gddRef": "docs/gdd/11-scene.md",
-      "status": "not_started",
-      "implementationRefs": [],
-      "testRefs": [],
+      "status": "done",
+      "implementationRefs": [
+        "src/app/[slug]/driveScene.ts",
+        "src/app/[slug]/DriveSceneClient.tsx"
+      ],
+      "testRefs": [
+        "tests/app/driveScene.test.ts",
+        "e2e/drive.spec.ts"
+      ],
       "followupRefs": []
     },
     {
@@ -691,9 +720,15 @@
       "id": "REQ-053",
       "requirement": "Empty-grid state: drive mode at a slug with zero placed streets shows a friendly Place a road first prompt",
       "gddRef": "docs/gdd/09-drive-mode.md",
-      "status": "not_started",
-      "implementationRefs": [],
-      "testRefs": [],
+      "status": "done",
+      "implementationRefs": [
+        "src/app/[slug]/DriveSceneClient.tsx",
+        "src/app/[slug]/driveScene.ts"
+      ],
+      "testRefs": [
+        "tests/app/driveScene.test.ts",
+        "e2e/drive.spec.ts"
+      ],
       "followupRefs": []
     },
     {

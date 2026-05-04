@@ -1,0 +1,269 @@
+import { describe, expect, it } from 'vitest'
+import {
+  AMBIENT_LIGHT_INTENSITY,
+  BUILDING_COLORS,
+  BUILDING_HEIGHTS,
+  CAMERA_DISTANCE,
+  CAMERA_FAR,
+  CAMERA_FOV,
+  CAMERA_HEIGHT,
+  CAMERA_NEAR,
+  CELL_SIZE,
+  DEFAULT_PIECE_COLOR,
+  DIRECTIONAL_LIGHT_INTENSITY,
+  DIRECTIONAL_LIGHT_POSITION,
+  GROUND_COLOR,
+  PIECE_COLORS,
+  PIECE_GROUND_LIFT,
+  SKY_COLOR,
+  buildingColorFor,
+  buildingHeightFor,
+  cellToWorld,
+  cityWorldBounds,
+  pieceColorFor,
+  rotationToRadians,
+} from '@/app/[slug]/driveScene'
+import type { Building, BuildingType, Piece, PieceType } from '@/lib/schemas'
+import { BuildingTypeSchema, PieceTypeSchema } from '@/lib/schemas'
+
+/**
+ * REQ-044, REQ-045, REQ-046, REQ-053: drive-scene scaffold helpers.
+ *
+ * The pure helper module backs the three.js mount in
+ * `DriveSceneClient.tsx`. These tests cover the constants, color and
+ * height maps, world-coordinate conversions, and the bounds helper
+ * that the scene mount uses to fit the camera and decide whether to
+ * show the empty-state prompt.
+ */
+
+describe('driveScene constants (REQ-044, REQ-045, REQ-046)', () => {
+  it('CELL_SIZE matches VibeRacer world units (4)', () => {
+    expect(CELL_SIZE).toBe(4)
+  })
+
+  it('CAMERA_FOV / NEAR / FAR are sensible perspective defaults', () => {
+    expect(CAMERA_FOV).toBeGreaterThanOrEqual(35)
+    expect(CAMERA_FOV).toBeLessThanOrEqual(75)
+    expect(CAMERA_NEAR).toBeGreaterThan(0)
+    expect(CAMERA_NEAR).toBeLessThan(1)
+    expect(CAMERA_FAR).toBeGreaterThan(CAMERA_NEAR)
+  })
+
+  it('CAMERA_HEIGHT and CAMERA_DISTANCE scale with CELL_SIZE', () => {
+    expect(CAMERA_HEIGHT).toBeGreaterThan(0)
+    expect(CAMERA_DISTANCE).toBeGreaterThan(0)
+    // Both should be a multiple of CELL_SIZE so the camera frames a
+    // small starter city without coupling to an arbitrary world unit.
+    expect(CAMERA_HEIGHT % CELL_SIZE).toBe(0)
+    expect(CAMERA_DISTANCE % CELL_SIZE).toBe(0)
+  })
+
+  it('AMBIENT and DIRECTIONAL light intensities are in the [0, 2] range', () => {
+    expect(AMBIENT_LIGHT_INTENSITY).toBeGreaterThan(0)
+    expect(AMBIENT_LIGHT_INTENSITY).toBeLessThanOrEqual(2)
+    expect(DIRECTIONAL_LIGHT_INTENSITY).toBeGreaterThan(0)
+    expect(DIRECTIONAL_LIGHT_INTENSITY).toBeLessThanOrEqual(2)
+  })
+
+  it('DIRECTIONAL_LIGHT_POSITION is a tuple of three finite numbers', () => {
+    expect(DIRECTIONAL_LIGHT_POSITION).toHaveLength(3)
+    for (const component of DIRECTIONAL_LIGHT_POSITION) {
+      expect(Number.isFinite(component)).toBe(true)
+    }
+  })
+
+  it('SKY_COLOR and GROUND_COLOR are valid 24-bit hex values', () => {
+    expect(SKY_COLOR).toBeGreaterThanOrEqual(0)
+    expect(SKY_COLOR).toBeLessThanOrEqual(0xffffff)
+    expect(GROUND_COLOR).toBeGreaterThanOrEqual(0)
+    expect(GROUND_COLOR).toBeLessThanOrEqual(0xffffff)
+  })
+
+  it('PIECE_GROUND_LIFT is positive but smaller than CELL_SIZE', () => {
+    expect(PIECE_GROUND_LIFT).toBeGreaterThan(0)
+    expect(PIECE_GROUND_LIFT).toBeLessThan(CELL_SIZE)
+  })
+})
+
+describe('pieceColorFor (REQ-045)', () => {
+  it('returns the mapped color for every piece type the schema knows', () => {
+    for (const type of PieceTypeSchema.options) {
+      const color = pieceColorFor(type)
+      expect(color).toBeGreaterThanOrEqual(0)
+      expect(color).toBeLessThanOrEqual(0xffffff)
+    }
+  })
+
+  it('falls back to DEFAULT_PIECE_COLOR for an unmapped type', () => {
+    // A type not present in PIECE_COLORS still returns the asphalt
+    // default; the cast is fine because the runtime fallback is the
+    // contract under test.
+    const novel = 'novel-type' as unknown as PieceType
+    expect(pieceColorFor(novel)).toBe(DEFAULT_PIECE_COLOR)
+  })
+
+  it('cardinal basics share a single asphalt color so they read as one road', () => {
+    expect(pieceColorFor('left90')).toBe(pieceColorFor('right90'))
+  })
+})
+
+describe('buildingColorFor / buildingHeightFor (REQ-046)', () => {
+  it('returns a finite positive height for every building type', () => {
+    for (const type of BuildingTypeSchema.options) {
+      const height = buildingHeightFor(type)
+      expect(height).toBeGreaterThan(0)
+      expect(Number.isFinite(height)).toBe(true)
+    }
+  })
+
+  it('factory is taller than a small house so silhouettes vary', () => {
+    expect(buildingHeightFor('factory')).toBeGreaterThan(
+      buildingHeightFor('small-house'),
+    )
+  })
+
+  it('every building type maps to a distinct color', () => {
+    const seen = new Set<number>()
+    for (const type of BuildingTypeSchema.options) {
+      seen.add(buildingColorFor(type))
+    }
+    expect(seen.size).toBe(BuildingTypeSchema.options.length)
+  })
+
+  it('BUILDING_COLORS and BUILDING_HEIGHTS cover every type in the schema', () => {
+    for (const type of BuildingTypeSchema.options) {
+      expect(BUILDING_HEIGHTS).toHaveProperty(type)
+      expect(BUILDING_COLORS).toHaveProperty(type)
+    }
+  })
+
+  it('PIECE_COLORS is a partial map keyed by valid piece types', () => {
+    for (const type of Object.keys(PIECE_COLORS)) {
+      expect(PieceTypeSchema.options).toContain(type as PieceType)
+    }
+  })
+})
+
+describe('cellToWorld', () => {
+  it('places the origin cell at the world origin', () => {
+    expect(cellToWorld(0, 0)).toEqual({ x: 0, z: 0 })
+  })
+
+  it('moves east on positive col (column scales x)', () => {
+    expect(cellToWorld(0, 2)).toEqual({ x: CELL_SIZE * 2, z: 0 })
+  })
+
+  it('moves south on positive row (row scales z)', () => {
+    expect(cellToWorld(3, 0)).toEqual({ x: 0, z: CELL_SIZE * 3 })
+  })
+
+  it('handles negative coordinates symmetrically', () => {
+    expect(cellToWorld(-2, -1)).toEqual({
+      x: -CELL_SIZE,
+      z: -CELL_SIZE * 2,
+    })
+  })
+})
+
+describe('rotationToRadians', () => {
+  it('zero degrees maps to zero radians', () => {
+    expect(rotationToRadians(0)).toBe(0)
+  })
+
+  it('90 degrees maps to a quarter turn', () => {
+    expect(rotationToRadians(90)).toBeCloseTo(Math.PI / 2, 10)
+  })
+
+  it('180 degrees maps to half a turn', () => {
+    expect(rotationToRadians(180)).toBeCloseTo(Math.PI, 10)
+  })
+
+  it('270 degrees maps to three quarter turns', () => {
+    expect(rotationToRadians(270)).toBeCloseTo((3 * Math.PI) / 2, 10)
+  })
+})
+
+describe('cityWorldBounds (REQ-053 empty-state pivot)', () => {
+  it('returns null for an empty city so callers can show the empty prompt', () => {
+    expect(cityWorldBounds([], [])).toBeNull()
+  })
+
+  it('returns bounds covering a single piece centered on the origin', () => {
+    const piece: Piece = { type: 'straight', row: 0, col: 0, rotation: 0 }
+    const bounds = cityWorldBounds([piece], [])
+    expect(bounds).not.toBeNull()
+    if (!bounds) return
+    expect(bounds.centerX).toBeCloseTo(0, 10)
+    expect(bounds.centerZ).toBeCloseTo(0, 10)
+    expect(bounds.width).toBeCloseTo(CELL_SIZE, 10)
+    expect(bounds.depth).toBeCloseTo(CELL_SIZE, 10)
+    expect(bounds.minX).toBeCloseTo(-CELL_SIZE / 2, 10)
+    expect(bounds.maxX).toBeCloseTo(CELL_SIZE / 2, 10)
+  })
+
+  it('inflates over two pieces to cover both cells', () => {
+    const a: Piece = { type: 'straight', row: 0, col: 0, rotation: 0 }
+    const b: Piece = { type: 'straight', row: 1, col: 2, rotation: 0 }
+    const bounds = cityWorldBounds([a, b], [])
+    expect(bounds).not.toBeNull()
+    if (!bounds) return
+    expect(bounds.minX).toBeCloseTo(-CELL_SIZE / 2, 10)
+    expect(bounds.maxX).toBeCloseTo(CELL_SIZE * 2 + CELL_SIZE / 2, 10)
+    expect(bounds.minZ).toBeCloseTo(-CELL_SIZE / 2, 10)
+    expect(bounds.maxZ).toBeCloseTo(CELL_SIZE + CELL_SIZE / 2, 10)
+    expect(bounds.centerX).toBeCloseTo(CELL_SIZE, 10)
+    expect(bounds.centerZ).toBeCloseTo(CELL_SIZE / 2, 10)
+  })
+
+  it('expands a piece footprint over every cell when one is provided', () => {
+    const piece: Piece = {
+      type: 'megaSweepRight',
+      row: 0,
+      col: 0,
+      rotation: 0,
+      footprint: [
+        { dr: 0, dc: 0 },
+        { dr: 0, dc: 1 },
+        { dr: 1, dc: 0 },
+      ],
+    }
+    const bounds = cityWorldBounds([piece], [])
+    expect(bounds).not.toBeNull()
+    if (!bounds) return
+    expect(bounds.maxX).toBeCloseTo(CELL_SIZE + CELL_SIZE / 2, 10)
+    expect(bounds.maxZ).toBeCloseTo(CELL_SIZE / 2 + CELL_SIZE, 10)
+  })
+
+  it('a building-only city still produces bounds (REQ-053 empty check)', () => {
+    const building: Building = {
+      type: 'small-house',
+      row: 0,
+      col: 0,
+      rotation: 0,
+    }
+    const bounds = cityWorldBounds([], [building])
+    expect(bounds).not.toBeNull()
+    if (!bounds) return
+    expect(bounds.centerX).toBeCloseTo(0, 10)
+    expect(bounds.centerZ).toBeCloseTo(0, 10)
+  })
+
+  it('combines pieces and buildings into one box', () => {
+    const piece: Piece = { type: 'straight', row: -2, col: -2, rotation: 0 }
+    const building: BuildingExt = {
+      type: 'mid-house',
+      row: 3,
+      col: 3,
+      rotation: 0,
+    }
+    const bounds = cityWorldBounds([piece], [building])
+    expect(bounds).not.toBeNull()
+    if (!bounds) return
+    expect(bounds.minX).toBeCloseTo(-CELL_SIZE * 2 - CELL_SIZE / 2, 10)
+    expect(bounds.maxX).toBeCloseTo(CELL_SIZE * 3 + CELL_SIZE / 2, 10)
+  })
+})
+
+// Local alias so the multi-type test reads cleanly without importing
+// the BuildingType union twice.
+type BuildingExt = Building & { type: BuildingType }
