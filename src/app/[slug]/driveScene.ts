@@ -1,4 +1,10 @@
-import type { Building, BuildingType, Piece, PieceType } from '@/lib/schemas'
+import type {
+  Building,
+  BuildingType,
+  Piece,
+  PieceFootprintCell,
+  PieceType,
+} from '@/lib/schemas'
 
 /**
  * Drive-scene scaffold helpers (REQ-044, REQ-045, REQ-046).
@@ -224,6 +230,41 @@ export function cityWorldBounds(
  */
 export function rotationToRadians(rotation: number): number {
   return (rotation * Math.PI) / 180
+}
+
+/**
+ * Default single-cell footprint used when a piece does not declare its
+ * own. Mirrors the canonical default in `edit/snapGrid.ts`'s
+ * `pieceFootprintCells`; duplicated here so this module stays free of
+ * the editor-only dependency tree.
+ */
+const DEFAULT_PIECE_FOOTPRINT: readonly PieceFootprintCell[] = [
+  { dr: 0, dc: 0 },
+]
+
+/**
+ * Resolve a piece's footprint to absolute cell coordinates, paired with
+ * the world-space center of each cell so the drive scene can drop one
+ * ground quad per occupied cell. Single-cell pieces (which omit the
+ * `footprint` field) expand to one entry at `(piece.row, piece.col)`;
+ * multi-cell pieces (mega sweep, hairpin, future arc45 / diagonal once
+ * REQ-059 lands) expand to one entry per declared cell so a placed
+ * piece never leaves visual holes on the ground plane while the
+ * footprint contract is satisfied.
+ *
+ * Returns a fresh array on each call so callers cannot mutate a shared
+ * singleton.
+ */
+export function pieceFootprintWorldCells(
+  piece: Piece,
+): { row: number; col: number; x: number; z: number }[] {
+  const footprint = piece.footprint ?? DEFAULT_PIECE_FOOTPRINT
+  return footprint.map((cell) => {
+    const row = piece.row + cell.dr
+    const col = piece.col + cell.dc
+    const { x, z } = cellToWorld(row, col)
+    return { row, col, x, z }
+  })
 }
 
 /**

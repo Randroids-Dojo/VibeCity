@@ -37,6 +37,7 @@ import {
   cellToWorld,
   cityWorldBounds,
   pieceColorFor,
+  pieceFootprintWorldCells,
   rotationToRadians,
   spawnAnchor,
 } from './driveScene'
@@ -231,21 +232,30 @@ export function DriveSceneClient({
     camera.lookAt(orbitTarget)
 
     // Street pieces (REQ-045). Flat colored quads at the cell center,
-    // lifted slightly above the ground to avoid z-fighting and rotated
-    // around the world Y axis by the persisted rotation. Per-piece
-    // multi-cell footprints (REQ-059) and sampled centerlines (F-003)
-    // wait for the drive scene runtime.
+    // lifted slightly above the ground to avoid z-fighting. Multi-cell
+    // pieces (mega sweep, hairpin, future arc45 / diagonal once
+    // REQ-059's palette entries land) drop one quad per footprint cell
+    // via `pieceFootprintWorldCells` so the placed footprint matches
+    // the off-street penalty's `streetCellSet` and a builder does not
+    // see visual holes between the anchor cell and the rest of a
+    // multi-cell piece. The persisted rotation is applied to each
+    // sub-quad; the v1 placeholder color is uniform across cells so a
+    // rotated quad reads identically to the unrotated quad and the
+    // sampled-centerline visuals (F-003) that need per-cell rotation
+    // will land in the same iteration when the runtime port arrives.
     const pieceGeometry = new THREE.PlaneGeometry(CELL_SIZE, CELL_SIZE)
     pieceGeometry.rotateX(-Math.PI / 2)
     for (const piece of city.pieces) {
-      const { x, z } = cellToWorld(piece.row, piece.col)
       const material = new THREE.MeshLambertMaterial({
         color: pieceColorFor(piece.type),
       })
-      const mesh = new THREE.Mesh(pieceGeometry, material)
-      mesh.position.set(x, PIECE_GROUND_LIFT, z)
-      mesh.rotation.y = rotationToRadians(piece.rotation)
-      scene.add(mesh)
+      const headingY = rotationToRadians(piece.rotation)
+      for (const cell of pieceFootprintWorldCells(piece)) {
+        const mesh = new THREE.Mesh(pieceGeometry, material)
+        mesh.position.set(cell.x, PIECE_GROUND_LIFT, cell.z)
+        mesh.rotation.y = headingY
+        scene.add(mesh)
+      }
     }
 
     // Buildings (REQ-046). Extruded boxes sized to the cell footprint
