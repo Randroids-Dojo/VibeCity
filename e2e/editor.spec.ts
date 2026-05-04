@@ -966,6 +966,93 @@ test('pan / zoom viewport (REQ-024) responds to wheel and reset button', async (
   await expect(resetButton).toBeDisabled()
 })
 
+test('connector glyphs render at piece edges and reflect compass directions (REQ-019, REQ-063)', async ({
+  page,
+}) => {
+  // Intercept autosave so the editor opens cleanly without KV.
+  await page.route('**/api/city/**', async (route) => {
+    if (route.request().method() !== 'PUT') {
+      await route.continue()
+      return
+    }
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        slug: 'connector-spec',
+        versionHash:
+          '0000000000000000000000000000000000000000000000000000000000000000',
+        updatedAt: Date.now(),
+      }),
+    })
+  })
+
+  const response = await page.goto('/connector-spec/edit')
+  expect(response?.status()).toBe(200)
+
+  const grid = page.getByTestId('editor-snap-grid')
+  await expect(grid).toBeVisible()
+
+  // Empty city: zero connector glyphs.
+  await expect(grid).toHaveAttribute('data-connector-count', '0')
+  await expect(page.getByTestId('editor-connector-glyph')).toHaveCount(0)
+
+  // Place a straight piece at the origin: two cardinal connectors (S, N).
+  await grid.locator('[data-cell-row="0"][data-cell-col="0"]').click()
+  await expect(grid).toHaveAttribute('data-connector-count', '2')
+  await expect(page.getByTestId('editor-connector-glyph')).toHaveCount(2)
+  await expect(
+    grid.locator(
+      '[data-testid="editor-connector-glyph"][data-connector-piece="0"][data-connector-dir="S"]',
+    ),
+  ).toHaveCount(1)
+  await expect(
+    grid.locator(
+      '[data-testid="editor-connector-glyph"][data-connector-piece="0"][data-connector-dir="N"]',
+    ),
+  ).toHaveCount(1)
+
+  // Switch to intersection: four cardinal connectors (N, E, S, W).
+  await page.locator('[data-piece-type="intersection"]').click()
+  await grid.locator('[data-cell-row="0"][data-cell-col="2"]').click()
+  await expect(grid).toHaveAttribute('data-connector-count', '6')
+  await expect(page.getByTestId('editor-connector-glyph')).toHaveCount(6)
+  for (const dir of ['N', 'E', 'S', 'W']) {
+    await expect(
+      grid.locator(
+        `[data-testid="editor-connector-glyph"][data-connector-piece="1"][data-connector-dir="${dir}"]`,
+      ),
+    ).toHaveCount(1)
+  }
+
+  // Switch to diagonal: two corner connectors (SW, NE).
+  await page.locator('[data-piece-type="diagonal"]').click()
+  await grid.locator('[data-cell-row="2"][data-cell-col="0"]').click()
+  await expect(grid).toHaveAttribute('data-connector-count', '8')
+  await expect(
+    grid.locator(
+      '[data-testid="editor-connector-glyph"][data-connector-piece="2"][data-connector-kind="corner"]',
+    ),
+  ).toHaveCount(2)
+  await expect(
+    grid.locator(
+      '[data-testid="editor-connector-glyph"][data-connector-piece="2"][data-connector-dir="SW"]',
+    ),
+  ).toHaveCount(1)
+  await expect(
+    grid.locator(
+      '[data-testid="editor-connector-glyph"][data-connector-piece="2"][data-connector-dir="NE"]',
+    ),
+  ).toHaveCount(1)
+
+  // Erasing the straight piece removes its two glyphs and leaves the
+  // intersection (4) and diagonal (2) glyphs visible.
+  await page.getByTestId('editor-erase').click()
+  await grid.locator('[data-cell-row="0"][data-cell-col="0"]').click()
+  await expect(grid).toHaveAttribute('data-connector-count', '6')
+  await expect(page.getByTestId('editor-connector-glyph')).toHaveCount(6)
+})
+
 test('build / drive transition curtain is wired but dormant by default (REQ-055)', async ({
   page,
 }) => {
