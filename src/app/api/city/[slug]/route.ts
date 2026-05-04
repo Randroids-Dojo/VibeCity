@@ -13,15 +13,9 @@ import {
 } from '@/lib/kv'
 import { BUILDER_ID_COOKIE, isValidBuilderId } from '@/lib/builderId'
 import { loadCity } from '@/lib/loadCity'
+import { parseCityVersionHash } from '@/lib/cityVersion'
 
 export const runtime = 'nodejs'
-
-/** sha256 hex digest is 64 lowercase hex chars. */
-const VERSION_HASH_RE = /^[0-9a-f]{64}$/
-
-function parseVersionHash(raw: string): CityVersionHash | null {
-  return VERSION_HASH_RE.test(raw) ? (raw as CityVersionHash) : null
-}
 
 function jsonError(status: number, error: string, extra?: object) {
   return NextResponse.json({ error, ...(extra ?? {}) }, { status })
@@ -48,7 +42,7 @@ export async function GET(
   const vRaw = url.searchParams.get('v')
   let pinned: CityVersionHash | undefined
   if (vRaw !== null) {
-    const parsed = parseVersionHash(vRaw)
+    const parsed = parseCityVersionHash(vRaw)
     if (!parsed) return jsonError(400, 'invalid version')
     pinned = parsed
   }

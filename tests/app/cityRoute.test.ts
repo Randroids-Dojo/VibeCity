@@ -257,4 +257,84 @@ describe('GET /api/city/[slug]', () => {
     const res = await GET(req, { params: Promise.resolve({ slug: 'get-empty' }) })
     expect(res.status).toBe(400)
   })
+
+  it('rejects ?v= with uppercase hex', async () => {
+    const { GET } = await import('@/app/api/city/[slug]/route')
+    const req = new NextRequest(
+      'http://test/api/city/get-empty?v=0123456789ABCDEF0123456789ABCDEF0123456789ABCDEF0123456789ABCDEF',
+    )
+    const res = await GET(req, { params: Promise.resolve({ slug: 'get-empty' }) })
+    expect(res.status).toBe(400)
+  })
+
+  it('honors a pinned ?v= and returns that version even when latest moved on', async () => {
+    const { PUT, GET } = await import('@/app/api/city/[slug]/route')
+    // First save a small city; capture its hash.
+    const cityA: City = {
+      pieces: [{ type: 'straight', row: 0, col: 0, rotation: 0 }],
+      buildings: [],
+    }
+    const hashA = hashCity(cityA)
+    await clearSlug('pinned-get' as Slug)
+    await PUT(
+      new NextRequest('http://test/api/city/pinned-get', {
+        method: 'PUT',
+        headers: { cookie: cookieHeader(), 'content-type': 'application/json' },
+        body: JSON.stringify(cityA),
+      }),
+      { params: Promise.resolve({ slug: 'pinned-get' }) },
+    )
+
+    // Then save a different city under the same slug.
+    await PUT(
+      new NextRequest('http://test/api/city/pinned-get', {
+        method: 'PUT',
+        headers: { cookie: cookieHeader(), 'content-type': 'application/json' },
+        body: JSON.stringify(sampleCity),
+      }),
+      { params: Promise.resolve({ slug: 'pinned-get' }) },
+    )
+
+    // Latest now points at sampleCity; pin to hashA.
+    const pinned = await GET(
+      new NextRequest(`http://test/api/city/pinned-get?v=${hashA}`),
+      { params: Promise.resolve({ slug: 'pinned-get' }) },
+    )
+    expect(pinned.status).toBe(200)
+    const pinnedBody = (await pinned.json()) as {
+      versionHash: string
+      city: City
+    }
+    expect(pinnedBody.versionHash).toBe(hashA)
+    expect(pinnedBody.city).toEqual(cityA)
+
+    // Sanity: the unpinned read returns the latest (sampleCity).
+    const latest = await GET(
+      new NextRequest('http://test/api/city/pinned-get'),
+      { params: Promise.resolve({ slug: 'pinned-get' }) },
+    )
+    const latestBody = (await latest.json()) as {
+      versionHash: string
+      city: City
+    }
+    expect(latestBody.versionHash).toBe(hashCity(sampleCity))
+    expect(latestBody.city).toEqual(sampleCity)
+  })
+
+  it('returns the empty city when ?v= is well-formed but unknown', async () => {
+    const { GET } = await import('@/app/api/city/[slug]/route')
+    const unknownHash =
+      'feedfacefeedfacefeedfacefeedfacefeedfacefeedfacefeedfacefeedface'
+    const res = await GET(
+      new NextRequest(`http://test/api/city/get-empty?v=${unknownHash}`),
+      { params: Promise.resolve({ slug: 'get-empty' }) },
+    )
+    expect(res.status).toBe(200)
+    const body = (await res.json()) as {
+      versionHash: string | null
+      city: City
+    }
+    expect(body.city).toEqual(EMPTY_CITY)
+    expect(body.versionHash).toBeNull()
+  })
 })
