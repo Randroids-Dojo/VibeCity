@@ -55,6 +55,11 @@ import {
   togglePauseState,
   type PauseState,
 } from './pauseMenu'
+import {
+  applyBuildingPenalty,
+  buildingCellSet,
+  isOnBuildingCell,
+} from './buildingCollision'
 
 /**
  * Drive scene scaffold (REQ-044, REQ-045, REQ-046, REQ-053) plus the
@@ -121,6 +126,14 @@ export function DriveSceneClient({
   // prompt owns the visual focus and a marker on the origin would just
   // sit on the ground plane with nothing to spawn against.
   const spawn = useMemo(() => spawnAnchor(city.pieces), [city.pieces])
+
+  // Building cell set for the cell-level binary collision penalty
+  // (REQ-030, Q-005 default A). Memoized so the cell-key Set is built
+  // once per city change instead of every animation frame.
+  const buildingCells = useMemo(
+    () => buildingCellSet(city.buildings),
+    [city.buildings],
+  )
 
   useEffect(() => {
     const canvas = canvasRef.current
@@ -408,7 +421,19 @@ export function DriveSceneClient({
       root.setAttribute('data-car-heading', vehicle.heading.toFixed(4))
       root.setAttribute('data-car-speed', vehicle.speed.toFixed(3))
     }
-    if (vehicle) updateVehicleAttrs()
+    // Building collision flag mirror (REQ-030). True only when the car
+    // center cell sits on a building cell so a test can assert the
+    // penalty is engaged without sampling the speed history.
+    const updateOnBuildingAttr = (onBuilding: boolean) => {
+      if (!root) return
+      root.setAttribute('data-on-building', onBuilding ? 'true' : 'false')
+    }
+    if (vehicle) {
+      updateVehicleAttrs()
+      updateOnBuildingAttr(
+        isOnBuildingCell(vehicle.x, vehicle.z, buildingCells),
+      )
+    }
 
     // Chase camera rig (REQ-033). Initialized from the spawn pose so
     // the first rendered frame already has the camera behind the car
@@ -457,10 +482,24 @@ export function DriveSceneClient({
       if (vehicle && car) {
         const input = inputFromPressedKeys(pressedKeys)
         vehicle = applyDriveStep(vehicle, input, dt)
+        // Building cell penalty (REQ-030, Q-005 default A). After the
+        // integrator advances the car, check whether the new center
+        // cell sits on a building cell and pull the speed back to the
+        // building penalty range. The position has already advanced
+        // for this frame; the next frame's integration starts from the
+        // capped speed so a held throttle on a building cell sees the
+        // car drift to a slow crawl instead of pushing through.
+        const onBuilding = isOnBuildingCell(
+          vehicle.x,
+          vehicle.z,
+          buildingCells,
+        )
+        vehicle = applyBuildingPenalty(vehicle, onBuilding, dt)
         car.position.x = vehicle.x
         car.position.z = vehicle.z
         car.rotation.y = vehicle.heading
         updateVehicleAttrs()
+        updateOnBuildingAttr(onBuilding)
       }
       if (rig && vehicle) {
         updateCameraRig(rig, vehicle.x, vehicle.z, vehicle.heading)
@@ -506,7 +545,7 @@ export function DriveSceneClient({
       })
       renderer.dispose()
     }
-  }, [city.pieces, city.buildings, bounds, spawn])
+  }, [city.pieces, city.buildings, bounds, spawn, buildingCells])
 
   // The placeholder car (REQ-047) renders only when at least one piece
   // exists. Mirrors the spawn-marker / empty-state branch above; we
@@ -536,6 +575,7 @@ export function DriveSceneClient({
       data-controls-active={hasVehicle ? 'true' : 'false'}
       data-camera-mode={hasVehicle ? 'chase' : 'orbit'}
       data-pause-state={pauseState}
+      data-on-building="false"
       style={{
         position: 'fixed',
         inset: 0,
