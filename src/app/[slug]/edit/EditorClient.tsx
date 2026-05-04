@@ -228,7 +228,7 @@ export function EditorClient({
     >
       <div
         role="toolbar"
-        aria-label="Street piece palette"
+        aria-label="Editor tools"
         data-testid="editor-palette"
         data-tool-mode={toolMode}
         style={{
