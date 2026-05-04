@@ -9,9 +9,9 @@ import { EditorClient } from './EditorClient'
  * v1 scope: validate the slug, load the saved city via `loadCity`
  * (REQ-015), then render the editor client surface (REQ-016 grid +
  * REQ-017 palette + REQ-020 click-to-place + REQ-021 rotate +
- * REQ-022 erase + REQ-025 autosave + REQ-026 Drive CTA) seeded with
- * that city. Undo / redo (REQ-023) and pan / zoom (REQ-024) land in
- * their own slices.
+ * REQ-022 erase + REQ-023 undo / redo + REQ-025 autosave + REQ-026
+ * Drive CTA) seeded with that city. Pan / zoom (REQ-024) lands in its
+ * own slice.
  *
  * `loadCity` returns `EMPTY_CITY` when no save exists or KV is
  * unconfigured, so the editor opens cleanly on a fresh slug. The
@@ -57,8 +57,9 @@ export default async function EditCityPage({
       <p style={{ fontSize: 14, margin: 0, opacity: 0.65, textAlign: 'center' }}>
         Pick a piece, click the grid to place it. Press R or click
         Rotate to spin the next placement. Press E or click Erase to
-        clear a placed piece. Edits autosave. Press the Drive button
-        in the toolbar to take this city for a spin.
+        clear a placed piece. Cmd+Z or Ctrl+Z undoes the last edit;
+        Cmd+Shift+Z or Ctrl+Y redoes. Edits autosave. Press the Drive
+        button in the toolbar to take this city for a spin.
       </p>
       <EditorClient slug={slug} initialCity={city} />
     </main>
