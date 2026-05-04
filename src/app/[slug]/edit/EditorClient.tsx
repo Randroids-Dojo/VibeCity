@@ -3,6 +3,10 @@
 import Link from 'next/link'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import type {
+  PointerEvent as ReactPointerEvent,
+  WheelEvent as ReactWheelEvent,
+} from 'react'
+import type {
   BuildingType,
   City,
   PieceType,
@@ -41,6 +45,15 @@ import {
   type EditorHistory,
 } from './editorHistory'
 import { previewKindFor, type PreviewCell } from './editorPreview'
+import {
+  DEFAULT_VIEWPORT,
+  dragDeltaToPan,
+  isDefaultViewport,
+  panViewport,
+  screenToGridPixel,
+  wheelZoomViewport,
+  type Viewport,
+} from './gridViewport'
 import { SnapGrid } from './SnapGridView'
 import { SceneTransitionCurtain } from '../SceneTransitionCurtain'
 
@@ -146,8 +159,21 @@ export function EditorClient({
   const [hoverCell, setHoverCell] = useState<{ row: number; col: number } | null>(
     null,
   )
+  const [viewport, setViewport] = useState<Viewport>(DEFAULT_VIEWPORT)
+  const viewportDefault = isDefaultViewport(viewport)
   const undoAvailable = canUndo(history)
   const redoAvailable = canRedo(history)
+
+  // Active drag state for the pan tool (REQ-024). Captured in a ref so
+  // the window-level pointermove / pointerup listeners read the live
+  // origin without forcing a re-render every move event.
+  const panDragRef = useRef<{
+    pointerId: number
+    lastClientX: number
+    lastClientY: number
+    svgWidth: number
+    svgHeight: number
+  } | null>(null)
 
   // Hover preview cell (REQ-024 partial: ghost piece). Recomputed
   // from the live city, the active palette category, and the active
@@ -182,6 +208,61 @@ export function EditorClient({
       }
       return current
     })
+  }, [])
+
+  // Wheel-zoom around the cursor (REQ-024). React's wheel events are
+  // passive by default in modern browsers but the SVG sits inside a
+  // scrollable column; calling preventDefault stops the page from
+  // scrolling while the cursor is over the grid so the wheel feels
+  // like a zoom control rather than a page scroll. The native wheel
+  // listener (passive: false) is wired in a useEffect below; this
+  // synth-event handler is the React surface and only updates state.
+  const handleSurfaceWheel = useCallback(
+    (event: ReactWheelEvent<SVGSVGElement>) => {
+      const rect = event.currentTarget.getBoundingClientRect()
+      const offsetX = event.clientX - rect.left
+      const offsetY = event.clientY - rect.top
+      setViewport((current) => {
+        const focus = screenToGridPixel(
+          current,
+          offsetX,
+          offsetY,
+          rect.width,
+          rect.height,
+        )
+        return wheelZoomViewport(current, event.deltaY, focus.x, focus.y)
+      })
+    },
+    [],
+  )
+
+  // Pointer-drag pan (REQ-024). Activated by middle-button (button 1)
+  // or alt + left-button (button 0). The plain left button is
+  // reserved for the place / erase cell-click contract so a pan drag
+  // never collides with a placement. The drag state lives in a ref
+  // (panDragRef) so the window-level move / up listeners do not pay
+  // the React re-render tax on every move.
+  const handleSurfacePointerDown = useCallback(
+    (event: ReactPointerEvent<SVGSVGElement>) => {
+      const isPanGesture =
+        event.button === 1 || (event.button === 0 && event.altKey)
+      if (!isPanGesture) return
+      const rect = event.currentTarget.getBoundingClientRect()
+      panDragRef.current = {
+        pointerId: event.pointerId,
+        lastClientX: event.clientX,
+        lastClientY: event.clientY,
+        svgWidth: rect.width,
+        svgHeight: rect.height,
+      }
+      event.preventDefault()
+      event.stopPropagation()
+    },
+    [],
+  )
+
+  const handleResetViewport = useCallback(() => {
+    setViewport(DEFAULT_VIEWPORT)
   }, [])
 
   // Track the last city the network successfully persisted (or the
@@ -301,6 +382,48 @@ export function EditorClient({
       window.removeEventListener('keydown', onKeyDown)
     }
   }, [handleRotate, handleToggleErase, handleUndo, handleRedo])
+
+  // Window-level pointer listeners drive the pan tool (REQ-024). The
+  // pointerdown handler on the SVG seeds `panDragRef`; this effect
+  // reads each move's clientX / clientY, converts the screen-pixel
+  // delta into a grid-pixel pan delta via `dragDeltaToPan`, and feeds
+  // it through `panViewport` (which clamps the result). Pointer up /
+  // cancel clears the ref so a stale drag does not leak across
+  // gestures. The listeners are window-level so a drag that exits
+  // the SVG bounds (a fast pan) still gets the up event.
+  useEffect(() => {
+    const onMove = (event: PointerEvent) => {
+      const drag = panDragRef.current
+      if (!drag || drag.pointerId !== event.pointerId) return
+      const dx = event.clientX - drag.lastClientX
+      const dy = event.clientY - drag.lastClientY
+      drag.lastClientX = event.clientX
+      drag.lastClientY = event.clientY
+      setViewport((current) => {
+        const { panDeltaX, panDeltaY } = dragDeltaToPan(
+          current,
+          dx,
+          dy,
+          drag.svgWidth,
+          drag.svgHeight,
+        )
+        return panViewport(current, panDeltaX, panDeltaY)
+      })
+    }
+    const onUp = (event: PointerEvent) => {
+      const drag = panDragRef.current
+      if (!drag || drag.pointerId !== event.pointerId) return
+      panDragRef.current = null
+    }
+    window.addEventListener('pointermove', onMove)
+    window.addEventListener('pointerup', onUp)
+    window.addEventListener('pointercancel', onUp)
+    return () => {
+      window.removeEventListener('pointermove', onMove)
+      window.removeEventListener('pointerup', onUp)
+      window.removeEventListener('pointercancel', onUp)
+    }
+  }, [])
 
   // Autosave (REQ-025). Every mutation that produces a fresh city
   // reference flips the status to `pending` (above). This effect waits
@@ -584,6 +707,29 @@ export function EditorClient({
         >
           Redo
         </button>
+        <button
+          type="button"
+          data-testid="editor-reset-viewport"
+          data-viewport-default={viewportDefault ? 'true' : 'false'}
+          data-viewport-zoom={viewport.zoom}
+          aria-label="Reset pan and zoom"
+          title="Reset pan / zoom"
+          onClick={handleResetViewport}
+          disabled={viewportDefault}
+          style={{
+            padding: '8px 14px',
+            fontSize: 14,
+            fontFamily: 'inherit',
+            color: '#222',
+            background: '#efe7d2',
+            border: '1px solid #d6cfbf',
+            borderRadius: 4,
+            cursor: viewportDefault ? 'not-allowed' : 'pointer',
+            opacity: viewportDefault ? 0.5 : 1,
+          }}
+        >
+          Reset View
+        </button>
         <Link
           href={`/${slug}`}
           data-testid="editor-drive-cta"
@@ -645,6 +791,9 @@ export function EditorClient({
         onCellLeave={handleCellLeave}
         previewCell={previewCell}
         cursorMode={toolMode}
+        viewport={viewport}
+        onSurfaceWheel={handleSurfaceWheel}
+        onSurfacePointerDown={handleSurfacePointerDown}
       />
     </div>
   )

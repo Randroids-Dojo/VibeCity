@@ -909,6 +909,63 @@ test('hover preview ghost flips kind across place / erase and category', async (
   await expect(ghost).toHaveCount(0)
 })
 
+test('pan / zoom viewport (REQ-024) responds to wheel and reset button', async ({
+  page,
+}) => {
+  // Intercept autosave so the editor opens cleanly without KV.
+  await page.route('**/api/city/**', async (route) => {
+    if (route.request().method() !== 'PUT') {
+      await route.continue()
+      return
+    }
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        slug: 'viewport-spec',
+        versionHash:
+          '0000000000000000000000000000000000000000000000000000000000000000',
+        updatedAt: Date.now(),
+      }),
+    })
+  })
+
+  const response = await page.goto('/viewport-spec/edit')
+  expect(response?.status()).toBe(200)
+
+  const grid = page.getByTestId('editor-snap-grid')
+  await expect(grid).toBeVisible()
+
+  // Default viewport: zoom 1, pan 0, viewport-default flag true.
+  await expect(grid).toHaveAttribute('data-viewport-zoom', '1')
+  await expect(grid).toHaveAttribute('data-viewport-pan-x', '0')
+  await expect(grid).toHaveAttribute('data-viewport-pan-y', '0')
+  await expect(grid).toHaveAttribute('data-viewport-default', 'true')
+
+  // Reset button is disabled when the viewport is at the default state.
+  const resetButton = page.getByTestId('editor-reset-viewport')
+  await expect(resetButton).toBeVisible()
+  await expect(resetButton).toBeDisabled()
+  await expect(resetButton).toHaveAttribute('data-viewport-default', 'true')
+
+  // Wheel up over the grid zooms in.
+  const box = await grid.boundingBox()
+  if (!box) throw new Error('grid bounding box missing')
+  await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2)
+  await page.mouse.wheel(0, -200)
+  await expect(grid).not.toHaveAttribute('data-viewport-zoom', '1')
+  await expect(grid).toHaveAttribute('data-viewport-default', 'false')
+  await expect(resetButton).toBeEnabled()
+
+  // Reset View restores the default viewport.
+  await resetButton.click()
+  await expect(grid).toHaveAttribute('data-viewport-zoom', '1')
+  await expect(grid).toHaveAttribute('data-viewport-pan-x', '0')
+  await expect(grid).toHaveAttribute('data-viewport-pan-y', '0')
+  await expect(grid).toHaveAttribute('data-viewport-default', 'true')
+  await expect(resetButton).toBeDisabled()
+})
+
 test('build / drive transition curtain is wired but dormant by default (REQ-055)', async ({
   page,
 }) => {
