@@ -1,7 +1,7 @@
 'use client'
 
 import Link from 'next/link'
-import { useEffect, useMemo, useRef } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import * as THREE from 'three'
 import type { City, Slug } from '@/lib/schemas'
 import {
@@ -47,6 +47,14 @@ import {
   inputFromPressedKeys,
 } from './driveControls'
 import { createCameraRig, updateCameraRig } from './cameraRig'
+import {
+  DEFAULT_PAUSE_STATE,
+  PAUSE_KEY_CODE,
+  closePauseMenu,
+  isPaused,
+  togglePauseState,
+  type PauseState,
+} from './pauseMenu'
 
 /**
  * Drive scene scaffold (REQ-044, REQ-045, REQ-046, REQ-053) plus the
@@ -84,6 +92,22 @@ export function DriveSceneClient({
   const canvasRef = useRef<HTMLCanvasElement | null>(null)
   const rootRef = useRef<HTMLDivElement | null>(null)
   const isEmpty = city.pieces.length === 0 && city.buildings.length === 0
+
+  // Pause state (REQ-039). The integration loop reads the live value
+  // from `pauseStateRef` each frame so a paused world freezes without
+  // unmounting the scene; the React state is what drives the overlay
+  // rendering and the data-paused attribute. The two are kept in sync
+  // in a single effect so a setState always updates the ref before the
+  // next animation frame runs.
+  const [pauseState, setPauseState] = useState<PauseState>(DEFAULT_PAUSE_STATE)
+  const pauseStateRef = useRef<PauseState>(DEFAULT_PAUSE_STATE)
+  useEffect(() => {
+    pauseStateRef.current = pauseState
+  }, [pauseState])
+
+  const handleResume = useCallback(() => {
+    setPauseState((prev) => closePauseMenu(prev))
+  }, [])
 
   // Memoize the bounds so the effect re-fits the camera only when the
   // city actually changes shape, not on every parent rerender.
@@ -341,10 +365,26 @@ export function DriveSceneClient({
       pressedKeys.clear()
       updatePressedAttr()
     }
+    // Pause toggle (REQ-039). Esc flips the pause state regardless of
+    // whether other keys are held; the React state drives the overlay
+    // and the integration loop reads the ref each frame to freeze the
+    // world. Held keys are NOT cleared on pause so resuming with the
+    // throttle still down keeps accelerating, matching driver intuition
+    // ("I held W through the menu and the car kept going when I closed
+    // it"). The text-target guard short-circuits before
+    // `preventDefault` so an Esc inside a future input dismisses the
+    // input as the browser default expects.
+    const handlePauseKey = (event: KeyboardEvent) => {
+      if (event.code !== PAUSE_KEY_CODE) return
+      if (isTextTarget(event.target)) return
+      event.preventDefault()
+      setPauseState((prev) => togglePauseState(prev))
+    }
     if (car) {
       window.addEventListener('keydown', handleKeyDown)
       window.addEventListener('keyup', handleKeyUp)
       window.addEventListener('blur', handleBlur)
+      window.addEventListener('keydown', handlePauseKey)
     }
     updatePressedAttr()
 
@@ -403,6 +443,15 @@ export function DriveSceneClient({
         renderer.render(scene, camera)
         return
       }
+      // Pause check (REQ-039). When paused, the loop still runs (so the
+      // overlay can render against the live canvas) but skips the
+      // integration step and resets `lastTimestamp` so the first frame
+      // after resume does not back-integrate the elapsed pause duration.
+      if (isPaused(pauseStateRef.current)) {
+        lastTimestamp = timestamp
+        renderer.render(scene, camera)
+        return
+      }
       const dt = (timestamp - lastTimestamp) / 1000
       lastTimestamp = timestamp
       if (vehicle && car) {
@@ -441,6 +490,7 @@ export function DriveSceneClient({
         window.removeEventListener('keydown', handleKeyDown)
         window.removeEventListener('keyup', handleKeyUp)
         window.removeEventListener('blur', handleBlur)
+        window.removeEventListener('keydown', handlePauseKey)
       }
       // Dispose every geometry / material attached to the scene so
       // navigating away does not leak GPU memory across slugs.
@@ -464,6 +514,13 @@ export function DriveSceneClient({
   // car is mounted on a non-empty city without inspecting the WebGL
   // scene graph.
   const hasVehicle = city.pieces.length > 0
+  // Pause overlay (REQ-039 / REQ-038) renders only when the vehicle is
+  // mounted AND the player has actually pressed Esc. The keyboard
+  // listener that toggles the pause state is itself gated on
+  // `hasVehicle` (the listener attach branch in the useEffect above)
+  // so the menu cannot appear on the empty grid; the second check here
+  // keeps the JSX honest if a future slice unbinds that gate.
+  const showPauseMenu = hasVehicle && isPaused(pauseState)
 
   return (
     <div
@@ -478,6 +535,7 @@ export function DriveSceneClient({
       data-vehicle={hasVehicle ? 'true' : 'false'}
       data-controls-active={hasVehicle ? 'true' : 'false'}
       data-camera-mode={hasVehicle ? 'chase' : 'orbit'}
+      data-pause-state={pauseState}
       style={{
         position: 'fixed',
         inset: 0,
@@ -600,6 +658,105 @@ export function DriveSceneClient({
           >
             Open editor
           </Link>
+        </div>
+      ) : null}
+      {showPauseMenu ? (
+        <div
+          data-testid="drive-pause-menu"
+          role="dialog"
+          aria-modal="true"
+          aria-label="Paused"
+          style={{
+            position: 'absolute',
+            inset: 0,
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: 16,
+            background: 'rgba(0, 0, 0, 0.6)',
+            fontFamily: 'system-ui, sans-serif',
+            // Sit above the slug label and Edit CTA so the menu owns
+            // the click surface while paused (REQ-039).
+            zIndex: 10,
+          }}
+        >
+          <p
+            style={{
+              fontSize: 14,
+              margin: 0,
+              opacity: 0.6,
+              letterSpacing: 1,
+              color: '#f7f4ee',
+            }}
+          >
+            PAUSED
+          </p>
+          <h2
+            style={{
+              fontSize: 32,
+              margin: 0,
+              color: '#f7f4ee',
+            }}
+          >
+            {slug}
+          </h2>
+          <div
+            style={{
+              display: 'flex',
+              gap: 12,
+              flexWrap: 'wrap',
+              justifyContent: 'center',
+            }}
+          >
+            <button
+              type="button"
+              data-testid="drive-pause-resume"
+              onClick={handleResume}
+              autoFocus
+              style={{
+                padding: '10px 18px',
+                fontSize: 14,
+                fontFamily: 'inherit',
+                color: '#f7f4ee',
+                background: '#222',
+                border: '1px solid #444',
+                borderRadius: 4,
+                cursor: 'pointer',
+              }}
+            >
+              Resume
+            </button>
+            <Link
+              href={`/${slug}/edit`}
+              data-testid="drive-pause-edit-cta"
+              data-slug={slug}
+              aria-label={`Edit city ${slug}`}
+              prefetch
+              style={{
+                padding: '10px 18px',
+                fontSize: 14,
+                fontFamily: 'inherit',
+                color: '#222',
+                background: '#f7f4ee',
+                border: '1px solid #d6cfbf',
+                borderRadius: 4,
+                textDecoration: 'none',
+              }}
+            >
+              Edit
+            </Link>
+          </div>
+          <p
+            style={{
+              fontSize: 12,
+              margin: 0,
+              opacity: 0.7,
+              color: '#f7f4ee',
+            }}
+          >
+            Press Esc to resume.
+          </p>
         </div>
       ) : null}
     </div>

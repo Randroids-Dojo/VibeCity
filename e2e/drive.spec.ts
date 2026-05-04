@@ -56,6 +56,11 @@ test('drive route mounts the canvas with the slug label and Edit CTA', async ({
   // city stays in the orbit framing so the empty-state prompt reads
   // against a neutral backdrop centered on the grid origin.
   await expect(root).toHaveAttribute('data-camera-mode', 'orbit')
+
+  // REQ-039: pause state defaults to running on every page load. Esc
+  // toggles the menu, but with no car mounted the listener is dormant
+  // and the overlay must not render even after pressing Esc.
+  await expect(root).toHaveAttribute('data-pause-state', 'running')
 })
 
 test('drive route shows the empty-state prompt for a fresh slug (REQ-053)', async ({
@@ -78,6 +83,9 @@ test('drive route shows the empty-state prompt for a fresh slug (REQ-053)', asyn
   // REQ-033: chase camera stays out of the empty grid; the orbit aim
   // keeps the empty-state prompt centered against a neutral backdrop.
   await expect(root).toHaveAttribute('data-camera-mode', 'orbit')
+  // REQ-039: pause state defaults to running; the listener is gated to
+  // the car-mounted branch so an empty grid cannot toggle the menu.
+  await expect(root).toHaveAttribute('data-pause-state', 'running')
 
   const prompt = page.getByTestId('drive-empty-prompt')
   await expect(prompt).toBeVisible()
@@ -87,6 +95,12 @@ test('drive route shows the empty-state prompt for a fresh slug (REQ-053)', asyn
   const cta = page.getByTestId('drive-empty-create-cta')
   await expect(cta).toBeVisible()
   await expect(cta).toHaveAttribute('href', '/drive-empty-spec/edit')
+
+  // The pause overlay must not render on the empty grid even if Esc is
+  // pressed (the listener is gated on the car being mounted).
+  await page.keyboard.press('Escape')
+  await expect(root).toHaveAttribute('data-pause-state', 'running')
+  await expect(page.getByTestId('drive-pause-menu')).toHaveCount(0)
 
   // Clicking the Open editor link routes to the editor.
   await cta.click()
