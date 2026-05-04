@@ -1053,6 +1053,89 @@ test('connector glyphs render at piece edges and reflect compass directions (REQ
   await expect(page.getByTestId('editor-connector-glyph')).toHaveCount(6)
 })
 
+test('connector match status flips matched / open as adjacent pieces line up (REQ-019, REQ-063)', async ({
+  page,
+}) => {
+  // Intercept autosave so the editor opens cleanly without KV.
+  await page.route('**/api/city/**', async (route) => {
+    if (route.request().method() !== 'PUT') {
+      await route.continue()
+      return
+    }
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        slug: 'connector-match-spec',
+        versionHash:
+          '0000000000000000000000000000000000000000000000000000000000000000',
+        updatedAt: Date.now(),
+      }),
+    })
+  })
+
+  const response = await page.goto('/connector-match-spec/edit')
+  expect(response?.status()).toBe(200)
+
+  const grid = page.getByTestId('editor-snap-grid')
+  await expect(grid).toBeVisible()
+
+  // Empty city: zero matched.
+  await expect(grid).toHaveAttribute('data-connector-matched', '0')
+
+  // Place one straight: both ends are open (no neighbors).
+  await grid.locator('[data-cell-row="0"][data-cell-col="0"]').click()
+  await expect(grid).toHaveAttribute('data-connector-count', '2')
+  await expect(grid).toHaveAttribute('data-connector-matched', '0')
+  await expect(
+    grid.locator(
+      '[data-testid="editor-connector-glyph"][data-connector-piece="0"][data-connector-status="open"]',
+    ),
+  ).toHaveCount(2)
+
+  // Place a second straight directly south. The shared edge flips to
+  // matched on both pieces; the outer edges remain open.
+  await grid.locator('[data-cell-row="1"][data-cell-col="0"]').click()
+  await expect(grid).toHaveAttribute('data-connector-count', '4')
+  await expect(grid).toHaveAttribute('data-connector-matched', '2')
+  await expect(
+    grid.locator(
+      '[data-testid="editor-connector-glyph"][data-connector-piece="0"][data-connector-dir="S"][data-connector-status="matched"]',
+    ),
+  ).toHaveCount(1)
+  await expect(
+    grid.locator(
+      '[data-testid="editor-connector-glyph"][data-connector-piece="1"][data-connector-dir="N"][data-connector-status="matched"]',
+    ),
+  ).toHaveCount(1)
+  await expect(
+    grid.locator(
+      '[data-testid="editor-connector-glyph"][data-connector-piece="0"][data-connector-dir="N"][data-connector-status="open"]',
+    ),
+  ).toHaveCount(1)
+  await expect(
+    grid.locator(
+      '[data-testid="editor-connector-glyph"][data-connector-piece="1"][data-connector-dir="S"][data-connector-status="open"]',
+    ),
+  ).toHaveCount(1)
+
+  // The toolbar piece-count readout mirrors the matched / total
+  // counter so a builder reads the link state without inspecting the
+  // glyph data attributes.
+  const pieceCount = page.getByTestId('editor-piece-count')
+  await expect(pieceCount).toHaveAttribute('data-connector-count', '4')
+  await expect(pieceCount).toHaveAttribute('data-connector-matched', '2')
+  const matchReadout = page.getByTestId('editor-connector-match-readout')
+  await expect(matchReadout).toBeVisible()
+  await expect(matchReadout).toHaveText('Connectors matched: 2 of 4')
+
+  // Erase the second straight: matched count drops back to zero.
+  await page.getByTestId('editor-erase').click()
+  await grid.locator('[data-cell-row="1"][data-cell-col="0"]').click()
+  await expect(grid).toHaveAttribute('data-connector-count', '2')
+  await expect(grid).toHaveAttribute('data-connector-matched', '0')
+})
+
 test('build / drive transition curtain is wired but dormant by default (REQ-055)', async ({
   page,
 }) => {

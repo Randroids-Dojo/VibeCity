@@ -55,6 +55,10 @@ import {
   type Viewport,
 } from './gridViewport'
 import { SnapGrid } from './SnapGridView'
+import {
+  cityConnectorGlyphs,
+  countMatchedGlyphs,
+} from './connectorGlyphs'
 import { SceneTransitionCurtain } from '../SceneTransitionCurtain'
 
 /**
@@ -498,6 +502,14 @@ export function EditorClient({
     setPaletteCategory(next)
   }, [])
 
+  // Resolve every connector glyph once per render so the toolbar
+  // readout and the SnapGrid render reuse the same walk. The walk is
+  // O(N) over the total port count which is bounded by piece count;
+  // the city is capped at MAX_PIECES_PER_CITY = 256 so the cost is
+  // negligible at human pace.
+  const connectorGlyphs = cityConnectorGlyphs(city.pieces)
+  const matchedConnectorCount = countMatchedGlyphs(connectorGlyphs)
+
   return (
     <div
       style={{
@@ -759,6 +771,8 @@ export function EditorClient({
       <p
         data-testid="editor-piece-count"
         data-building-count={city.buildings.length}
+        data-connector-count={connectorGlyphs.length}
+        data-connector-matched={matchedConnectorCount}
         style={{
           fontSize: 12,
           margin: 0,
@@ -770,6 +784,20 @@ export function EditorClient({
           ? ` / Buildings placed: ${city.buildings.length}`
           : ''}
       </p>
+      {connectorGlyphs.length > 0 ? (
+        <p
+          data-testid="editor-connector-match-readout"
+          data-connector-count={connectorGlyphs.length}
+          data-connector-matched={matchedConnectorCount}
+          style={{
+            fontSize: 12,
+            margin: 0,
+            opacity: 0.65,
+          }}
+        >
+          Connectors matched: {matchedConnectorCount} of {connectorGlyphs.length}
+        </p>
+      ) : null}
       <p
         role="status"
         aria-live="polite"

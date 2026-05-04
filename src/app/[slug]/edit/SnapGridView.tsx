@@ -27,6 +27,7 @@ import {
   CONNECTOR_DIR_LABEL,
   GLYPH_RADIUS_PIXELS,
   cityConnectorGlyphs,
+  countMatchedGlyphs,
 } from './connectorGlyphs'
 
 /**
@@ -72,6 +73,16 @@ import {
  * distinguishable. Glyphs are non-interactive (`pointerEvents='none'`)
  * so they do not steal hover or click events from the underlying
  * cells.
+ *
+ * Connector match status (REQ-019, REQ-063): each glyph's
+ * `data-connector-status` attribute reads `matched` when the port
+ * faces an opposing port on a neighbor piece, or `open` otherwise.
+ * Matched glyphs render with a sage-green stroke (and a slightly
+ * heavier stroke width) to signal "this connector links" at a glance;
+ * open glyphs keep the original dark-brown stroke. The SVG root
+ * exposes `data-connector-matched` mirroring the matched count so the
+ * EditorClient toolbar can surface a count without re-walking the
+ * city.
  */
 export function SnapGrid({
   city,
@@ -98,6 +109,7 @@ export function SnapGrid({
   const occupiedPieces = occupiedPieceCells(city)
   const occupiedBuildings = occupiedBuildingCells(city)
   const connectorGlyphs = cityConnectorGlyphs(city.pieces)
+  const matchedConnectorCount = countMatchedGlyphs(connectorGlyphs)
   const interactive = typeof onCellClick === 'function'
   const cursor = !interactive
     ? 'default'
@@ -121,6 +133,7 @@ export function SnapGrid({
       data-occupied-count={occupiedPieces.size}
       data-building-count={occupiedBuildings.size}
       data-connector-count={connectorGlyphs.length}
+      data-connector-matched={matchedConnectorCount}
       data-cursor-mode={interactive ? cursorMode : 'none'}
       data-preview-kind={previewCell ? previewCell.kind : 'none'}
       data-preview-row={previewCell ? previewCell.row : ''}
@@ -209,12 +222,13 @@ export function SnapGrid({
           data-connector-kind={glyph.kind}
           data-connector-row={glyph.cellRow}
           data-connector-col={glyph.cellCol}
+          data-connector-status={glyph.status}
           cx={glyph.x}
           cy={glyph.y}
           r={GLYPH_RADIUS_PIXELS}
           fill={glyph.kind === 'cardinal' ? '#f5deb3' : '#ffe4b5'}
-          stroke="#5a4a2a"
-          strokeWidth={1}
+          stroke={glyph.status === 'matched' ? '#3f6b3f' : '#5a4a2a'}
+          strokeWidth={glyph.status === 'matched' ? 2 : 1}
           pointerEvents="none"
         />
       ))}

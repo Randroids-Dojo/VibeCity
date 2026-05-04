@@ -3,9 +3,10 @@ import {
   DIR_OFFSETS,
   connectorPortsOf,
   isCardinal,
+  opposite,
   type Dir,
 } from '@/lib/connectors'
-import { CELL_PIXELS, GRID_RADIUS } from './snapGrid'
+import { CELL_PIXELS, GRID_RADIUS, cellKey } from './snapGrid'
 
 /**
  * Connector glyph helpers for the editor SVG (REQ-019, REQ-063).
@@ -51,6 +52,25 @@ export const GLYPH_RADIUS_PIXELS = CELL_PIXELS / 6
  */
 export type ConnectorGlyphKind = 'cardinal' | 'corner'
 
+/**
+ * Cross-piece connector match status (REQ-019, REQ-063).
+ *
+ * `matched`: the port faces an opposing port on a neighbor piece, so
+ * the two pieces will link as a continuous street segment.
+ *
+ * `open`: the port faces empty space, the grid edge, or a neighbor cell
+ * that does not expose an opposing port. The author needs to add or
+ * rotate a piece on the neighbor cell for the link to form.
+ *
+ * The classification is purely geometric: it walks each glyph's
+ * neighbor cell along the compass direction and checks whether any
+ * placed piece has a port at exactly that cell with `opposite(dir)`.
+ * It does not gate placement, autosave, or drive-mode rendering; the
+ * editor just paints matched glyphs with a sage-green stroke so the
+ * author can predict link behavior at a glance.
+ */
+export type ConnectorMatchStatus = 'matched' | 'open'
+
 export interface ConnectorGlyph {
   /** Pixel x position of the glyph center inside the SVG viewBox. */
   x: number
@@ -66,6 +86,8 @@ export interface ConnectorGlyph {
   cellRow: number
   /** Footprint cell offset the port lives on. */
   cellCol: number
+  /** Match status against the city's other placed pieces. */
+  status: ConnectorMatchStatus
 }
 
 /**
@@ -81,6 +103,37 @@ function cellCenterPixel(row: number, col: number): { x: number; y: number } {
 }
 
 /**
+ * Build a port lookup keyed by `cellKey(row, col):dir`. Each entry
+ * records the source piece index so a future caller can render a port
+ * trace back to its piece. The map is internal; `cityConnectorGlyphs`
+ * reads it once to classify every glyph's match status against every
+ * other piece's ports.
+ *
+ * A single cell can carry multiple ports (e.g. an `intersection` has
+ * four ports on one cell), so the key is `cellKey:dir` rather than
+ * just `cellKey`. When two pieces somehow expose ports in the same
+ * cell with the same direction (an invariant the place reducer
+ * prevents but a hand-edited city could violate), the lookup keeps the
+ * earlier-placed port so the match is deterministic.
+ */
+function cityPortIndex(
+  pieces: readonly Piece[],
+): Map<string, number> {
+  const out = new Map<string, number>()
+  pieces.forEach((piece, index) => {
+    for (const port of connectorPortsOf(piece)) {
+      const cellRow = piece.row + port.dr
+      const cellCol = piece.col + port.dc
+      const key = `${cellKey(cellRow, cellCol)}:${port.dir}`
+      if (!out.has(key)) {
+        out.set(key, index)
+      }
+    }
+  })
+  return out
+}
+
+/**
  * Resolve every connector glyph for a single placed piece.
  *
  * The piece's anchor cell `(piece.row, piece.col)` plus each port's
@@ -89,12 +142,19 @@ function cellCenterPixel(row: number, col: number): { x: number; y: number } {
  * step along the compass direction so the marker reads as "this edge"
  * rather than "this cell".
  *
+ * The match status is computed against the optional `cityPorts` index.
+ * When omitted (the single-piece preview path), every glyph is
+ * classified `open`. When provided, a port is `matched` iff the
+ * neighbor cell along the compass direction exposes a port in the
+ * opposite direction sourced from a different piece.
+ *
  * Returns a fresh array on every call so callers cannot mutate cached
  * glyph state.
  */
 export function pieceConnectorGlyphs(
   piece: Piece,
   pieceIndex: number,
+  cityPorts?: Map<string, number>,
 ): ConnectorGlyph[] {
   const ports = connectorPortsOf(piece)
   return ports.map((port) => {
@@ -102,6 +162,16 @@ export function pieceConnectorGlyphs(
     const cellCol = piece.col + port.dc
     const center = cellCenterPixel(cellRow, cellCol)
     const offset = DIR_OFFSETS[port.dir]
+    let status: ConnectorMatchStatus = 'open'
+    if (cityPorts) {
+      const neighborRow = cellRow + offset.dr
+      const neighborCol = cellCol + offset.dc
+      const neighborKey = `${cellKey(neighborRow, neighborCol)}:${opposite(port.dir)}`
+      const neighborOwner = cityPorts.get(neighborKey)
+      if (neighborOwner !== undefined && neighborOwner !== pieceIndex) {
+        status = 'matched'
+      }
+    }
     return {
       x: center.x + offset.dc * CELL_HALF_PIXELS,
       y: center.y + offset.dr * CELL_HALF_PIXELS,
@@ -110,6 +180,7 @@ export function pieceConnectorGlyphs(
       pieceIndex,
       cellRow,
       cellCol,
+      status,
     }
   })
 }
@@ -117,16 +188,34 @@ export function pieceConnectorGlyphs(
 /**
  * Resolve every connector glyph across an entire city. Pieces are
  * walked in placement order and each glyph carries its source piece
- * index so the renderer can attach a stable React key.
+ * index so the renderer can attach a stable React key. The whole-city
+ * port index is built once and threaded through `pieceConnectorGlyphs`
+ * so the match-status classification stays O(N) over the total port
+ * count instead of O(N^2) over all piece pairs.
  */
 export function cityConnectorGlyphs(pieces: readonly Piece[]): ConnectorGlyph[] {
+  const cityPorts = cityPortIndex(pieces)
   const out: ConnectorGlyph[] = []
   pieces.forEach((piece, index) => {
-    for (const glyph of pieceConnectorGlyphs(piece, index)) {
+    for (const glyph of pieceConnectorGlyphs(piece, index, cityPorts)) {
       out.push(glyph)
     }
   })
   return out
+}
+
+/**
+ * Count the number of `matched` glyphs in a glyph list. The toolbar
+ * surfaces this count alongside the existing piece count so the author
+ * can see at a glance how many connector pairs link versus how many
+ * remain open.
+ */
+export function countMatchedGlyphs(glyphs: readonly ConnectorGlyph[]): number {
+  let n = 0
+  for (const g of glyphs) {
+    if (g.status === 'matched') n++
+  }
+  return n
 }
 
 /**
