@@ -43,6 +43,7 @@ import {
   cellToWorld,
   cityWorldBounds,
   pieceColorFor,
+  pieceFootprintWorldCells,
   rotationToRadians,
   spawnAnchor,
 } from '@/app/[slug]/driveScene'
@@ -513,5 +514,128 @@ describe('carBodyY / carCabinY (REQ-047)', () => {
 
   it('cabin y is greater than body y so the silhouette reads as a car', () => {
     expect(carCabinY()).toBeGreaterThan(carBodyY())
+  })
+})
+
+describe('pieceFootprintWorldCells (REQ-045 multi-cell ground meshes)', () => {
+  it('returns one entry at the anchor cell for a single-cell piece (no footprint declared)', () => {
+    const piece: Piece = { type: 'straight', row: 0, col: 0, rotation: 0 }
+    const cells = pieceFootprintWorldCells(piece)
+    expect(cells).toHaveLength(1)
+    expect(cells[0]).toEqual({ row: 0, col: 0, x: 0, z: 0 })
+  })
+
+  it('uses cellToWorld to derive world position so single-cell coords match cellToWorld', () => {
+    const piece: Piece = { type: 'left90', row: 2, col: -3, rotation: 90 }
+    const cells = pieceFootprintWorldCells(piece)
+    expect(cells).toHaveLength(1)
+    const expected = cellToWorld(2, -3)
+    expect(cells[0].x).toBeCloseTo(expected.x, 10)
+    expect(cells[0].z).toBeCloseTo(expected.z, 10)
+    expect(cells[0].row).toBe(2)
+    expect(cells[0].col).toBe(-3)
+  })
+
+  it('expands to one entry per declared footprint cell with offsets relative to the anchor', () => {
+    const piece: Piece = {
+      type: 'megaSweepRight',
+      row: 1,
+      col: 1,
+      rotation: 0,
+      footprint: [
+        { dr: 0, dc: 0 },
+        { dr: 0, dc: 1 },
+        { dr: 1, dc: 0 },
+        { dr: 1, dc: 1 },
+      ],
+    }
+    const cells = pieceFootprintWorldCells(piece)
+    expect(cells).toHaveLength(4)
+    const coords = cells.map((c) => ({ row: c.row, col: c.col }))
+    expect(coords).toEqual([
+      { row: 1, col: 1 },
+      { row: 1, col: 2 },
+      { row: 2, col: 1 },
+      { row: 2, col: 2 },
+    ])
+    for (const cell of cells) {
+      const expected = cellToWorld(cell.row, cell.col)
+      expect(cell.x).toBeCloseTo(expected.x, 10)
+      expect(cell.z).toBeCloseTo(expected.z, 10)
+    }
+  })
+
+  it('handles negative anchor coordinates plus negative footprint offsets', () => {
+    const piece: Piece = {
+      type: 'hairpin',
+      row: -2,
+      col: -2,
+      rotation: 0,
+      footprint: [
+        { dr: 0, dc: 0 },
+        { dr: -1, dc: 0 },
+        { dr: 0, dc: -1 },
+      ],
+    }
+    const cells = pieceFootprintWorldCells(piece)
+    expect(cells).toHaveLength(3)
+    expect(cells.map((c) => ({ row: c.row, col: c.col }))).toEqual([
+      { row: -2, col: -2 },
+      { row: -3, col: -2 },
+      { row: -2, col: -3 },
+    ])
+  })
+
+  it('returns a fresh array on each call so a caller cannot mutate a shared singleton', () => {
+    const piece: Piece = { type: 'straight', row: 0, col: 0, rotation: 0 }
+    const a = pieceFootprintWorldCells(piece)
+    const b = pieceFootprintWorldCells(piece)
+    expect(a).not.toBe(b)
+    expect(a).toEqual(b)
+  })
+
+  it('order of returned cells matches the order of the declared footprint array', () => {
+    const ordered: Piece = {
+      type: 'megaSweepLeft',
+      row: 0,
+      col: 0,
+      rotation: 0,
+      footprint: [
+        { dr: 1, dc: 1 },
+        { dr: 0, dc: 0 },
+        { dr: 1, dc: 0 },
+      ],
+    }
+    const cells = pieceFootprintWorldCells(ordered)
+    expect(cells.map((c) => ({ row: c.row, col: c.col }))).toEqual([
+      { row: 1, col: 1 },
+      { row: 0, col: 0 },
+      { row: 1, col: 0 },
+    ])
+  })
+
+  it('agrees with cityWorldBounds: every footprint cell sits inside the bounds box', () => {
+    const piece: Piece = {
+      type: 'megaSweepRight',
+      row: 0,
+      col: 0,
+      rotation: 0,
+      footprint: [
+        { dr: 0, dc: 0 },
+        { dr: 0, dc: 2 },
+        { dr: 2, dc: 0 },
+      ],
+    }
+    const cells = pieceFootprintWorldCells(piece)
+    const bounds = cityWorldBounds([piece], [])
+    expect(bounds).not.toBeNull()
+    if (!bounds) return
+    const half = CELL_SIZE / 2
+    for (const cell of cells) {
+      expect(cell.x - half).toBeGreaterThanOrEqual(bounds.minX - 1e-9)
+      expect(cell.x + half).toBeLessThanOrEqual(bounds.maxX + 1e-9)
+      expect(cell.z - half).toBeGreaterThanOrEqual(bounds.minZ - 1e-9)
+      expect(cell.z + half).toBeLessThanOrEqual(bounds.maxZ + 1e-9)
+    }
   })
 })
