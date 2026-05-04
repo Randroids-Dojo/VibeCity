@@ -1,4 +1,3 @@
-import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import { loadCity } from '@/lib/loadCity'
 import { parseSlugParam } from '../slugRoute'
@@ -10,13 +9,16 @@ import { EditorClient } from './EditorClient'
  * v1 scope: validate the slug, load the saved city via `loadCity`
  * (REQ-015), then render the editor client surface (REQ-016 grid +
  * REQ-017 palette + REQ-020 click-to-place + REQ-021 rotate +
- * REQ-022 erase + REQ-025 autosave) seeded with that city plus a
- * Drive CTA linking back to `/<slug>`. Undo / redo (REQ-023) and pan /
- * zoom (REQ-024) land in their own slices.
+ * REQ-022 erase + REQ-025 autosave + REQ-026 Drive CTA) seeded with
+ * that city. Undo / redo (REQ-023) and pan / zoom (REQ-024) land in
+ * their own slices.
  *
  * `loadCity` returns `EMPTY_CITY` when no save exists or KV is
  * unconfigured, so the editor opens cleanly on a fresh slug. The
- * builder id cookie is issued by `src/middleware.ts`.
+ * builder id cookie is issued by `src/middleware.ts`. The Drive CTA
+ * lives inside the editor toolbar (REQ-026) so the build / drive loop
+ * round-trips from a single control surface, not a separate page-level
+ * link below the grid.
  *
  * Invalid slugs return 404 via `notFound()` so unsharable URLs do not
  * leak into the editor.
@@ -55,23 +57,10 @@ export default async function EditCityPage({
       <p style={{ fontSize: 14, margin: 0, opacity: 0.65, textAlign: 'center' }}>
         Pick a piece, click the grid to place it. Press R or click
         Rotate to spin the next placement. Press E or click Erase to
-        clear a placed piece. Edits autosave.
+        clear a placed piece. Edits autosave. Press the Drive button
+        in the toolbar to take this city for a spin.
       </p>
       <EditorClient slug={slug} initialCity={city} />
-      <Link
-        href={`/${slug}`}
-        style={{
-          marginTop: 8,
-          padding: '12px 24px',
-          background: '#222',
-          color: '#f7f4ee',
-          textDecoration: 'none',
-          fontSize: 16,
-          borderRadius: 4,
-        }}
-      >
-        Drive this city
-      </Link>
     </main>
   )
 }

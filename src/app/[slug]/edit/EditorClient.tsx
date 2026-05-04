@@ -1,5 +1,6 @@
 'use client'
 
+import Link from 'next/link'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import type { City, PieceType, Rotation, Slug } from '@/lib/schemas'
 import {
@@ -21,13 +22,17 @@ import {
 import { SnapGrid } from './SnapGridView'
 
 /**
- * Editor client surface (REQ-017, REQ-020, REQ-021, REQ-022, REQ-025).
+ * Editor client surface (REQ-017, REQ-020, REQ-021, REQ-022, REQ-025,
+ * REQ-026).
  *
  * Wraps the snap-grid (REQ-016) with the v1 cardinal-only street
  * palette, a click-to-place tool, a rotate tool that cycles the
  * selected piece's rotation in 90deg increments, an erase tool that
- * flips the cell-click contract from place to erase, and autosave that
- * writes through PUT `/api/city/<slug>` (REQ-014) on every mutation.
+ * flips the cell-click contract from place to erase, autosave that
+ * writes through PUT `/api/city/<slug>` (REQ-014) on every mutation,
+ * and a Drive CTA in the toolbar that navigates to `/<slug>` so the
+ * build / drive loop round-trips from a single control surface
+ * (REQ-026).
  *
  * Placement uses the pure `placePiece` reducer from `editorState.ts`
  * so the UI does not need to inline footprint validation. Clicks on
@@ -223,7 +228,7 @@ export function EditorClient({
     >
       <div
         role="toolbar"
-        aria-label="Street piece palette"
+        aria-label="Editor tools"
         data-testid="editor-palette"
         data-tool-mode={toolMode}
         style={{
@@ -306,6 +311,30 @@ export function EditorClient({
         >
           {eraseActive ? 'Erasing' : 'Erase'}
         </button>
+        <Link
+          href={`/${slug}`}
+          data-testid="editor-drive-cta"
+          data-slug={slug}
+          aria-label={`Drive city ${slug}`}
+          title="Drive this city"
+          prefetch
+          style={{
+            padding: '8px 14px',
+            fontSize: 14,
+            fontFamily: 'inherit',
+            color: '#f7f4ee',
+            background: '#222',
+            border: '1px solid #222',
+            borderRadius: 4,
+            cursor: 'pointer',
+            textDecoration: 'none',
+            display: 'inline-flex',
+            alignItems: 'center',
+            lineHeight: 1,
+          }}
+        >
+          Drive
+        </Link>
       </div>
       <p
         data-testid="editor-piece-count"
