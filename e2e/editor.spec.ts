@@ -1136,6 +1136,71 @@ test('connector match status flips matched / open as adjacent pieces line up (RE
   await expect(grid).toHaveAttribute('data-connector-matched', '0')
 })
 
+test('rejection flash overlays a click that the place / erase reducer rejected (REQ-027)', async ({
+  page,
+}) => {
+  const response = await page.goto('/rejection-flash-spec/edit')
+  expect(response?.status()).toBe(200)
+
+  const grid = page.getByTestId('editor-snap-grid')
+  await expect(grid).toBeVisible()
+
+  // No flash on a fresh page: the data-rejection-kind attribute reads
+  // 'none' and the SMIL overlay node does not exist.
+  await expect(grid).toHaveAttribute('data-rejection-kind', 'none')
+  await expect(page.getByTestId('editor-rejection-flash')).toHaveCount(0)
+
+  // Place a straight piece at (0, 0) so the next click on the same
+  // cell will be rejected by the placePiece reducer.
+  const originCell = grid.locator(
+    '[data-cell-row="0"][data-cell-col="0"]',
+  )
+  await originCell.click()
+  await expect(originCell).toHaveAttribute('data-cell-occupied', 'true')
+
+  // Click the now-occupied cell. The reducer rejects so the rejection
+  // flash overlay mounts with kind=place-occupied and the click cell.
+  await originCell.click()
+  const flash = page.getByTestId('editor-rejection-flash')
+  await expect(flash).toHaveCount(1)
+  await expect(flash).toHaveAttribute('data-rejection-kind', 'place-occupied')
+  await expect(flash).toHaveAttribute('data-rejection-row', '0')
+  await expect(flash).toHaveAttribute('data-rejection-col', '0')
+  await expect(grid).toHaveAttribute('data-rejection-kind', 'place-occupied')
+  const firstFlashId = await flash.getAttribute('data-rejection-id')
+  expect(firstFlashId).not.toBeNull()
+  expect(Number.parseInt(firstFlashId ?? '0', 10)).toBeGreaterThan(0)
+
+  // Click the same cell again before the flash clears. The keyed
+  // rejection id must change so React remounts the overlay and the
+  // SMIL animation restarts cleanly.
+  await originCell.click()
+  await expect(flash).toHaveAttribute('data-rejection-kind', 'place-occupied')
+  const secondFlashId = await flash.getAttribute('data-rejection-id')
+  expect(secondFlashId).not.toBe(firstFlashId)
+
+  // Toggle to erase mode and click an empty cell: erase-empty rejection
+  // surfaces the same overlay with the matching kind. This walks the
+  // erase tool's no-op contract that REQ-027 names alongside the place
+  // tool's overlap rejection.
+  await page.getByTestId('editor-erase').click()
+  const emptyCell = grid.locator('[data-cell-row="3"][data-cell-col="3"]')
+  await expect(emptyCell).toHaveAttribute('data-cell-occupied', 'false')
+  await emptyCell.click()
+  await expect(flash).toHaveAttribute('data-rejection-kind', 'erase-empty')
+  await expect(flash).toHaveAttribute('data-rejection-row', '3')
+  await expect(flash).toHaveAttribute('data-rejection-col', '3')
+  await expect(grid).toHaveAttribute('data-rejection-kind', 'erase-empty')
+
+  // The flash auto-clears after the SMIL animation finishes. Wait
+  // longer than REJECTION_FLASH_DURATION_MS (350ms) and confirm the
+  // overlay node unmounts so the data-rejection-kind drops back to
+  // 'none'.
+  await page.waitForTimeout(500)
+  await expect(grid).toHaveAttribute('data-rejection-kind', 'none')
+  await expect(flash).toHaveCount(0)
+})
+
 test('build / drive transition curtain is wired but dormant by default (REQ-055)', async ({
   page,
 }) => {

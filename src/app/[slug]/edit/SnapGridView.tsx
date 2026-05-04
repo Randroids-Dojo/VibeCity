@@ -18,6 +18,13 @@ import {
   type PreviewCell,
 } from './editorPreview'
 import {
+  REJECTION_FLASH_DURATION_MS,
+  REJECTION_FLASH_FILL,
+  REJECTION_FLASH_FILL_OPACITY,
+  REJECTION_FLASH_STROKE,
+  type RejectionFlash,
+} from './rejectionFlash'
+import {
   DEFAULT_VIEWPORT,
   isDefaultViewport,
   viewportToViewBoxString,
@@ -90,6 +97,7 @@ export function SnapGrid({
   onCellEnter,
   onCellLeave,
   previewCell,
+  rejectionFlash,
   cursorMode = 'place',
   viewport = DEFAULT_VIEWPORT,
   onSurfaceWheel,
@@ -100,6 +108,7 @@ export function SnapGrid({
   onCellEnter?: (row: number, col: number) => void
   onCellLeave?: (row: number, col: number) => void
   previewCell?: PreviewCell | null
+  rejectionFlash?: RejectionFlash | null
   cursorMode?: 'place' | 'erase'
   viewport?: Viewport
   onSurfaceWheel?: (event: ReactWheelEvent<SVGSVGElement>) => void
@@ -138,6 +147,10 @@ export function SnapGrid({
       data-preview-kind={previewCell ? previewCell.kind : 'none'}
       data-preview-row={previewCell ? previewCell.row : ''}
       data-preview-col={previewCell ? previewCell.col : ''}
+      data-rejection-kind={rejectionFlash ? rejectionFlash.kind : 'none'}
+      data-rejection-row={rejectionFlash ? rejectionFlash.row : ''}
+      data-rejection-col={rejectionFlash ? rejectionFlash.col : ''}
+      data-rejection-id={rejectionFlash ? rejectionFlash.id : ''}
       data-viewport-pan-x={viewport.panX}
       data-viewport-pan-y={viewport.panY}
       data-viewport-zoom={viewport.zoom}
@@ -248,6 +261,47 @@ export function SnapGrid({
           strokeWidth={2}
           pointerEvents="none"
         />
+      ) : null}
+      {rejectionFlash ? (
+        <rect
+          // The id-based key forces React to remount the rect whenever a
+          // fresh rejection lands on the same cell so the SMIL animation
+          // restarts cleanly. SMIL is used over CSS keyframes because
+          // SVG attributes (fill-opacity) animate via SMIL without a
+          // browser-specific @keyframes declaration.
+          key={`rejection-${rejectionFlash.id}`}
+          data-testid="editor-rejection-flash"
+          data-rejection-kind={rejectionFlash.kind}
+          data-rejection-row={rejectionFlash.row}
+          data-rejection-col={rejectionFlash.col}
+          data-rejection-id={rejectionFlash.id}
+          x={cellToPixel(rejectionFlash).x}
+          y={cellToPixel(rejectionFlash).y}
+          width={CELL_PIXELS}
+          height={CELL_PIXELS}
+          fill={REJECTION_FLASH_FILL}
+          fillOpacity={REJECTION_FLASH_FILL_OPACITY}
+          stroke={REJECTION_FLASH_STROKE}
+          strokeWidth={2}
+          pointerEvents="none"
+        >
+          <animate
+            attributeName="fill-opacity"
+            from={REJECTION_FLASH_FILL_OPACITY}
+            to={0}
+            dur={`${REJECTION_FLASH_DURATION_MS}ms`}
+            fill="freeze"
+            repeatCount="1"
+          />
+          <animate
+            attributeName="stroke-opacity"
+            from={1}
+            to={0}
+            dur={`${REJECTION_FLASH_DURATION_MS}ms`}
+            fill="freeze"
+            repeatCount="1"
+          />
+        </rect>
       ) : null}
     </svg>
   )
