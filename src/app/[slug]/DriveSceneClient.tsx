@@ -8,7 +8,6 @@ import {
   AMBIENT_LIGHT_INTENSITY,
   CAMERA_DISTANCE,
   CAMERA_FAR,
-  CAMERA_FOV,
   CAMERA_HEIGHT,
   CAMERA_NEAR,
   CAR_BODY_COLOR,
@@ -48,6 +47,18 @@ import {
   inputFromPressedKeys,
 } from './driveControls'
 import { createCameraRig, updateCameraRig } from './cameraRig'
+import {
+  CAMERA_SLIDER_BOUNDS,
+  clampCameraTuning,
+  toCameraRigParams,
+} from './cameraSettings'
+import { CameraSettingsPanel } from './CameraSettingsPanel'
+import {
+  DEFAULT_CAMERA_TUNING,
+  loadControls,
+  saveControls,
+  type CameraTuning,
+} from '@/lib/controlsPersistence'
 import {
   DEFAULT_PAUSE_STATE,
   PAUSE_KEY_CODE,
@@ -179,6 +190,54 @@ export function DriveSceneClient({
     })
   }, [])
 
+  // Camera tuning state (REQ-040). Loaded from localStorage on mount
+  // (server-render seeds with the defaults; the client effect below
+  // hydrates from `loadControls`) so a returning player sees the same
+  // chase rig framing across visits. The integration loop reads the
+  // live value via `cameraTuningRef` each frame so a slider drag while
+  // paused (the panel renders inside the pause menu) updates the rig
+  // immediately on resume without re-attaching the integration effect.
+  const [cameraTuning, setCameraTuning] = useState<CameraTuning>(
+    DEFAULT_CAMERA_TUNING,
+  )
+  const cameraTuningRef = useRef<CameraTuning>(DEFAULT_CAMERA_TUNING)
+  useEffect(() => {
+    cameraTuningRef.current = cameraTuning
+  }, [cameraTuning])
+  // The camera object the integration effect creates is published to
+  // this ref so the panel can update the FOV imperatively without
+  // tearing down and rebuilding the scene; the projection matrix is
+  // refreshed in the panel's onChange branch below.
+  const perspectiveCameraRef = useRef<THREE.PerspectiveCamera | null>(null)
+  useEffect(() => {
+    // Hydrate from localStorage on first mount. The server-render
+    // already used the defaults so a fresh visit sees the same framing
+    // as a returning player whose payload happens to match the
+    // defaults; a returning player whose payload differs sees the rig
+    // re-frame on the next animation tick.
+    const persisted = loadControls()
+    setCameraTuning(clampCameraTuning(persisted.camera))
+  }, [])
+  const handleCameraTuningChange = useCallback((next: CameraTuning) => {
+    const clamped = clampCameraTuning(next)
+    setCameraTuning(clamped)
+    saveControls({ camera: clamped })
+    const camera = perspectiveCameraRef.current
+    if (camera && camera.fov !== clamped.fov) {
+      camera.fov = clamped.fov
+      camera.updateProjectionMatrix()
+    }
+  }, [])
+  const handleCameraTuningReset = useCallback(() => {
+    setCameraTuning(DEFAULT_CAMERA_TUNING)
+    saveControls({ camera: DEFAULT_CAMERA_TUNING })
+    const camera = perspectiveCameraRef.current
+    if (camera && camera.fov !== DEFAULT_CAMERA_TUNING.fov) {
+      camera.fov = DEFAULT_CAMERA_TUNING.fov
+      camera.updateProjectionMatrix()
+    }
+  }, [])
+
   // Memoize the bounds so the effect re-fits the camera only when the
   // city actually changes shape, not on every parent rerender.
   const bounds = useMemo(
@@ -236,12 +295,18 @@ export function DriveSceneClient({
     const scene = new THREE.Scene()
     scene.background = new THREE.Color(SKY_COLOR)
 
+    // Camera FOV reads the persisted tuning at mount time (REQ-040) so
+    // a returning player whose tuning differs from the defaults sees
+    // the right framing on the first rendered frame; subsequent slider
+    // changes update `camera.fov` and call `updateProjectionMatrix`
+    // without tearing down the scene.
     const camera = new THREE.PerspectiveCamera(
-      CAMERA_FOV,
+      cameraTuningRef.current.fov,
       1,
       CAMERA_NEAR,
       CAMERA_FAR,
     )
+    perspectiveCameraRef.current = camera
 
     // Lighting (REQ-044): ambient keeps unlit faces from going pure
     // black; the directional key light reads as noon from the south
@@ -663,7 +728,12 @@ export function DriveSceneClient({
     // makes the camera ease through turns instead of snapping.
     const rig =
       vehicle && car
-        ? createCameraRig(vehicle.x, vehicle.z, vehicle.heading)
+        ? createCameraRig(
+            vehicle.x,
+            vehicle.z,
+            vehicle.heading,
+            toCameraRigParams(cameraTuningRef.current),
+          )
         : null
     const cameraLookTarget = new THREE.Vector3()
     const applyChaseCamera = () => {
@@ -714,7 +784,12 @@ export function DriveSceneClient({
       updateHud()
       updateMinimap()
       if (rig) {
-        const snap = createCameraRig(vehicle.x, vehicle.z, vehicle.heading)
+        const snap = createCameraRig(
+          vehicle.x,
+          vehicle.z,
+          vehicle.heading,
+          toCameraRigParams(cameraTuningRef.current),
+        )
         rig.position.x = snap.position.x
         rig.position.y = snap.position.y
         rig.position.z = snap.position.z
@@ -803,7 +878,13 @@ export function DriveSceneClient({
         if (rig) rig.update(vehicle.speed)
       }
       if (rig && vehicle) {
-        updateCameraRig(rig, vehicle.x, vehicle.z, vehicle.heading)
+        updateCameraRig(
+          rig,
+          vehicle.x,
+          vehicle.z,
+          vehicle.heading,
+          toCameraRigParams(cameraTuningRef.current),
+        )
         applyChaseCamera()
         updateCameraAttrs()
       }
@@ -834,6 +915,9 @@ export function DriveSceneClient({
         window.removeEventListener('keydown', handleRespawnKey)
         window.removeEventListener('keydown', handleEngineMuteKey)
       }
+      // Drop the camera ref (REQ-040) so a stale slider change after
+      // the scene unmounts cannot poke the disposed projection matrix.
+      perspectiveCameraRef.current = null
       // Tear down the engine audio rig (REQ-068) so navigating away
       // from the slug does not leave an oscillator humming. The rig
       // owns its `AudioContext`; the `stop()` call ramps the gain to
@@ -906,6 +990,11 @@ export function DriveSceneClient({
       data-minimap-visible={hasVehicle && !showPauseMenu ? 'true' : 'false'}
       data-minimap-piece-count={city.pieces.length}
       data-minimap-building-count={city.buildings.length}
+      data-camera-height={cameraTuning.height}
+      data-camera-distance={cameraTuning.distance}
+      data-camera-look-ahead={cameraTuning.lookAhead}
+      data-camera-follow-speed={cameraTuning.followSpeed}
+      data-camera-fov={cameraTuning.fov}
       style={{
         position: 'fixed',
         inset: 0,
@@ -1334,6 +1423,11 @@ export function DriveSceneClient({
           >
             Press Esc to resume.
           </p>
+          <CameraSettingsPanel
+            tuning={cameraTuning}
+            onChange={handleCameraTuningChange}
+            onReset={handleCameraTuningReset}
+          />
         </div>
       ) : null}
     </div>

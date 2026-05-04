@@ -758,9 +758,17 @@
       "id": "REQ-040",
       "requirement": "Settings pane: camera tuning (height, distance, lookAhead, followSpeed, fov) ported from VibeRacer",
       "gddRef": "docs/gdd/10-settings.md",
-      "status": "not_started",
-      "implementationRefs": [],
-      "testRefs": [],
+      "status": "done",
+      "implementationRefs": [
+        "src/app/[slug]/cameraSettings.ts",
+        "src/app/[slug]/CameraSettingsPanel.tsx",
+        "src/app/[slug]/DriveSceneClient.tsx",
+        "src/lib/controlsPersistence.ts"
+      ],
+      "testRefs": [
+        "tests/app/cameraSettings.test.ts",
+        "e2e/drive.spec.ts"
+      ],
       "followupRefs": []
     },
     {

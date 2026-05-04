@@ -63,6 +63,41 @@ join point a converter would target.
 
 ### Build log
 
+- 2026-05-04: REQ-040 shipped. Added `src/app/[slug]/cameraSettings.ts`
+  with `CAMERA_SLIDER_BOUNDS` (per-field min / max / step / label),
+  `clampCameraTuning(input)` (snaps every field to its slider step;
+  non-finite inputs collapse to the field's min), `snapToSliderStep`,
+  `toCameraRigParams(tuning)` (bridges the persisted shape to the
+  chase rig's `CameraRigParams` by filling fixed fields from
+  `cameraRig.ts`), and `CAMERA_SETTINGS_FIXED_RIG_FIELDS`. Added
+  `src/app/[slug]/CameraSettingsPanel.tsx` rendering five sliders
+  (height, distance, lookAhead, followSpeed, fov) plus a Reset button
+  inside the pause menu (REQ-039); the panel is a controlled
+  component, the parent owns the `CameraTuning` state and persists via
+  `saveControls`. Wired `src/app/[slug]/DriveSceneClient.tsx` to load
+  the persisted tuning on mount, hold it in a ref the integration loop
+  reads each frame so a slider drag while paused updates the rig
+  params on resume, expose `data-camera-*` mirrors on the scene root
+  for tests, and update the perspective camera's fov imperatively when
+  the slider changes. Slider step for height / distance / lookAhead is
+  0.2 world units so the v1 defaults (6.4 / 14 / 6) sit exactly on a
+  step; followSpeed step is 0.01; fov step is 1 degree. 22 unit tests
+  in `tests/app/cameraSettings.test.ts` cover the bounds invariants
+  (every field has a bound, every default sits inside, race-term
+  vocabulary lockdown), `snapToSliderStep` (clamp below / above,
+  in-range snap, non-finite, sub-unit float-noise-free, integer-step),
+  `clampCameraTuning` (default round-trip, below-min / above-max
+  clamp, non-finite collapse, fresh object), and `toCameraRigParams`
+  (tunable fields pass through, fixed fields from defaults, default
+  bridge equivalence). E2e drive specs assert
+  `data-camera-fov="60"` / `data-camera-height="6.4"` /
+  `data-camera-distance="14"` / `data-camera-look-ahead="6"` /
+  `data-camera-follow-speed="0.12"` and that the
+  `drive-camera-settings` testid resolves to zero elements when the
+  pause menu is closed. Files: `src/app/[slug]/cameraSettings.ts`,
+  `src/app/[slug]/CameraSettingsPanel.tsx`,
+  `src/app/[slug]/DriveSceneClient.tsx`, `e2e/drive.spec.ts`,
+  `tests/app/cameraSettings.test.ts`. PR #N.
 - 2026-05-03: REQ-043 shipped. Added `src/lib/controlsPersistence.ts` with
   `CONTROLS_STORAGE_KEY = 'vibecity.controls'`, `CONTROLS_STORAGE_VERSION = 1`,
   `CameraTuningSchema` / `KeyBindingsSchema` / `TouchModeSchema` /

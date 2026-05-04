@@ -106,6 +106,18 @@ test('drive route mounts the canvas with the slug label and Edit CTA', async ({
   await expect(root).toHaveAttribute('data-minimap-building-count', '0')
   await expect(page.getByTestId('drive-minimap')).toHaveCount(0)
 
+  // REQ-040: camera tuning settings pane defaults to the persisted
+  // defaults on first mount; the data attributes mirror the live tuning
+  // so a test can assert the persistence layer wired through. The panel
+  // itself only renders inside the pause menu (REQ-039); without a car
+  // mounted the menu cannot open and the panel stays absent.
+  await expect(root).toHaveAttribute('data-camera-fov', '60')
+  await expect(root).toHaveAttribute('data-camera-height', '6.4')
+  await expect(root).toHaveAttribute('data-camera-distance', '14')
+  await expect(root).toHaveAttribute('data-camera-look-ahead', '6')
+  await expect(root).toHaveAttribute('data-camera-follow-speed', '0.12')
+  await expect(page.getByTestId('drive-camera-settings')).toHaveCount(0)
+
   // REQ-037: drive mode is a city-builder loop, not a racing game. The
   // anti-feature lockdown asserts that no lap timer, checkpoint banner,
   // race timer, or other race-HUD element ever ships on the drive
@@ -179,6 +191,13 @@ test('drive route shows the empty-state prompt for a fresh slug (REQ-053)', asyn
   // null when the city has no footprint so the SVG layer never mounts.
   await expect(root).toHaveAttribute('data-minimap-visible', 'false')
   await expect(page.getByTestId('drive-minimap')).toHaveCount(0)
+
+  // REQ-040: camera tuning data attributes ride on the root even on the
+  // empty grid; the panel itself stays absent because the pause menu
+  // listener is gated on the car-mounted branch.
+  await expect(root).toHaveAttribute('data-camera-fov', '60')
+  await expect(root).toHaveAttribute('data-camera-follow-speed', '0.12')
+  await expect(page.getByTestId('drive-camera-settings')).toHaveCount(0)
 
   // REQ-037: race-HUD anti-feature lockdown also applies on the empty
   // grid. The forbidden testids must not exist regardless of whether a
