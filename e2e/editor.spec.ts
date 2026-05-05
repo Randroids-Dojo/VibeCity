@@ -1347,6 +1347,73 @@ test('track path readout reflects main-segment piece count and closed-loop statu
   await expect(page.getByTestId('editor-track-path-readout')).toHaveCount(0)
 })
 
+test('unmatched-ports readout reflects open connector port count (REQ-019, REQ-064)', async ({
+  page,
+}) => {
+  // Intercept autosave so the editor opens cleanly without KV.
+  await page.route('**/api/city/**', async (route) => {
+    if (route.request().method() !== 'PUT') {
+      await route.continue()
+      return
+    }
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        slug: 'unmatched-ports-spec',
+        versionHash:
+          '0000000000000000000000000000000000000000000000000000000000000000',
+        updatedAt: Date.now(),
+      }),
+    })
+  })
+
+  const response = await page.goto('/unmatched-ports-spec/edit')
+  expect(response?.status()).toBe(200)
+
+  const grid = page.getByTestId('editor-snap-grid')
+  await expect(grid).toBeVisible()
+
+  // Empty city: the readout does not mount because there are no ports.
+  await expect(
+    page.getByTestId('editor-unmatched-ports-readout'),
+  ).toHaveCount(0)
+
+  // Place a single straight: 2 unmatched ports (north and south of the
+  // straight have no neighbor pieces).
+  await grid.locator('[data-cell-row="0"][data-cell-col="0"]').click()
+  const readout = page.getByTestId('editor-unmatched-ports-readout')
+  await expect(readout).toBeVisible()
+  await expect(readout).toHaveAttribute('data-unmatched-port-count', '2')
+  await expect(readout).toHaveText('Open ends: 2')
+
+  // Place a second straight directly south so the south port of (0,0)
+  // matches the north port of (1,0). Two of the four ports across the
+  // chain are now matched, leaving 2 unmatched (the chain's two ends).
+  await grid.locator('[data-cell-row="1"][data-cell-col="0"]').click()
+  await expect(readout).toHaveAttribute('data-unmatched-port-count', '2')
+  await expect(readout).toHaveText('Open ends: 2')
+
+  // Place a disconnected straight at (5, 0): two new unmatched ports
+  // are introduced because the new piece does not connect to anything.
+  await grid.locator('[data-cell-row="5"][data-cell-col="0"]').click()
+  await expect(readout).toHaveAttribute('data-unmatched-port-count', '4')
+  await expect(readout).toHaveText('Open ends: 4')
+
+  // Erase the disconnected piece: the count drops back to 2.
+  await page.getByTestId('editor-erase').click()
+  await grid.locator('[data-cell-row="5"][data-cell-col="0"]').click()
+  await expect(readout).toHaveAttribute('data-unmatched-port-count', '2')
+
+  // Erase both remaining pieces: the readout unmounts when no ports
+  // remain.
+  await grid.locator('[data-cell-row="1"][data-cell-col="0"]').click()
+  await grid.locator('[data-cell-row="0"][data-cell-col="0"]').click()
+  await expect(
+    page.getByTestId('editor-unmatched-ports-readout'),
+  ).toHaveCount(0)
+})
+
 test('rejection flash overlays a click that the place / erase reducer rejected (REQ-027)', async ({
   page,
 }) => {
