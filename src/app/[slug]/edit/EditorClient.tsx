@@ -44,7 +44,11 @@ import {
   undoHistory,
   type EditorHistory,
 } from './editorHistory'
-import { previewKindFor, type PreviewCell } from './editorPreview'
+import {
+  previewCellsFor,
+  previewKindFor,
+  type PreviewCell,
+} from './editorPreview'
 import {
   REJECTION_FLASH_DURATION_MS,
   rejectionFlashFromClick,
@@ -130,7 +134,11 @@ import { SceneTransitionCurtain } from '../SceneTransitionCurtain'
  * `PreviewCell` into `SnapGrid` so a translucent ghost overlay reads
  * out what the next click would do. The ghost reflects place mode
  * (valid vs. occupied-and-rejected) and erase mode (target vs. no-op)
- * with no extra state for the author to track.
+ * with no extra state for the author to track. The companion
+ * `previewCellsFor` resolver (REQ-059) projects the rotated footprint
+ * of a multi-cell street piece (mega sweep, hairpin) onto the hovered
+ * anchor so the ghost reveals the full reach of a placement, and
+ * expands erase-mode previews to the matched piece's full footprint.
  */
 export function EditorClient({
   slug,
@@ -212,6 +220,23 @@ export function EditorClient({
           col: hoverCell.col,
         }),
       }
+    : null
+  // Multi-cell footprint preview (REQ-059): a multi-cell street piece
+  // (mega sweep, hairpin) projects its rotated footprint onto the
+  // hovered anchor cell so the ghost reads out the full reach of the
+  // placement. The legacy `previewCell` stays the anchor for the
+  // SVG-level data attributes; `previewCells` carries every footprint
+  // cell for the multi-ghost render path.
+  const previewCells: readonly PreviewCell[] | null = hoverCell
+    ? previewCellsFor({
+        city,
+        category: paletteCategory,
+        toolMode,
+        row: hoverCell.row,
+        col: hoverCell.col,
+        activePieceType: selectedType,
+        activeRotation: rotation,
+      })
     : null
 
   const handleCellEnter = useCallback((row: number, col: number) => {
@@ -916,6 +941,7 @@ export function EditorClient({
         onCellEnter={handleCellEnter}
         onCellLeave={handleCellLeave}
         previewCell={previewCell}
+        previewCells={previewCells}
         rejectionFlash={rejectionFlash}
         cursorMode={toolMode}
         viewport={viewport}

@@ -965,6 +965,88 @@ test('hover preview ghost flips kind across place / erase and category', async (
   await expect(ghost).toHaveCount(0)
 })
 
+test('multi-cell footprint preview ghost reveals full piece reach (REQ-059)', async ({
+  page,
+}) => {
+  // Intercept autosave so the editor opens cleanly without KV.
+  await page.route('**/api/city/**', async (route) => {
+    if (route.request().method() !== 'PUT') {
+      await route.continue()
+      return
+    }
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        slug: 'multi-cell-preview-spec',
+        versionHash:
+          '0000000000000000000000000000000000000000000000000000000000000000',
+        updatedAt: Date.now(),
+      }),
+    })
+  })
+
+  const response = await page.goto('/multi-cell-preview-spec/edit')
+  expect(response?.status()).toBe(200)
+
+  const grid = page.getByTestId('editor-snap-grid')
+  await expect(grid).toBeVisible()
+  const ghost = page.getByTestId('editor-preview-ghost')
+
+  // Default piece is straight (single cell). Hover to confirm a single
+  // ghost cell renders.
+  const anchor = grid.locator('[data-cell-row="2"][data-cell-col="2"]')
+  await anchor.hover()
+  await expect(ghost).toHaveCount(1)
+  await expect(grid).toHaveAttribute('data-preview-cell-count', '1')
+
+  // Pick the multi-cell mega sweep right piece. Hover the same cell.
+  // The ghost expands to four cells covering the canonical 2x2
+  // footprint at rotation 0: (1,1), (1,2), (2,1), (2,2).
+  await page.locator('[data-piece-type="megaSweepRight"]').click()
+  await anchor.hover()
+  await expect(ghost).toHaveCount(4)
+  await expect(grid).toHaveAttribute('data-preview-cell-count', '4')
+
+  const ghostKinds = await ghost.evaluateAll((els) =>
+    els.map((el) => el.getAttribute('data-preview-kind')),
+  )
+  expect(ghostKinds.every((kind) => kind === 'place-valid')).toBe(true)
+
+  // The anchor cell carries data-preview-anchor='true' and matches the
+  // SVG-level data-preview-row / data-preview-col mirrors.
+  const anchorGhost = ghost.filter({ hasText: '' }).first()
+  await expect(anchorGhost).toHaveAttribute('data-preview-anchor', 'true')
+  await expect(grid).toHaveAttribute('data-preview-row', '2')
+  await expect(grid).toHaveAttribute('data-preview-col', '2')
+
+  // Place the mega sweep, then hover the same anchor cell again. Now
+  // every ghost cell flips to place-invalid because the candidate
+  // footprint would collide with the placed piece.
+  await anchor.click()
+  await anchor.hover()
+  await expect(ghost).toHaveCount(4)
+  const collidingKinds = await ghost.evaluateAll((els) =>
+    els.map((el) => el.getAttribute('data-preview-kind')),
+  )
+  expect(collidingKinds.every((kind) => kind === 'place-invalid')).toBe(true)
+
+  // Switch to erase mode. Hover any cell of the placed mega sweep
+  // footprint and every cell of the matched piece lights up as
+  // erase-target so the author sees the full piece the click would
+  // remove. Hover an off-anchor cell of the footprint to confirm the
+  // expanded preview path.
+  await page.getByTestId('editor-erase').click()
+  const offAnchor = grid.locator('[data-cell-row="1"][data-cell-col="1"]')
+  await offAnchor.hover()
+  await expect(ghost).toHaveCount(4)
+  await expect(grid).toHaveAttribute('data-preview-cell-count', '4')
+  const eraseKinds = await ghost.evaluateAll((els) =>
+    els.map((el) => el.getAttribute('data-preview-kind')),
+  )
+  expect(eraseKinds.every((kind) => kind === 'erase-target')).toBe(true)
+})
+
 test('pan / zoom viewport (REQ-024) responds to wheel and reset button', async ({
   page,
 }) => {

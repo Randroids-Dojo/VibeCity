@@ -357,6 +357,9 @@
       "implementationRefs": [
         "src/app/[slug]/edit/snapGrid.ts",
         "src/app/[slug]/edit/editorState.ts",
+        "src/app/[slug]/edit/editorPreview.ts",
+        "src/app/[slug]/edit/EditorClient.tsx",
+        "src/app/[slug]/edit/SnapGridView.tsx",
         "src/app/[slug]/driveScene.ts",
         "src/lib/schemas.ts",
         "src/lib/hashCity.ts"
@@ -364,9 +367,11 @@
       "testRefs": [
         "tests/app/snapGrid.test.ts",
         "tests/app/editorState.test.ts",
+        "tests/app/editorPreview.test.ts",
         "tests/app/driveScene.test.ts",
         "tests/lib/schemas.test.ts",
-        "tests/lib/hashCity.test.ts"
+        "tests/lib/hashCity.test.ts",
+        "e2e/editor.spec.ts"
       ],
       "followupRefs": [
         "F-002"
