@@ -1,4 +1,6 @@
 import type { Piece } from '@/lib/schemas'
+import type { TrackPath } from '@/lib/trackPath'
+import { wheelContactCandidates } from '@/lib/wheelContact'
 import { CELL_SIZE } from './driveScene'
 import { worldToCell } from './buildingCollision'
 import { pieceFootprintCells } from './edit/snapGrid'
@@ -152,4 +154,85 @@ export function applyOffStreetPenalty(
     heading: state.heading,
     speed,
   }
+}
+
+/**
+ * One wheel offset in the car's local frame (REQ-032). `x` is the
+ * lateral offset (positive = right side of the car when facing forward),
+ * `z` is the longitudinal offset (negative = front axle, positive =
+ * rear axle) per the convention `carWheelOffsets()` in `driveScene.ts`
+ * already follows. The pure helper accepts the offset shape directly
+ * so it can be unit-tested without mounting the drive scene.
+ */
+export interface WheelLocalOffset {
+  x: number
+  z: number
+}
+
+/**
+ * Transform a wheel's local offset into a world-space `(x, z)` pair
+ * given the vehicle's center pose. The car's local `+x` axis points
+ * to the right of the heading; the local `-z` axis points forward.
+ * The rotation matches the placed car mesh (`car.rotation.y =
+ * vehicle.heading`) so the four wheels track the car as it turns.
+ *
+ * Pure: returns a fresh object on every call so callers cannot mutate
+ * cached state.
+ */
+export function wheelWorldPosition(
+  vehicle: Pick<VehicleState, 'x' | 'z' | 'heading'>,
+  offset: WheelLocalOffset,
+): { x: number; z: number } {
+  const cos = Math.cos(vehicle.heading)
+  const sin = Math.sin(vehicle.heading)
+  // Apply a Y-axis rotation that matches `car.rotation.y = heading`:
+  // a local point (lx, lz) maps to world (cos*lx + sin*lz, -sin*lx + cos*lz).
+  const lx = offset.x
+  const lz = offset.z
+  return {
+    x: vehicle.x + cos * lx + sin * lz,
+    z: vehicle.z + -sin * lx + cos * lz,
+  }
+}
+
+/**
+ * Per-wheel on-street test (REQ-032).
+ *
+ * For each wheel offset, transforms the wheel into world space, asks
+ * the multi-locator substrate (REQ-064 + REQ-065) whether the wheel's
+ * cell has any candidate piece, and returns true as soon as one wheel
+ * does. The car is treated as on-street when at least one wheel is on
+ * a street piece's footprint cell, which matches the player's
+ * expectation that a tire on the road keeps the car planted while a
+ * tire hanging off the road does not flip the whole car off-street.
+ *
+ * Returns false when the path has no segments (an empty city) so an
+ * empty city reports every position as off-street, mirroring the
+ * `isOnStreetCell` contract on the empty path.
+ *
+ * The helper builds zero per-call allocation beyond what
+ * `wheelContactCandidates` returns; the candidate list is read for
+ * its length only and is not retained, so a per-frame call site is
+ * safe to invoke without churn.
+ */
+export function wheelOnStreet(
+  vehicle: Pick<VehicleState, 'x' | 'z' | 'heading'>,
+  wheelOffsets: readonly WheelLocalOffset[],
+  path: TrackPath,
+  cityPieces: readonly Piece[],
+  cellSize: number,
+): boolean {
+  if (path.segments.length === 0) return false
+  for (const offset of wheelOffsets) {
+    const world = wheelWorldPosition(vehicle, offset)
+    const candidates = wheelContactCandidates(
+      world.x,
+      world.z,
+      path,
+      cityPieces,
+      cellSize,
+    )
+    if (candidates.length > 0) return true
+  }
+  return false
 }
