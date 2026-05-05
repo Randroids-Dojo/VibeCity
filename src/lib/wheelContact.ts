@@ -1,4 +1,4 @@
-import { cellKey } from '@/app/[slug]/edit/snapGrid'
+import { cellKey, pieceFootprintCells } from '@/app/[slug]/edit/snapGrid'
 import type { OrderedPiece, PathLocator, TrackPath } from '@/lib/trackPath'
 import type { Piece } from '@/lib/schemas'
 
@@ -108,6 +108,58 @@ export function pieceAnchorDistance(
   const dx = wheelX - anchorX
   const dz = wheelZ - anchorZ
   return Math.sqrt(dx * dx + dz * dz)
+}
+
+/**
+ * Distance from a wheel's world-space `(x, z)` to the nearest footprint
+ * cell center of `ordered.piece`. Strictly more accurate than
+ * `pieceAnchorDistance` for multi-cell pieces (mega sweep, hairpin,
+ * future arc45 / diagonal once their footprints land) because the
+ * anchor of a multi-cell piece sits at one corner of the footprint, so
+ * `pieceAnchorDistance` lies about how far a wheel at the far edge of
+ * the footprint is from the piece. Single-cell pieces collapse to the
+ * anchor distance because their only footprint cell IS the anchor.
+ *
+ * Reads `pieceFootprintCells(piece)` for the piece's absolute cell
+ * coverage (single-cell pieces fall back to the anchor; multi-cell
+ * pieces emit every cell of their canonical or explicit footprint). For
+ * each cell, computes the Euclidean distance to that cell's world-space
+ * center (`(col * cellSize, row * cellSize)`, mirroring the drive-mode
+ * `cellToWorld` convention) and returns the minimum.
+ *
+ * Returns `Infinity` only when the piece has an empty footprint, which
+ * is unreachable for a schema-valid `Piece` (the canonical default
+ * footprint is `[{ dr: 0, dc: 0 }]` so every piece resolves to at least
+ * one cell). The picker treats `Infinity` as off-piece so a future
+ * caller that accidentally constructs a degenerate ordered piece does
+ * not crash.
+ *
+ * Geometry caveat: "footprint cell center" is still a coarse stand-in
+ * for the per-piece sampled centerline (F-003 / F-004). For a straight
+ * piece this is faithful (the centerline runs through the cell center).
+ * For a curve / sweep / hairpin / arc45 / diagonal, the true centerline
+ * snakes through the footprint and is closer to the wheel than the
+ * cell center on most of its arc; this resolver still picks the right
+ * piece across overlap because ALL of the piece's footprint cells get
+ * surveyed, but the absolute distance value is conservative. The
+ * sampled-centerline resolver lands when F-003 / F-004 ship.
+ */
+export function pieceFootprintDistance(
+  ordered: OrderedPiece,
+  wheelX: number,
+  wheelZ: number,
+  cellSize: number,
+): number {
+  let best = Number.POSITIVE_INFINITY
+  for (const cell of pieceFootprintCells(ordered.piece)) {
+    const cx = cell.col * cellSize
+    const cz = cell.row * cellSize
+    const dx = wheelX - cx
+    const dz = wheelZ - cz
+    const d = Math.sqrt(dx * dx + dz * dz)
+    if (d < best) best = d
+  }
+  return best
 }
 
 /**

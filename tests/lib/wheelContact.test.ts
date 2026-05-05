@@ -4,6 +4,7 @@ import { buildTrackPath, type OrderedPiece } from '@/lib/trackPath'
 import {
   pickClosestWheelContact,
   pieceAnchorDistance,
+  pieceFootprintDistance,
   wheelCell,
   wheelContactCandidates,
   wheelTrackContact,
@@ -104,6 +105,180 @@ describe('pieceAnchorDistance (REQ-065)', () => {
     expect(pieceAnchorDistance(ordered, 0, 0, 10)).toBeCloseTo(
       Math.sqrt(10 * 10 + 10 * 10),
     )
+  })
+})
+
+describe('pieceFootprintDistance (REQ-065)', () => {
+  // Helper: walk the substrate so the OrderedPiece for a test fixture
+  // is the same shape `wheelTrackContact` would feed the resolver.
+  function orderedFor(p: Piece): OrderedPiece {
+    const path = buildTrackPath({ pieces: [p] })
+    const main = path.segments[0]
+    if (!main) throw new Error('expected a main segment')
+    const ordered = main.order[0]
+    if (!ordered) throw new Error('expected an ordered piece')
+    return ordered
+  }
+
+  it('returns zero at the anchor world center for a single-cell piece', () => {
+    const ordered = orderedFor(piece('straight', 3, 4, 0))
+    // Anchor world center for (row=3, col=4) is (col * CELL_SIZE, row * CELL_SIZE) = (16, 12).
+    expect(pieceFootprintDistance(ordered, 16, 12, CELL_SIZE)).toBe(0)
+  })
+
+  it('matches pieceAnchorDistance for a single-cell piece because the only footprint cell IS the anchor', () => {
+    const ordered = orderedFor(piece('straight', 0, 0, 0))
+    expect(pieceFootprintDistance(ordered, 3, 4, CELL_SIZE)).toBeCloseTo(
+      pieceAnchorDistance(ordered, 3, 4, CELL_SIZE),
+    )
+    expect(pieceFootprintDistance(ordered, -3, -4, CELL_SIZE)).toBeCloseTo(
+      pieceAnchorDistance(ordered, -3, -4, CELL_SIZE),
+    )
+  })
+
+  it('returns zero at any footprint-cell center of a multi-cell piece', () => {
+    // Hairpin canonical footprint at (row=5, col=5) covers absolute cells
+    // (4,5), (4,6), (5,5), (5,6), (6,5), (6,6). Their world centers are
+    // (5*CELL_SIZE, 4*CELL_SIZE) etc. Each of those points sits ON one
+    // footprint cell so the closest-cell distance is exactly zero.
+    const h = piece('hairpin', 5, 5, 0)
+    const ordered = orderedFor(h)
+    expect(
+      pieceFootprintDistance(ordered, 5 * CELL_SIZE, 4 * CELL_SIZE, CELL_SIZE),
+    ).toBe(0)
+    expect(
+      pieceFootprintDistance(ordered, 6 * CELL_SIZE, 4 * CELL_SIZE, CELL_SIZE),
+    ).toBe(0)
+    expect(
+      pieceFootprintDistance(ordered, 5 * CELL_SIZE, 5 * CELL_SIZE, CELL_SIZE),
+    ).toBe(0)
+    expect(
+      pieceFootprintDistance(ordered, 6 * CELL_SIZE, 5 * CELL_SIZE, CELL_SIZE),
+    ).toBe(0)
+    expect(
+      pieceFootprintDistance(ordered, 5 * CELL_SIZE, 6 * CELL_SIZE, CELL_SIZE),
+    ).toBe(0)
+    expect(
+      pieceFootprintDistance(ordered, 6 * CELL_SIZE, 6 * CELL_SIZE, CELL_SIZE),
+    ).toBe(0)
+  })
+
+  it('strictly improves on pieceAnchorDistance for a wheel at the far edge of a multi-cell footprint', () => {
+    // Hairpin at (row=5, col=5) anchors at world (5*CELL_SIZE, 5*CELL_SIZE).
+    // A wheel at the far-corner footprint cell (6, 6) world center
+    // (6*CELL_SIZE, 6*CELL_SIZE) sits ON that cell so the footprint
+    // distance is zero, but the anchor distance is sqrt(2) * CELL_SIZE.
+    const ordered = orderedFor(piece('hairpin', 5, 5, 0))
+    const wheelX = 6 * CELL_SIZE
+    const wheelZ = 6 * CELL_SIZE
+    expect(pieceFootprintDistance(ordered, wheelX, wheelZ, CELL_SIZE)).toBe(0)
+    expect(
+      pieceAnchorDistance(ordered, wheelX, wheelZ, CELL_SIZE),
+    ).toBeCloseTo(Math.sqrt(2) * CELL_SIZE)
+  })
+
+  it('returns the euclidean distance to the closest footprint cell from a wheel just off the footprint', () => {
+    // Mega sweep right at (row=0, col=0) covers (-1,-1), (-1,0), (0,-1),
+    // (0,0). A wheel at world (CELL_SIZE * 0.6, 0) sits closest to the
+    // (0, 1)-bordering edge. The closest footprint cell is (0, 0) at
+    // world (0, 0). Distance is CELL_SIZE * 0.6.
+    const ordered = orderedFor(piece('megaSweepRight', 0, 0, 0))
+    const wheelX = CELL_SIZE * 0.6
+    const wheelZ = 0
+    expect(pieceFootprintDistance(ordered, wheelX, wheelZ, CELL_SIZE)).toBeCloseTo(
+      CELL_SIZE * 0.6,
+    )
+    // The anchor is (0, 0) world center, which IS the closest cell here,
+    // so anchor and footprint distance agree at that wheel position.
+    expect(
+      pieceAnchorDistance(ordered, wheelX, wheelZ, CELL_SIZE),
+    ).toBeCloseTo(CELL_SIZE * 0.6)
+  })
+
+  it('honors a custom cell size', () => {
+    const ordered = orderedFor(piece('hairpin', 0, 0, 0))
+    // Hairpin at (0, 0) at cellSize 10 covers absolute cells (-1, 0),
+    // (-1, 1), (0, 0), (0, 1), (1, 0), (1, 1). World center (10, 10) is
+    // the cell (1, 1) so footprint distance is zero.
+    expect(pieceFootprintDistance(ordered, 10, 10, 10)).toBe(0)
+    // World (5, 5) sits between cells (0, 0) center and (1, 1) center;
+    // the closest cell center is (0, 0) at world (0, 0) so the distance
+    // is sqrt(50) regardless of which two of the four equally close
+    // cells the resolver picks first.
+    expect(pieceFootprintDistance(ordered, 5, 5, 10)).toBeCloseTo(
+      Math.sqrt(5 * 5 + 5 * 5),
+    )
+  })
+
+  it('rotates with the piece so a 90deg-rotated multi-cell footprint covers the rotated cells', () => {
+    // Hairpin at (row=5, col=5) rotated 90 degrees CW should cover
+    // absolute cells derived from the rotated canonical footprint. The
+    // canonical hairpin footprint is the 2x3 set
+    // {(-1,0), (-1,1), (0,0), (0,1), (1,0), (1,1)}; after 90 CW it
+    // becomes {(0,1), (1,1), (0,0), (1,0), (0,-1), (1,-1)}. With anchor
+    // (5, 5) the absolute cells are (5,6), (6,6), (5,5), (6,5), (5,4),
+    // (6,4). Each of those world centers should report zero distance.
+    const ordered = orderedFor(piece('hairpin', 5, 5, 90))
+    expect(
+      pieceFootprintDistance(ordered, 6 * CELL_SIZE, 5 * CELL_SIZE, CELL_SIZE),
+    ).toBe(0)
+    expect(
+      pieceFootprintDistance(ordered, 4 * CELL_SIZE, 5 * CELL_SIZE, CELL_SIZE),
+    ).toBe(0)
+    expect(
+      pieceFootprintDistance(ordered, 6 * CELL_SIZE, 6 * CELL_SIZE, CELL_SIZE),
+    ).toBe(0)
+    expect(
+      pieceFootprintDistance(ordered, 4 * CELL_SIZE, 6 * CELL_SIZE, CELL_SIZE),
+    ).toBe(0)
+  })
+
+  it('returns the closest cell distance regardless of footprint walk order', () => {
+    // The footprint resolver iterates `pieceFootprintCells` in the
+    // declared order; the resolver picks the minimum so the order does
+    // not change the answer. Sample two wheel positions that are
+    // closer to the LAST cell in the canonical hairpin footprint than
+    // to the first; the resolver still returns the correct minimum.
+    const ordered = orderedFor(piece('hairpin', 0, 0, 0))
+    // World center of the last canonical hairpin cell (dr=+1, dc=+1)
+    // for anchor (0, 0) is (1*CELL_SIZE, 1*CELL_SIZE).
+    expect(
+      pieceFootprintDistance(ordered, CELL_SIZE, CELL_SIZE, CELL_SIZE),
+    ).toBe(0)
+    // World center of the first canonical hairpin cell (dr=-1, dc=0)
+    // for anchor (0, 0) is (0, -1*CELL_SIZE). A wheel at (0, -CELL_SIZE)
+    // is on that cell.
+    expect(pieceFootprintDistance(ordered, 0, -CELL_SIZE, CELL_SIZE)).toBe(0)
+  })
+
+  it('cooperates with pickClosestWheelContact to pick the closer multi-cell piece on a shared cell', () => {
+    // Two hairpins whose footprints touch at the cell (1, 0) and (1, 1)
+    // (a hairpin at (0, 0) covers rows -1..1 cols 0..1; a hairpin at
+    // (3, 0) covers rows 2..4 cols 0..1). They never share a cell so
+    // a single-cell overlap test would be misleading; instead, pick a
+    // wheel position on the cell (1, 0) which is exclusively owned by
+    // the first hairpin and verify the picker selects it.
+    const a = piece('hairpin', 0, 0, 0)
+    const b = piece('hairpin', 3, 0, 0)
+    const path = buildTrackPath({ pieces: [a, b] })
+    const candidates = wheelContactCandidates(
+      0, // col 0 -> x = 0
+      CELL_SIZE, // row 1 -> z = CELL_SIZE
+      path,
+      [a, b],
+      CELL_SIZE,
+    )
+    expect(candidates).toHaveLength(1)
+    expect(candidates[0].piece).toBe(a)
+    const pick = pickClosestWheelContact(
+      candidates,
+      (ordered, x, z) => pieceFootprintDistance(ordered, x, z, CELL_SIZE),
+      0,
+      CELL_SIZE,
+    )
+    expect(pick).not.toBeNull()
+    expect(pick?.candidate.piece).toBe(a)
+    expect(pick?.distance).toBe(0)
   })
 })
 
