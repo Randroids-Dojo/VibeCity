@@ -7,6 +7,7 @@ import {
 import {
   HUD_CITY_VALIDITY_LABEL,
   HUD_CONTROLS_HINT_LINES,
+  HUD_SPEED_DIRECTION_LABEL,
   HUD_SPEED_LABEL,
   HUD_SPEED_UNIT,
   HUD_SURFACE_LABEL,
@@ -148,6 +149,12 @@ describe('Drive HUD strings respect the REQ-037 anti-feature', () => {
 
   it('keeps every city-validity label free of race vocabulary', () => {
     for (const label of Object.values(HUD_CITY_VALIDITY_LABEL)) {
+      expect(containsRaceHudVocabulary(label)).toBe(false)
+    }
+  })
+
+  it('keeps every speed-direction label free of race vocabulary', () => {
+    for (const label of Object.values(HUD_SPEED_DIRECTION_LABEL)) {
       expect(containsRaceHudVocabulary(label)).toBe(false)
     }
   })
