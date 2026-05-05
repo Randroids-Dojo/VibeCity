@@ -472,11 +472,17 @@
       "id": "REQ-065",
       "requirement": "wheelContact: multi-locator candidate evaluation. For a wheel's cell, read path.cellToLocators (fallback to cellToOrderIdx for single-locator cells), iterate every candidate piece index, compute distanceToCenterline against each, pick the closest. Without this, multi-cell pieces (hairpin, mega sweep, future arc45 / diagonal) silently report on-street status against the wrong centerline mid-piece and the car falls off. Port from VibeRacer PR #81 (src/game/wheelContact.ts wheelTrackContact).",
       "gddRef": "docs/gdd/09-drive-mode.md",
-      "status": "not_started",
-      "implementationRefs": [],
-      "testRefs": [],
+      "status": "partial",
+      "implementationRefs": [
+        "src/lib/wheelContact.ts"
+      ],
+      "testRefs": [
+        "tests/lib/wheelContact.test.ts"
+      ],
       "followupRefs": [
-        "F-002"
+        "F-002",
+        "F-003",
+        "F-004"
       ]
     },
     {
