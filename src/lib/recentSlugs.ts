@@ -142,3 +142,41 @@ export async function recentCities(
   }
   return out
 }
+
+/**
+ * Read the total number of cities tracked in the `city:index` sorted set
+ * (REQ-011, REQ-050). The home page (REQ-050) surfaces this as a "N
+ * cities so far" header cue so a visitor reads at a glance how active
+ * the substrate is across all cities, not just the newest twelve in the
+ * recently-updated list.
+ *
+ * Behavior contract:
+ *   - Returns 0 when KV is not configured (`hasKvConfigured() === false`)
+ *     so the empty-state experience without env vars is "0 cities" rather
+ *     than a thrown error. Mirrors the `recentSlugs` / `recentCities`
+ *     KV-unconfigured fallback so the home page reads as a coherent
+ *     surface across all three readers.
+ *   - Returns 0 when the sorted set is empty (no PUT has ever fired yet).
+ *   - Returns the raw `ZCARD` result otherwise. The count is unbounded by
+ *     this reader because the home page caller renders a single number;
+ *     the writer in `PUT /api/city/[slug]` is the surface that bounds the
+ *     index size if a future slice ever caps it.
+ *   - Defensive: a non-finite or non-numeric result from `ZCARD` (e.g. an
+ *     older Upstash client returning a string) collapses to 0 with a
+ *     warning so the home page never paints `NaN cities so far`.
+ */
+export async function cityIndexCount(): Promise<number> {
+  if (!hasKvConfigured()) return 0
+  const kv = getKv()
+  const raw = await kv.zcard(kvKeys.cityIndex())
+  const count = Number(raw)
+  if (!Number.isFinite(count) || count < 0) {
+    console.warn(
+      `cityIndexCount: ZCARD on city:index returned a non-finite value: ${String(
+        raw,
+      )}`,
+    )
+    return 0
+  }
+  return Math.floor(count)
+}

@@ -201,12 +201,14 @@
       "implementationRefs": [
         "src/lib/recentSlugs.ts",
         "src/lib/relativeTime.ts",
-        "src/app/page.tsx"
+        "src/app/page.tsx",
+        "src/lib/cityCount.ts"
       ],
       "testRefs": [
         "tests/lib/recentSlugs.test.ts",
         "tests/lib/relativeTime.test.ts",
-        "e2e/home.spec.ts"
+        "e2e/home.spec.ts",
+        "tests/lib/cityCount.test.ts"
       ],
       "followupRefs": []
     },
@@ -1024,12 +1026,14 @@
         "src/app/page.tsx",
         "src/app/HomeCreateForm.tsx",
         "src/lib/recentSlugs.ts",
-        "src/lib/relativeTime.ts"
+        "src/lib/relativeTime.ts",
+        "src/lib/cityCount.ts"
       ],
       "testRefs": [
         "tests/lib/recentSlugs.test.ts",
         "tests/lib/relativeTime.test.ts",
-        "e2e/home.spec.ts"
+        "e2e/home.spec.ts",
+        "tests/lib/cityCount.test.ts"
       ],
       "followupRefs": []
     },

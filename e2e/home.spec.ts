@@ -35,6 +35,15 @@ test('home page renders the heading, the Create form, and the empty list', async
   await expect(section).toBeVisible()
   await expect(section).toHaveAttribute('data-recent-count', '0')
   await expect(page.getByTestId('home-recent-empty')).toBeVisible()
+
+  // Total-count header cue is visible with the zero-count copy. The
+  // Playwright webServer runs without KV configured so cityIndexCount()
+  // falls back to 0, which renders as "0 cities so far" with the plural
+  // noun (English convention treats zero as plural).
+  const total = page.getByTestId('home-total-count')
+  await expect(total).toBeVisible()
+  await expect(total).toHaveAttribute('data-total-count', '0')
+  await expect(total).toHaveText('0 cities so far')
 })
 
 test('Create form normalizes input and gates the submit on validity', async ({

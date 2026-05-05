@@ -1,5 +1,6 @@
 import Link from 'next/link'
-import { recentCities } from '@/lib/recentSlugs'
+import { cityIndexCount, recentCities } from '@/lib/recentSlugs'
+import { formatCityCount } from '@/lib/cityCount'
 import { formatRelativeTime } from '@/lib/relativeTime'
 import { HomeCreateForm } from './HomeCreateForm'
 
@@ -25,12 +26,19 @@ import { HomeCreateForm } from './HomeCreateForm'
 export const dynamic = 'force-dynamic'
 
 export default async function HomePage() {
-  const cities = await recentCities()
+  // Read the recently-updated list and the total count in parallel so
+  // both KV reads complete in one network round-trip rather than
+  // serializing on the slower of the two.
+  const [cities, totalCount] = await Promise.all([
+    recentCities(),
+    cityIndexCount(),
+  ])
   // Snapshot the clock once per request so every entry's relative cue
   // is computed against the same `now`. Reading `Date.now()` per-entry
   // would let a slow render leak inconsistent readouts ("just now" /
   // "1m ago") for two saves landed at the same instant.
   const nowMs = Date.now()
+  const totalCountLabel = formatCityCount(totalCount)
 
   return (
     <main
@@ -59,6 +67,20 @@ export default async function HomePage() {
         <p style={{ fontSize: 18, margin: 0, opacity: 0.75 }}>
           A fully vibed city builder you can actually drive around in.
         </p>
+        {totalCountLabel.length > 0 ? (
+          <p
+            data-testid="home-total-count"
+            data-total-count={totalCount}
+            style={{
+              fontSize: 14,
+              margin: 0,
+              opacity: 0.6,
+              letterSpacing: 0.3,
+            }}
+          >
+            {totalCountLabel}
+          </p>
+        ) : null}
       </header>
 
       <HomeCreateForm />
