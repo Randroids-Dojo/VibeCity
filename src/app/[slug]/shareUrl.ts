@@ -94,6 +94,36 @@ export function buildShareUrl(slug: Slug, origin?: string | null): string {
 }
 
 /**
+ * Compose the canonical editor (build) share URL for a given slug. Mirrors
+ * `buildShareUrl` exactly except the trailing path is `/<slug>/edit` so a
+ * link recipient lands directly in the editor instead of the drive view.
+ *
+ * The drive URL (`/<slug>`) is the share link a player hands to a friend
+ * who wants to drive the city. The editor URL (`/<slug>/edit`) is the
+ * build link a co-author hands to another builder who wants to keep
+ * editing the same city. The two links share the same lifecycle vocabulary
+ * (idle / copied / error labels, reset delay, label strings) because the
+ * button behavior is identical; only the URL path differs.
+ *
+ * Origin handling matches `buildShareUrl`: a trailing slash on the origin
+ * is stripped, blank / null / undefined / whitespace-only origins collapse
+ * to the bare `/<slug>/edit` path so a server-rendered preview or a
+ * misconfigured deployment that fails to read `window.location` still
+ * emits a usable relative link.
+ */
+export function buildEditUrl(slug: Slug, origin?: string | null): string {
+  if (typeof origin !== 'string') {
+    return `/${slug}/edit`
+  }
+  const trimmed = origin.trim()
+  if (trimmed.length === 0) {
+    return `/${slug}/edit`
+  }
+  const stripped = trimmed.endsWith('/') ? trimmed.slice(0, -1) : trimmed
+  return `${stripped}/${slug}/edit`
+}
+
+/**
  * Resolve the visible button label from the live copy status. Pure:
  * deterministic on the input status with no allocation.
  */
@@ -126,5 +156,56 @@ export function shareCopyAriaLabel(
       return `Failed to copy share URL for ${slug}`
     default:
       return `Copy share URL for ${slug}`
+  }
+}
+
+/**
+ * The static label rendered on the editor copy button at rest. Mirrors
+ * `SHARE_COPY_LABEL_IDLE` ("Copy share URL") with the build verb so the
+ * editor toolbar reads as the build half of the build / drive loop. The
+ * copied / error labels reuse the shared `SHARE_COPY_LABEL_COPIED` /
+ * `SHARE_COPY_LABEL_ERROR` constants because the lifecycle feedback
+ * vocabulary is identical between the two surfaces.
+ */
+export const EDIT_COPY_LABEL_IDLE = 'Copy build URL'
+
+/**
+ * Resolve the visible button label for the editor copy button. Pure:
+ * deterministic on the input status with no allocation. Mirrors
+ * `shareCopyLabel` for the copied / error states because the success and
+ * failure feedback is identical between the drive and edit copy buttons;
+ * only the idle label differs (drive surface says "Copy share URL", edit
+ * surface says "Copy build URL").
+ */
+export function editCopyLabel(status: CopyShareStatus): string {
+  switch (status) {
+    case 'copied':
+      return SHARE_COPY_LABEL_COPIED
+    case 'error':
+      return SHARE_COPY_LABEL_ERROR
+    default:
+      return EDIT_COPY_LABEL_IDLE
+  }
+}
+
+/**
+ * Resolve the accessible name for the editor copy button. The accessible
+ * name reads as a sentence so a screen-reader user hears the URL
+ * composition and the action. The slug is interpolated so a screen-reader
+ * user hears the destination URL the click will copy. Mirrors
+ * `shareCopyAriaLabel` with the "build" noun so the screen-reader text
+ * names the editor URL the click will copy.
+ */
+export function editCopyAriaLabel(
+  slug: Slug,
+  status: CopyShareStatus,
+): string {
+  switch (status) {
+    case 'copied':
+      return `Copied build URL for ${slug}`
+    case 'error':
+      return `Failed to copy build URL for ${slug}`
+    default:
+      return `Copy build URL for ${slug}`
   }
 }

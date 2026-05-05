@@ -1808,3 +1808,66 @@ test('editor route sets the per-slug document title (REQ-007)', async ({
   expect(response?.status()).toBe(200)
   await expect(page).toHaveTitle('Edit title-spec-city | VibeCity')
 })
+
+test('editor toolbar copy-build-URL button copies the canonical edit URL (REQ-007, REQ-026)', async ({
+  browser,
+  baseURL,
+}) => {
+  // Grant clipboard read / write permissions on a fresh context so the
+  // playwright headless browser does not refuse the
+  // navigator.clipboard.writeText call. Mirrors the drive HUD share-copy
+  // spec pattern; the secure-context check passes against the dev
+  // server's localhost origin once the permission is granted on the
+  // page origin.
+  const context = await browser.newContext({
+    permissions: ['clipboard-read', 'clipboard-write'],
+  })
+  try {
+    const page = await context.newPage()
+    const response = await page.goto('/copy-build-spec/edit')
+    expect(response?.status()).toBe(200)
+
+    const palette = page.getByTestId('editor-palette')
+    await expect(palette).toHaveAttribute('data-copy-build-status', 'idle')
+
+    const button = page.getByTestId('editor-copy-build-url')
+    await expect(button).toBeVisible()
+    await expect(button).toHaveAttribute('data-copy-status', 'idle')
+    await expect(button).toHaveText('Copy build URL')
+    await expect(button).toHaveAttribute(
+      'aria-label',
+      'Copy build URL for copy-build-spec',
+    )
+
+    await button.click()
+
+    await expect(button).toHaveText('Copied!')
+    await expect(button).toHaveAttribute('data-copy-status', 'copied')
+    await expect(palette).toHaveAttribute('data-copy-build-status', 'copied')
+    await expect(button).toHaveAttribute(
+      'aria-label',
+      'Copied build URL for copy-build-spec',
+    )
+
+    // The clipboard now holds the canonical editor URL composed from the
+    // page origin plus the slug plus the `/edit` suffix. We read it back
+    // via the page's navigator.clipboard so the assertion exercises the
+    // same surface the click handler wrote to.
+    const clipboardText = await page.evaluate(() =>
+      navigator.clipboard.readText(),
+    )
+    const expectedOrigin =
+      baseURL ?? page.url().replace(/\/copy-build-spec.*/, '')
+    expect(clipboardText).toBe(
+      `${expectedOrigin.replace(/\/$/, '')}/copy-build-spec/edit`,
+    )
+
+    // After SHARE_COPY_RESET_DELAY_MS (1600 ms) the button resets to idle
+    // on both the button label and the toolbar mirror attribute.
+    await expect(button).toHaveText('Copy build URL', { timeout: 4000 })
+    await expect(button).toHaveAttribute('data-copy-status', 'idle')
+    await expect(palette).toHaveAttribute('data-copy-build-status', 'idle')
+  } finally {
+    await context.close()
+  }
+})
