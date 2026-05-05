@@ -1,5 +1,6 @@
 import Link from 'next/link'
-import { recentSlugs } from '@/lib/recentSlugs'
+import { recentCities } from '@/lib/recentSlugs'
+import { formatRelativeTime } from '@/lib/relativeTime'
 import { HomeCreateForm } from './HomeCreateForm'
 
 /**
@@ -12,15 +13,24 @@ import { HomeCreateForm } from './HomeCreateForm'
  * never blank.
  *
  * Each recent-slug entry links to `/<slug>` so a visitor lands on the
- * drive view of an existing city. The Create input creates a new slug
- * by navigating to `/<new-slug>/edit`. The two halves of the home page
- * mirror the build / drive loop: visit an existing city to drive it,
- * type a new slug to start building one.
+ * drive view of an existing city. The card surfaces a relative "Updated
+ * N ago" cue (REQ-011, REQ-050) so a visitor sees how fresh each entry
+ * is at a glance; the helper reads the `Date.now()` score the PUT route
+ * wrote on save and `formatRelativeTime` collapses the delta into a
+ * short readable cue. The Create input creates a new slug by navigating
+ * to `/<new-slug>/edit`. The two halves of the home page mirror the
+ * build / drive loop: visit an existing city to drive it, type a new
+ * slug to start building one.
  */
 export const dynamic = 'force-dynamic'
 
 export default async function HomePage() {
-  const slugs = await recentSlugs()
+  const cities = await recentCities()
+  // Snapshot the clock once per request so every entry's relative cue
+  // is computed against the same `now`. Reading `Date.now()` per-entry
+  // would let a slow render leak inconsistent readouts ("just now" /
+  // "1m ago") for two saves landed at the same instant.
+  const nowMs = Date.now()
 
   return (
     <main
@@ -55,7 +65,7 @@ export default async function HomePage() {
 
       <section
         data-testid="home-recent-section"
-        data-recent-count={slugs.length}
+        data-recent-count={cities.length}
         aria-labelledby="home-recent-heading"
         style={{
           width: '100%',
@@ -77,7 +87,7 @@ export default async function HomePage() {
         >
           Recently updated
         </h2>
-        {slugs.length === 0 ? (
+        {cities.length === 0 ? (
           <p
             data-testid="home-recent-empty"
             style={{ margin: 0, fontSize: 14, opacity: 0.6 }}
@@ -97,29 +107,47 @@ export default async function HomePage() {
               gap: 8,
             }}
           >
-            {slugs.map((slug) => (
-              <li key={slug}>
-                <Link
-                  href={`/${slug}`}
-                  data-testid="home-recent-link"
-                  data-slug={slug}
-                  prefetch
-                  style={{
-                    display: 'block',
-                    padding: '10px 12px',
-                    fontSize: 15,
-                    color: '#222',
-                    background: '#fdfaf2',
-                    border: '1px solid #d6cfbf',
-                    borderRadius: 4,
-                    textDecoration: 'none',
-                    wordBreak: 'break-all',
-                  }}
-                >
-                  {slug}
-                </Link>
-              </li>
-            ))}
+            {cities.map(({ slug, updatedAt }) => {
+              const relative = formatRelativeTime(updatedAt, nowMs)
+              const iso = new Date(updatedAt).toISOString()
+              return (
+                <li key={slug}>
+                  <Link
+                    href={`/${slug}`}
+                    data-testid="home-recent-link"
+                    data-slug={slug}
+                    data-updated-at={updatedAt}
+                    prefetch
+                    style={{
+                      display: 'flex',
+                      flexDirection: 'column',
+                      gap: 4,
+                      padding: '10px 12px',
+                      fontSize: 15,
+                      color: '#222',
+                      background: '#fdfaf2',
+                      border: '1px solid #d6cfbf',
+                      borderRadius: 4,
+                      textDecoration: 'none',
+                      wordBreak: 'break-all',
+                    }}
+                  >
+                    <span data-testid="home-recent-slug">{slug}</span>
+                    {relative.length > 0 ? (
+                      <time
+                        data-testid="home-recent-updated"
+                        data-updated-at={updatedAt}
+                        dateTime={iso}
+                        title={iso}
+                        style={{ fontSize: 12, opacity: 0.6 }}
+                      >
+                        {`Updated ${relative}`}
+                      </time>
+                    ) : null}
+                  </Link>
+                </li>
+              )
+            })}
           </ul>
         )}
       </section>
