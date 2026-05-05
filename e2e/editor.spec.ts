@@ -1735,3 +1735,68 @@ test('spawn-anchor marker reveals where the car will spawn and which way it face
   await expect(grid).toHaveAttribute('data-spawn-marker-direction', 'E')
   await expect(grid).toHaveAttribute('data-spawn-marker-rotation', '90')
 })
+
+test('spawn-anchor toolbar readout reads where the car will spawn (REQ-019, REQ-036)', async ({
+  page,
+}) => {
+  // Intercept autosave so the editor opens cleanly without KV.
+  await page.route('**/api/city/**', async (route) => {
+    if (route.request().method() !== 'PUT') {
+      await route.continue()
+      return
+    }
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        slug: 'spawn-anchor-readout-spec',
+        versionHash:
+          '0000000000000000000000000000000000000000000000000000000000000000',
+        updatedAt: Date.now(),
+      }),
+    })
+  })
+
+  const response = await page.goto('/spawn-anchor-readout-spec/edit')
+  expect(response?.status()).toBe(200)
+
+  const grid = page.getByTestId('editor-snap-grid')
+  await expect(grid).toBeVisible()
+
+  // Empty city: no readout because the drive scene never mounts the car
+  // on an empty grid.
+  await expect(page.getByTestId('editor-spawn-anchor-readout')).toHaveCount(0)
+
+  // Place one straight at (0, 0) at default rotation 0 (North).
+  await grid.locator('[data-cell-row="0"][data-cell-col="0"]').click()
+  const readout = page.getByTestId('editor-spawn-anchor-readout')
+  await expect(readout).toHaveCount(1)
+  await expect(readout).toHaveText('Spawn: (0, 0) facing North')
+  await expect(readout).toHaveAttribute('data-spawn-anchor-row', '0')
+  await expect(readout).toHaveAttribute('data-spawn-anchor-col', '0')
+  await expect(readout).toHaveAttribute('data-spawn-anchor-direction', 'N')
+
+  // Place a second piece at (0, 1): readout stays pinned to pieces[0].
+  await grid.locator('[data-cell-row="0"][data-cell-col="1"]').click()
+  await expect(readout).toHaveText('Spawn: (0, 0) facing North')
+
+  // Erase both pieces: the readout unmounts.
+  await page.getByTestId('editor-erase').click()
+  await grid.locator('[data-cell-row="0"][data-cell-col="0"]').click()
+  await grid.locator('[data-cell-row="0"][data-cell-col="1"]').click()
+  await expect(page.getByTestId('editor-spawn-anchor-readout')).toHaveCount(0)
+
+  // Switch to place mode, rotate to 90 (East), place at a non-origin
+  // cell with negative col.
+  const eraseButton = page.getByTestId('editor-erase')
+  await eraseButton.click()
+  await expect(eraseButton).toHaveAttribute('data-tool-mode', 'place')
+  const rotateButton = page.getByTestId('editor-rotate')
+  await rotateButton.click()
+  await expect(rotateButton).toHaveAttribute('data-rotation', '90')
+  await grid.locator('[data-cell-row="2"][data-cell-col="-1"]').click()
+  await expect(readout).toHaveText('Spawn: (2, -1) facing East')
+  await expect(readout).toHaveAttribute('data-spawn-anchor-row', '2')
+  await expect(readout).toHaveAttribute('data-spawn-anchor-col', '-1')
+  await expect(readout).toHaveAttribute('data-spawn-anchor-direction', 'E')
+})
