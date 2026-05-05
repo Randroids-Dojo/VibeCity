@@ -1800,3 +1800,11 @@ test('spawn-anchor toolbar readout reads where the car will spawn (REQ-019, REQ-
   await expect(readout).toHaveAttribute('data-spawn-anchor-col', '-1')
   await expect(readout).toHaveAttribute('data-spawn-anchor-direction', 'E')
 })
+
+test('editor route sets the per-slug document title (REQ-007)', async ({
+  page,
+}) => {
+  const response = await page.goto('/title-spec-city/edit')
+  expect(response?.status()).toBe(200)
+  await expect(page).toHaveTitle('Edit title-spec-city | VibeCity')
+})

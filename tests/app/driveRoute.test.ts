@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest'
-import SlugDrivePage from '@/app/[slug]/page'
+import SlugDrivePage, { generateMetadata } from '@/app/[slug]/page'
+import { driveDescription, driveTitle } from '@/app/[slug]/slugMetadata'
+import { SlugSchema } from '@/lib/schemas'
 
 /**
  * REQ-006 / REQ-049: `/<slug>` drive-view route.
@@ -121,5 +123,55 @@ describe('SlugDrivePage (REQ-006, REQ-049)', () => {
         }),
       }),
     ).rejects.toThrow()
+  })
+})
+
+describe('generateMetadata for SlugDrivePage (REQ-006, REQ-053)', () => {
+  it('returns the per-slug title and description for a valid slug', async () => {
+    const slug = SlugSchema.parse('downtown')
+    const metadata = await generateMetadata({
+      params: Promise.resolve({ slug: 'downtown' }),
+    })
+    expect(metadata.title).toBe(driveTitle(slug))
+    expect(metadata.description).toBe(driveDescription(slug))
+  })
+
+  it('mirrors the title and description into the OpenGraph card', async () => {
+    const slug = SlugSchema.parse('harbor-loop')
+    const metadata = await generateMetadata({
+      params: Promise.resolve({ slug: 'harbor-loop' }),
+    })
+    expect(metadata.openGraph?.title).toBe(driveTitle(slug))
+    expect(metadata.openGraph?.description).toBe(driveDescription(slug))
+  })
+
+  it('mirrors the title and description into the Twitter card', async () => {
+    const slug = SlugSchema.parse('harbor-loop')
+    const metadata = await generateMetadata({
+      params: Promise.resolve({ slug: 'harbor-loop' }),
+    })
+    expect(metadata.twitter?.title).toBe(driveTitle(slug))
+    expect(metadata.twitter?.description).toBe(driveDescription(slug))
+  })
+
+  it('returns an empty metadata object for an invalid slug so the layout default applies', async () => {
+    const metadata = await generateMetadata({
+      params: Promise.resolve({ slug: 'Invalid Slug' }),
+    })
+    expect(metadata).toEqual({})
+  })
+
+  it('returns an empty metadata object for an empty slug', async () => {
+    const metadata = await generateMetadata({
+      params: Promise.resolve({ slug: '' }),
+    })
+    expect(metadata).toEqual({})
+  })
+
+  it('returns an empty metadata object for a slug longer than 128 characters', async () => {
+    const metadata = await generateMetadata({
+      params: Promise.resolve({ slug: 'a'.repeat(129) }),
+    })
+    expect(metadata).toEqual({})
   })
 })
