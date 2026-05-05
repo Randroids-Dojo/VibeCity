@@ -53,7 +53,7 @@ vercel env pull .env.local
 
 `.env.local` is gitignored; never commit credentials.
 
-The `vibe-city` project shares the `upstash-kv-rose-garden` Upstash store with `vibe-racer`. Key prefixes (`city:` vs `track:`) keep the two products' data disjoint. See Q-007 in `docs/OPEN_QUESTIONS.md` for the trade-off and the path to provisioning a dedicated store if rate limits or billing become a concern.
+The `vibe-city` project owns a dedicated Upstash for Redis store named `vibecity-kv`, attached only to `vibe-city`. AGENTS.md Rule 11 forbids sharing backing stores across Vercel projects; see Q-007 in `docs/OPEN_QUESTIONS.md` for the rationale.
 
 `NEXT_PUBLIC_APP_VERSION` is resolved at build time from `git rev-parse --short HEAD` or `VERCEL_GIT_COMMIT_SHA`; override only when a deploy needs a custom label.
 

@@ -23,13 +23,17 @@ Keep `F-NNN` IDs monotonically increasing. When a followup ships, leave the entr
 
 ## Blocks Release
 
+(none yet)
+
+## Resolved
+
 ### F-009: Migrate VibeCity to a dedicated Upstash store
 
 - Priority: blocks-release
 - Context: PR #65 wired the `vibe-city` Vercel project to the same `upstash-kv-rose-garden` Upstash store that backs `vibe-racer`. Saving works on production, but the shared store violates AGENTS.md Rule 11 (one backing store per project), which landed in the same PR. Q-007 resolved in favor of dedicated stores. The shared state is interim until this followup migrates.
 - Blocker: dedicated Upstash store provisioning lives in the Vercel marketplace UI, not the CLI. Requires a human action.
 - Unblock condition: provision a fresh Upstash for Redis store on the Vercel marketplace and attach it to the `vibe-city` project. Then run `vercel env pull` to refresh `.env.local`, redeploy production, and verify a fresh slug round-trips through the new store. Once verified, run `vercel env rm` for the legacy shared-store credentials so VibeCity stops reading them. Detach the legacy resource from `vibe-city` if it shows up under `vercel integration ls` for the `vibe-city` project.
-- PR / Dot reference (when picked up): TBD
+- Resolved: PR #65. 2026-05-04. Provisioned `vibecity-kv` (Upstash ID `b8ea911f-c155-4326-b116-8828d429301a`, Pay-As-You-Go plan) via `vercel integration add upstash/upstash-kv` plus the dashboard handshake (the marketplace install bounces to a browser tab for region / plan / connect-to-project setup). The connect dialog wrote `KV_REST_API_URL`, `KV_REST_API_TOKEN`, `KV_REST_API_READ_ONLY_TOKEN`, `KV_URL`, and `REDIS_URL` to all three environments on `vibe-city` only; the legacy shared-store values were `vercel env rm`'d before the connect step so the new vars wrote in clean. `vercel integration ls` shows `vibecity-kv` attached only to `vibe-city`. `vercel --prod` redeploy and a fresh-slug round-trip (`PUT` then `GET` on slug `dedicated-store-smoke-1777946271`) confirmed save persists end to end on the dedicated store.
 
 ## Nice To Have
 
