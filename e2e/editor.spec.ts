@@ -1192,6 +1192,79 @@ test('connector match status flips matched / open as adjacent pieces line up (RE
   await expect(grid).toHaveAttribute('data-connector-matched', '0')
 })
 
+test('track path readout reflects main-segment piece count and closed-loop status (REQ-019, REQ-064)', async ({
+  page,
+}) => {
+  // Intercept autosave so the editor opens cleanly without KV.
+  await page.route('**/api/city/**', async (route) => {
+    if (route.request().method() !== 'PUT') {
+      await route.continue()
+      return
+    }
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        slug: 'track-path-spec',
+        versionHash:
+          '0000000000000000000000000000000000000000000000000000000000000000',
+        updatedAt: Date.now(),
+      }),
+    })
+  })
+
+  const response = await page.goto('/track-path-spec/edit')
+  expect(response?.status()).toBe(200)
+
+  const grid = page.getByTestId('editor-snap-grid')
+  await expect(grid).toBeVisible()
+
+  // Empty city: the readout does not mount.
+  await expect(page.getByTestId('editor-track-path-readout')).toHaveCount(0)
+
+  // Place a single straight: 1-piece open main path.
+  await grid.locator('[data-cell-row="0"][data-cell-col="0"]').click()
+  const readout = page.getByTestId('editor-track-path-readout')
+  await expect(readout).toBeVisible()
+  await expect(readout).toHaveAttribute('data-main-segment-length', '1')
+  await expect(readout).toHaveAttribute('data-total-pieces', '1')
+  await expect(readout).toHaveAttribute('data-main-segment-closes-loop', 'false')
+  await expect(readout).toHaveAttribute('data-segment-count', '1')
+  await expect(readout).toHaveText(
+    'Pieces in main path: 1 of 1 / Main path: open chain',
+  )
+
+  // Place a second straight directly south: the main segment grows to 2.
+  await grid.locator('[data-cell-row="1"][data-cell-col="0"]').click()
+  await expect(readout).toHaveAttribute('data-main-segment-length', '2')
+  await expect(readout).toHaveAttribute('data-total-pieces', '2')
+  await expect(readout).toHaveAttribute('data-main-segment-closes-loop', 'false')
+  await expect(readout).toHaveAttribute('data-segment-count', '1')
+
+  // Place a disconnected straight at (5, 0): a new component spawns,
+  // total pieces grows but the main segment stays at 2.
+  await grid.locator('[data-cell-row="5"][data-cell-col="0"]').click()
+  await expect(readout).toHaveAttribute('data-main-segment-length', '2')
+  await expect(readout).toHaveAttribute('data-total-pieces', '3')
+  await expect(readout).toHaveAttribute('data-segment-count', '2')
+  await expect(readout).toHaveText(
+    'Pieces in main path: 2 of 3 / Main path: open chain',
+  )
+
+  // Erase the disconnected piece: total drops back to 2 and segments
+  // collapse back to 1.
+  await page.getByTestId('editor-erase').click()
+  await grid.locator('[data-cell-row="5"][data-cell-col="0"]').click()
+  await expect(readout).toHaveAttribute('data-total-pieces', '2')
+  await expect(readout).toHaveAttribute('data-segment-count', '1')
+
+  // Erase both remaining pieces: the readout unmounts when the city
+  // has zero pieces.
+  await grid.locator('[data-cell-row="1"][data-cell-col="0"]').click()
+  await grid.locator('[data-cell-row="0"][data-cell-col="0"]').click()
+  await expect(page.getByTestId('editor-track-path-readout')).toHaveCount(0)
+})
+
 test('rejection flash overlays a click that the place / erase reducer rejected (REQ-027)', async ({
   page,
 }) => {

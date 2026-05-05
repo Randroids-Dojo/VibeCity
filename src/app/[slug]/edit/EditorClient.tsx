@@ -64,6 +64,7 @@ import {
   cityConnectorGlyphs,
   countMatchedGlyphs,
 } from './connectorGlyphs'
+import { buildTrackPath, summarizeTrackPath } from '@/lib/trackPath'
 import { SceneTransitionCurtain } from '../SceneTransitionCurtain'
 
 /**
@@ -576,6 +577,15 @@ export function EditorClient({
   const connectorGlyphs = cityConnectorGlyphs(city.pieces)
   const matchedConnectorCount = countMatchedGlyphs(connectorGlyphs)
 
+  // Resolve the substrate-level path summary so the toolbar can show
+  // how many of the placed pieces sit on the canonical `main` path and
+  // whether the main path is a closed loop. The walk is O(N^2) on the
+  // piece count but bounded by MAX_PIECES_PER_CITY = 256 so the cost is
+  // negligible at human pace; a future render-perf slice can memoize on
+  // the city reference if a benchmark identifies a cost.
+  const trackPath = buildTrackPath(city)
+  const trackPathSummary = summarizeTrackPath(trackPath)
+
   return (
     <div
       style={{
@@ -862,6 +872,28 @@ export function EditorClient({
           }}
         >
           Connectors matched: {matchedConnectorCount} of {connectorGlyphs.length}
+        </p>
+      ) : null}
+      {trackPathSummary.totalPieces > 0 ? (
+        <p
+          data-testid="editor-track-path-readout"
+          data-main-segment-length={trackPathSummary.mainSegmentLength}
+          data-total-pieces={trackPathSummary.totalPieces}
+          data-main-segment-closes-loop={
+            trackPathSummary.mainSegmentClosesLoop ? 'true' : 'false'
+          }
+          data-segment-count={trackPathSummary.segmentCount}
+          style={{
+            fontSize: 12,
+            margin: 0,
+            opacity: 0.65,
+          }}
+        >
+          {`Pieces in main path: ${trackPathSummary.mainSegmentLength} of ${trackPathSummary.totalPieces}`}
+          {' / '}
+          {trackPathSummary.mainSegmentClosesLoop
+            ? 'Main path: closed loop'
+            : 'Main path: open chain'}
         </p>
       ) : null}
       <p

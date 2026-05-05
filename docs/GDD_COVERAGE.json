@@ -459,10 +459,12 @@
       "gddRef": "docs/gdd/06-city-schema.md",
       "status": "partial",
       "implementationRefs": [
-        "src/lib/trackPath.ts"
+        "src/lib/trackPath.ts",
+        "src/app/[slug]/edit/EditorClient.tsx"
       ],
       "testRefs": [
-        "tests/lib/trackPath.test.ts"
+        "tests/lib/trackPath.test.ts",
+        "e2e/editor.spec.ts"
       ],
       "followupRefs": [
         "F-002"
