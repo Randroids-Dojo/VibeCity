@@ -69,6 +69,17 @@ Keep `Q-NNN` IDs monotonically increasing. When a question resolves, leave the e
 
 ## Resolved
 
+### Q-007: VibeCity Upstash store: shared with VibeRacer or dedicated
+
+- Context: VibeCity needed a KV store wired up so production saves stop failing. VibeRacer already has `upstash-kv-rose-garden` provisioned via the Vercel marketplace. VibeCity could share that store (key prefixes already differ: `city:` vs `track:`) or get its own dedicated Upstash resource.
+- Options:
+  - A. Share VibeRacer's `upstash-kv-rose-garden`: copy the same `KV_REST_API_*` env vars onto the `vibe-city` Vercel project. Pro: zero provisioning friction, immediate fix, key prefix separation already prevents collision. Con: shared rate limits and shared billing across two products; rotating credentials affects both projects; one project's runaway loop can pressure the other's ceiling.
+  - B. Provision a dedicated Upstash store via the Vercel marketplace UI: VibeCity gets its own Upstash resource attached only to `vibe-city`. Pro: clean ownership boundary, independent quotas, independent secret rotation. Con: requires Vercel marketplace UI flow (the CLI does not expose marketplace provisioning), more setup steps; a small monthly cost on a second store.
+  - C. Provision via the Upstash dashboard directly (no Vercel marketplace): create a free-tier Redis on Upstash and paste its REST URL plus token into `vercel env add`. Pro: still dedicated and independent, no marketplace lock-in. Con: not visible inside `vercel integration ls`, so it does not show up in the Vercel marketplace UI; rotating the token requires hand updates rather than the marketplace handshake.
+- Recommended default: A. Ships immediately and unblocks every saving-dependent feature. Key namespaces are already disjoint (`city:` vs `track:`), so collision is structurally impossible. The tradeoff is shared quota and shared rotation; revisit if either becomes a real problem. If we do, B is the cleanest follow-up since the marketplace handshake is what `vercel integration ls` already understands.
+- Status: resolved
+- Resolution: 2026-05-04. Dev override: B. Going forward every Vercel project gets a dedicated backing store; sharing across projects is forbidden by the new AGENTS.md Rule 11 ("One backing store per project"). The current shared-store state from PR #65 is interim. F-009 ("Migrate VibeCity to a dedicated Upstash store") tracks the migration to a fresh Upstash resource attached only to `vibe-city`.
+
 ### Q-006: VibeRacer Phase 1 piece adoption cadence
 
 - Context: VibeRacer is rolling out four long-turn pieces in PR-sized phases (1a Mega Sweep merged as PR #80, 1b Hairpin in flight on `feature/hairpin-track-piece`, 1c 45-arc and 1d Diagonal not yet started). VibeCity reuses VibeRacer's editor module; we have to pick when each upstream phase lands in VibeCity.

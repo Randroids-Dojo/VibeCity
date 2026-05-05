@@ -33,10 +33,27 @@ npm run test:e2e          # playwright smoke against next start on port 3100
 
 ## Environment variables
 
-The app does not require any env vars to run the smoke routes. Persistence (slug storage in Redis) lands in a follow-up slice and will require:
+Persistence (slug storage in Upstash Redis) is wired up. Required env vars on the deployment:
 
-- `KV_REST_API_URL` (set in the deployment dashboard, not in the repo)
-- `KV_REST_API_TOKEN` (set in the deployment dashboard, not in the repo)
+- `KV_REST_API_URL`
+- `KV_REST_API_TOKEN`
+
+Optional but pulled by `vercel env pull` (Upstash integration also sets these for the marketplace tooling):
+
+- `KV_REST_API_READ_ONLY_TOKEN`, `KV_URL`, `REDIS_URL`
+
+The smoke routes do not require any env vars; routes that read or write cities use `hasKvConfigured()` for graceful empty-city fallback when env is missing, so local development works without the file.
+
+To set up local dev with the production Upstash store:
+
+```
+vercel link --project vibe-city
+vercel env pull .env.local
+```
+
+`.env.local` is gitignored; never commit credentials.
+
+The `vibe-city` project owns a dedicated Upstash for Redis store named `vibecity-kv`, attached only to `vibe-city`. AGENTS.md Rule 11 forbids sharing backing stores across Vercel projects; see Q-007 in `docs/OPEN_QUESTIONS.md` for the rationale.
 
 `NEXT_PUBLIC_APP_VERSION` is resolved at build time from `git rev-parse --short HEAD` or `VERCEL_GIT_COMMIT_SHA`; override only when a deploy needs a custom label.
 
