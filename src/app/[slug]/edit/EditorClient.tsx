@@ -67,6 +67,7 @@ import { SnapGrid } from './SnapGridView'
 import {
   cityConnectorGlyphs,
   countMatchedGlyphs,
+  unmatchedPortGlyphs,
 } from './connectorGlyphs'
 import {
   buildTrackPath,
@@ -628,6 +629,12 @@ export function EditorClient({
   // overlay (REQ-019, REQ-064). Keeps the resolver work in EditorClient
   // (one walk per render) instead of redoing it inside SnapGridView.
   const openEndCellKeys = unmatchedPortCells(unmatchedPorts)
+  // Resolve one outward-pointing arrow per unmatched port so the editor
+  // SVG paints which side of every open-end cell still needs a neighbor
+  // (REQ-019, REQ-064). The cell-level overlay above tells a builder
+  // which cells are open; the per-port arrows tell them which direction
+  // the missing neighbor needs to land.
+  const openEndArrows = unmatchedPortGlyphs(unmatchedPorts)
 
   return (
     <div
@@ -978,6 +985,7 @@ export function EditorClient({
         cursorMode={toolMode}
         viewport={viewport}
         openEndCellKeys={openEndCellKeys}
+        openEndArrows={openEndArrows}
         onSurfaceWheel={handleSurfaceWheel}
         onSurfacePointerDown={handleSurfacePointerDown}
       />

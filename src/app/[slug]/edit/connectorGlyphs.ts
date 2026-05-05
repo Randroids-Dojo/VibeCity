@@ -6,6 +6,7 @@ import {
   opposite,
   type Dir,
 } from '@/lib/connectors'
+import type { UnmatchedPort } from '@/lib/trackPath'
 import { CELL_PIXELS, GRID_RADIUS, cellKey } from './snapGrid'
 
 /**
@@ -231,4 +232,117 @@ export const CONNECTOR_DIR_LABEL: Record<Dir, string> = {
   5: 'SW',
   6: 'W',
   7: 'NW',
+}
+
+/**
+ * Half a cell width plus a small outward offset in pixels. Each open-end
+ * arrow anchors at the cell center plus this step along its compass
+ * direction so the arrow tip sits just past the cell edge in the
+ * direction the missing neighbor needs to go. Tuned to land outside the
+ * connector glyph circle (`GLYPH_RADIUS_PIXELS`) so the arrow reads as
+ * a separate "this side is open" marker rather than overlapping the
+ * connector dot.
+ */
+export const OPEN_END_ARROW_REACH_PIXELS = CELL_PIXELS / 2 + CELL_PIXELS / 12
+
+/**
+ * Half-edge length of the open-end arrow triangle in pixels. The
+ * triangle is inscribed in a square of `2 * OPEN_END_ARROW_HALF_PIXELS`
+ * so it stays small enough to read alongside the connector glyph at the
+ * same cell edge without crowding the cell tile.
+ */
+export const OPEN_END_ARROW_HALF_PIXELS = CELL_PIXELS / 8
+
+/**
+ * One open-end arrow glyph (REQ-019, REQ-064).
+ *
+ * Pure pixel-space shape: the SnapGridView renders one `<polygon>` per
+ * entry as a small triangle pointing outward in the direction of the
+ * unmatched connector port so a builder reads "this side of this cell
+ * still needs a neighbor" at a glance instead of scanning per-glyph
+ * stroke colors. The shape stays substrate-flavored: no React, no DOM,
+ * no styling decisions. The renderer owns fill / stroke; this helper
+ * owns geometry only.
+ *
+ * `points` is the SVG-pixel coordinate list for the triangle vertices in
+ * `tip, leftBase, rightBase` order so the polygon `points` attribute
+ * reads as a clean three-vertex string with the tip carrying the open
+ * direction.
+ *
+ * `pieceIndex`, `cellRow`, `cellCol`, `dir` are mirrored from the source
+ * `UnmatchedPort` so the renderer can attach a stable React key and
+ * tests can read the per-port mapping without re-walking the substrate.
+ */
+export interface OpenEndArrowGlyph {
+  /** Pixel x position of the triangle tip inside the SVG viewBox. */
+  tipX: number
+  /** Pixel y position of the triangle tip inside the SVG viewBox. */
+  tipY: number
+  /** SVG `points` attribute string covering all three triangle vertices. */
+  points: string
+  /** Compass direction the open port faces (REQ-063 `Dir` 0..7). */
+  dir: Dir
+  /** Source piece's index inside the city's `pieces` array. */
+  pieceIndex: number
+  /** Absolute row of the footprint cell the open port lives on. */
+  cellRow: number
+  /** Absolute column of the footprint cell the open port lives on. */
+  cellCol: number
+}
+
+/**
+ * Resolve every open-end arrow glyph for a city's unmatched ports
+ * (REQ-019, REQ-064).
+ *
+ * Each `UnmatchedPort` from `validateConnections` becomes one outward-
+ * pointing triangle anchored at the cell center plus a half-cell-plus-
+ * a-step along the port's compass direction. The triangle's tip sits at
+ * `cellCenter + reach * dirVec`, and the two base vertices sit at
+ * `tip - half * dirVec +/- half * perpVec` so the triangle reads as a
+ * chevron pointing in the open direction. The chevron base is centered
+ * on the cell edge midpoint (cardinal) or cell corner (corner) along
+ * the port's direction, mirroring the connector glyph anchor convention.
+ *
+ * Walked in the order of the source `UnmatchedPort[]` so two ports on
+ * the same cell (e.g. an isolated straight reports both N and S as
+ * unmatched) emit two distinct arrows in placement order. Returns a
+ * fresh array on every call so callers cannot mutate cached state.
+ */
+export function unmatchedPortGlyphs(
+  unmatchedPorts: readonly UnmatchedPort[],
+): OpenEndArrowGlyph[] {
+  return unmatchedPorts.map((port) => {
+    const center = cellCenterPixel(port.cellRow, port.cellCol)
+    const offset = DIR_OFFSETS[port.dir]
+    // The DIR_OFFSETS unit vectors are axis-aligned (cardinal) or 45deg
+    // diagonal (corner) with magnitude 1 or sqrt(2). Reusing them as-is
+    // keeps the arrow reach consistent with the existing connector glyph
+    // anchor math without introducing a normalization step the chevron
+    // does not need.
+    const tipX = center.x + offset.dc * OPEN_END_ARROW_REACH_PIXELS
+    const tipY = center.y + offset.dr * OPEN_END_ARROW_REACH_PIXELS
+    // Step backward from the tip by half the chevron's reach so the
+    // base midpoint sits at the cell edge midpoint (cardinal) or corner
+    // (corner). The perpendicular axis is the +90deg clockwise rotation
+    // of the direction vector: `(dr, dc) -> (dc, -dr)` mirrors the same
+    // 90deg step the editor's rotation math uses (REQ-021).
+    const baseX = tipX - offset.dc * OPEN_END_ARROW_HALF_PIXELS
+    const baseY = tipY - offset.dr * OPEN_END_ARROW_HALF_PIXELS
+    const perpX = offset.dr
+    const perpY = -offset.dc
+    const leftX = baseX + perpX * OPEN_END_ARROW_HALF_PIXELS
+    const leftY = baseY + perpY * OPEN_END_ARROW_HALF_PIXELS
+    const rightX = baseX - perpX * OPEN_END_ARROW_HALF_PIXELS
+    const rightY = baseY - perpY * OPEN_END_ARROW_HALF_PIXELS
+    const points = `${tipX},${tipY} ${leftX},${leftY} ${rightX},${rightY}`
+    return {
+      tipX,
+      tipY,
+      points,
+      dir: port.dir,
+      pieceIndex: port.pieceIndex,
+      cellRow: port.cellRow,
+      cellCol: port.cellCol,
+    }
+  })
 }

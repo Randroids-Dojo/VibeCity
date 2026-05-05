@@ -35,6 +35,7 @@ import {
   GLYPH_RADIUS_PIXELS,
   cityConnectorGlyphs,
   countMatchedGlyphs,
+  type OpenEndArrowGlyph,
 } from './connectorGlyphs'
 
 /**
@@ -42,6 +43,12 @@ import {
  * `openEndCellKeys` do not allocate a fresh empty set per render.
  */
 const EMPTY_OPEN_END_KEYS: ReadonlySet<string> = new Set<string>()
+
+/**
+ * Shared empty fallback for the open-end arrow list so callers that omit
+ * `openEndArrows` do not allocate a fresh empty array per render.
+ */
+const EMPTY_OPEN_END_ARROWS: readonly OpenEndArrowGlyph[] = []
 
 /**
  * Render the editor snap-grid (REQ-016, REQ-020, REQ-022, REQ-028).
@@ -115,6 +122,19 @@ const EMPTY_OPEN_END_KEYS: ReadonlySet<string> = new Set<string>()
  * per-port glyph stroke, and the toolbar count readout. Cells with no
  * open port carry `data-cell-has-open-port='false'` so a test can
  * count both populations.
+ *
+ * Open-end direction arrows (REQ-019, REQ-064): when the caller passes
+ * `openEndArrows` (the substrate-derived list of one outward-pointing
+ * triangle per unmatched connector port), every entry renders as a
+ * non-interactive `editor-open-end-arrow` `<polygon>` whose tip points
+ * outward in the direction the missing neighbor needs to land. Two
+ * ports on the same cell (e.g. an isolated straight reports both N and
+ * S as unmatched) emit two distinct arrows so a builder reads "this
+ * north side AND this south side both still need a neighbor" instead
+ * of just "this cell is open somewhere". The arrows render after the
+ * open-end cell overlay rects but before the connector glyphs so the
+ * connector dots stay on top and the arrows read as a complementary
+ * directional cue rather than overlapping the connector dot.
  */
 export function SnapGrid({
   city,
@@ -127,6 +147,7 @@ export function SnapGrid({
   cursorMode = 'place',
   viewport = DEFAULT_VIEWPORT,
   openEndCellKeys,
+  openEndArrows,
   onSurfaceWheel,
   onSurfacePointerDown,
 }: {
@@ -140,6 +161,7 @@ export function SnapGrid({
   cursorMode?: 'place' | 'erase'
   viewport?: Viewport
   openEndCellKeys?: ReadonlySet<string> | null
+  openEndArrows?: readonly OpenEndArrowGlyph[] | null
   onSurfaceWheel?: (event: ReactWheelEvent<SVGSVGElement>) => void
   onSurfacePointerDown?: (event: ReactPointerEvent<SVGSVGElement>) => void
 }) {
@@ -170,6 +192,10 @@ export function SnapGrid({
     previewedKeys.add(cellKey(ghost.row, ghost.col))
   }
   const openEndKeys: ReadonlySet<string> = openEndCellKeys ?? EMPTY_OPEN_END_KEYS
+  const openEndArrowList: readonly OpenEndArrowGlyph[] =
+    openEndArrows && openEndArrows.length > 0
+      ? openEndArrows
+      : EMPTY_OPEN_END_ARROWS
   const viewBox = viewportToViewBoxString(viewport)
   const viewportIsDefault = isDefaultViewport(viewport)
 
@@ -186,6 +212,7 @@ export function SnapGrid({
       data-connector-count={connectorGlyphs.length}
       data-connector-matched={matchedConnectorCount}
       data-open-end-cell-count={openEndKeys.size}
+      data-open-end-arrow-count={openEndArrowList.length}
       data-cursor-mode={interactive ? cursorMode : 'none'}
       data-preview-kind={previewCell ? previewCell.kind : 'none'}
       data-preview-row={previewCell ? previewCell.row : ''}
@@ -301,6 +328,22 @@ export function SnapGrid({
           />
         )
       })}
+      {openEndArrowList.map((arrow, index) => (
+        <polygon
+          key={`open-end-arrow-${arrow.pieceIndex}-${arrow.cellRow}-${arrow.cellCol}-${arrow.dir}-${index}`}
+          data-testid="editor-open-end-arrow"
+          data-open-end-arrow-piece={arrow.pieceIndex}
+          data-open-end-arrow-row={arrow.cellRow}
+          data-open-end-arrow-col={arrow.cellCol}
+          data-open-end-arrow-dir={CONNECTOR_DIR_LABEL[arrow.dir]}
+          points={arrow.points}
+          fill="#a3372a"
+          stroke="#7a2a20"
+          strokeWidth={1}
+          strokeLinejoin="round"
+          pointerEvents="none"
+        />
+      ))}
       {connectorGlyphs.map((glyph, index) => (
         <circle
           key={`connector-${glyph.pieceIndex}-${index}`}
