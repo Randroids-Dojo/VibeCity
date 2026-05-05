@@ -3,9 +3,12 @@ import {
   CELL_HALF_PIXELS,
   CONNECTOR_DIR_LABEL,
   GLYPH_RADIUS_PIXELS,
+  OPEN_END_ARROW_HALF_PIXELS,
+  OPEN_END_ARROW_REACH_PIXELS,
   cityConnectorGlyphs,
   countMatchedGlyphs,
   pieceConnectorGlyphs,
+  unmatchedPortGlyphs,
   type ConnectorGlyph,
 } from '@/app/[slug]/edit/connectorGlyphs'
 import { CELL_PIXELS, GRID_RADIUS } from '@/app/[slug]/edit/snapGrid'
@@ -18,6 +21,7 @@ import {
   DIR_W,
 } from '@/lib/connectors'
 import type { Piece } from '@/lib/schemas'
+import { validateConnections } from '@/lib/trackPath'
 
 /**
  * REQ-019, REQ-063: connector glyph helpers.
@@ -449,5 +453,150 @@ describe('countMatchedGlyphs', () => {
     // and one open arm pointing away. The intersection has all four
     // arms matched. Total matched: 4 (intersection) + 4 (straights) = 8.
     expect(countMatchedGlyphs(glyphs)).toBe(8)
+  })
+})
+
+describe('unmatchedPortGlyphs (REQ-019, REQ-064)', () => {
+  it('OPEN_END_ARROW_REACH_PIXELS extends past the half-cell edge so the tip sits outside the cell', () => {
+    expect(OPEN_END_ARROW_REACH_PIXELS).toBeGreaterThan(CELL_HALF_PIXELS)
+  })
+
+  it('OPEN_END_ARROW_HALF_PIXELS is positive and below the connector glyph radius so the chevron stays compact', () => {
+    expect(OPEN_END_ARROW_HALF_PIXELS).toBeGreaterThan(0)
+    expect(OPEN_END_ARROW_HALF_PIXELS).toBeLessThanOrEqual(GLYPH_RADIUS_PIXELS)
+  })
+
+  it('returns an empty list for an empty unmatched-port array', () => {
+    expect(unmatchedPortGlyphs([])).toEqual([])
+  })
+
+  it('emits one arrow per unmatched port for a single isolated straight (N and S both open)', () => {
+    const pieces: Piece[] = [{ type: 'straight', row: 0, col: 0, rotation: 0 }]
+    const ports = validateConnections({ pieces })
+    const arrows = unmatchedPortGlyphs(ports)
+    expect(arrows).toHaveLength(2)
+    const dirs = arrows.map((a) => a.dir).sort()
+    expect(dirs).toEqual([DIR_N, DIR_S].sort())
+  })
+
+  it('cardinal arrow tip sits at the cell center plus the reach along the compass direction', () => {
+    const pieces: Piece[] = [{ type: 'straight', row: 0, col: 0, rotation: 0 }]
+    const ports = validateConnections({ pieces })
+    const arrows = unmatchedPortGlyphs(ports)
+    // Origin cell center inside the editor SVG sits at
+    // ((0 + GRID_RADIUS) * CELL_PIXELS + CELL_HALF_PIXELS) on each axis.
+    const centerX = GRID_RADIUS * CELL_PIXELS + CELL_HALF_PIXELS
+    const centerY = GRID_RADIUS * CELL_PIXELS + CELL_HALF_PIXELS
+    const south = arrows.find((a) => a.dir === DIR_S)!
+    expect(south.tipX).toBe(centerX)
+    expect(south.tipY).toBe(centerY + OPEN_END_ARROW_REACH_PIXELS)
+    const north = arrows.find((a) => a.dir === DIR_N)!
+    expect(north.tipX).toBe(centerX)
+    expect(north.tipY).toBe(centerY - OPEN_END_ARROW_REACH_PIXELS)
+  })
+
+  it('points string carries three vertices in tip / left-base / right-base order', () => {
+    const pieces: Piece[] = [{ type: 'straight', row: 0, col: 0, rotation: 0 }]
+    const ports = validateConnections({ pieces })
+    const arrows = unmatchedPortGlyphs(ports)
+    for (const arrow of arrows) {
+      const vertices = arrow.points.split(' ')
+      expect(vertices).toHaveLength(3)
+      // The first vertex of the points string is the tip; matches tipX / tipY.
+      const [tipPair] = vertices
+      const [tipXStr, tipYStr] = tipPair.split(',')
+      expect(Number(tipXStr)).toBe(arrow.tipX)
+      expect(Number(tipYStr)).toBe(arrow.tipY)
+    }
+  })
+
+  it('mirrors pieceIndex / cellRow / cellCol / dir from the source UnmatchedPort', () => {
+    const pieces: Piece[] = [
+      { type: 'straight', row: 0, col: 0, rotation: 0 },
+      { type: 'straight', row: 5, col: 5, rotation: 90 },
+    ]
+    const ports = validateConnections({ pieces })
+    const arrows = unmatchedPortGlyphs(ports)
+    expect(arrows).toHaveLength(ports.length)
+    for (let i = 0; i < ports.length; i++) {
+      expect(arrows[i].pieceIndex).toBe(ports[i].pieceIndex)
+      expect(arrows[i].cellRow).toBe(ports[i].cellRow)
+      expect(arrows[i].cellCol).toBe(ports[i].cellCol)
+      expect(arrows[i].dir).toBe(ports[i].dir)
+    }
+  })
+
+  it('only emits arrows for unmatched ports (a closed two-straight chain leaves only the chain ends)', () => {
+    // Two stacked straights: the shared edge is matched (no arrow);
+    // the outer N and S ports stay open (one arrow each).
+    const pieces: Piece[] = [
+      { type: 'straight', row: 0, col: 0, rotation: 0 },
+      { type: 'straight', row: 1, col: 0, rotation: 0 },
+    ]
+    const ports = validateConnections({ pieces })
+    const arrows = unmatchedPortGlyphs(ports)
+    expect(arrows).toHaveLength(2)
+    const cells = arrows.map((a) => `${a.cellRow},${a.cellCol}:${a.dir}`).sort()
+    expect(cells).toEqual([`0,0:${DIR_N}`, `1,0:${DIR_S}`].sort())
+  })
+
+  it('produces finite numeric vertices for every arrow', () => {
+    const pieces: Piece[] = [
+      { type: 'intersection', row: 0, col: 0, rotation: 0 },
+      { type: 'straight', row: 5, col: 5, rotation: 90 },
+    ]
+    const ports = validateConnections({ pieces })
+    const arrows = unmatchedPortGlyphs(ports)
+    for (const arrow of arrows) {
+      expect(Number.isFinite(arrow.tipX)).toBe(true)
+      expect(Number.isFinite(arrow.tipY)).toBe(true)
+      const vertices = arrow.points.split(' ')
+      expect(vertices).toHaveLength(3)
+      for (const vertex of vertices) {
+        const [xStr, yStr] = vertex.split(',')
+        expect(Number.isFinite(Number(xStr))).toBe(true)
+        expect(Number.isFinite(Number(yStr))).toBe(true)
+      }
+    }
+  })
+
+  it('returns a fresh array on every call (no shared cache)', () => {
+    const pieces: Piece[] = [{ type: 'straight', row: 0, col: 0, rotation: 0 }]
+    const ports = validateConnections({ pieces })
+    const a = unmatchedPortGlyphs(ports)
+    const b = unmatchedPortGlyphs(ports)
+    expect(a).not.toBe(b)
+    expect(a).toEqual(b)
+  })
+
+  it('does not mutate the input UnmatchedPort list', () => {
+    const pieces: Piece[] = [{ type: 'straight', row: 0, col: 0, rotation: 0 }]
+    const ports = validateConnections({ pieces })
+    const before = JSON.parse(JSON.stringify(ports))
+    unmatchedPortGlyphs(ports)
+    expect(ports).toEqual(before)
+  })
+
+  it('emits arrows for every cardinal arm of an isolated intersection', () => {
+    const pieces: Piece[] = [
+      { type: 'intersection', row: 0, col: 0, rotation: 0 },
+    ]
+    const ports = validateConnections({ pieces })
+    const arrows = unmatchedPortGlyphs(ports)
+    expect(arrows).toHaveLength(4)
+    const dirs = arrows.map((a) => a.dir).sort()
+    expect(dirs).toEqual([DIR_N, DIR_E, DIR_S, DIR_W].sort())
+  })
+
+  it('preserves the order of the source UnmatchedPort list', () => {
+    const pieces: Piece[] = [
+      { type: 'straight', row: 0, col: 0, rotation: 0 },
+      { type: 'straight', row: 5, col: 5, rotation: 0 },
+    ]
+    const ports = validateConnections({ pieces })
+    const arrows = unmatchedPortGlyphs(ports)
+    expect(arrows.map((a) => a.pieceIndex)).toEqual(
+      ports.map((p) => p.pieceIndex),
+    )
   })
 })

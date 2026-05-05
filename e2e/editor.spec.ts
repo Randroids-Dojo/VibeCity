@@ -1578,3 +1578,82 @@ test('build / drive transition curtain is wired but dormant by default (REQ-055)
     page.getByTestId('scene-transition-curtain-drive'),
   ).toHaveCount(0)
 })
+
+test('per-port direction arrows mark which side of every open-end cell still needs a neighbor (REQ-019, REQ-064)', async ({
+  page,
+}) => {
+  // Intercept autosave so the editor opens cleanly without KV.
+  await page.route('**/api/city/**', async (route) => {
+    if (route.request().method() !== 'PUT') {
+      await route.continue()
+      return
+    }
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        slug: 'open-end-arrow-spec',
+        versionHash:
+          '0000000000000000000000000000000000000000000000000000000000000000',
+        updatedAt: Date.now(),
+      }),
+    })
+  })
+
+  const response = await page.goto('/open-end-arrow-spec/edit')
+  expect(response?.status()).toBe(200)
+
+  const grid = page.getByTestId('editor-snap-grid')
+  await expect(grid).toBeVisible()
+
+  // Empty city: no unmatched ports, no arrows.
+  await expect(grid).toHaveAttribute('data-open-end-arrow-count', '0')
+  await expect(page.getByTestId('editor-open-end-arrow')).toHaveCount(0)
+
+  // Place a single straight at (0, 0): both N and S ports are open
+  // so the arrow count flips to 2 and one arrow points N, the other S.
+  await grid.locator('[data-cell-row="0"][data-cell-col="0"]').click()
+  await expect(grid).toHaveAttribute('data-open-end-arrow-count', '2')
+  await expect(page.getByTestId('editor-open-end-arrow')).toHaveCount(2)
+  await expect(
+    grid.locator(
+      '[data-open-end-arrow-row="0"][data-open-end-arrow-col="0"][data-open-end-arrow-dir="N"]',
+    ),
+  ).toHaveCount(1)
+  await expect(
+    grid.locator(
+      '[data-open-end-arrow-row="0"][data-open-end-arrow-col="0"][data-open-end-arrow-dir="S"]',
+    ),
+  ).toHaveCount(1)
+
+  // Place a second straight directly south. The shared edge matches so
+  // the inner ports drop out, leaving only the chain's outer N (on row
+  // 0) and outer S (on row 1) ports open.
+  await grid.locator('[data-cell-row="1"][data-cell-col="0"]').click()
+  await expect(grid).toHaveAttribute('data-open-end-arrow-count', '2')
+  await expect(page.getByTestId('editor-open-end-arrow')).toHaveCount(2)
+  await expect(
+    grid.locator(
+      '[data-open-end-arrow-row="0"][data-open-end-arrow-col="0"][data-open-end-arrow-dir="N"]',
+    ),
+  ).toHaveCount(1)
+  await expect(
+    grid.locator(
+      '[data-open-end-arrow-row="1"][data-open-end-arrow-col="0"][data-open-end-arrow-dir="S"]',
+    ),
+  ).toHaveCount(1)
+  // The previously-open S arrow on row 0 disappeared because its port
+  // now matches the row 1 piece's N port.
+  await expect(
+    grid.locator(
+      '[data-open-end-arrow-row="0"][data-open-end-arrow-col="0"][data-open-end-arrow-dir="S"]',
+    ),
+  ).toHaveCount(0)
+
+  // Erase both pieces: every arrow drops back to zero.
+  await page.getByTestId('editor-erase').click()
+  await grid.locator('[data-cell-row="1"][data-cell-col="0"]').click()
+  await grid.locator('[data-cell-row="0"][data-cell-col="0"]').click()
+  await expect(grid).toHaveAttribute('data-open-end-arrow-count', '0')
+  await expect(page.getByTestId('editor-open-end-arrow')).toHaveCount(0)
+})
