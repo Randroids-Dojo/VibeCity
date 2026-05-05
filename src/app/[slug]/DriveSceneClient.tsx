@@ -29,7 +29,12 @@ import {
   PIECE_GROUND_LIFT,
   SKY_COLOR,
   buildingColorFor,
+  buildingFootprintWorldSize,
   buildingHeightFor,
+  buildingRoofColorFor,
+  buildingRoofFootprintFor,
+  buildingRoofHeightFor,
+  buildingRoofY,
   carBodyY,
   carCabinY,
   carWheelOffsets,
@@ -577,22 +582,48 @@ export function DriveSceneClient({
     // Buildings (REQ-046). Extruded boxes sized to the cell footprint
     // with per-type heights and colors so the four placeholder
     // primitives form a visible silhouette vocabulary from the orbit
-    // view. Boxes are anchored at the cell center on the ground plane.
+    // view. A second roof-cap mesh stacks on top of each body so the
+    // four building types read with distinct silhouettes (small / mid
+    // house get a peaked cap, shop gets a flat parapet, factory gets a
+    // smokestack-style thin tall cap). Boxes are anchored at the cell
+    // center on the ground plane and rotated by the persisted rotation.
+    const bodyFootprint = buildingFootprintWorldSize()
     for (const building of city.buildings) {
       const height = buildingHeightFor(building.type)
       const { x, z } = cellToWorld(building.row, building.col)
-      const geometry = new THREE.BoxGeometry(
-        CELL_SIZE * 0.85,
+      const headingY = rotationToRadians(building.rotation)
+      const bodyGeometry = new THREE.BoxGeometry(
+        bodyFootprint,
         height,
-        CELL_SIZE * 0.85,
+        bodyFootprint,
       )
-      const material = new THREE.MeshLambertMaterial({
+      const bodyMaterial = new THREE.MeshLambertMaterial({
         color: buildingColorFor(building.type),
       })
-      const mesh = new THREE.Mesh(geometry, material)
-      mesh.position.set(x, height / 2, z)
-      mesh.rotation.y = rotationToRadians(building.rotation)
-      scene.add(mesh)
+      const bodyMesh = new THREE.Mesh(bodyGeometry, bodyMaterial)
+      bodyMesh.position.set(x, height / 2, z)
+      bodyMesh.rotation.y = headingY
+      scene.add(bodyMesh)
+
+      // Roof cap (REQ-046 visual polish). Sits on top of the body so
+      // the four building types have a stronger silhouette vocabulary
+      // from the orbit camera. Sized via the per-type inset factor so
+      // houses get a slightly-inset roof, the shop gets a near-full
+      // parapet, and the factory's roof reads as a smokestack.
+      const roofFootprint = buildingRoofFootprintFor(building.type)
+      const roofHeight = buildingRoofHeightFor(building.type)
+      const roofGeometry = new THREE.BoxGeometry(
+        roofFootprint,
+        roofHeight,
+        roofFootprint,
+      )
+      const roofMaterial = new THREE.MeshLambertMaterial({
+        color: buildingRoofColorFor(building.type),
+      })
+      const roofMesh = new THREE.Mesh(roofGeometry, roofMaterial)
+      roofMesh.position.set(x, buildingRoofY(building.type), z)
+      roofMesh.rotation.y = headingY
+      scene.add(roofMesh)
     }
 
     // Placeholder player vehicle (REQ-047). A primitive-composed car

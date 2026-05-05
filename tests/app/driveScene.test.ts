@@ -2,7 +2,11 @@ import { describe, expect, it } from 'vitest'
 import {
   AMBIENT_LIGHT_INTENSITY,
   BUILDING_COLORS,
+  BUILDING_FOOTPRINT_FACTOR,
   BUILDING_HEIGHTS,
+  BUILDING_ROOF_COLORS,
+  BUILDING_ROOF_HEIGHTS,
+  BUILDING_ROOF_INSET_FACTORS,
   CAMERA_DISTANCE,
   CAMERA_FAR,
   CAMERA_FOV,
@@ -36,7 +40,13 @@ import {
   SPAWN_MARKER_LENGTH,
   SPAWN_MARKER_WIDTH,
   buildingColorFor,
+  buildingFootprintWorldSize,
   buildingHeightFor,
+  buildingRoofColorFor,
+  buildingRoofFootprintFor,
+  buildingRoofHeightFor,
+  buildingRoofInsetFactorFor,
+  buildingRoofY,
   carBodyY,
   carCabinY,
   carWheelOffsets,
@@ -164,6 +174,117 @@ describe('buildingColorFor / buildingHeightFor (REQ-046)', () => {
   it('PIECE_COLORS is a partial map keyed by valid piece types', () => {
     for (const type of Object.keys(PIECE_COLORS)) {
       expect(PieceTypeSchema.options).toContain(type as PieceType)
+    }
+  })
+})
+
+describe('building roof cap helpers (REQ-046 visual polish)', () => {
+  it('BUILDING_FOOTPRINT_FACTOR is in (0, 1) so the body inset stays inside the cell', () => {
+    expect(BUILDING_FOOTPRINT_FACTOR).toBeGreaterThan(0)
+    expect(BUILDING_FOOTPRINT_FACTOR).toBeLessThan(1)
+  })
+
+  it('buildingFootprintWorldSize equals CELL_SIZE * BUILDING_FOOTPRINT_FACTOR', () => {
+    expect(buildingFootprintWorldSize()).toBeCloseTo(
+      CELL_SIZE * BUILDING_FOOTPRINT_FACTOR,
+      10,
+    )
+  })
+
+  it('BUILDING_ROOF_HEIGHTS and BUILDING_ROOF_COLORS cover every building type', () => {
+    for (const type of BuildingTypeSchema.options) {
+      expect(BUILDING_ROOF_HEIGHTS).toHaveProperty(type)
+      expect(BUILDING_ROOF_COLORS).toHaveProperty(type)
+      expect(BUILDING_ROOF_INSET_FACTORS).toHaveProperty(type)
+    }
+  })
+
+  it('returns a finite positive roof height for every building type', () => {
+    for (const type of BuildingTypeSchema.options) {
+      const height = buildingRoofHeightFor(type)
+      expect(height).toBeGreaterThan(0)
+      expect(Number.isFinite(height)).toBe(true)
+    }
+  })
+
+  it('returns a valid 24-bit hex roof color for every building type', () => {
+    for (const type of BuildingTypeSchema.options) {
+      const color = buildingRoofColorFor(type)
+      expect(color).toBeGreaterThanOrEqual(0)
+      expect(color).toBeLessThanOrEqual(0xffffff)
+    }
+  })
+
+  it('roof inset factor is in (0, 1] so the cap never exceeds the body footprint', () => {
+    for (const type of BuildingTypeSchema.options) {
+      const factor = buildingRoofInsetFactorFor(type)
+      expect(factor).toBeGreaterThan(0)
+      expect(factor).toBeLessThanOrEqual(1)
+    }
+  })
+
+  it('roof footprint equals body footprint times the per-type inset factor', () => {
+    for (const type of BuildingTypeSchema.options) {
+      const expected =
+        buildingFootprintWorldSize() * buildingRoofInsetFactorFor(type)
+      expect(buildingRoofFootprintFor(type)).toBeCloseTo(expected, 10)
+    }
+  })
+
+  it('factory roof is the tallest cap so the smokestack silhouette reads', () => {
+    for (const type of ['small-house', 'mid-house', 'shop'] as const) {
+      expect(buildingRoofHeightFor('factory')).toBeGreaterThan(
+        buildingRoofHeightFor(type),
+      )
+    }
+  })
+
+  it('factory roof inset factor is the smallest so the cap reads as a thin smokestack', () => {
+    for (const type of ['small-house', 'mid-house', 'shop'] as const) {
+      expect(buildingRoofInsetFactorFor('factory')).toBeLessThan(
+        buildingRoofInsetFactorFor(type),
+      )
+    }
+  })
+
+  it('shop roof has the shortest cap height so the parapet silhouette stays flat', () => {
+    for (const type of ['small-house', 'mid-house', 'factory'] as const) {
+      expect(buildingRoofHeightFor('shop')).toBeLessThan(
+        buildingRoofHeightFor(type),
+      )
+    }
+  })
+
+  it('shop roof inset is wider than the house insets so the parapet covers the body top', () => {
+    for (const type of ['small-house', 'mid-house'] as const) {
+      expect(buildingRoofInsetFactorFor('shop')).toBeGreaterThan(
+        buildingRoofInsetFactorFor(type),
+      )
+    }
+  })
+
+  it('every building type roof color differs from its body color so the cap reads as a separate volume', () => {
+    for (const type of BuildingTypeSchema.options) {
+      expect(buildingRoofColorFor(type)).not.toBe(buildingColorFor(type))
+    }
+  })
+
+  it('buildingRoofY sits above the body height so the cap rests on top without z-fighting', () => {
+    for (const type of BuildingTypeSchema.options) {
+      const bodyTop = buildingHeightFor(type)
+      const capCenter = buildingRoofY(type)
+      const capHalfHeight = buildingRoofHeightFor(type) / 2
+      // The cap's lower face sits at exactly bodyTop so the two
+      // volumes share an edge (no gap, no overlap, no z-fighting
+      // because the meshes are coplanar at that edge but render in a
+      // deterministic order from the scene-graph add order).
+      expect(capCenter - capHalfHeight).toBeCloseTo(bodyTop, 10)
+    }
+  })
+
+  it('roof cap fits inside the cell footprint so neighboring buildings do not overlap', () => {
+    for (const type of BuildingTypeSchema.options) {
+      expect(buildingRoofFootprintFor(type)).toBeLessThanOrEqual(CELL_SIZE)
     }
   })
 })
