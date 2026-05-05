@@ -3,6 +3,7 @@ import {
   PREVIEW_FILL,
   PREVIEW_FILL_OPACITY,
   PREVIEW_STROKE,
+  previewCellsFor,
   previewKindFor,
   type PreviewKind,
 } from '@/app/[slug]/edit/editorPreview'
@@ -320,5 +321,296 @@ describe('PREVIEW_FILL / PREVIEW_STROKE / PREVIEW_FILL_OPACITY tables', () => {
   it('uses a distinct fill for place-valid (street brown) vs warning kinds', () => {
     expect(PREVIEW_FILL['place-valid']).not.toBe(PREVIEW_FILL['place-invalid'])
     expect(PREVIEW_FILL['place-valid']).not.toBe(PREVIEW_FILL['erase-target'])
+  })
+})
+
+describe('previewCellsFor (REQ-059 multi-cell footprint preview)', () => {
+  it('returns a single cell for a single-cell street piece in place mode', () => {
+    const cells = previewCellsFor({
+      city: EMPTY_CITY,
+      category: 'street',
+      toolMode: 'place',
+      row: 0,
+      col: 0,
+      activePieceType: 'straight',
+      activeRotation: 0,
+    })
+    expect(cells).toEqual([{ row: 0, col: 0, kind: 'place-valid' }])
+  })
+
+  it('returns the full mega-sweep-right footprint in place mode', () => {
+    const cells = previewCellsFor({
+      city: EMPTY_CITY,
+      category: 'street',
+      toolMode: 'place',
+      row: 5,
+      col: 5,
+      activePieceType: 'megaSweepRight',
+      activeRotation: 0,
+    })
+    expect(cells).toHaveLength(4)
+    const keys = cells.map((cell) => `${cell.row},${cell.col}`).sort()
+    // Mega sweep right at rotation 0: anchor (5,5), reaches up and left.
+    expect(keys).toEqual(['4,4', '4,5', '5,4', '5,5'])
+    expect(cells.every((cell) => cell.kind === 'place-valid')).toBe(true)
+  })
+
+  it('puts the anchor cell first so callers can mirror it on the SVG root', () => {
+    const cells = previewCellsFor({
+      city: EMPTY_CITY,
+      category: 'street',
+      toolMode: 'place',
+      row: 5,
+      col: 5,
+      activePieceType: 'megaSweepRight',
+      activeRotation: 0,
+    })
+    expect(cells[0]).toEqual({ row: 5, col: 5, kind: 'place-valid' })
+  })
+
+  it('flips every footprint cell to place-invalid when any cell collides with a piece', () => {
+    const city: City = {
+      pieces: [{ type: 'straight', row: 4, col: 4, rotation: 0 }],
+      buildings: [],
+    }
+    const cells = previewCellsFor({
+      city,
+      category: 'street',
+      toolMode: 'place',
+      row: 5,
+      col: 5,
+      activePieceType: 'megaSweepRight',
+      activeRotation: 0,
+    })
+    expect(cells).toHaveLength(4)
+    expect(cells.every((cell) => cell.kind === 'place-invalid')).toBe(true)
+  })
+
+  it('flips every footprint cell to place-invalid when any cell collides with a building', () => {
+    const city: City = {
+      pieces: [],
+      buildings: [{ type: 'small-house', row: 4, col: 4, rotation: 0 }],
+    }
+    const cells = previewCellsFor({
+      city,
+      category: 'street',
+      toolMode: 'place',
+      row: 5,
+      col: 5,
+      activePieceType: 'megaSweepRight',
+      activeRotation: 0,
+    })
+    expect(cells.every((cell) => cell.kind === 'place-invalid')).toBe(true)
+  })
+
+  it('returns the rotated mega-sweep footprint when rotation is 90', () => {
+    const cells = previewCellsFor({
+      city: EMPTY_CITY,
+      category: 'street',
+      toolMode: 'place',
+      row: 0,
+      col: 0,
+      activePieceType: 'megaSweepRight',
+      activeRotation: 90,
+    })
+    expect(cells).toHaveLength(4)
+    // 90deg clockwise rotation maps (-1,-1) -> (-1, 1), (-1, 0) -> (0, 1),
+    // (0, -1) -> (-1, 0), (0, 0) -> (0, 0). Anchor stays at (0, 0).
+    const keys = cells.map((cell) => `${cell.row},${cell.col}`).sort()
+    expect(keys).toEqual(['-1,0', '-1,1', '0,0', '0,1'])
+  })
+
+  it('returns the full hairpin footprint (six cells) for a hairpin', () => {
+    const cells = previewCellsFor({
+      city: EMPTY_CITY,
+      category: 'street',
+      toolMode: 'place',
+      row: 0,
+      col: 0,
+      activePieceType: 'hairpin',
+      activeRotation: 0,
+    })
+    expect(cells).toHaveLength(6)
+    const keys = cells.map((cell) => `${cell.row},${cell.col}`).sort()
+    expect(keys).toEqual(['-1,0', '-1,1', '0,0', '0,1', '1,0', '1,1'])
+    expect(cells.every((cell) => cell.kind === 'place-valid')).toBe(true)
+  })
+
+  it('expands erase-mode preview to the full footprint of a multi-cell piece', () => {
+    const city: City = {
+      pieces: [
+        { type: 'megaSweepRight', row: 0, col: 0, rotation: 0 },
+      ],
+      buildings: [],
+    }
+    // Hover any cell of the footprint; the result lights up all four
+    // cells of the mega sweep as erase-target.
+    const cells = previewCellsFor({
+      city,
+      category: 'street',
+      toolMode: 'erase',
+      row: -1,
+      col: 0,
+      activePieceType: 'straight',
+      activeRotation: 0,
+    })
+    expect(cells).toHaveLength(4)
+    expect(cells.every((cell) => cell.kind === 'erase-target')).toBe(true)
+    // Anchor (the hovered cell) sits first.
+    expect(cells[0]).toEqual({ row: -1, col: 0, kind: 'erase-target' })
+  })
+
+  it('expands erase-mode preview for a hairpin from any of its six cells', () => {
+    const city: City = {
+      pieces: [{ type: 'hairpin', row: 0, col: 0, rotation: 0 }],
+      buildings: [],
+    }
+    const hairpinCells: { row: number; col: number }[] = [
+      { row: -1, col: 0 },
+      { row: -1, col: 1 },
+      { row: 0, col: 0 },
+      { row: 0, col: 1 },
+      { row: 1, col: 0 },
+      { row: 1, col: 1 },
+    ]
+    for (const hovered of hairpinCells) {
+      const cells = previewCellsFor({
+        city,
+        category: 'street',
+        toolMode: 'erase',
+        row: hovered.row,
+        col: hovered.col,
+        activePieceType: 'straight',
+        activeRotation: 0,
+      })
+      expect(cells).toHaveLength(6)
+      expect(cells.every((cell) => cell.kind === 'erase-target')).toBe(true)
+      expect(cells[0]).toEqual({
+        row: hovered.row,
+        col: hovered.col,
+        kind: 'erase-target',
+      })
+    }
+  })
+
+  it('collapses erase-empty preview to a single cell on an empty hover', () => {
+    const cells = previewCellsFor({
+      city: EMPTY_CITY,
+      category: 'street',
+      toolMode: 'erase',
+      row: 3,
+      col: 4,
+      activePieceType: 'straight',
+      activeRotation: 0,
+    })
+    expect(cells).toEqual([{ row: 3, col: 4, kind: 'erase-empty' }])
+  })
+
+  it('collapses to a single cell when the active piece type is not provided', () => {
+    const cells = previewCellsFor({
+      city: EMPTY_CITY,
+      category: 'street',
+      toolMode: 'place',
+      row: 0,
+      col: 0,
+    })
+    expect(cells).toEqual([{ row: 0, col: 0, kind: 'place-valid' }])
+  })
+
+  it('keeps the building category as a single-cell preview', () => {
+    const cells = previewCellsFor({
+      city: EMPTY_CITY,
+      category: 'building',
+      toolMode: 'place',
+      row: 7,
+      col: 8,
+      activePieceType: 'megaSweepRight',
+      activeRotation: 0,
+    })
+    expect(cells).toEqual([{ row: 7, col: 8, kind: 'place-valid' }])
+  })
+
+  it('does not mutate the input city', () => {
+    const city: City = {
+      pieces: [{ type: 'megaSweepRight', row: 0, col: 0, rotation: 0 }],
+      buildings: [],
+    }
+    const snapshot = JSON.stringify(city)
+    previewCellsFor({
+      city,
+      category: 'street',
+      toolMode: 'place',
+      row: 5,
+      col: 5,
+      activePieceType: 'megaSweepRight',
+      activeRotation: 0,
+    })
+    previewCellsFor({
+      city,
+      category: 'street',
+      toolMode: 'erase',
+      row: -1,
+      col: 0,
+      activePieceType: 'straight',
+      activeRotation: 0,
+    })
+    expect(JSON.stringify(city)).toBe(snapshot)
+  })
+
+  it('returns a fresh array on every call', () => {
+    const a = previewCellsFor({
+      city: EMPTY_CITY,
+      category: 'street',
+      toolMode: 'place',
+      row: 0,
+      col: 0,
+      activePieceType: 'megaSweepRight',
+      activeRotation: 0,
+    })
+    const b = previewCellsFor({
+      city: EMPTY_CITY,
+      category: 'street',
+      toolMode: 'place',
+      row: 0,
+      col: 0,
+      activePieceType: 'megaSweepRight',
+      activeRotation: 0,
+    })
+    expect(a).not.toBe(b)
+    expect(a).toEqual(b)
+  })
+
+  it('keeps single-cell place-invalid preview as one ghost cell', () => {
+    const city: City = {
+      pieces: [{ type: 'straight', row: 0, col: 0, rotation: 0 }],
+      buildings: [],
+    }
+    const cells = previewCellsFor({
+      city,
+      category: 'street',
+      toolMode: 'place',
+      row: 0,
+      col: 0,
+      activePieceType: 'straight',
+      activeRotation: 0,
+    })
+    expect(cells).toEqual([{ row: 0, col: 0, kind: 'place-invalid' }])
+  })
+
+  it('expands erase-mode for a single-cell piece to one cell (anchor)', () => {
+    const city: City = {
+      pieces: [{ type: 'straight', row: 2, col: 3, rotation: 0 }],
+      buildings: [],
+    }
+    const cells = previewCellsFor({
+      city,
+      category: 'street',
+      toolMode: 'erase',
+      row: 2,
+      col: 3,
+      activePieceType: 'straight',
+      activeRotation: 0,
+    })
+    expect(cells).toEqual([{ row: 2, col: 3, kind: 'erase-target' }])
   })
 })

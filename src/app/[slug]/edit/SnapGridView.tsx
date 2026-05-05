@@ -61,7 +61,13 @@ import {
  * a translucent ghost overlay communicating what the next click would
  * do (place valid, place invalid because the cell is occupied, erase
  * target, or erase no-op). The overlay is non-interactive so it does
- * not steal hover events from the underlying clickable cell.
+ * not steal hover events from the underlying clickable cell. When the
+ * caller also passes `previewCells` (multi-cell footprint preview per
+ * REQ-059), every cell in the list renders a ghost so a multi-cell
+ * piece (mega sweep, hairpin) shows its full reach; the first cell of
+ * the list is treated as the anchor (carries `data-preview-anchor='true'`)
+ * and the SVG-level `data-preview-row` / `data-preview-col` continue
+ * to mirror `previewCell`.
  *
  * Pan / zoom (REQ-024): when `viewport` is provided the SVG `viewBox`
  * is derived from it (panX, panY, GRID_PIXEL_SIZE / zoom). The SVG's
@@ -97,6 +103,7 @@ export function SnapGrid({
   onCellEnter,
   onCellLeave,
   previewCell,
+  previewCells,
   rejectionFlash,
   cursorMode = 'place',
   viewport = DEFAULT_VIEWPORT,
@@ -108,6 +115,7 @@ export function SnapGrid({
   onCellEnter?: (row: number, col: number) => void
   onCellLeave?: (row: number, col: number) => void
   previewCell?: PreviewCell | null
+  previewCells?: readonly PreviewCell[] | null
   rejectionFlash?: RejectionFlash | null
   cursorMode?: 'place' | 'erase'
   viewport?: Viewport
@@ -125,9 +133,21 @@ export function SnapGrid({
     : cursorMode === 'erase'
       ? 'not-allowed'
       : 'crosshair'
-  const previewKey = previewCell
-    ? cellKey(previewCell.row, previewCell.col)
-    : null
+  // The footprint ghost list (REQ-059): when the caller passes
+  // `previewCells`, every cell in the list renders as a ghost so a
+  // multi-cell piece (mega sweep, hairpin) shows its full reach. When
+  // omitted the legacy single-cell `previewCell` is wrapped into a
+  // one-element list so the existing render path stays.
+  const ghostList: readonly PreviewCell[] =
+    previewCells && previewCells.length > 0
+      ? previewCells
+      : previewCell
+        ? [previewCell]
+        : []
+  const previewedKeys = new Set<string>()
+  for (const ghost of ghostList) {
+    previewedKeys.add(cellKey(ghost.row, ghost.col))
+  }
   const viewBox = viewportToViewBoxString(viewport)
   const viewportIsDefault = isDefaultViewport(viewport)
 
@@ -147,6 +167,7 @@ export function SnapGrid({
       data-preview-kind={previewCell ? previewCell.kind : 'none'}
       data-preview-row={previewCell ? previewCell.row : ''}
       data-preview-col={previewCell ? previewCell.col : ''}
+      data-preview-cell-count={ghostList.length}
       data-rejection-kind={rejectionFlash ? rejectionFlash.kind : 'none'}
       data-rejection-row={rejectionFlash ? rejectionFlash.row : ''}
       data-rejection-col={rejectionFlash ? rejectionFlash.col : ''}
@@ -185,7 +206,7 @@ export function SnapGrid({
               ? '#efe7d2'
               : 'transparent'
         const occupiedKind = isPiece ? 'piece' : isBuilding ? 'building' : 'none'
-        const isPreviewed = previewKey !== null && previewKey === key
+        const isPreviewed = previewedKeys.has(key)
         return (
           <rect
             key={key}
@@ -245,23 +266,25 @@ export function SnapGrid({
           pointerEvents="none"
         />
       ))}
-      {previewCell ? (
+      {ghostList.map((ghost, index) => (
         <rect
+          key={`preview-${ghost.row}-${ghost.col}`}
           data-testid="editor-preview-ghost"
-          data-preview-kind={previewCell.kind}
-          data-preview-row={previewCell.row}
-          data-preview-col={previewCell.col}
-          x={cellToPixel(previewCell).x}
-          y={cellToPixel(previewCell).y}
+          data-preview-kind={ghost.kind}
+          data-preview-row={ghost.row}
+          data-preview-col={ghost.col}
+          data-preview-anchor={index === 0 ? 'true' : 'false'}
+          x={cellToPixel(ghost).x}
+          y={cellToPixel(ghost).y}
           width={CELL_PIXELS}
           height={CELL_PIXELS}
-          fill={PREVIEW_FILL[previewCell.kind]}
-          fillOpacity={PREVIEW_FILL_OPACITY[previewCell.kind]}
-          stroke={PREVIEW_STROKE[previewCell.kind]}
+          fill={PREVIEW_FILL[ghost.kind]}
+          fillOpacity={PREVIEW_FILL_OPACITY[ghost.kind]}
+          stroke={PREVIEW_STROKE[ghost.kind]}
           strokeWidth={2}
           pointerEvents="none"
         />
-      ) : null}
+      ))}
       {rejectionFlash ? (
         <rect
           // The id-based key forces React to remount the rect whenever a

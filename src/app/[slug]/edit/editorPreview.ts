@@ -1,5 +1,11 @@
-import type { City } from '@/lib/schemas'
-import { cellKey, occupiedBuildingCells, occupiedPieceCells } from './snapGrid'
+import type { City, PieceType, Rotation } from '@/lib/schemas'
+import {
+  cellKey,
+  defaultFootprintForPiece,
+  occupiedBuildingCells,
+  occupiedPieceCells,
+  pieceFootprintCells,
+} from './snapGrid'
 import type { PaletteCategory, ToolMode } from './editorState'
 
 /**
@@ -33,10 +39,15 @@ import type { PaletteCategory, ToolMode } from './editorState'
  *   "no change" color so the author sees the click would not do
  *   anything.
  *
- * Multi-cell footprint validation (REQ-059) lives outside this module.
- * v1's palette ships single-cell pieces only; when multi-cell pieces
- * land, this helper grows to accept the candidate footprint and
- * return a per-cell map. Until then a single hovered cell is enough.
+ * Multi-cell preview (REQ-059): the legacy `previewKindFor` helper
+ * resolves a single hovered cell. Multi-cell street pieces (mega
+ * sweep, hairpin) need every footprint cell of the candidate
+ * placement to render a ghost so the author sees the full reach of
+ * the piece before clicking. The companion helper `previewCellsFor`
+ * resolves the full footprint and returns one `PreviewCell` per cell;
+ * `previewKindFor` stays the canonical anchor-cell resolver so the
+ * existing data attribute mirrors and reducer-aligned single-cell
+ * tests continue to read off it.
  */
 export type PreviewKind =
   | 'place-valid'
@@ -121,4 +132,145 @@ export const PREVIEW_FILL_OPACITY: Record<PreviewKind, number> = {
   'place-invalid': 0.45,
   'erase-target': 0.5,
   'erase-empty': 0.25,
+}
+
+/**
+ * Input shape for the multi-cell preview resolver (REQ-059).
+ *
+ * `activePieceType` and `activeRotation` describe the currently-selected
+ * street piece in the palette. The resolver projects the piece's
+ * canonical footprint at the rotation onto the hovered anchor cell so
+ * the editor surfaces the full reach of a mega sweep / hairpin / future
+ * arc45 / diagonal placement before the click lands.
+ *
+ * The fields are optional so a caller (the building category, or a
+ * future caller that wants the legacy single-cell ghost) can pass only
+ * the anchor data and get the single-cell behavior back. When both are
+ * undefined, the resolver collapses to a single-cell ghost matching
+ * `previewKindFor`'s output.
+ */
+export interface PreviewCellsInput extends PreviewCellInput {
+  activePieceType?: PieceType
+  activeRotation?: Rotation
+}
+
+/**
+ * Resolve every preview cell the next click would touch (REQ-059).
+ *
+ * Multi-cell street pieces (mega sweep, hairpin, future arc45 /
+ * diagonal multi-cell variants) project their canonical rotated
+ * footprint onto the hovered anchor cell so the ghost reads out the
+ * full reach of a placement. Erase mode in the street category expands
+ * to the matched piece's full footprint so a hover on any cell of a
+ * multi-cell piece highlights the whole piece that the click would
+ * remove. Building category and erase-empty cases collapse to a single
+ * cell matching the legacy `previewKindFor` shape.
+ *
+ * Place-mode multi-cell behavior: every cell of the candidate footprint
+ * is checked against the city's occupied piece and building cells. If
+ * any cell is already occupied, every cell of the candidate footprint
+ * reads `place-invalid` so the rejection is visually consistent across
+ * the whole footprint. Otherwise every cell reads `place-valid`.
+ *
+ * Erase-mode multi-cell behavior: when the hovered cell carries a piece
+ * in street category, the matched piece's footprint cells are returned
+ * with `erase-target`. When the hovered cell is empty (or carries
+ * content the active category cannot erase), the result collapses to a
+ * single `erase-empty` cell.
+ *
+ * Returns a fresh array on every call so callers cannot mutate cached
+ * state. The first cell of the array is always the hovered anchor cell
+ * (matches the legacy `previewKindFor` resolver) so callers that mirror
+ * `data-preview-row` / `data-preview-col` for the SVG root do not need
+ * to track the anchor separately.
+ */
+export function previewCellsFor(input: PreviewCellsInput): PreviewCell[] {
+  const { city, category, toolMode, row, col, activePieceType, activeRotation } =
+    input
+  const anchorKind = previewKindFor({ city, category, toolMode, row, col })
+
+  // Erase mode in street category expands to the matched piece's full
+  // footprint when the click would erase a multi-cell piece.
+  if (toolMode === 'erase' && category === 'street' && anchorKind === 'erase-target') {
+    const target = cellKey(row, col)
+    const match = city.pieces.find((piece) => {
+      for (const cell of pieceFootprintCells(piece)) {
+        if (cellKey(cell.row, cell.col) === target) return true
+      }
+      return false
+    })
+    if (match) {
+      const cells = pieceFootprintCells(match)
+      return reorderAnchorFirst(
+        cells.map((cell) => ({
+          row: cell.row,
+          col: cell.col,
+          kind: 'erase-target' as PreviewKind,
+        })),
+        row,
+        col,
+      )
+    }
+  }
+
+  // Place mode in street category with a multi-cell piece selected
+  // expands to the candidate piece's rotated footprint.
+  if (
+    toolMode === 'place' &&
+    category === 'street' &&
+    activePieceType !== undefined &&
+    activeRotation !== undefined
+  ) {
+    const candidate = {
+      type: activePieceType,
+      rotation: activeRotation,
+    }
+    const footprint = defaultFootprintForPiece(candidate)
+    if (footprint.length > 1) {
+      const candidateCells = footprint.map((c) => ({
+        row: row + c.dr,
+        col: col + c.dc,
+      }))
+      const occupiedPieces = occupiedPieceCells(city)
+      const occupiedBuildings = occupiedBuildingCells(city)
+      const collides = candidateCells.some((cell) => {
+        const key = cellKey(cell.row, cell.col)
+        return occupiedPieces.has(key) || occupiedBuildings.has(key)
+      })
+      const cellKind: PreviewKind = collides ? 'place-invalid' : 'place-valid'
+      return reorderAnchorFirst(
+        candidateCells.map((cell) => ({
+          row: cell.row,
+          col: cell.col,
+          kind: cellKind,
+        })),
+        row,
+        col,
+      )
+    }
+  }
+
+  // Default: single-cell ghost matching the legacy resolver.
+  return [{ row, col, kind: anchorKind }]
+}
+
+/**
+ * Move the cell that matches `(anchorRow, anchorCol)` to the head of
+ * the array so the first element is always the hovered cell. Stable
+ * order across calls (matches the input order for everything else) so
+ * a caller can rely on the array shape for diff display or testing.
+ */
+function reorderAnchorFirst(
+  cells: PreviewCell[],
+  anchorRow: number,
+  anchorCol: number,
+): PreviewCell[] {
+  const idx = cells.findIndex(
+    (cell) => cell.row === anchorRow && cell.col === anchorCol,
+  )
+  if (idx <= 0) return cells
+  const out = [...cells]
+  const [anchor] = out.splice(idx, 1)
+  out.unshift(anchor)
+  return out
 }
