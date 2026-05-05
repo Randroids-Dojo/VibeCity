@@ -1414,6 +1414,72 @@ test('unmatched-ports readout reflects open connector port count (REQ-019, REQ-0
   ).toHaveCount(0)
 })
 
+test('per-cell open-end highlight surfaces every cell with an unmatched port (REQ-019, REQ-064)', async ({
+  page,
+}) => {
+  // Intercept autosave so the editor opens cleanly without KV.
+  await page.route('**/api/city/**', async (route) => {
+    if (route.request().method() !== 'PUT') {
+      await route.continue()
+      return
+    }
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        slug: 'open-end-highlight-spec',
+        versionHash:
+          '0000000000000000000000000000000000000000000000000000000000000000',
+        updatedAt: Date.now(),
+      }),
+    })
+  })
+
+  const response = await page.goto('/open-end-highlight-spec/edit')
+  expect(response?.status()).toBe(200)
+
+  const grid = page.getByTestId('editor-snap-grid')
+  await expect(grid).toBeVisible()
+
+  // Empty city: no cell has an open port and no overlay rect mounts.
+  await expect(grid).toHaveAttribute('data-open-end-cell-count', '0')
+  await expect(page.getByTestId('editor-open-end-cell')).toHaveCount(0)
+  await expect(
+    grid.locator('[data-cell-row="0"][data-cell-col="0"]'),
+  ).toHaveAttribute('data-cell-has-open-port', 'false')
+
+  // Place a single straight at (0, 0): both N and S ports are open and
+  // anchor on the same cell so exactly one overlay mounts.
+  await grid.locator('[data-cell-row="0"][data-cell-col="0"]').click()
+  await expect(grid).toHaveAttribute('data-open-end-cell-count', '1')
+  await expect(page.getByTestId('editor-open-end-cell')).toHaveCount(1)
+  await expect(
+    grid.locator('[data-cell-row="0"][data-cell-col="0"]'),
+  ).toHaveAttribute('data-cell-has-open-port', 'true')
+  await expect(
+    grid.locator('[data-open-end-row="0"][data-open-end-col="0"]'),
+  ).toBeVisible()
+
+  // Place a second straight directly south. The shared edge matches so
+  // only the chain ends remain open: one on (0, 0) and one on (1, 0).
+  await grid.locator('[data-cell-row="1"][data-cell-col="0"]').click()
+  await expect(grid).toHaveAttribute('data-open-end-cell-count', '2')
+  await expect(page.getByTestId('editor-open-end-cell')).toHaveCount(2)
+  await expect(
+    grid.locator('[data-cell-row="0"][data-cell-col="0"]'),
+  ).toHaveAttribute('data-cell-has-open-port', 'true')
+  await expect(
+    grid.locator('[data-cell-row="1"][data-cell-col="0"]'),
+  ).toHaveAttribute('data-cell-has-open-port', 'true')
+
+  // Erase both pieces: every cell drops back to false and zero overlays.
+  await page.getByTestId('editor-erase').click()
+  await grid.locator('[data-cell-row="1"][data-cell-col="0"]').click()
+  await grid.locator('[data-cell-row="0"][data-cell-col="0"]').click()
+  await expect(grid).toHaveAttribute('data-open-end-cell-count', '0')
+  await expect(page.getByTestId('editor-open-end-cell')).toHaveCount(0)
+})
+
 test('rejection flash overlays a click that the place / erase reducer rejected (REQ-027)', async ({
   page,
 }) => {

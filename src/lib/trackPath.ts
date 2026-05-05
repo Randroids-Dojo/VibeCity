@@ -571,3 +571,28 @@ export function validateConnections(
   })
   return out
 }
+
+/**
+ * Collapse an `UnmatchedPort[]` into the unique set of cells that host
+ * at least one unmatched port (REQ-019, REQ-064).
+ *
+ * Returns a `Set<string>` keyed by `cellKey(cellRow, cellCol)` so the
+ * SnapGridView can answer "does this cell have an open port" in O(1)
+ * while rendering. Multiple ports on the same cell (e.g. a straight
+ * piece reports both N and S as unmatched on its anchor cell when
+ * placed in isolation) collapse to one set entry; a future per-port
+ * highlight that wants to render each port individually can iterate
+ * the source `UnmatchedPort[]` directly.
+ *
+ * Returns a fresh set on every call so callers cannot mutate cached
+ * state.
+ */
+export function unmatchedPortCells(
+  unmatchedPorts: readonly UnmatchedPort[],
+): Set<string> {
+  const out = new Set<string>()
+  for (const port of unmatchedPorts) {
+    out.add(cellKey(port.cellRow, port.cellCol))
+  }
+  return out
+}

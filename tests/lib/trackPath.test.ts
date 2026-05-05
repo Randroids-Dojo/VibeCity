@@ -16,6 +16,7 @@ import {
   portCell,
   portsConnect,
   summarizeTrackPath,
+  unmatchedPortCells,
   validateConnections,
 } from '@/lib/trackPath'
 
@@ -739,6 +740,63 @@ describe('validateConnections (REQ-019, REQ-064)', () => {
     expect(result).toHaveLength(2)
     expect(result[0].pieceIndex).toBe(0)
     expect(result[1].pieceIndex).toBe(1)
+  })
+})
+
+describe('unmatchedPortCells (REQ-019, REQ-064)', () => {
+  it('returns an empty set for an empty unmatched-ports list', () => {
+    const result = unmatchedPortCells([])
+    expect(result.size).toBe(0)
+  })
+
+  it('returns one cell key per unique unmatched port cell', () => {
+    // A single straight at (0, 0) has both N and S ports unmatched,
+    // both anchored on cell (0, 0); the set collapses to one entry.
+    const a = piece('straight', 0, 0, 0)
+    const ports = validateConnections({ pieces: [a] })
+    const result = unmatchedPortCells(ports)
+    expect(result.size).toBe(1)
+    expect(result.has('0,0')).toBe(true)
+  })
+
+  it('reports separate keys for ports anchored on different cells', () => {
+    // Two stacked straights leave the open ends on (0, 0) and (1, 0).
+    const a = piece('straight', 0, 0, 0)
+    const b = piece('straight', 1, 0, 0)
+    const ports = validateConnections({ pieces: [a, b] })
+    const result = unmatchedPortCells(ports)
+    expect(result.size).toBe(2)
+    expect(result.has('0,0')).toBe(true)
+    expect(result.has('1,0')).toBe(true)
+  })
+
+  it('uses absolute footprint cells for multi-cell pieces', () => {
+    // Hairpin at anchor (0, 0) reports unmatched ports on absolute
+    // cells (-1, 0) and (1, 0), not on the anchor.
+    const a = piece('hairpin', 0, 0, 0)
+    const ports = validateConnections({ pieces: [a] })
+    const result = unmatchedPortCells(ports)
+    expect(result.size).toBe(2)
+    expect(result.has('-1,0')).toBe(true)
+    expect(result.has('1,0')).toBe(true)
+    expect(result.has('0,0')).toBe(false)
+  })
+
+  it('returns a fresh set on every call', () => {
+    const a = piece('straight', 0, 0, 0)
+    const ports = validateConnections({ pieces: [a] })
+    const r1 = unmatchedPortCells(ports)
+    const r2 = unmatchedPortCells(ports)
+    expect(r1).not.toBe(r2)
+    expect(Array.from(r1).sort()).toEqual(Array.from(r2).sort())
+  })
+
+  it('does not mutate the input list', () => {
+    const a = piece('straight', 0, 0, 0)
+    const ports = validateConnections({ pieces: [a] })
+    const before = ports.length
+    unmatchedPortCells(ports)
+    expect(ports.length).toBe(before)
   })
 })
 
