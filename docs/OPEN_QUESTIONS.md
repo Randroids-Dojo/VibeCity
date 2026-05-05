@@ -23,6 +23,17 @@ Keep `Q-NNN` IDs monotonically increasing. When a question resolves, leave the e
 
 ## Open
 
+### Q-007: VibeCity Upstash store: shared with VibeRacer or dedicated
+
+- Context: VibeCity needed a KV store wired up so production saves stop failing. VibeRacer already has `upstash-kv-rose-garden` provisioned via the Vercel marketplace. VibeCity could share that store (key prefixes already differ: `city:` vs `track:`) or get its own dedicated Upstash resource.
+- Options:
+  - A. Share VibeRacer's `upstash-kv-rose-garden`: copy the same `KV_REST_API_*` env vars onto the `vibe-city` Vercel project. Pro: zero provisioning friction, immediate fix, key prefix separation already prevents collision. Con: shared rate limits and shared billing across two products; rotating credentials affects both projects; one project's runaway loop can pressure the other's ceiling.
+  - B. Provision a dedicated Upstash store via the Vercel marketplace UI: VibeCity gets its own Upstash resource attached only to `vibe-city`. Pro: clean ownership boundary, independent quotas, independent secret rotation. Con: requires Vercel marketplace UI flow (the CLI does not expose marketplace provisioning), more setup steps; a small monthly cost on a second store.
+  - C. Provision via the Upstash dashboard directly (no Vercel marketplace): create a free-tier Redis on Upstash and paste its REST URL plus token into `vercel env add`. Pro: still dedicated and independent, no marketplace lock-in. Con: not visible inside `vercel integration ls`, so it does not show up in the Vercel marketplace UI; rotating the token requires hand updates rather than the marketplace handshake.
+- Recommended default: A. Ships immediately and unblocks every saving-dependent feature. Key namespaces are already disjoint (`city:` vs `track:`), so collision is structurally impossible. The tradeoff is shared quota and shared rotation; revisit if either becomes a real problem. If we do, B is the cleanest follow-up since the marketplace handshake is what `vercel integration ls` already understands.
+- Status: open
+- Resolution:
+
 ### Q-002: Build / drive page topology
 
 - Context: VibeRacer ships two separate pages (`/[slug]` for drive, `/[slug]/edit` for editor). VibeCity's pillar 1 ("Build it. Drive it. Build more.") wants the toggle to feel like one click, not a save-and-reload round trip. We can either inherit VibeRacer's two-page split or collapse to a single page with a build / drive mode switch.
