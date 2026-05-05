@@ -90,7 +90,12 @@ test('drive route mounts the canvas with the slug label and Edit CTA', async ({
   await expect(root).toHaveAttribute('data-hud-visible', 'false')
   await expect(root).toHaveAttribute('data-hud-speed', '0')
   await expect(root).toHaveAttribute('data-hud-direction', 'idle')
+  // REQ-030 / REQ-054: HUD surface label defaults to street when no
+  // penalty is engaged. With no car mounted the per-frame mirror does
+  // not run; the JSX default is the contract observable to a test.
+  await expect(root).toHaveAttribute('data-hud-surface', 'street')
   await expect(page.getByTestId('drive-hud-speed')).toHaveCount(0)
+  await expect(page.getByTestId('drive-hud-surface')).toHaveCount(0)
   await expect(page.getByTestId('drive-hud-controls')).toHaveCount(0)
 
   // REQ-067: respawn key listener installs only when a car is mounted.
@@ -218,7 +223,12 @@ test('drive route shows the empty-state prompt for a fresh slug (REQ-053)', asyn
   // gate that mounts the car also gates the HUD overlays so an author
   // cannot see a speed readout for a car that is not on screen.
   await expect(root).toHaveAttribute('data-hud-visible', 'false')
+  // REQ-030 / REQ-054: HUD surface label stays at the street default on
+  // an empty grid; the listener gate that mounts the car also gates the
+  // per-frame mirror so the attribute never flips on an empty grid.
+  await expect(root).toHaveAttribute('data-hud-surface', 'street')
   await expect(page.getByTestId('drive-hud-speed')).toHaveCount(0)
+  await expect(page.getByTestId('drive-hud-surface')).toHaveCount(0)
   await expect(page.getByTestId('drive-hud-controls')).toHaveCount(0)
   // REQ-067: pressing R on the empty grid does not mount a car or fire
   // the respawn handler; the listener is gated on the car being mounted

@@ -100,3 +100,48 @@ export function speedDirection(speed: number): SpeedDirection {
   if (speed < -SPEED_DIRECTION_THRESHOLD) return 'reverse'
   return 'idle'
 }
+
+/**
+ * Surface state shown next to the speed readout (REQ-030, REQ-054, REQ-066).
+ *
+ * The integration loop already mirrors `data-on-building` (REQ-030) and
+ * `data-off-street` (REQ-054) onto the scene root each frame, but those
+ * flags are only observable to tests. A player who veers off the road or
+ * clips a building feels the speed cap engage without any visible
+ * explanation. This surface state collapses the two flags into one
+ * label so the HUD can read out which penalty is active.
+ *
+ * `building` wins over `off-street` because a building cell IS off-street
+ * but the building cap is tighter (REQ-030 cap is below the off-street
+ * cap per offStreetPenalty / buildingCollision tuning) so the more
+ * aggressive penalty is the meaningful one to surface.
+ *
+ * `street` is the default when the car is on a placed street piece and
+ * not on a building cell.
+ */
+export type SurfaceState = 'street' | 'off-street' | 'building'
+
+/**
+ * Resolve the live surface state from the per-frame penalty flags. Pure:
+ * no allocation, deterministic on `(onStreet, onBuilding)`.
+ */
+export function surfaceState(
+  onStreet: boolean,
+  onBuilding: boolean,
+): SurfaceState {
+  if (onBuilding) return 'building'
+  if (!onStreet) return 'off-street'
+  return 'street'
+}
+
+/**
+ * Human-readable label per surface state. The HUD writes this label
+ * imperatively into a span next to the speed readout each frame; the
+ * label is empty for the on-street default so the visible HUD only adds
+ * a line when there is something to say.
+ */
+export const HUD_SURFACE_LABEL: Record<SurfaceState, string> = {
+  street: '',
+  'off-street': 'Off street',
+  building: 'Building hit',
+}
