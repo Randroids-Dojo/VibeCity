@@ -3,10 +3,13 @@ import {
   HUD_CONTROLS_HINT_LINES,
   HUD_SPEED_LABEL,
   HUD_SPEED_UNIT,
+  HUD_SURFACE_LABEL,
   SPEED_DIRECTION_THRESHOLD,
   formatSpeed,
   speedDirection,
   speedFraction,
+  surfaceState,
+  type SurfaceState,
 } from '@/app/[slug]/driveHud'
 import { DEFAULT_KEY_BINDINGS, MAX_SPEED } from '@/app/[slug]/driveControls'
 
@@ -176,5 +179,70 @@ describe('speedDirection', () => {
 
   it('uses a positive symmetric threshold (REQ-066 stable HUD readout)', () => {
     expect(SPEED_DIRECTION_THRESHOLD).toBeGreaterThan(0)
+  })
+})
+
+describe('surfaceState (REQ-030, REQ-054, REQ-066)', () => {
+  it('returns street when on a placed street piece and not on a building', () => {
+    expect(surfaceState(true, false)).toBe('street')
+  })
+
+  it('returns off-street when no wheel touches a placed piece', () => {
+    expect(surfaceState(false, false)).toBe('off-street')
+  })
+
+  it('returns building when the car is on a building cell', () => {
+    expect(surfaceState(true, true)).toBe('building')
+  })
+
+  it('prefers building when both off-street and building flags are active', () => {
+    // A building cell is also off-street; the building cap is tighter
+    // (REQ-030 cap < REQ-054 cap) so the more aggressive penalty wins.
+    expect(surfaceState(false, true)).toBe('building')
+  })
+
+  it('is deterministic: matrix coverage of all four flag pairs', () => {
+    expect(surfaceState(true, false)).toBe('street')
+    expect(surfaceState(false, false)).toBe('off-street')
+    expect(surfaceState(true, true)).toBe('building')
+    expect(surfaceState(false, true)).toBe('building')
+  })
+})
+
+describe('HUD_SURFACE_LABEL', () => {
+  it('emits an empty label for the on-street default so the HUD stays silent', () => {
+    expect(HUD_SURFACE_LABEL.street).toBe('')
+  })
+
+  it('emits a non-empty label for off-street so the player sees the cap engage', () => {
+    expect(HUD_SURFACE_LABEL['off-street'].length).toBeGreaterThan(0)
+    expect(HUD_SURFACE_LABEL['off-street']).toBe(
+      HUD_SURFACE_LABEL['off-street'].trim(),
+    )
+  })
+
+  it('emits a non-empty label for building so the player knows it was a building hit', () => {
+    expect(HUD_SURFACE_LABEL.building.length).toBeGreaterThan(0)
+    expect(HUD_SURFACE_LABEL.building).toBe(HUD_SURFACE_LABEL.building.trim())
+  })
+
+  it('emits distinct labels for off-street and building so the player can tell them apart', () => {
+    expect(HUD_SURFACE_LABEL['off-street']).not.toBe(HUD_SURFACE_LABEL.building)
+  })
+
+  it('mentions the word street in the off-street label', () => {
+    expect(HUD_SURFACE_LABEL['off-street'].toLowerCase()).toContain('street')
+  })
+
+  it('mentions the word building in the building label', () => {
+    expect(HUD_SURFACE_LABEL.building.toLowerCase()).toContain('building')
+  })
+
+  it('covers every SurfaceState union member', () => {
+    const states: SurfaceState[] = ['street', 'off-street', 'building']
+    for (const state of states) {
+      expect(HUD_SURFACE_LABEL).toHaveProperty(state)
+      expect(typeof HUD_SURFACE_LABEL[state]).toBe('string')
+    }
   })
 })

@@ -101,9 +101,11 @@ import {
   HUD_CONTROLS_HINT_LINES,
   HUD_SPEED_LABEL,
   HUD_SPEED_UNIT,
+  HUD_SURFACE_LABEL,
   formatSpeed,
   speedDirection,
   speedFraction,
+  surfaceState,
 } from './driveHud'
 import { RESPAWN_KEY_CODE, respawnVehicle } from './respawn'
 import { ENGINE_MUTE_KEY_CODE, EngineAudioRig } from './engineAudio'
@@ -227,6 +229,12 @@ export function DriveSceneClient({
   // controls hint) renders through the React tree below.
   const hudSpeedValueRef = useRef<HTMLSpanElement | null>(null)
   const hudSpeedBarFillRef = useRef<HTMLDivElement | null>(null)
+  // HUD surface ref (REQ-030, REQ-054, REQ-066). Mirrors the live
+  // `surfaceState` text into a span inside the speed HUD so a player
+  // who slows on a building cell or off the road sees why. The integration
+  // loop writes the text and a `data-hud-surface` attribute imperatively
+  // each frame; the empty default keeps the HUD silent on a clean street.
+  const hudSurfaceRef = useRef<HTMLSpanElement | null>(null)
   // Minimap car marker ref (REQ-069). The integration loop writes the
   // live `transform` attribute on the SVG group each tick so the
   // marker tracks the car position and heading without forcing a
@@ -920,6 +928,24 @@ export function DriveSceneClient({
         root.setAttribute('data-hud-direction', direction)
       }
     }
+    // HUD surface mirror (REQ-030, REQ-054, REQ-066). Collapses the
+    // `onStreet` and `onBuilding` flags into a single surface state so
+    // the HUD shows a label that explains the live speed cap to the
+    // player. `building` wins over `off-street` because the building
+    // cap is tighter than the off-street cap; the on-street default
+    // emits an empty label so the HUD only adds a line when a penalty
+    // is actually engaged. `data-hud-surface` rides on the scene root
+    // so tests can assert the live state without inspecting the DOM.
+    const updateHudSurface = (onStreet: boolean, onBuilding: boolean) => {
+      const state = surfaceState(onStreet, onBuilding)
+      const label = HUD_SURFACE_LABEL[state]
+      if (hudSurfaceRef.current) {
+        hudSurfaceRef.current.textContent = label
+      }
+      if (root) {
+        root.setAttribute('data-hud-surface', state)
+      }
+    }
     // Minimap car marker mirror (REQ-069). The integration loop writes
     // the live position and heading onto the SVG group's transform each
     // tick so the marker tracks the car without a React re-render. The
@@ -997,18 +1023,20 @@ export function DriveSceneClient({
     }
     if (vehicle) {
       updateVehicleAttrs()
-      updateOnBuildingAttr(
-        isOnBuildingCell(vehicle.x, vehicle.z, buildingCells),
+      const initialOnBuilding = isOnBuildingCell(
+        vehicle.x,
+        vehicle.z,
+        buildingCells,
       )
-      updateOffStreetAttr(
-        !wheelOnStreet(
-          vehicle,
-          wheelLocalOffsets,
-          trackPath,
-          city.pieces,
-          CELL_SIZE,
-        ),
+      const initialOnStreet = wheelOnStreet(
+        vehicle,
+        wheelLocalOffsets,
+        trackPath,
+        city.pieces,
+        CELL_SIZE,
       )
+      updateOnBuildingAttr(initialOnBuilding)
+      updateOffStreetAttr(!initialOnStreet)
       updateClosestPieceAttrs(
         closestStreetPiece(
           vehicle,
@@ -1019,6 +1047,7 @@ export function DriveSceneClient({
         ),
       )
       updateHud()
+      updateHudSurface(initialOnStreet, initialOnBuilding)
       updateMinimap()
     }
 
@@ -1076,18 +1105,20 @@ export function DriveSceneClient({
       pressedKeys.clear()
       updatePressedAttr()
       updateVehicleAttrs()
-      updateOnBuildingAttr(
-        isOnBuildingCell(vehicle.x, vehicle.z, buildingCells),
+      const respawnOnBuilding = isOnBuildingCell(
+        vehicle.x,
+        vehicle.z,
+        buildingCells,
       )
-      updateOffStreetAttr(
-        !wheelOnStreet(
-          vehicle,
-          wheelLocalOffsets,
-          trackPath,
-          city.pieces,
-          CELL_SIZE,
-        ),
+      const respawnOnStreet = wheelOnStreet(
+        vehicle,
+        wheelLocalOffsets,
+        trackPath,
+        city.pieces,
+        CELL_SIZE,
       )
+      updateOnBuildingAttr(respawnOnBuilding)
+      updateOffStreetAttr(!respawnOnStreet)
       updateClosestPieceAttrs(
         closestStreetPiece(
           vehicle,
@@ -1098,6 +1129,7 @@ export function DriveSceneClient({
         ),
       )
       updateHud()
+      updateHudSurface(respawnOnStreet, respawnOnBuilding)
       updateMinimap()
       if (rig) {
         const snap = createCameraRig(
@@ -1222,6 +1254,7 @@ export function DriveSceneClient({
           ),
         )
         updateHud()
+        updateHudSurface(onStreet, onBuilding)
         updateMinimap()
         // Engine audio (REQ-068). The rig's `update` is a no-op until
         // `start()` resolves and is also a no-op while muted, so the
@@ -1355,6 +1388,7 @@ export function DriveSceneClient({
       data-hud-visible={hasVehicle && !showPauseMenu ? 'true' : 'false'}
       data-hud-speed="0"
       data-hud-direction="idle"
+      data-hud-surface="street"
       data-engine-audio-muted={engineMuted ? 'true' : 'false'}
       data-engine-audio-started="false"
       data-minimap-visible={hasVehicle && !showPauseMenu ? 'true' : 'false'}
@@ -1547,6 +1581,24 @@ export function DriveSceneClient({
             >
               0
             </span>
+          </div>
+          <div
+            style={{
+              minHeight: 14,
+              display: 'flex',
+              alignItems: 'baseline',
+            }}
+          >
+            <span
+              ref={hudSurfaceRef}
+              data-testid="drive-hud-surface"
+              style={{
+                fontSize: 11,
+                letterSpacing: 0.4,
+                textTransform: 'uppercase',
+                color: '#f5b94a',
+              }}
+            />
           </div>
           <div
             data-testid="drive-hud-speed-bar"
