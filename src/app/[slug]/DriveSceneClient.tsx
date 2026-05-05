@@ -118,6 +118,13 @@ import {
 import { RESPAWN_KEY_CODE, respawnVehicle } from './respawn'
 import { ENGINE_MUTE_KEY_CODE, EngineAudioRig } from './engineAudio'
 import {
+  SHARE_COPY_RESET_DELAY_MS,
+  buildShareUrl,
+  shareCopyAriaLabel,
+  shareCopyLabel,
+  type CopyShareStatus,
+} from './shareUrl'
+import {
   MINIMAP_BACKGROUND_COLOR,
   MINIMAP_BORDER_COLOR,
   MINIMAP_BUILDING_COLOR,
@@ -298,6 +305,52 @@ export function DriveSceneClient({
       return next
     })
   }, [])
+
+  // Share-URL copy button state (REQ-006, REQ-053). The button lives
+  // next to the slug pill and copies the canonical drive URL so a
+  // visitor can hand the link to a friend without leaving the drive
+  // view (Pillar 2: "Your city, your URL"). The status drives the
+  // visible button label via `shareCopyLabel`; the timer ref clears
+  // a stale reset timer if the player clicks again before the prior
+  // success / error label has timed out so we never schedule two
+  // overlapping resets.
+  const [shareCopyStatus, setShareCopyStatus] =
+    useState<CopyShareStatus>('idle')
+  const shareCopyResetTimerRef = useRef<ReturnType<
+    typeof setTimeout
+  > | null>(null)
+  useEffect(() => {
+    return () => {
+      if (shareCopyResetTimerRef.current !== null) {
+        clearTimeout(shareCopyResetTimerRef.current)
+        shareCopyResetTimerRef.current = null
+      }
+    }
+  }, [])
+  const handleCopyShareUrl = useCallback(async () => {
+    const origin =
+      typeof window !== 'undefined' ? window.location.origin : null
+    const url = buildShareUrl(slug, origin)
+    let nextStatus: CopyShareStatus = 'error'
+    try {
+      const clipboard =
+        typeof navigator !== 'undefined' ? navigator.clipboard : null
+      if (clipboard && typeof clipboard.writeText === 'function') {
+        await clipboard.writeText(url)
+        nextStatus = 'copied'
+      }
+    } catch {
+      nextStatus = 'error'
+    }
+    setShareCopyStatus(nextStatus)
+    if (shareCopyResetTimerRef.current !== null) {
+      clearTimeout(shareCopyResetTimerRef.current)
+    }
+    shareCopyResetTimerRef.current = setTimeout(() => {
+      shareCopyResetTimerRef.current = null
+      setShareCopyStatus('idle')
+    }, SHARE_COPY_RESET_DELAY_MS)
+  }, [slug])
 
   // Camera tuning state (REQ-040). Loaded from localStorage on mount
   // (server-render seeds with the defaults; the client effect below
@@ -1454,6 +1507,7 @@ export function DriveSceneClient({
       data-unmatched-port-count={unmatchedPortCount}
       data-engine-audio-muted={engineMuted ? 'true' : 'false'}
       data-engine-audio-started="false"
+      data-share-copy-status={shareCopyStatus}
       data-minimap-visible={hasVehicle && !showPauseMenu ? 'true' : 'false'}
       data-minimap-piece-count={city.pieces.length}
       data-minimap-building-count={city.buildings.length}
@@ -1487,15 +1541,50 @@ export function DriveSceneClient({
           position: 'absolute',
           top: 16,
           left: 16,
-          padding: '8px 12px',
-          borderRadius: 4,
-          background: 'rgba(34, 34, 34, 0.7)',
-          fontSize: 14,
-          fontFamily: 'system-ui, sans-serif',
-          letterSpacing: 0.5,
+          display: 'flex',
+          alignItems: 'center',
+          gap: 8,
         }}
       >
-        <span data-testid="drive-scene-slug">{slug}</span>
+        <div
+          style={{
+            padding: '8px 12px',
+            borderRadius: 4,
+            background: 'rgba(34, 34, 34, 0.7)',
+            fontSize: 14,
+            fontFamily: 'system-ui, sans-serif',
+            letterSpacing: 0.5,
+          }}
+        >
+          <span data-testid="drive-scene-slug">{slug}</span>
+        </div>
+        <button
+          type="button"
+          data-testid="drive-share-copy"
+          data-share-status={shareCopyStatus}
+          aria-label={shareCopyAriaLabel(slug, shareCopyStatus)}
+          title="Copy this city's share link"
+          onClick={handleCopyShareUrl}
+          style={{
+            padding: '8px 12px',
+            fontSize: 13,
+            fontFamily: 'system-ui, sans-serif',
+            color: shareCopyStatus === 'error' ? '#a3372a' : '#f7f4ee',
+            background: 'rgba(34, 34, 34, 0.7)',
+            border:
+              shareCopyStatus === 'copied'
+                ? '1px solid #6a8f5a'
+                : shareCopyStatus === 'error'
+                  ? '1px solid #a3372a'
+                  : '1px solid #444',
+            borderRadius: 4,
+            cursor: 'pointer',
+            letterSpacing: 0.4,
+            lineHeight: 1,
+          }}
+        >
+          {shareCopyLabel(shareCopyStatus)}
+        </button>
       </div>
       <Link
         href={`/${slug}/edit`}
