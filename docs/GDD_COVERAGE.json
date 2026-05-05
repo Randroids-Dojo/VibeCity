@@ -120,11 +120,13 @@
         "src/app/[slug]/page.tsx",
         "src/app/[slug]/slugRoute.ts",
         "src/app/[slug]/DriveSceneClient.tsx",
-        "src/app/[slug]/driveScene.ts"
+        "src/app/[slug]/driveScene.ts",
+        "src/app/[slug]/shareUrl.ts"
       ],
       "testRefs": [
         "tests/app/slugRoute.test.ts",
         "tests/app/driveScene.test.ts",
+        "tests/app/shareUrl.test.ts",
         "e2e/drive.spec.ts"
       ],
       "followupRefs": []
@@ -1057,10 +1059,12 @@
       "status": "done",
       "implementationRefs": [
         "src/app/[slug]/DriveSceneClient.tsx",
-        "src/app/[slug]/driveScene.ts"
+        "src/app/[slug]/driveScene.ts",
+        "src/app/[slug]/shareUrl.ts"
       ],
       "testRefs": [
         "tests/app/driveScene.test.ts",
+        "tests/app/shareUrl.test.ts",
         "e2e/drive.spec.ts"
       ],
       "followupRefs": []

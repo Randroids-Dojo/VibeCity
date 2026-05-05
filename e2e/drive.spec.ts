@@ -125,6 +125,19 @@ test('drive route mounts the canvas with the slug label and Edit CTA', async ({
   await expect(root).toHaveAttribute('data-engine-audio-started', 'false')
   await expect(page.getByTestId('drive-engine-mute-toggle')).toHaveCount(0)
 
+  // REQ-006, REQ-053: share-copy button mounts next to the slug pill
+  // and stays at the idle status before any click. The button is
+  // always visible (regardless of whether a car is mounted) because
+  // the share link is the drive URL itself; an empty grid is still
+  // shareable.
+  await expect(root).toHaveAttribute('data-share-copy-status', 'idle')
+  const shareCopyOnScaffold = page.getByTestId('drive-share-copy')
+  await expect(shareCopyOnScaffold).toBeVisible()
+  await expect(shareCopyOnScaffold).toHaveAttribute(
+    'data-share-status',
+    'idle',
+  )
+
   // REQ-069: minimap renders only when a car is mounted and the pause
   // menu is closed. The playwright webServer runs without KV so the
   // city is empty; the minimap stays hidden and the data attributes
@@ -333,4 +346,63 @@ test('drive route shows the empty-state prompt for a fresh slug (REQ-053)', asyn
   await cta.click()
   await page.waitForURL('**/drive-empty-spec/edit')
   expect(page.url()).toMatch(/\/drive-empty-spec\/edit$/)
+})
+
+test('drive HUD share-copy button copies the canonical drive URL (REQ-006, REQ-053)', async ({
+  browser,
+  baseURL,
+}) => {
+  // Grant clipboard read / write permissions so the playwright headless
+  // browser does not refuse the navigator.clipboard.writeText call. The
+  // permission has to be granted on a fresh context that targets the
+  // page origin so the secure-context check passes against the dev
+  // server's localhost origin.
+  const context = await browser.newContext({
+    permissions: ['clipboard-read', 'clipboard-write'],
+  })
+  try {
+    const page = await context.newPage()
+    const response = await page.goto('/share-copy-spec')
+    expect(response?.status()).toBe(200)
+
+    const root = page.getByTestId('drive-scene-root')
+    await expect(root).toHaveAttribute(
+      'data-share-copy-status',
+      'idle',
+    )
+
+    const button = page.getByTestId('drive-share-copy')
+    await expect(button).toBeVisible()
+    await expect(button).toHaveAttribute('data-share-status', 'idle')
+    await expect(button).toHaveText('Copy share URL')
+    await expect(button).toHaveAttribute(
+      'aria-label',
+      'Copy share URL for share-copy-spec',
+    )
+
+    await button.click()
+
+    await expect(button).toHaveText('Copied!')
+    await expect(button).toHaveAttribute('data-share-status', 'copied')
+    await expect(root).toHaveAttribute('data-share-copy-status', 'copied')
+    await expect(button).toHaveAttribute(
+      'aria-label',
+      'Copied share URL for share-copy-spec',
+    )
+
+    // The clipboard now holds the canonical drive URL composed from the
+    // page origin plus the slug. We read it back via the page's
+    // navigator.clipboard so the assertion exercises the same surface
+    // the click handler wrote to.
+    const clipboardText = await page.evaluate(() => navigator.clipboard.readText())
+    const expectedOrigin = baseURL ?? page.url().replace(/\/share-copy-spec.*/, '')
+    expect(clipboardText).toBe(`${expectedOrigin.replace(/\/$/, '')}/share-copy-spec`)
+
+    // After SHARE_COPY_RESET_DELAY_MS (1600 ms) the button resets.
+    await expect(button).toHaveText('Copy share URL', { timeout: 4000 })
+    await expect(button).toHaveAttribute('data-share-status', 'idle')
+    await expect(root).toHaveAttribute('data-share-copy-status', 'idle')
+  } finally {
+    await context.close()
+  }
 })
