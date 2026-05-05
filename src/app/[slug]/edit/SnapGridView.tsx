@@ -38,6 +38,12 @@ import {
 } from './connectorGlyphs'
 
 /**
+ * Shared empty fallback for the open-end cell set so callers that omit
+ * `openEndCellKeys` do not allocate a fresh empty set per render.
+ */
+const EMPTY_OPEN_END_KEYS: ReadonlySet<string> = new Set<string>()
+
+/**
  * Render the editor snap-grid (REQ-016, REQ-020, REQ-022, REQ-028).
  *
  * The grid is an SVG of `GRID_DIAMETER x GRID_DIAMETER` cells. Each
@@ -96,6 +102,19 @@ import {
  * exposes `data-connector-matched` mirroring the matched count so the
  * EditorClient toolbar can surface a count without re-walking the
  * city.
+ *
+ * Open-end cell highlight (REQ-019, REQ-064): when the caller passes
+ * `openEndCellKeys` (the substrate-derived `Set<cellKey>` of cells
+ * that host at least one unmatched connector port), every cell whose
+ * key is in the set carries `data-cell-has-open-port='true'` and
+ * renders with an additional warning stroke ring (rendered as a
+ * non-interactive overlay rect so the underlying clickable cell stays
+ * intact). The warning color matches the rejection-flash and unmatched-
+ * ports-readout palette (`#a3372a`) so the editor's open-ends warning
+ * vocabulary stays consistent across the per-cell highlight, the
+ * per-port glyph stroke, and the toolbar count readout. Cells with no
+ * open port carry `data-cell-has-open-port='false'` so a test can
+ * count both populations.
  */
 export function SnapGrid({
   city,
@@ -107,6 +126,7 @@ export function SnapGrid({
   rejectionFlash,
   cursorMode = 'place',
   viewport = DEFAULT_VIEWPORT,
+  openEndCellKeys,
   onSurfaceWheel,
   onSurfacePointerDown,
 }: {
@@ -119,6 +139,7 @@ export function SnapGrid({
   rejectionFlash?: RejectionFlash | null
   cursorMode?: 'place' | 'erase'
   viewport?: Viewport
+  openEndCellKeys?: ReadonlySet<string> | null
   onSurfaceWheel?: (event: ReactWheelEvent<SVGSVGElement>) => void
   onSurfacePointerDown?: (event: ReactPointerEvent<SVGSVGElement>) => void
 }) {
@@ -148,6 +169,7 @@ export function SnapGrid({
   for (const ghost of ghostList) {
     previewedKeys.add(cellKey(ghost.row, ghost.col))
   }
+  const openEndKeys: ReadonlySet<string> = openEndCellKeys ?? EMPTY_OPEN_END_KEYS
   const viewBox = viewportToViewBoxString(viewport)
   const viewportIsDefault = isDefaultViewport(viewport)
 
@@ -163,6 +185,7 @@ export function SnapGrid({
       data-building-count={occupiedBuildings.size}
       data-connector-count={connectorGlyphs.length}
       data-connector-matched={matchedConnectorCount}
+      data-open-end-cell-count={openEndKeys.size}
       data-cursor-mode={interactive ? cursorMode : 'none'}
       data-preview-kind={previewCell ? previewCell.kind : 'none'}
       data-preview-row={previewCell ? previewCell.row : ''}
@@ -207,6 +230,7 @@ export function SnapGrid({
               : 'transparent'
         const occupiedKind = isPiece ? 'piece' : isBuilding ? 'building' : 'none'
         const isPreviewed = previewedKeys.has(key)
+        const hasOpenPort = openEndKeys.has(key)
         return (
           <rect
             key={key}
@@ -222,6 +246,7 @@ export function SnapGrid({
             data-cell-occupied={isPiece || isBuilding ? 'true' : 'false'}
             data-cell-occupied-kind={occupiedKind}
             data-cell-previewed={isPreviewed ? 'true' : 'false'}
+            data-cell-has-open-port={hasOpenPort ? 'true' : 'false'}
             onClick={
               interactive
                 ? () => {
@@ -244,6 +269,35 @@ export function SnapGrid({
                 : undefined
             }
             style={interactive ? { cursor } : undefined}
+          />
+        )
+      })}
+      {Array.from(openEndKeys).map((key) => {
+        // Render a non-interactive warning overlay rect on top of any
+        // cell that hosts an unmatched connector port (REQ-019, REQ-064).
+        // The fill is transparent so the underlying piece / building /
+        // origin tile keeps its visual; the warning stroke (`#a3372a`,
+        // matching the rejection-flash and open-ends-readout palette)
+        // pulls the builder's eye to the cells that still need a
+        // neighbor without obscuring the connector glyphs.
+        const [rowStr, colStr] = key.split(',')
+        const row = Number(rowStr)
+        const col = Number(colStr)
+        const { x, y } = cellToPixel({ row, col })
+        return (
+          <rect
+            key={`open-end-${key}`}
+            data-testid="editor-open-end-cell"
+            data-open-end-row={row}
+            data-open-end-col={col}
+            x={x + 1}
+            y={y + 1}
+            width={CELL_PIXELS - 2}
+            height={CELL_PIXELS - 2}
+            fill="transparent"
+            stroke="#a3372a"
+            strokeWidth={2}
+            pointerEvents="none"
           />
         )
       })}

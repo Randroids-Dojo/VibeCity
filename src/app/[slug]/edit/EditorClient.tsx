@@ -71,6 +71,7 @@ import {
 import {
   buildTrackPath,
   summarizeTrackPath,
+  unmatchedPortCells,
   validateConnections,
 } from '@/lib/trackPath'
 import { SceneTransitionCurtain } from '../SceneTransitionCurtain'
@@ -622,6 +623,11 @@ export function EditorClient({
   // connector / track-path resolvers above.
   const unmatchedPorts = validateConnections(city)
   const unmatchedPortCount = unmatchedPorts.length
+  // Collapse the per-port list to the unique cells that host at least
+  // one unmatched port so the SnapGrid can render a per-cell warning
+  // overlay (REQ-019, REQ-064). Keeps the resolver work in EditorClient
+  // (one walk per render) instead of redoing it inside SnapGridView.
+  const openEndCellKeys = unmatchedPortCells(unmatchedPorts)
 
   return (
     <div
@@ -971,6 +977,7 @@ export function EditorClient({
         rejectionFlash={rejectionFlash}
         cursorMode={toolMode}
         viewport={viewport}
+        openEndCellKeys={openEndCellKeys}
         onSurfaceWheel={handleSurfaceWheel}
         onSurfacePointerDown={handleSurfacePointerDown}
       />
