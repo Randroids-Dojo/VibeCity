@@ -1,7 +1,9 @@
+import type { Metadata } from 'next'
 import { notFound } from 'next/navigation'
 import { loadCity } from '@/lib/loadCity'
 import { readVersionParam } from '@/lib/cityVersion'
 import { parseSlugParam } from '../slugRoute'
+import { editDescription, editTitle } from '../slugMetadata'
 import { EditorClient } from './EditorClient'
 
 /**
@@ -35,6 +37,34 @@ import { EditorClient } from './EditorClient'
  * Invalid slugs return 404 via `notFound()` so unsharable URLs do not
  * leak into the editor.
  */
+/**
+ * Per-route metadata for `/<slug>/edit` (REQ-007). Sets the browser tab
+ * title to "Edit <slug> | VibeCity" and the description to a one-line
+ * sentence naming the slug so a shared editor link in iMessage, Slack,
+ * or a browser-tab list reads with the slug context instead of the
+ * bare site name. Invalid slugs fall back to the site-wide title
+ * defined in `src/app/layout.tsx` so a 404 render does not leak a
+ * slug-shaped title for a URL that did not load.
+ */
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ slug: string }>
+}): Promise<Metadata> {
+  const { slug: raw } = await params
+  const slug = parseSlugParam(raw)
+  if (!slug) {
+    return {}
+  }
+  const description = editDescription(slug)
+  return {
+    title: editTitle(slug),
+    description,
+    openGraph: { title: editTitle(slug), description },
+    twitter: { title: editTitle(slug), description },
+  }
+}
+
 export default async function EditCityPage({
   params,
   searchParams,

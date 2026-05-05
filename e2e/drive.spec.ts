@@ -348,6 +348,14 @@ test('drive route shows the empty-state prompt for a fresh slug (REQ-053)', asyn
   expect(page.url()).toMatch(/\/drive-empty-spec\/edit$/)
 })
 
+test('drive route sets the per-slug document title (REQ-006, REQ-053)', async ({
+  page,
+}) => {
+  const response = await page.goto('/title-spec-city')
+  expect(response?.status()).toBe(200)
+  await expect(page).toHaveTitle('Drive title-spec-city | VibeCity')
+})
+
 test('drive HUD share-copy button copies the canonical drive URL (REQ-006, REQ-053)', async ({
   browser,
   baseURL,
