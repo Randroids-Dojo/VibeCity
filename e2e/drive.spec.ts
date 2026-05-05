@@ -94,6 +94,14 @@ test('drive route mounts the canvas with the slug label and Edit CTA', async ({
   // penalty is engaged. With no car mounted the per-frame mirror does
   // not run; the JSX default is the contract observable to a test.
   await expect(root).toHaveAttribute('data-hud-surface', 'street')
+  // REQ-019 / REQ-064 / REQ-066: city validity defaults to closed because
+  // the playwright webServer runs without KV so loadCity returns the
+  // empty city and `validateConnections` returns the empty list. The
+  // unmatched-port count is 0; the HUD city-validity span only mounts
+  // when the count is non-zero so it stays absent here.
+  await expect(root).toHaveAttribute('data-city-validity', 'closed')
+  await expect(root).toHaveAttribute('data-unmatched-port-count', '0')
+  await expect(page.getByTestId('drive-hud-city-validity')).toHaveCount(0)
   await expect(page.getByTestId('drive-hud-speed')).toHaveCount(0)
   await expect(page.getByTestId('drive-hud-surface')).toHaveCount(0)
   await expect(page.getByTestId('drive-hud-controls')).toHaveCount(0)
@@ -227,6 +235,13 @@ test('drive route shows the empty-state prompt for a fresh slug (REQ-053)', asyn
   // an empty grid; the listener gate that mounts the car also gates the
   // per-frame mirror so the attribute never flips on an empty grid.
   await expect(root).toHaveAttribute('data-hud-surface', 'street')
+  // REQ-019 / REQ-064 / REQ-066: city validity defaults to closed on the
+  // empty grid because `validateConnections` of an empty piece list
+  // returns the empty array. The HUD city-validity span only mounts
+  // when the count is non-zero so it stays absent here.
+  await expect(root).toHaveAttribute('data-city-validity', 'closed')
+  await expect(root).toHaveAttribute('data-unmatched-port-count', '0')
+  await expect(page.getByTestId('drive-hud-city-validity')).toHaveCount(0)
   await expect(page.getByTestId('drive-hud-speed')).toHaveCount(0)
   await expect(page.getByTestId('drive-hud-surface')).toHaveCount(0)
   await expect(page.getByTestId('drive-hud-controls')).toHaveCount(0)

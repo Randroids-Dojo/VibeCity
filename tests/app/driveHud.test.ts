@@ -1,14 +1,17 @@
 import { describe, expect, it } from 'vitest'
 import {
+  HUD_CITY_VALIDITY_LABEL,
   HUD_CONTROLS_HINT_LINES,
   HUD_SPEED_LABEL,
   HUD_SPEED_UNIT,
   HUD_SURFACE_LABEL,
   SPEED_DIRECTION_THRESHOLD,
+  cityValidity,
   formatSpeed,
   speedDirection,
   speedFraction,
   surfaceState,
+  type CityValidity,
   type SurfaceState,
 } from '@/app/[slug]/driveHud'
 import { DEFAULT_KEY_BINDINGS, MAX_SPEED } from '@/app/[slug]/driveControls'
@@ -244,5 +247,65 @@ describe('HUD_SURFACE_LABEL', () => {
       expect(HUD_SURFACE_LABEL).toHaveProperty(state)
       expect(typeof HUD_SURFACE_LABEL[state]).toBe('string')
     }
+  })
+})
+
+describe('cityValidity (REQ-066, REQ-019, REQ-064)', () => {
+  it('returns closed for zero unmatched ports', () => {
+    expect(cityValidity(0)).toBe('closed')
+  })
+
+  it('returns open for one unmatched port', () => {
+    expect(cityValidity(1)).toBe('open')
+  })
+
+  it('returns open for many unmatched ports', () => {
+    expect(cityValidity(7)).toBe('open')
+  })
+
+  it('returns closed for negative counts (defensive against tuning bugs)', () => {
+    expect(cityValidity(-1)).toBe('closed')
+    expect(cityValidity(-100)).toBe('closed')
+  })
+
+  it('returns closed for non-finite inputs (defensive against NaN leaks)', () => {
+    expect(cityValidity(Number.NaN)).toBe('closed')
+    expect(cityValidity(Number.POSITIVE_INFINITY)).toBe('closed')
+    expect(cityValidity(Number.NEGATIVE_INFINITY)).toBe('closed')
+  })
+
+  it('is deterministic across the boundary at zero', () => {
+    expect(cityValidity(0)).toBe('closed')
+    expect(cityValidity(0.5)).toBe('open')
+    expect(cityValidity(1)).toBe('open')
+  })
+})
+
+describe('HUD_CITY_VALIDITY_LABEL', () => {
+  it('emits an empty label for the closed default so the HUD stays silent on a closed city', () => {
+    expect(HUD_CITY_VALIDITY_LABEL.closed).toBe('')
+  })
+
+  it('emits a non-empty trimmed label for open so the player sees the warning', () => {
+    expect(HUD_CITY_VALIDITY_LABEL.open.length).toBeGreaterThan(0)
+    expect(HUD_CITY_VALIDITY_LABEL.open).toBe(HUD_CITY_VALIDITY_LABEL.open.trim())
+  })
+
+  it('mentions the word ends or open so the player understands the warning', () => {
+    const label = HUD_CITY_VALIDITY_LABEL.open.toLowerCase()
+    expect(label.includes('end') || label.includes('open')).toBe(true)
+  })
+
+  it('covers every CityValidity union member', () => {
+    const states: CityValidity[] = ['closed', 'open']
+    for (const state of states) {
+      expect(HUD_CITY_VALIDITY_LABEL).toHaveProperty(state)
+      expect(typeof HUD_CITY_VALIDITY_LABEL[state]).toBe('string')
+    }
+  })
+
+  it('emits a label distinct from the surface label vocabulary so the HUD reads as two channels', () => {
+    expect(HUD_CITY_VALIDITY_LABEL.open).not.toBe(HUD_SURFACE_LABEL['off-street'])
+    expect(HUD_CITY_VALIDITY_LABEL.open).not.toBe(HUD_SURFACE_LABEL.building)
   })
 })
