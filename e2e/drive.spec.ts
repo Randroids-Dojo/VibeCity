@@ -104,6 +104,11 @@ test('drive route mounts the canvas with the slug label and Edit CTA', async ({
   await expect(page.getByTestId('drive-hud-city-validity')).toHaveCount(0)
   await expect(page.getByTestId('drive-hud-speed')).toHaveCount(0)
   await expect(page.getByTestId('drive-hud-surface')).toHaveCount(0)
+  // REQ-066: drive HUD direction span lives inside the speed HUD wrapper
+  // so the listener gate that mounts the car also gates this span. With
+  // no car mounted the speed HUD is hidden so the direction readout is
+  // absent; the unit tests cover the populated label map.
+  await expect(page.getByTestId('drive-hud-direction')).toHaveCount(0)
   await expect(page.getByTestId('drive-hud-controls')).toHaveCount(0)
 
   // REQ-067: respawn key listener installs only when a car is mounted.
@@ -244,6 +249,10 @@ test('drive route shows the empty-state prompt for a fresh slug (REQ-053)', asyn
   await expect(page.getByTestId('drive-hud-city-validity')).toHaveCount(0)
   await expect(page.getByTestId('drive-hud-speed')).toHaveCount(0)
   await expect(page.getByTestId('drive-hud-surface')).toHaveCount(0)
+  // REQ-066: same direction-span gate as the scaffold spec; the empty
+  // state branch hides the speed HUD wrapper so the direction readout
+  // is absent. Unit tests cover the populated label map.
+  await expect(page.getByTestId('drive-hud-direction')).toHaveCount(0)
   await expect(page.getByTestId('drive-hud-controls')).toHaveCount(0)
   // REQ-067: pressing R on the empty grid does not mount a car or fire
   // the respawn handler; the listener is gated on the car being mounted

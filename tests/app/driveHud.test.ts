@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import {
   HUD_CITY_VALIDITY_LABEL,
   HUD_CONTROLS_HINT_LINES,
+  HUD_SPEED_DIRECTION_LABEL,
   HUD_SPEED_LABEL,
   HUD_SPEED_UNIT,
   HUD_SURFACE_LABEL,
@@ -12,6 +13,7 @@ import {
   speedFraction,
   surfaceState,
   type CityValidity,
+  type SpeedDirection,
   type SurfaceState,
 } from '@/app/[slug]/driveHud'
 import { DEFAULT_KEY_BINDINGS, MAX_SPEED } from '@/app/[slug]/driveControls'
@@ -307,5 +309,44 @@ describe('HUD_CITY_VALIDITY_LABEL', () => {
   it('emits a label distinct from the surface label vocabulary so the HUD reads as two channels', () => {
     expect(HUD_CITY_VALIDITY_LABEL.open).not.toBe(HUD_SURFACE_LABEL['off-street'])
     expect(HUD_CITY_VALIDITY_LABEL.open).not.toBe(HUD_SURFACE_LABEL.building)
+  })
+})
+
+describe('HUD_SPEED_DIRECTION_LABEL (REQ-066)', () => {
+  it('emits an empty label for the idle default so the HUD stays silent at rest', () => {
+    expect(HUD_SPEED_DIRECTION_LABEL.idle).toBe('')
+  })
+
+  it('emits an empty label for forward driving so the HUD does not crowd the readout when the speed bar already conveys the state', () => {
+    expect(HUD_SPEED_DIRECTION_LABEL.forward).toBe('')
+  })
+
+  it('emits a non-empty trimmed label for reverse so the player sees the disambiguation', () => {
+    expect(HUD_SPEED_DIRECTION_LABEL.reverse.length).toBeGreaterThan(0)
+    expect(HUD_SPEED_DIRECTION_LABEL.reverse).toBe(
+      HUD_SPEED_DIRECTION_LABEL.reverse.trim(),
+    )
+  })
+
+  it('mentions the word reverse in the reverse label so a player understands the cue', () => {
+    expect(HUD_SPEED_DIRECTION_LABEL.reverse.toLowerCase()).toContain('reverse')
+  })
+
+  it('covers every SpeedDirection union member', () => {
+    const states: SpeedDirection[] = ['idle', 'forward', 'reverse']
+    for (const state of states) {
+      expect(HUD_SPEED_DIRECTION_LABEL).toHaveProperty(state)
+      expect(typeof HUD_SPEED_DIRECTION_LABEL[state]).toBe('string')
+    }
+  })
+
+  it('emits a label distinct from the surface and city-validity vocabulary so the HUD reads as separate channels', () => {
+    expect(HUD_SPEED_DIRECTION_LABEL.reverse).not.toBe(
+      HUD_SURFACE_LABEL['off-street'],
+    )
+    expect(HUD_SPEED_DIRECTION_LABEL.reverse).not.toBe(HUD_SURFACE_LABEL.building)
+    expect(HUD_SPEED_DIRECTION_LABEL.reverse).not.toBe(
+      HUD_CITY_VALIDITY_LABEL.open,
+    )
   })
 })

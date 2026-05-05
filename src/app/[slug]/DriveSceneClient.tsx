@@ -100,6 +100,7 @@ import { buildTrackPath, validateConnections } from '@/lib/trackPath'
 import {
   HUD_CITY_VALIDITY_LABEL,
   HUD_CONTROLS_HINT_LINES,
+  HUD_SPEED_DIRECTION_LABEL,
   HUD_SPEED_LABEL,
   HUD_SPEED_UNIT,
   HUD_SURFACE_LABEL,
@@ -237,6 +238,14 @@ export function DriveSceneClient({
   // loop writes the text and a `data-hud-surface` attribute imperatively
   // each frame; the empty default keeps the HUD silent on a clean street.
   const hudSurfaceRef = useRef<HTMLSpanElement | null>(null)
+  // HUD direction ref (REQ-066). Mirrors the live `speedDirection` text
+  // into a span inside the speed HUD so a player who is rolling
+  // backward sees a "Reverse" label instead of having to read the
+  // `data-hud-direction` data attribute. The integration loop writes
+  // the text imperatively each frame inside `updateHud`; the empty
+  // default keeps the HUD silent on idle and forward driving where the
+  // speed bar already conveys the live state.
+  const hudDirectionRef = useRef<HTMLSpanElement | null>(null)
   // Minimap car marker ref (REQ-069). The integration loop writes the
   // live `transform` attribute on the SVG group each tick so the
   // marker tracks the car position and heading without forcing a
@@ -934,6 +943,10 @@ export function DriveSceneClient({
       if (hudSpeedValueRef.current) {
         hudSpeedValueRef.current.textContent = valueText
       }
+      if (hudDirectionRef.current) {
+        hudDirectionRef.current.textContent =
+          HUD_SPEED_DIRECTION_LABEL[direction]
+      }
       if (hudSpeedBarFillRef.current) {
         // CSS `transform: scaleX(...)` keeps the bar's reflow-free; the
         // bar element is the inner fill so the outer track is the full
@@ -1600,6 +1613,16 @@ export function DriveSceneClient({
             >
               0
             </span>
+            <span
+              ref={hudDirectionRef}
+              data-testid="drive-hud-direction"
+              style={{
+                fontSize: 11,
+                letterSpacing: 0.4,
+                textTransform: 'uppercase',
+                color: '#e0c878',
+              }}
+            />
           </div>
           <div
             style={{

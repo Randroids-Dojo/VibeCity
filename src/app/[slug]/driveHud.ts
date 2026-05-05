@@ -102,6 +102,28 @@ export function speedDirection(speed: number): SpeedDirection {
 }
 
 /**
+ * Human-readable label per speed direction (REQ-066).
+ *
+ * The HUD writes this label imperatively into a span next to the speed
+ * value each frame so a player who is rolling backward sees the
+ * disambiguation in the visible HUD without having to read the
+ * `data-hud-direction` data attribute. The forward and idle defaults
+ * emit empty strings so the visible HUD only adds a line when the car
+ * is reversing; forward driving is the default state and the speed bar
+ * already conveys that the car is moving, so a "Forward" label would
+ * crowd the readout without telling the player anything new.
+ *
+ * Reverse is the only case that gets a non-empty label because a
+ * reversing car still fills the speed bar (the bar reads `|speed|`)
+ * which would otherwise be indistinguishable from forward driving.
+ */
+export const HUD_SPEED_DIRECTION_LABEL: Record<SpeedDirection, string> = {
+  idle: '',
+  forward: '',
+  reverse: 'Reverse',
+}
+
+/**
  * Surface state shown next to the speed readout (REQ-030, REQ-054, REQ-066).
  *
  * The integration loop already mirrors `data-on-building` (REQ-030) and
