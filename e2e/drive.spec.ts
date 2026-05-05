@@ -73,6 +73,16 @@ test('drive route mounts the canvas with the slug label and Edit CTA', async ({
   // never flips. Unit tests cover the populated case.
   await expect(root).toHaveAttribute('data-off-street', 'false')
 
+  // REQ-032 / REQ-065: closest-piece readout defaults to 'none' with
+  // empty index / type / segment / wheel attributes. With no car mounted
+  // the per-frame resolver never fires; unit tests cover the populated
+  // closestStreetPiece pick and the per-wheel substrate walk.
+  await expect(root).toHaveAttribute('data-closest-piece', 'none')
+  await expect(root).toHaveAttribute('data-closest-piece-index', '')
+  await expect(root).toHaveAttribute('data-closest-piece-type', '')
+  await expect(root).toHaveAttribute('data-closest-piece-segment', '')
+  await expect(root).toHaveAttribute('data-closest-piece-wheel', '')
+
   // REQ-066: drive HUD overlays render only when a car is mounted. The
   // playwright webServer is unconfigured KV so the city is empty and
   // the HUD is hidden. The fallback data attributes still ride on the
@@ -195,6 +205,15 @@ test('drive route shows the empty-state prompt for a fresh slug (REQ-053)', asyn
   // listener gate that mounts the car also gates the per-frame check
   // so the flag never flips on an empty grid.
   await expect(root).toHaveAttribute('data-off-street', 'false')
+  // REQ-032 / REQ-065: closest-piece resolver does not fire on the
+  // empty grid (no car to walk wheels through). The default `none` flag
+  // and empty mirror attributes ride on the root so a future debug HUD
+  // or per-piece-type tuning has the contract to read.
+  await expect(root).toHaveAttribute('data-closest-piece', 'none')
+  await expect(root).toHaveAttribute('data-closest-piece-index', '')
+  await expect(root).toHaveAttribute('data-closest-piece-type', '')
+  await expect(root).toHaveAttribute('data-closest-piece-segment', '')
+  await expect(root).toHaveAttribute('data-closest-piece-wheel', '')
   // REQ-066: drive HUD stays hidden on the empty grid; the listener
   // gate that mounts the car also gates the HUD overlays so an author
   // cannot see a speed readout for a car that is not on screen.

@@ -4,6 +4,7 @@ import {
   OFF_STREET_PENALTY_MAX_REVERSE_SPEED,
   OFF_STREET_PENALTY_MAX_SPEED,
   applyOffStreetPenalty,
+  closestStreetPiece,
   isOnStreetCell,
   streetCellSet,
   wheelOnStreet,
@@ -509,5 +510,297 @@ describe('wheelOnStreet (REQ-032)', () => {
       )
       expect(result).toBe(true)
     }
+  })
+})
+
+describe('closestStreetPiece (REQ-032, REQ-065)', () => {
+  const localOffsets = carWheelOffsets().map(({ x, z }) => ({ x, z }))
+
+  it('returns null on an empty city (no segments)', () => {
+    const path = buildTrackPath({ pieces: [] })
+    const result = closestStreetPiece(
+      { x: 0, z: 0, heading: 0 },
+      localOffsets,
+      path,
+      [],
+      CELL_SIZE,
+    )
+    expect(result).toBeNull()
+  })
+
+  it('returns null when every wheel is far from every placed piece', () => {
+    const pieces: Piece[] = [piece('straight', 0, 0)]
+    const path = buildTrackPath({ pieces })
+    const result = closestStreetPiece(
+      { x: CELL_SIZE * 50, z: CELL_SIZE * 50, heading: 0 },
+      localOffsets,
+      path,
+      pieces,
+      CELL_SIZE,
+    )
+    expect(result).toBeNull()
+  })
+
+  it('returns null on an empty wheel-offset list', () => {
+    const pieces: Piece[] = [piece('straight', 0, 0)]
+    const path = buildTrackPath({ pieces })
+    const result = closestStreetPiece(
+      { x: 0, z: 0, heading: 0 },
+      [],
+      path,
+      pieces,
+      CELL_SIZE,
+    )
+    expect(result).toBeNull()
+  })
+
+  it('picks the only placed piece when the car sits on it', () => {
+    const pieces: Piece[] = [piece('straight', 2, 3)]
+    const path = buildTrackPath({ pieces })
+    const x = pieces[0].col * CELL_SIZE
+    const z = pieces[0].row * CELL_SIZE
+    const result = closestStreetPiece(
+      { x, z, heading: 0 },
+      localOffsets,
+      path,
+      pieces,
+      CELL_SIZE,
+    )
+    expect(result).not.toBeNull()
+    expect(result?.pieceIndex).toBe(0)
+    expect(result?.pieceType).toBe('straight')
+    expect(result?.segmentId).toBe('main')
+    expect(result?.idx).toBe(0)
+    expect(result?.distance).toBeGreaterThanOrEqual(0)
+    expect(result?.wheelIndex).toBeGreaterThanOrEqual(0)
+    expect(result?.wheelIndex).toBeLessThan(localOffsets.length)
+  })
+
+  it('reports the piece index from the source city pieces array', () => {
+    // Place three pieces; pick a vehicle pose centered on the third.
+    const pieces: Piece[] = [
+      piece('straight', 0, 0),
+      piece('straight', 0, 5),
+      piece('straight', 0, 10),
+    ]
+    const path = buildTrackPath({ pieces })
+    const target = pieces[2]
+    const x = target.col * CELL_SIZE
+    const z = target.row * CELL_SIZE
+    const result = closestStreetPiece(
+      { x, z, heading: 0 },
+      localOffsets,
+      path,
+      pieces,
+      CELL_SIZE,
+    )
+    expect(result?.pieceIndex).toBe(2)
+    expect(result?.pieceType).toBe('straight')
+  })
+
+  it('picks the closer of two pieces when the wheel is between them', () => {
+    // Two single-cell pieces three cells apart so the cell sets do not
+    // overlap. Place the car center close to the second piece so a wheel
+    // on it picks the second piece.
+    const pieces: Piece[] = [
+      piece('straight', 0, 0),
+      piece('straight', 0, 3),
+    ]
+    const path = buildTrackPath({ pieces })
+    const x = pieces[1].col * CELL_SIZE
+    const z = pieces[1].row * CELL_SIZE
+    const result = closestStreetPiece(
+      { x, z, heading: 0 },
+      localOffsets,
+      path,
+      pieces,
+      CELL_SIZE,
+    )
+    expect(result?.pieceIndex).toBe(1)
+  })
+
+  it('threads the segment id through for a non-main segment piece', () => {
+    // Two disconnected pieces: pieces[0] is `main`, pieces[1] is
+    // `segment-1`. Park the car on the second piece so the closest pick
+    // is the disconnected one.
+    const pieces: Piece[] = [
+      piece('straight', 0, 0),
+      piece('straight', 5, 5),
+    ]
+    const path = buildTrackPath({ pieces })
+    const target = pieces[1]
+    const x = target.col * CELL_SIZE
+    const z = target.row * CELL_SIZE
+    const result = closestStreetPiece(
+      { x, z, heading: 0 },
+      localOffsets,
+      path,
+      pieces,
+      CELL_SIZE,
+    )
+    expect(result?.pieceIndex).toBe(1)
+    expect(result?.segmentId).toBe('segment-1')
+    expect(result?.idx).toBe(0)
+  })
+
+  it('picks a multi-cell hairpin from any of its footprint cells', () => {
+    // The canonical hairpin footprint covers (-1..1, 0..1) under the
+    // editor convention. Park the car on each footprint cell and confirm
+    // the resolver picks the hairpin every time.
+    const pieces: Piece[] = [piece('hairpin', 0, 0)]
+    const path = buildTrackPath({ pieces })
+    const cellPositions = [
+      { x: 0, z: 0 },
+      { x: CELL_SIZE, z: 0 },
+      { x: 0, z: -CELL_SIZE },
+      { x: CELL_SIZE, z: -CELL_SIZE },
+      { x: 0, z: CELL_SIZE },
+      { x: CELL_SIZE, z: CELL_SIZE },
+    ]
+    for (const pos of cellPositions) {
+      const result = closestStreetPiece(
+        { x: pos.x, z: pos.z, heading: 0 },
+        localOffsets,
+        path,
+        pieces,
+        CELL_SIZE,
+      )
+      expect(result).not.toBeNull()
+      expect(result?.pieceIndex).toBe(0)
+      expect(result?.pieceType).toBe('hairpin')
+    }
+  })
+
+  it('emits a finite, non-negative distance', () => {
+    const pieces: Piece[] = [piece('straight', 0, 0)]
+    const path = buildTrackPath({ pieces })
+    const result = closestStreetPiece(
+      { x: 0, z: 0, heading: 0 },
+      localOffsets,
+      path,
+      pieces,
+      CELL_SIZE,
+    )
+    expect(result).not.toBeNull()
+    expect(Number.isFinite(result?.distance ?? NaN)).toBe(true)
+    expect(result?.distance).toBeGreaterThanOrEqual(0)
+  })
+
+  it('does not mutate the wheel-offset list', () => {
+    const pieces: Piece[] = [piece('straight', 0, 0)]
+    const path = buildTrackPath({ pieces })
+    const offsets = [...localOffsets]
+    const before = offsets.map((o) => ({ ...o }))
+    closestStreetPiece(
+      { x: 0, z: 0, heading: 1.2 },
+      offsets,
+      path,
+      pieces,
+      CELL_SIZE,
+    )
+    expect(offsets).toEqual(before)
+  })
+
+  it('rotates with the car heading and still picks the on-piece piece', () => {
+    const pieces: Piece[] = [piece('straight', 0, 0)]
+    const path = buildTrackPath({ pieces })
+    const result = closestStreetPiece(
+      { x: 0, z: 0, heading: Math.PI / 2 },
+      localOffsets,
+      path,
+      pieces,
+      CELL_SIZE,
+    )
+    expect(result?.pieceIndex).toBe(0)
+  })
+
+  it('picks a piece that only one wheel is on (cross-wheel min)', () => {
+    // Place a single-cell piece. Position the car so its center is one
+    // cell off the piece in +x; the front-left or front-right wheel still
+    // overlaps the piece cell at heading 0 because the wheel offsets are
+    // small relative to CELL_SIZE. The cross-wheel pick should pick the
+    // piece even though the center cell is off it.
+    const pieces: Piece[] = [piece('straight', 0, 0)]
+    const path = buildTrackPath({ pieces })
+    // Move the car center to (-CELL_SIZE * 0.5, 0) so the wheels straddle
+    // the piece cell vs the off-piece cell.
+    const result = closestStreetPiece(
+      { x: -CELL_SIZE * 0.5 + 0.01, z: 0, heading: 0 },
+      localOffsets,
+      path,
+      pieces,
+      CELL_SIZE,
+    )
+    expect(result).not.toBeNull()
+    expect(result?.pieceIndex).toBe(0)
+  })
+
+  it('returns a wheelIndex inside the offsets range', () => {
+    const pieces: Piece[] = [piece('straight', 0, 0)]
+    const path = buildTrackPath({ pieces })
+    const result = closestStreetPiece(
+      { x: 0, z: 0, heading: 0 },
+      localOffsets,
+      path,
+      pieces,
+      CELL_SIZE,
+    )
+    expect(result?.wheelIndex).toBeGreaterThanOrEqual(0)
+    expect(result?.wheelIndex).toBeLessThan(localOffsets.length)
+  })
+
+  it('breaks cross-wheel ties by earlier wheel index when distances tie', () => {
+    // Custom wheel offsets so two wheels sit at exactly equal distance
+    // from the piece's footprint cell center. The earlier wheel in the
+    // list wins.
+    const pieces: Piece[] = [piece('straight', 0, 0)]
+    const path = buildTrackPath({ pieces })
+    // Two wheels at (+1, 0) and (-1, 0) in local coords; vehicle at
+    // (0, 0, heading 0) so both are 1 unit from the piece center cell.
+    const offsets = [
+      { x: 1, z: 0 },
+      { x: -1, z: 0 },
+    ]
+    const result = closestStreetPiece(
+      { x: 0, z: 0, heading: 0 },
+      offsets,
+      path,
+      pieces,
+      CELL_SIZE,
+    )
+    expect(result?.wheelIndex).toBe(0)
+  })
+
+  it('reports the piece type for a non-straight piece', () => {
+    const pieces: Piece[] = [piece('intersection', 0, 0)]
+    const path = buildTrackPath({ pieces })
+    const result = closestStreetPiece(
+      { x: 0, z: 0, heading: 0 },
+      localOffsets,
+      path,
+      pieces,
+      CELL_SIZE,
+    )
+    expect(result?.pieceType).toBe('intersection')
+  })
+
+  it('idx into the segment order matches the piece position', () => {
+    // A two-piece chain: pieces[0] becomes segment.order[0] and pieces[1]
+    // becomes segment.order[1]. Picking the second piece should report
+    // idx 1.
+    const pieces: Piece[] = [
+      piece('straight', 0, 0),
+      piece('straight', 1, 0),
+    ]
+    const path = buildTrackPath({ pieces })
+    const target = pieces[1]
+    const result = closestStreetPiece(
+      { x: target.col * CELL_SIZE, z: target.row * CELL_SIZE, heading: 0 },
+      localOffsets,
+      path,
+      pieces,
+      CELL_SIZE,
+    )
+    expect(result?.idx).toBe(1)
   })
 })

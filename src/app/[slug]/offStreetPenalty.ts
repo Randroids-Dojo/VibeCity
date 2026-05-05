@@ -1,6 +1,11 @@
 import type { Piece } from '@/lib/schemas'
 import type { TrackPath } from '@/lib/trackPath'
-import { wheelContactCandidates } from '@/lib/wheelContact'
+import {
+  pieceFootprintDistance,
+  wheelContactCandidates,
+  wheelTrackContact,
+  type WheelContactPick,
+} from '@/lib/wheelContact'
 import { CELL_SIZE } from './driveScene'
 import { worldToCell } from './buildingCollision'
 import { pieceFootprintCells } from './edit/snapGrid'
@@ -235,4 +240,99 @@ export function wheelOnStreet(
     if (candidates.length > 0) return true
   }
   return false
+}
+
+/**
+ * Closest-piece resolution for the vehicle (REQ-032 / REQ-065).
+ *
+ * Picked field shape:
+ *   - `pieceIndex`: index into `cityPieces` of the closest piece. Useful
+ *     for a future per-piece-type off-street tuning that needs to look
+ *     up the closest piece by its city-array position.
+ *   - `pieceType`: the closest piece's `type` so a debug HUD can read
+ *     the piece category without re-deriving it from the index.
+ *   - `segmentId`: the segment id the locator points back to (`'main'`,
+ *     `'segment-1'`, etc.) so a future drive surface can branch on
+ *     which connected component the wheel is in contact with.
+ *   - `idx`: position in that segment's `order` array.
+ *   - `distance`: world-space distance from the picking wheel to the
+ *     closest piece's footprint cell center (the resolver `pieceFootprintDistance`
+ *     uses; coarse vs a sampled centerline per F-003 / F-004 but
+ *     monotonically correct for the closest-piece pick because every
+ *     footprint cell of every candidate is surveyed).
+ *   - `wheelIndex`: index into `wheelOffsets` of the wheel that picked
+ *     the closest piece. Useful for visualizing per-wheel contact in a
+ *     future debug HUD.
+ */
+export interface ClosestStreetPiece {
+  pieceIndex: number
+  pieceType: Piece['type']
+  segmentId: string
+  idx: number
+  distance: number
+  wheelIndex: number
+}
+
+/**
+ * Walk every wheel through `wheelTrackContact` with `pieceFootprintDistance`,
+ * pick the global minimum distance across all four wheels, and return
+ * the closest piece. Returns `null` when the path is empty, the wheel
+ * offset list is empty, or no wheel has any candidate (every wheel is
+ * off the path).
+ *
+ * Tie-breaking: when two wheels report the same finite distance, the
+ * earlier wheel in `wheelOffsets` wins. This mirrors `pickClosestWheelContact`'s
+ * insertion-order tie-break (the picker walks candidates in
+ * `cellToLocators` insertion order on the per-wheel pick) so the
+ * cross-wheel pick is also deterministic across re-evaluations.
+ *
+ * The helper allocates only the picked record (and a short-lived
+ * `WheelContactPick` per wheel via `wheelTrackContact`); per-frame call
+ * sites are safe to invoke without churn.
+ */
+export function closestStreetPiece(
+  vehicle: Pick<VehicleState, 'x' | 'z' | 'heading'>,
+  wheelOffsets: readonly WheelLocalOffset[],
+  path: TrackPath,
+  cityPieces: readonly Piece[],
+  cellSize: number,
+): ClosestStreetPiece | null {
+  if (path.segments.length === 0) return null
+
+  let best: { pick: WheelContactPick; wheelIndex: number } | null = null
+  for (let i = 0; i < wheelOffsets.length; i += 1) {
+    const offset = wheelOffsets[i]
+    const world = wheelWorldPosition(vehicle, offset)
+    const pick = wheelTrackContact(
+      world.x,
+      world.z,
+      path,
+      cityPieces,
+      cellSize,
+      (ordered, x, z) => pieceFootprintDistance(ordered, x, z, cellSize),
+    )
+    if (pick === null) continue
+    if (best === null || pick.distance < best.pick.distance) {
+      best = { pick, wheelIndex: i }
+    }
+  }
+  if (best === null) return null
+
+  // Resolve the piece's index in the source city pieces array. The
+  // OrderedPiece carries the same `Piece` reference as `cityPieces[index]`
+  // because the substrate walks the city's piece list directly. A
+  // reference search is O(N) over the city pieces; the bounded
+  // `MAX_PIECES_PER_CITY = 256` keeps a worst-case wheel pick at four
+  // ~256-element scans which is far below a frame budget.
+  const pieceIndex = cityPieces.indexOf(best.pick.candidate.piece)
+  if (pieceIndex === -1) return null
+
+  return {
+    pieceIndex,
+    pieceType: best.pick.candidate.piece.type,
+    segmentId: best.pick.candidate.locator.segmentId,
+    idx: best.pick.candidate.locator.idx,
+    distance: best.pick.distance,
+    wheelIndex: best.wheelIndex,
+  }
 }
