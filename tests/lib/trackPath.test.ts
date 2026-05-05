@@ -15,6 +15,7 @@ import {
   neighborAnchorCell,
   portCell,
   portsConnect,
+  validateConnections,
 } from '@/lib/trackPath'
 
 /**
@@ -505,5 +506,237 @@ describe('buildTrackPath (REQ-064)', () => {
     for (const list of path.cellToLocators.values()) {
       expect(list).toHaveLength(1)
     }
+  })
+})
+
+describe('validateConnections (REQ-019, REQ-064)', () => {
+  it('returns an empty array for an empty city', () => {
+    expect(validateConnections({ pieces: [] })).toEqual([])
+  })
+
+  it('reports both ports of a single straight as unmatched', () => {
+    const a = piece('straight', 0, 0, 0)
+    const result = validateConnections({ pieces: [a] })
+    expect(result).toHaveLength(2)
+    // Walked in connectorPortsOf order: S then N for straight at rotation 0.
+    expect(result[0]).toEqual({
+      pieceIndex: 0,
+      cellRow: 0,
+      cellCol: 0,
+      dir: DIR_S,
+    })
+    expect(result[1]).toEqual({
+      pieceIndex: 0,
+      cellRow: 0,
+      cellCol: 0,
+      dir: DIR_N,
+    })
+  })
+
+  it('matches two stacked straights and only reports the open ends', () => {
+    // Two straights stacked vertically at (0,0) and (1,0). The shared
+    // edge is matched (S of top with N of bottom); the outer ends stay
+    // open (N of top, S of bottom).
+    const a = piece('straight', 0, 0, 0)
+    const b = piece('straight', 1, 0, 0)
+    const result = validateConnections({ pieces: [a, b] })
+    expect(result).toHaveLength(2)
+    // Walked in placement order: piece 0 first.
+    expect(result[0]).toEqual({
+      pieceIndex: 0,
+      cellRow: 0,
+      cellCol: 0,
+      dir: DIR_N,
+    })
+    expect(result[1]).toEqual({
+      pieceIndex: 1,
+      cellRow: 1,
+      cellCol: 0,
+      dir: DIR_S,
+    })
+  })
+
+  it('returns an empty array when every port is matched', () => {
+    // A 2x2 closed loop of 90deg corners. Every port has an opposing
+    // neighbor port across the shared edge.
+    const a = piece('right90', 0, 0, 0) // S, E
+    const b = piece('left90', 0, 1, 0) // S, W
+    const c = piece('right90', 1, 1, 180) // N, W
+    const d = piece('left90', 1, 0, 180) // N, E
+    // Sanity: portsConnect must hold for adjacent pairs (a-b right edge,
+    // a-d bottom edge, b-c bottom edge, c-d left edge).
+    const aPorts = connectorPortsOf(a)
+    const bPorts = connectorPortsOf(b)
+    expect(aPorts.some((p) => p.dir === DIR_E)).toBe(true)
+    expect(bPorts.some((p) => p.dir === DIR_W)).toBe(true)
+    const result = validateConnections({ pieces: [a, b, c, d] })
+    expect(result).toEqual([])
+  })
+
+  it('reports an intersection 4-way as four open ports when alone', () => {
+    const a = piece('intersection', 0, 0, 0)
+    const result = validateConnections({ pieces: [a] })
+    expect(result).toHaveLength(4)
+    // All four ports come from piece 0 on the same cell.
+    for (const r of result) {
+      expect(r.pieceIndex).toBe(0)
+      expect(r.cellRow).toBe(0)
+      expect(r.cellCol).toBe(0)
+    }
+    const dirs = result.map((r) => r.dir).sort((x, y) => x - y)
+    expect(dirs).toEqual([DIR_N, DIR_E, DIR_S, DIR_W])
+  })
+
+  it('matches an intersection wired to four straights and reports the four outer ends', () => {
+    // Intersection at origin with one straight on each cardinal arm.
+    const inter = piece('intersection', 0, 0, 0)
+    const north = piece('straight', -1, 0, 0)
+    const east = piece('straight', 0, 1, 90)
+    const south = piece('straight', 1, 0, 0)
+    const west = piece('straight', 0, -1, 90)
+    const result = validateConnections({
+      pieces: [inter, north, east, south, west],
+    })
+    // 4 intersection arms all matched, 1 port each on every straight is
+    // matched (the one facing the intersection), and one outer port
+    // each remains open. Total: 4 unmatched ports.
+    expect(result).toHaveLength(4)
+    // Each unmatched port belongs to one of the four straights.
+    const ownerCounts = new Map<number, number>()
+    for (const r of result) {
+      ownerCounts.set(r.pieceIndex, (ownerCounts.get(r.pieceIndex) ?? 0) + 1)
+    }
+    expect(ownerCounts.get(0)).toBeUndefined()
+    expect(ownerCounts.get(1)).toBe(1)
+    expect(ownerCounts.get(2)).toBe(1)
+    expect(ownerCounts.get(3)).toBe(1)
+    expect(ownerCounts.get(4)).toBe(1)
+  })
+
+  it('does not match an intersection arm against its own opposing arm', () => {
+    // The N and S ports of a single intersection live on the same cell
+    // facing opposite directions. Without the source-piece guard, the N
+    // port stepping north would land on (-1, 0) and look for a S port
+    // there; the S port stepping south would land on (1, 0) and look
+    // for a N port there. Neither path reads the source piece, so this
+    // test just confirms the four ports remain unmatched when alone.
+    const a = piece('intersection', 0, 0, 0)
+    const result = validateConnections({ pieces: [a] })
+    expect(result).toHaveLength(4)
+  })
+
+  it('reports unmatched ports for two adjacent but non-facing pieces', () => {
+    // Two straights placed at right angles on adjacent cells. The S
+    // port of the first lands on (1, 0) but the second piece exposes
+    // E / W ports on (1, 0), not a N port. So no match.
+    const a = piece('straight', 0, 0, 0) // S, N
+    const b = piece('straight', 1, 0, 90) // E, W (rotated)
+    const result = validateConnections({ pieces: [a, b] })
+    expect(result).toHaveLength(4)
+  })
+
+  it('reports two diagonals laid corner-to-corner as matched on the shared corner', () => {
+    // Two diagonal pieces at rotation 0 with corner-to-corner contact.
+    // diagonal at (0,0) has SW + NE ports; diagonal at (-1,1) has SW + NE
+    // ports rotated 0. The NE of (0,0) faces SW of (-1,1).
+    const a = piece('diagonal', 0, 0, 0)
+    const b = piece('diagonal', -1, 1, 0)
+    const result = validateConnections({ pieces: [a, b] })
+    // Each diagonal has 2 ports; one matched, one open.
+    expect(result).toHaveLength(2)
+    const dirs = result.map((r) => r.dir).sort((x, y) => x - y)
+    // Open ports are SW of (0,0) and NE of (-1,1).
+    expect(dirs).toEqual([1, 5])
+  })
+
+  it('walks pieces in placement order and ports in connectorPortsOf order', () => {
+    // Three isolated straights placed in a non-monotonic anchor order
+    // to confirm the result orders by placement, not by anchor.
+    const a = piece('straight', 5, 5, 0)
+    const b = piece('straight', 0, 0, 0)
+    const c = piece('straight', -3, -3, 0)
+    const result = validateConnections({ pieces: [a, b, c] })
+    expect(result).toHaveLength(6)
+    // First two entries are piece 0 (anchor 5,5); next two are piece 1
+    // (anchor 0,0); last two are piece 2 (anchor -3,-3).
+    expect(result[0].pieceIndex).toBe(0)
+    expect(result[1].pieceIndex).toBe(0)
+    expect(result[2].pieceIndex).toBe(1)
+    expect(result[3].pieceIndex).toBe(1)
+    expect(result[4].pieceIndex).toBe(2)
+    expect(result[5].pieceIndex).toBe(2)
+    // Each piece reports S then N (connectorPortsOf order at rotation 0).
+    expect(result[0].dir).toBe(DIR_S)
+    expect(result[1].dir).toBe(DIR_N)
+  })
+
+  it('returns a fresh array on every call', () => {
+    const a = piece('straight', 0, 0, 0)
+    const a1 = validateConnections({ pieces: [a] })
+    const a2 = validateConnections({ pieces: [a] })
+    expect(a1).not.toBe(a2)
+    expect(a1).toEqual(a2)
+  })
+
+  it('uses absolute footprint cells for hairpin ports', () => {
+    // Hairpin at anchor (0, 0) has two W-facing ports at footprint
+    // offsets (-1, 0) and (1, 0), so the absolute cells are (-1, 0) and
+    // (1, 0). With no neighbor pieces, both are unmatched.
+    const a = piece('hairpin', 0, 0, 0)
+    const result = validateConnections({ pieces: [a] })
+    expect(result).toHaveLength(2)
+    expect(result[0]).toEqual({
+      pieceIndex: 0,
+      cellRow: -1,
+      cellCol: 0,
+      dir: DIR_W,
+    })
+    expect(result[1]).toEqual({
+      pieceIndex: 0,
+      cellRow: 1,
+      cellCol: 0,
+      dir: DIR_W,
+    })
+  })
+
+  it('matches an arc45 cardinal-corner pair with a corresponding partner', () => {
+    // arc45 at (0, 0) rotation 0 has S (cardinal) + NE (corner) ports.
+    // Pair its NE port with another arc45 at (-1, 1) rotation 180
+    // (which puts its N + SW ports on, so SW faces back toward NE of
+    // the first piece across the shared corner).
+    const a = piece('arc45', 0, 0, 0) // S, NE
+    const b = piece('arc45', -1, 1, 180) // N, SW
+    const aPorts = connectorPortsOf(a)
+    const bPorts = connectorPortsOf(b)
+    expect(aPorts.map((p) => p.dir)).toEqual([DIR_S, DIR_NE])
+    // Confirm sanity of partner: rotating arc45 by 180 takes S -> N,
+    // NE -> SW.
+    expect(bPorts.map((p) => p.dir).sort((x, y) => x - y)).toEqual([0, 5])
+    const result = validateConnections({ pieces: [a, b] })
+    // 4 total ports, 1 matched pair (NE / SW), 2 open.
+    expect(result).toHaveLength(2)
+    // a's open port is S; b's open port is N.
+    expect(result[0]).toEqual({
+      pieceIndex: 0,
+      cellRow: 0,
+      cellCol: 0,
+      dir: DIR_S,
+    })
+    expect(result[1]).toEqual({
+      pieceIndex: 1,
+      cellRow: -1,
+      cellCol: 1,
+      dir: DIR_N,
+    })
+  })
+
+  it('survives a CitySchema round trip', () => {
+    const a = piece('straight', 0, 0, 0)
+    const b = piece('straight', 1, 0, 0)
+    const parsed = CitySchema.parse({ pieces: [a, b], buildings: [] })
+    const result = validateConnections(parsed)
+    expect(result).toHaveLength(2)
+    expect(result[0].pieceIndex).toBe(0)
+    expect(result[1].pieceIndex).toBe(1)
   })
 })

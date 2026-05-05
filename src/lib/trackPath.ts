@@ -417,3 +417,82 @@ function nextExitPort(piece: Piece, entry: ConnectorPort): ConnectorPort {
 function samePort(a: ConnectorPort, b: ConnectorPort): boolean {
   return a.dr === b.dr && a.dc === b.dc && a.dir === b.dir
 }
+
+/**
+ * One unmatched connector port across the city (REQ-019, REQ-064).
+ *
+ * `pieceIndex` is the position of the source piece in `city.pieces`.
+ * `cellRow` / `cellCol` is the absolute cell the port lives on (anchor
+ * plus footprint offset). `dir` is the compass direction the port faces.
+ *
+ * The shape stays deliberately substrate-flavored: no pixel-space
+ * coordinates, no glyph styling. The editor's pixel-space view lives in
+ * `src/app/[slug]/edit/connectorGlyphs.ts`; this helper is the canonical
+ * city-wide validator used by the future save-time integrity checks
+ * and the future drive-mode "city has unmatched ports" warning HUD.
+ */
+export interface UnmatchedPort {
+  pieceIndex: number
+  cellRow: number
+  cellCol: number
+  dir: Dir
+}
+
+/**
+ * Validate the cross-piece connector graph (REQ-019, REQ-064).
+ *
+ * Walks every placed piece's connector ports through `connectorPortsOf`
+ * and returns the list of ports that face empty space, the grid edge,
+ * or a neighbor cell that does not expose an opposing port. A port is
+ * `matched` (omitted from the result) when the neighbor cell along the
+ * compass direction exposes a port in the opposite direction sourced
+ * from a different piece; everything else lands in the result.
+ *
+ * Walked in placement order: pieces in `city.pieces` order, ports in
+ * `connectorPortsOf` order. The result is therefore deterministic and
+ * stable across calls so a test or a UI consumer can rely on the order
+ * for diff display.
+ *
+ * The cardinal-vs-corner classification check that `portsFaceEachOther`
+ * applies is folded in for free: a cardinal port stepping along its
+ * cardinal direction lands on a cardinal-adjacent neighbor; a corner
+ * port stepping along its corner direction lands on a diagonal-adjacent
+ * neighbor; a port that lands on the same cell as the source piece
+ * (e.g. an intersection's own opposing arm) is excluded by the
+ * `neighborOwner !== pieceIndex` guard.
+ *
+ * Returns a fresh array on every call so callers cannot mutate cached
+ * state.
+ */
+export function validateConnections(
+  city: Pick<City, 'pieces'>,
+): UnmatchedPort[] {
+  const pieces = city.pieces
+  const portIndex = new Map<string, number>()
+  pieces.forEach((piece, index) => {
+    for (const port of connectorPortsOf(piece)) {
+      const cellRow = piece.row + port.dr
+      const cellCol = piece.col + port.dc
+      const key = `${cellKey(cellRow, cellCol)}:${port.dir}`
+      if (!portIndex.has(key)) {
+        portIndex.set(key, index)
+      }
+    }
+  })
+  const out: UnmatchedPort[] = []
+  pieces.forEach((piece, index) => {
+    for (const port of connectorPortsOf(piece)) {
+      const cellRow = piece.row + port.dr
+      const cellCol = piece.col + port.dc
+      const offset = DIR_OFFSETS[port.dir]
+      const neighborRow = cellRow + offset.dr
+      const neighborCol = cellCol + offset.dc
+      const neighborKey = `${cellKey(neighborRow, neighborCol)}:${opposite(port.dir)}`
+      const neighborOwner = portIndex.get(neighborKey)
+      if (neighborOwner === undefined || neighborOwner === index) {
+        out.push({ pieceIndex: index, cellRow, cellCol, dir: port.dir })
+      }
+    }
+  })
+  return out
+}
