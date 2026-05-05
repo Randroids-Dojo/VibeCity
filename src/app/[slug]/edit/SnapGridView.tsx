@@ -37,6 +37,7 @@ import {
   countMatchedGlyphs,
   type OpenEndArrowGlyph,
 } from './connectorGlyphs'
+import type { SpawnAnchorMarker } from './spawnMarker'
 
 /**
  * Shared empty fallback for the open-end cell set so callers that omit
@@ -148,6 +149,7 @@ export function SnapGrid({
   viewport = DEFAULT_VIEWPORT,
   openEndCellKeys,
   openEndArrows,
+  spawnMarker,
   onSurfaceWheel,
   onSurfacePointerDown,
 }: {
@@ -162,6 +164,7 @@ export function SnapGrid({
   viewport?: Viewport
   openEndCellKeys?: ReadonlySet<string> | null
   openEndArrows?: readonly OpenEndArrowGlyph[] | null
+  spawnMarker?: SpawnAnchorMarker | null
   onSurfaceWheel?: (event: ReactWheelEvent<SVGSVGElement>) => void
   onSurfacePointerDown?: (event: ReactPointerEvent<SVGSVGElement>) => void
 }) {
@@ -213,6 +216,11 @@ export function SnapGrid({
       data-connector-matched={matchedConnectorCount}
       data-open-end-cell-count={openEndKeys.size}
       data-open-end-arrow-count={openEndArrowList.length}
+      data-spawn-marker={spawnMarker ? 'present' : 'absent'}
+      data-spawn-marker-row={spawnMarker ? spawnMarker.cellRow : ''}
+      data-spawn-marker-col={spawnMarker ? spawnMarker.cellCol : ''}
+      data-spawn-marker-direction={spawnMarker ? spawnMarker.direction : ''}
+      data-spawn-marker-rotation={spawnMarker ? spawnMarker.rotation : ''}
       data-cursor-mode={interactive ? cursorMode : 'none'}
       data-preview-kind={previewCell ? previewCell.kind : 'none'}
       data-preview-row={previewCell ? previewCell.row : ''}
@@ -299,6 +307,35 @@ export function SnapGrid({
           />
         )
       })}
+      {spawnMarker ? (
+        <g data-testid="editor-spawn-marker" pointerEvents="none">
+          <rect
+            data-testid="editor-spawn-marker-ring"
+            data-spawn-marker-row={spawnMarker.cellRow}
+            data-spawn-marker-col={spawnMarker.cellCol}
+            x={spawnMarker.ringX}
+            y={spawnMarker.ringY}
+            width={spawnMarker.ringSize}
+            height={spawnMarker.ringSize}
+            fill="transparent"
+            stroke="#3a6ea0"
+            strokeWidth={2}
+            strokeDasharray="4 2"
+            pointerEvents="none"
+          />
+          <polygon
+            data-testid="editor-spawn-marker-arrow"
+            data-spawn-marker-direction={spawnMarker.direction}
+            data-spawn-marker-rotation={spawnMarker.rotation}
+            points={spawnMarker.points}
+            fill="#3a6ea0"
+            stroke="#1f4670"
+            strokeWidth={1}
+            strokeLinejoin="round"
+            pointerEvents="none"
+          />
+        </g>
+      ) : null}
       {Array.from(openEndKeys).map((key) => {
         // Render a non-interactive warning overlay rect on top of any
         // cell that hosts an unmatched connector port (REQ-019, REQ-064).

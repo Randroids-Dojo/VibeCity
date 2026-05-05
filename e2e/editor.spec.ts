@@ -1657,3 +1657,81 @@ test('per-port direction arrows mark which side of every open-end cell still nee
   await expect(grid).toHaveAttribute('data-open-end-arrow-count', '0')
   await expect(page.getByTestId('editor-open-end-arrow')).toHaveCount(0)
 })
+
+test('spawn-anchor marker reveals where the car will spawn and which way it faces (REQ-019, REQ-036)', async ({
+  page,
+}) => {
+  // Intercept autosave so the editor opens cleanly without KV.
+  await page.route('**/api/city/**', async (route) => {
+    if (route.request().method() !== 'PUT') {
+      await route.continue()
+      return
+    }
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        slug: 'spawn-marker-spec',
+        versionHash:
+          '0000000000000000000000000000000000000000000000000000000000000000',
+        updatedAt: Date.now(),
+      }),
+    })
+  })
+
+  const response = await page.goto('/spawn-marker-spec/edit')
+  expect(response?.status()).toBe(200)
+
+  const grid = page.getByTestId('editor-snap-grid')
+  await expect(grid).toBeVisible()
+
+  // Empty city: no spawn marker because the drive scene never mounts
+  // the car on an empty grid.
+  await expect(grid).toHaveAttribute('data-spawn-marker', 'absent')
+  await expect(page.getByTestId('editor-spawn-marker')).toHaveCount(0)
+  await expect(page.getByTestId('editor-spawn-marker-ring')).toHaveCount(0)
+  await expect(page.getByTestId('editor-spawn-marker-arrow')).toHaveCount(0)
+
+  // Place one straight at (0, 0) at the default rotation. The marker
+  // pins the spawn-anchor cell and faces N (rotation 0).
+  await grid.locator('[data-cell-row="0"][data-cell-col="0"]').click()
+  await expect(grid).toHaveAttribute('data-spawn-marker', 'present')
+  await expect(grid).toHaveAttribute('data-spawn-marker-row', '0')
+  await expect(grid).toHaveAttribute('data-spawn-marker-col', '0')
+  await expect(grid).toHaveAttribute('data-spawn-marker-direction', 'N')
+  await expect(grid).toHaveAttribute('data-spawn-marker-rotation', '0')
+  await expect(page.getByTestId('editor-spawn-marker')).toHaveCount(1)
+  await expect(page.getByTestId('editor-spawn-marker-arrow')).toHaveAttribute(
+    'data-spawn-marker-direction',
+    'N',
+  )
+
+  // Place a second piece at (0, 1). The marker stays pinned to the
+  // first placed piece because the drive-scene spawn anchor reads
+  // pieces[0], not the most recently placed piece.
+  await grid.locator('[data-cell-row="0"][data-cell-col="1"]').click()
+  await expect(grid).toHaveAttribute('data-spawn-marker-row', '0')
+  await expect(grid).toHaveAttribute('data-spawn-marker-col', '0')
+  await expect(grid).toHaveAttribute('data-spawn-marker-direction', 'N')
+
+  // Erase both pieces: the marker drops to absent.
+  await page.getByTestId('editor-erase').click()
+  await grid.locator('[data-cell-row="0"][data-cell-col="0"]').click()
+  await grid.locator('[data-cell-row="0"][data-cell-col="1"]').click()
+  await expect(grid).toHaveAttribute('data-spawn-marker', 'absent')
+  await expect(page.getByTestId('editor-spawn-marker')).toHaveCount(0)
+
+  // Switch back to place mode (the erase button toggles), rotate to 90
+  // (E), place a piece. The marker now reads E.
+  const eraseButton = page.getByTestId('editor-erase')
+  await eraseButton.click()
+  await expect(eraseButton).toHaveAttribute('data-tool-mode', 'place')
+  const rotateButton = page.getByTestId('editor-rotate')
+  await rotateButton.click()
+  await expect(rotateButton).toHaveAttribute('data-rotation', '90')
+  await grid.locator('[data-cell-row="2"][data-cell-col="-1"]').click()
+  await expect(grid).toHaveAttribute('data-spawn-marker-row', '2')
+  await expect(grid).toHaveAttribute('data-spawn-marker-col', '-1')
+  await expect(grid).toHaveAttribute('data-spawn-marker-direction', 'E')
+  await expect(grid).toHaveAttribute('data-spawn-marker-rotation', '90')
+})
