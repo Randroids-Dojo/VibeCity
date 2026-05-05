@@ -6,13 +6,16 @@ import {
   applyOffStreetPenalty,
   isOnStreetCell,
   streetCellSet,
+  wheelOnStreet,
+  wheelWorldPosition,
 } from '@/app/[slug]/offStreetPenalty'
 import {
   MAX_REVERSE_SPEED,
   MAX_SPEED,
   createVehicleState,
 } from '@/app/[slug]/driveControls'
-import { CELL_SIZE } from '@/app/[slug]/driveScene'
+import { CELL_SIZE, carWheelOffsets } from '@/app/[slug]/driveScene'
+import { buildTrackPath } from '@/lib/trackPath'
 import type { Piece, PieceType } from '@/lib/schemas'
 
 /**
@@ -267,5 +270,244 @@ describe('applyOffStreetPenalty (REQ-054)', () => {
     // CELL_SIZE * 3 so a player who drove off the road but not into a
     // building still has more headroom than one who clipped a building.
     expect(OFF_STREET_PENALTY_MAX_SPEED).toBeGreaterThan(CELL_SIZE * 2)
+  })
+})
+
+describe('wheelWorldPosition (REQ-032)', () => {
+  it('returns the vehicle center for a zero offset at zero heading', () => {
+    const out = wheelWorldPosition(
+      { x: 10, z: 20, heading: 0 },
+      { x: 0, z: 0 },
+    )
+    expect(out.x).toBeCloseTo(10, 10)
+    expect(out.z).toBeCloseTo(20, 10)
+  })
+
+  it('translates a local +x offset to world +x at zero heading', () => {
+    const out = wheelWorldPosition(
+      { x: 0, z: 0, heading: 0 },
+      { x: 1, z: 0 },
+    )
+    expect(out.x).toBeCloseTo(1, 10)
+    expect(out.z).toBeCloseTo(0, 10)
+  })
+
+  it('translates a local -z offset (forward) to world -z at zero heading', () => {
+    const out = wheelWorldPosition(
+      { x: 0, z: 0, heading: 0 },
+      { x: 0, z: -1 },
+    )
+    expect(out.x).toBeCloseTo(0, 10)
+    expect(out.z).toBeCloseTo(-1, 10)
+  })
+
+  it('rotates the offset by the heading (Y-axis rotation matching the placed mesh)', () => {
+    // Heading = +PI/2 means the car has yawed 90deg counter-clockwise
+    // looking down +Y. With `car.rotation.y = heading`, a local +x
+    // offset (right-of-car) maps to world +z.
+    const out = wheelWorldPosition(
+      { x: 0, z: 0, heading: Math.PI / 2 },
+      { x: 1, z: 0 },
+    )
+    expect(out.x).toBeCloseTo(0, 10)
+    expect(out.z).toBeCloseTo(-1, 10)
+  })
+
+  it('returns a fresh object on every call', () => {
+    const a = wheelWorldPosition({ x: 0, z: 0, heading: 0 }, { x: 1, z: 1 })
+    const b = wheelWorldPosition({ x: 0, z: 0, heading: 0 }, { x: 1, z: 1 })
+    expect(a).not.toBe(b)
+  })
+
+  it('does not mutate the input', () => {
+    const offset = { x: 1, z: -2 }
+    const before = { ...offset }
+    wheelWorldPosition({ x: 0, z: 0, heading: 1.5 }, offset)
+    expect(offset).toEqual(before)
+  })
+})
+
+describe('wheelOnStreet (REQ-032)', () => {
+  const localOffsets = carWheelOffsets().map(({ x, z }) => ({ x, z }))
+
+  it('returns false for an empty city (no segments)', () => {
+    const path = buildTrackPath({ pieces: [] })
+    const result = wheelOnStreet(
+      { x: 0, z: 0, heading: 0 },
+      localOffsets,
+      path,
+      [],
+      CELL_SIZE,
+    )
+    expect(result).toBe(false)
+  })
+
+  it('returns true when the car is centered on a single street piece', () => {
+    const pieces: Piece[] = [piece('straight', 0, 0)]
+    const path = buildTrackPath({ pieces })
+    const result = wheelOnStreet(
+      { x: 0, z: 0, heading: 0 },
+      localOffsets,
+      path,
+      pieces,
+      CELL_SIZE,
+    )
+    expect(result).toBe(true)
+  })
+
+  it('returns false when the car is far from every placed piece', () => {
+    const pieces: Piece[] = [piece('straight', 0, 0)]
+    const path = buildTrackPath({ pieces })
+    const result = wheelOnStreet(
+      { x: CELL_SIZE * 10, z: CELL_SIZE * 10, heading: 0 },
+      localOffsets,
+      path,
+      pieces,
+      CELL_SIZE,
+    )
+    expect(result).toBe(false)
+  })
+
+  it('returns true when at least one wheel sits on a street cell even though the car center does not', () => {
+    // Place a single street piece at (0, 0). Move the car center to
+    // (-CELL_SIZE * 0.5, 0) so the car center is on the boundary
+    // between cells (-1, 0) and (0, 0). The right-side wheels (positive
+    // local x) sit closer to the (0, 0) cell while the left-side wheels
+    // sit closer to (0, -1).
+    const pieces: Piece[] = [piece('straight', 0, 0)]
+    const path = buildTrackPath({ pieces })
+    const result = wheelOnStreet(
+      { x: -CELL_SIZE * 0.5 + 0.01, z: 0, heading: 0 },
+      localOffsets,
+      path,
+      pieces,
+      CELL_SIZE,
+    )
+    expect(result).toBe(true)
+  })
+
+  it('returns true when the car straddles a multi-cell mega-sweep footprint', () => {
+    // A 2x2 mega-sweep-like footprint anchored at (0, 0).
+    const pieces: Piece[] = [
+      piece('megaSweepRight', 0, 0, 0, [
+        { dr: 0, dc: 0 },
+        { dr: 0, dc: 1 },
+        { dr: 1, dc: 0 },
+        { dr: 1, dc: 1 },
+      ]),
+    ]
+    const path = buildTrackPath({ pieces })
+    // Center the car on cell (1, 1) of the footprint.
+    const result = wheelOnStreet(
+      { x: CELL_SIZE * 1, z: CELL_SIZE * 1, heading: 0 },
+      localOffsets,
+      path,
+      pieces,
+      CELL_SIZE,
+    )
+    expect(result).toBe(true)
+  })
+
+  it('rotates wheels by heading so a yawed car still reads on-street while centered on a piece', () => {
+    const pieces: Piece[] = [piece('straight', 0, 0)]
+    const path = buildTrackPath({ pieces })
+    const result = wheelOnStreet(
+      { x: 0, z: 0, heading: Math.PI / 4 },
+      localOffsets,
+      path,
+      pieces,
+      CELL_SIZE,
+    )
+    expect(result).toBe(true)
+  })
+
+  it('returns true when a single wheel sits on the next cell of a two-piece chain', () => {
+    // Two pieces stacked north / south so both report on-street at
+    // their respective cells. Place the car center on the seam between
+    // them; at least one wheel sits on each cell.
+    const pieces: Piece[] = [
+      piece('straight', 0, 0),
+      piece('straight', 1, 0),
+    ]
+    const path = buildTrackPath({ pieces })
+    const result = wheelOnStreet(
+      { x: 0, z: CELL_SIZE * 0.5, heading: 0 },
+      localOffsets,
+      path,
+      pieces,
+      CELL_SIZE,
+    )
+    expect(result).toBe(true)
+  })
+
+  it('returns false when the car drifts fully off the placed piece', () => {
+    const pieces: Piece[] = [piece('straight', 0, 0)]
+    const path = buildTrackPath({ pieces })
+    // Push the car well off the piece center so every wheel lands on
+    // an off-piece cell.
+    const result = wheelOnStreet(
+      { x: CELL_SIZE * 3, z: CELL_SIZE * 3, heading: 0 },
+      localOffsets,
+      path,
+      pieces,
+      CELL_SIZE,
+    )
+    expect(result).toBe(false)
+  })
+
+  it('handles an empty wheel-offset list by reporting off-street', () => {
+    const pieces: Piece[] = [piece('straight', 0, 0)]
+    const path = buildTrackPath({ pieces })
+    const result = wheelOnStreet(
+      { x: 0, z: 0, heading: 0 },
+      [],
+      path,
+      pieces,
+      CELL_SIZE,
+    )
+    expect(result).toBe(false)
+  })
+
+  it('does not mutate the wheel-offset list', () => {
+    const pieces: Piece[] = [piece('straight', 0, 0)]
+    const path = buildTrackPath({ pieces })
+    const offsets = [...localOffsets]
+    const before = offsets.map((o) => ({ ...o }))
+    wheelOnStreet(
+      { x: 0, z: 0, heading: 1.2 },
+      offsets,
+      path,
+      pieces,
+      CELL_SIZE,
+    )
+    expect(offsets).toEqual(before)
+  })
+
+  it('uses the multi-locator substrate so a multi-cell hairpin reports on-street from every footprint cell', () => {
+    // Build a trackPath from a hairpin (2x3 footprint). Every footprint
+    // cell should report on-street when the car center sits on it.
+    const pieces: Piece[] = [piece('hairpin', 0, 0)]
+    const path = buildTrackPath({ pieces })
+    // Sample a couple of representative footprint cells. The hairpin
+    // canonical footprint covers (-1, 0), (-1, 1), (0, 0), (0, 1),
+    // (1, 0), (1, 1) under the row, col convention used by the editor.
+    const cellPositions = [
+      { x: 0, z: 0 },
+      { x: CELL_SIZE, z: 0 },
+      { x: 0, z: -CELL_SIZE },
+      { x: CELL_SIZE, z: -CELL_SIZE },
+      { x: 0, z: CELL_SIZE },
+      { x: CELL_SIZE, z: CELL_SIZE },
+    ]
+    for (const pos of cellPositions) {
+      const result = wheelOnStreet(
+        { x: pos.x, z: pos.z, heading: 0 },
+        localOffsets,
+        path,
+        pieces,
+        CELL_SIZE,
+      )
+      expect(result).toBe(true)
+    }
   })
 })

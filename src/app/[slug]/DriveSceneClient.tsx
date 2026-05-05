@@ -92,9 +92,9 @@ import {
 } from './buildingCollision'
 import {
   applyOffStreetPenalty,
-  isOnStreetCell,
-  streetCellSet,
+  wheelOnStreet,
 } from './offStreetPenalty'
+import { buildTrackPath } from '@/lib/trackPath'
 import {
   HUD_CONTROLS_HINT_LINES,
   HUD_SPEED_LABEL,
@@ -404,13 +404,25 @@ export function DriveSceneClient({
     [city.buildings],
   )
 
-  // Street cell set for the off-street penalty (REQ-054). Mirrors the
-  // building cell set above so the per-frame lookup is constant time;
-  // multi-cell pieces (mega sweep, hairpin) expand to their full
-  // footprint via `streetCellSet`.
-  const streetCells = useMemo(
-    () => streetCellSet(city.pieces),
+  // Track path substrate (REQ-064) for the per-wheel on-street test
+  // (REQ-032). The substrate emits one locator per footprint cell of
+  // every placed piece, so a multi-cell piece (mega sweep, hairpin)
+  // reports on-street status from any of its footprint cells. Memoized
+  // so the connected-graph walk runs once per city change instead of
+  // every animation frame.
+  const trackPath = useMemo(
+    () => buildTrackPath({ pieces: city.pieces }),
     [city.pieces],
+  )
+
+  // Wheel offsets in the car's local frame (REQ-032). Mirrors the four
+  // wheel positions baked into the placed mesh by `carWheelOffsets()`;
+  // the per-frame on-street test rotates these by the live heading and
+  // checks each wheel's cell against the multi-locator path substrate.
+  // Memoized once because the offsets are constants.
+  const wheelLocalOffsets = useMemo(
+    () => carWheelOffsets().map(({ x, z }) => ({ x, z })),
+    [],
   )
 
   // Minimap bounds (REQ-069). Memoized so the projection only
@@ -957,7 +969,13 @@ export function DriveSceneClient({
         isOnBuildingCell(vehicle.x, vehicle.z, buildingCells),
       )
       updateOffStreetAttr(
-        !isOnStreetCell(vehicle.x, vehicle.z, streetCells),
+        !wheelOnStreet(
+          vehicle,
+          wheelLocalOffsets,
+          trackPath,
+          city.pieces,
+          CELL_SIZE,
+        ),
       )
       updateHud()
       updateMinimap()
@@ -1021,7 +1039,13 @@ export function DriveSceneClient({
         isOnBuildingCell(vehicle.x, vehicle.z, buildingCells),
       )
       updateOffStreetAttr(
-        !isOnStreetCell(vehicle.x, vehicle.z, streetCells),
+        !wheelOnStreet(
+          vehicle,
+          wheelLocalOffsets,
+          trackPath,
+          city.pieces,
+          CELL_SIZE,
+        ),
       )
       updateHud()
       updateMinimap()
@@ -1092,15 +1116,24 @@ export function DriveSceneClient({
         )
         const input = mergeDriveInputs(keyboardInput, touchInputForFrame)
         vehicle = applyDriveStep(vehicle, input, dt)
-        // Off-street penalty (REQ-054). Applied first so a player who
-        // veers off the road bleeds before any building-cell stack on
-        // top fires. The two penalties stack at the same call site
-        // because a building cell is also off-street; the more
-        // aggressive of the two (the building cap is tighter) wins.
-        const onStreet = isOnStreetCell(
-          vehicle.x,
-          vehicle.z,
-          streetCells,
+        // Off-street penalty (REQ-054) with per-wheel detection
+        // (REQ-032). Applied first so a player who veers off the road
+        // bleeds before any building-cell stack on top fires. The two
+        // penalties stack at the same call site because a building
+        // cell is also off-street; the more aggressive of the two
+        // (the building cap is tighter) wins. The on-street test now
+        // walks the four wheel offsets through the multi-locator
+        // substrate (REQ-064 + REQ-065) so a multi-cell piece (mega
+        // sweep, hairpin) reports on-street status from any of its
+        // footprint cells and a tire hanging off the road does not
+        // flip the whole car off-street while another tire still
+        // contacts a piece.
+        const onStreet = wheelOnStreet(
+          vehicle,
+          wheelLocalOffsets,
+          trackPath,
+          city.pieces,
+          CELL_SIZE,
         )
         vehicle = applyOffStreetPenalty(vehicle, onStreet, dt)
         // Building cell penalty (REQ-030, Q-005 default A). After the
@@ -1212,7 +1245,8 @@ export function DriveSceneClient({
     bounds,
     spawn,
     buildingCells,
-    streetCells,
+    trackPath,
+    wheelLocalOffsets,
     minimapBounds,
     handleToggleEngineMute,
   ])
