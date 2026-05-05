@@ -108,6 +108,60 @@ export const BUILDING_COLORS: Record<BuildingType, number> = {
 }
 
 /**
+ * Building roof colors per type (REQ-046 visual polish). A darker
+ * shade of each body color so the roof reads as a separate volume on
+ * top of the body without inventing per-building texture art. The
+ * factory's roof is closer to its body color so the smokestack-style
+ * cap silhouette carries the visual cue rather than a strong contrast
+ * shift.
+ */
+export const BUILDING_ROOF_COLORS: Record<BuildingType, number> = {
+  'small-house': 0x8a4f30,
+  'mid-house': 0x7a3a22,
+  shop: 0x355d76,
+  factory: 0x4a4a4a,
+}
+
+/**
+ * Building roof heights per type (REQ-046 visual polish). Picked so the
+ * four primitives read with distinct silhouettes from the orbit view:
+ * houses get a short cap that suggests a roof; the shop gets a flatter
+ * cap that suggests an awning / parapet; the factory gets a tall thin
+ * cap that suggests a smokestack.
+ */
+export const BUILDING_ROOF_HEIGHTS: Record<BuildingType, number> = {
+  'small-house': CELL_SIZE * 0.18,
+  'mid-house': CELL_SIZE * 0.22,
+  shop: CELL_SIZE * 0.1,
+  factory: CELL_SIZE * 0.5,
+}
+
+/**
+ * Building roof horizontal scale factor per type (REQ-046 visual
+ * polish). Scales the roof footprint relative to the body footprint
+ * (`BUILDING_FOOTPRINT_FACTOR`). Houses use a slight inset so the
+ * roof reads as a peaked cap; the shop uses a near-full width so the
+ * cap reads as a flat parapet; the factory uses a strong inset so the
+ * tall cap reads as a smokestack rather than a second story.
+ */
+export const BUILDING_ROOF_INSET_FACTORS: Record<BuildingType, number> = {
+  'small-house': 0.86,
+  'mid-house': 0.86,
+  shop: 0.96,
+  factory: 0.32,
+}
+
+/**
+ * Horizontal footprint factor for building body extrusions (REQ-046).
+ * Each building body is rendered as a `BoxGeometry` whose `x` and `z`
+ * size is `CELL_SIZE * BUILDING_FOOTPRINT_FACTOR`; the small inset
+ * keeps neighboring buildings from sharing edges in the orbit view.
+ * Extracted as a constant so the roof-cap layer can scale relative to
+ * the body footprint without hard-coding `0.85`.
+ */
+export const BUILDING_FOOTPRINT_FACTOR = 0.85
+
+/**
  * Piece colors per type (REQ-045). v1 renders every street piece as
  * a flat colored quad; per-piece glyphs (curve outlines, intersection
  * crosswalks) wait for the textured visuals slice. The cardinal
@@ -152,6 +206,65 @@ export function buildingColorFor(type: BuildingType): number {
  */
 export function buildingHeightFor(type: BuildingType): number {
   return BUILDING_HEIGHTS[type]
+}
+
+/**
+ * Resolve the roof-cap color for a building (REQ-046 visual polish).
+ * Strict map lookup; the `BuildingType` enum makes the lookup total.
+ */
+export function buildingRoofColorFor(type: BuildingType): number {
+  return BUILDING_ROOF_COLORS[type]
+}
+
+/**
+ * Resolve the roof-cap height for a building (REQ-046 visual polish).
+ * Strict map lookup; the `BuildingType` enum makes the lookup total.
+ */
+export function buildingRoofHeightFor(type: BuildingType): number {
+  return BUILDING_ROOF_HEIGHTS[type]
+}
+
+/**
+ * Resolve the horizontal footprint factor for the roof cap relative to
+ * the body footprint (REQ-046 visual polish). Multiplied by
+ * `BUILDING_FOOTPRINT_FACTOR` so the roof cap is sized in the same
+ * world unit as the body. Strict map lookup; the `BuildingType` enum
+ * makes the lookup total.
+ */
+export function buildingRoofInsetFactorFor(type: BuildingType): number {
+  return BUILDING_ROOF_INSET_FACTORS[type]
+}
+
+/**
+ * World-space size of one cell along the body footprint (REQ-046).
+ * Equal to `CELL_SIZE * BUILDING_FOOTPRINT_FACTOR`. The drive scene
+ * uses this as the body's `x` and `z` BoxGeometry size and as the
+ * baseline for the roof cap's per-type inset factor.
+ */
+export function buildingFootprintWorldSize(): number {
+  return CELL_SIZE * BUILDING_FOOTPRINT_FACTOR
+}
+
+/**
+ * Vertical position of a building roof cap's geometric center above
+ * the ground plane (REQ-046 visual polish). Sits on top of the body
+ * extrusion: body fills `[0, height]`, so the cap center sits at
+ * `height + roofHeight / 2` so the cap rests on the body top without
+ * z-fighting.
+ */
+export function buildingRoofY(type: BuildingType): number {
+  return buildingHeightFor(type) + buildingRoofHeightFor(type) / 2
+}
+
+/**
+ * World-space size of a building roof cap (REQ-046 visual polish).
+ * Multiplies the body footprint by the per-type inset factor so houses
+ * get a roof slightly inset from the body, the shop gets a near-flat
+ * cap nearly as wide as the body, and the factory gets a thin
+ * smokestack-style cap.
+ */
+export function buildingRoofFootprintFor(type: BuildingType): number {
+  return buildingFootprintWorldSize() * buildingRoofInsetFactorFor(type)
 }
 
 /**
