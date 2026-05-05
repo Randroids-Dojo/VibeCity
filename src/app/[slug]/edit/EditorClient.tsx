@@ -75,6 +75,7 @@ import {
   unmatchedPortCells,
   validateConnections,
 } from '@/lib/trackPath'
+import { spawnAnchorMarker } from './spawnMarker'
 import { SceneTransitionCurtain } from '../SceneTransitionCurtain'
 
 /**
@@ -635,6 +636,14 @@ export function EditorClient({
   // which cells are open; the per-port arrows tell them which direction
   // the missing neighbor needs to land.
   const openEndArrows = unmatchedPortGlyphs(unmatchedPorts)
+  // Resolve the spawn-anchor marker so the editor SVG paints where the
+  // car will spawn and which way it will face (REQ-019, REQ-036). The
+  // marker is null on an empty city because the drive scene never mounts
+  // the car on an empty grid. Mirrors the substrate `spawnAnchor`
+  // contract from `src/app/[slug]/driveScene.ts` and `respawnVehicle`
+  // from `src/app/[slug]/respawn.ts` exactly so the editor cue agrees
+  // with the live drive-scene behavior.
+  const spawnMarker = spawnAnchorMarker(city)
 
   return (
     <div
@@ -986,6 +995,7 @@ export function EditorClient({
         viewport={viewport}
         openEndCellKeys={openEndCellKeys}
         openEndArrows={openEndArrows}
+        spawnMarker={spawnMarker}
         onSurfaceWheel={handleSurfaceWheel}
         onSurfacePointerDown={handleSurfacePointerDown}
       />
