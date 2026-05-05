@@ -68,7 +68,11 @@ import {
   cityConnectorGlyphs,
   countMatchedGlyphs,
 } from './connectorGlyphs'
-import { buildTrackPath, summarizeTrackPath } from '@/lib/trackPath'
+import {
+  buildTrackPath,
+  summarizeTrackPath,
+  validateConnections,
+} from '@/lib/trackPath'
 import { SceneTransitionCurtain } from '../SceneTransitionCurtain'
 
 /**
@@ -611,6 +615,14 @@ export function EditorClient({
   const trackPath = buildTrackPath(city)
   const trackPathSummary = summarizeTrackPath(trackPath)
 
+  // Resolve the substrate-level unmatched-port count so the toolbar can
+  // surface where the city has open road ends (REQ-019, REQ-064). The
+  // walk is O(N * P) on the piece count times the average port count
+  // and shares the same bounded MAX_PIECES_PER_CITY = 256 ceiling as the
+  // connector / track-path resolvers above.
+  const unmatchedPorts = validateConnections(city)
+  const unmatchedPortCount = unmatchedPorts.length
+
   return (
     <div
       style={{
@@ -919,6 +931,20 @@ export function EditorClient({
           {trackPathSummary.mainSegmentClosesLoop
             ? 'Main path: closed loop'
             : 'Main path: open chain'}
+        </p>
+      ) : null}
+      {unmatchedPortCount > 0 ? (
+        <p
+          data-testid="editor-unmatched-ports-readout"
+          data-unmatched-port-count={unmatchedPortCount}
+          style={{
+            fontSize: 12,
+            margin: 0,
+            opacity: 0.65,
+            color: '#a3372a',
+          }}
+        >
+          {`Open ends: ${unmatchedPortCount}`}
         </p>
       ) : null}
       <p
