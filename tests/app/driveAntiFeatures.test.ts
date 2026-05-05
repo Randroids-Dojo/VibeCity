@@ -5,9 +5,11 @@ import {
   containsRaceHudVocabulary,
 } from '@/app/[slug]/driveAntiFeatures'
 import {
+  HUD_CITY_VALIDITY_LABEL,
   HUD_CONTROLS_HINT_LINES,
   HUD_SPEED_LABEL,
   HUD_SPEED_UNIT,
+  HUD_SURFACE_LABEL,
 } from '@/app/[slug]/driveHud'
 
 /**
@@ -136,5 +138,17 @@ describe('Drive HUD strings respect the REQ-037 anti-feature', () => {
   it('keeps the speed label and unit free of race vocabulary', () => {
     expect(containsRaceHudVocabulary(HUD_SPEED_LABEL)).toBe(false)
     expect(containsRaceHudVocabulary(HUD_SPEED_UNIT)).toBe(false)
+  })
+
+  it('keeps every surface label free of race vocabulary', () => {
+    for (const label of Object.values(HUD_SURFACE_LABEL)) {
+      expect(containsRaceHudVocabulary(label)).toBe(false)
+    }
+  })
+
+  it('keeps every city-validity label free of race vocabulary', () => {
+    for (const label of Object.values(HUD_CITY_VALIDITY_LABEL)) {
+      expect(containsRaceHudVocabulary(label)).toBe(false)
+    }
   })
 })

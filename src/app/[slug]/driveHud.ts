@@ -145,3 +145,47 @@ export const HUD_SURFACE_LABEL: Record<SurfaceState, string> = {
   'off-street': 'Off street',
   building: 'Building hit',
 }
+
+/**
+ * City validity state shown in the drive HUD (REQ-066, REQ-019, REQ-064).
+ *
+ * `validateConnections(city)` from `src/lib/trackPath.ts` returns the list
+ * of every connector port across the city that does not have an opposing
+ * neighbor port. Zero unmatched ports means the city is a `closed`
+ * connector graph (every port is connected to another piece); any
+ * non-zero count means the city has `open` ends and a player driving
+ * around will eventually run out of road.
+ *
+ * The state is the substrate-level summary the HUD reads each render so
+ * a player exploring a city with open ends sees a visible explanation
+ * instead of mistaking a road end for a tuning bug. The signal is
+ * non-prescriptive: the drive surface still lets the player keep driving
+ * (via the off-street penalty when they leave the placed streets); the
+ * label is purely informational.
+ */
+export type CityValidity = 'closed' | 'open'
+
+/**
+ * Resolve the live city validity from the unmatched-port count. Pure:
+ * deterministic on `unmatchedPortCount`, no allocation. Treats any
+ * non-finite or negative count as `closed` so a tuning bug that emits
+ * `NaN` or `-1` does not flip the HUD into a permanent open-ends
+ * warning. Zero unmatched ports (including the empty-city case where
+ * `validateConnections` returns the empty array) reads as `closed`.
+ */
+export function cityValidity(unmatchedPortCount: number): CityValidity {
+  if (!Number.isFinite(unmatchedPortCount)) return 'closed'
+  if (unmatchedPortCount <= 0) return 'closed'
+  return 'open'
+}
+
+/**
+ * Human-readable label per city-validity state. The HUD writes this
+ * label imperatively into a span near the surface readout when the
+ * state is `open`; the label is empty for the `closed` default so the
+ * visible HUD only adds a line when the player needs the explanation.
+ */
+export const HUD_CITY_VALIDITY_LABEL: Record<CityValidity, string> = {
+  closed: '',
+  open: 'Open ends',
+}

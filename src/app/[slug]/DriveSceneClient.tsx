@@ -96,12 +96,14 @@ import {
   wheelOnStreet,
   type ClosestStreetPiece,
 } from './offStreetPenalty'
-import { buildTrackPath } from '@/lib/trackPath'
+import { buildTrackPath, validateConnections } from '@/lib/trackPath'
 import {
+  HUD_CITY_VALIDITY_LABEL,
   HUD_CONTROLS_HINT_LINES,
   HUD_SPEED_LABEL,
   HUD_SPEED_UNIT,
   HUD_SURFACE_LABEL,
+  cityValidity,
   formatSpeed,
   speedDirection,
   speedFraction,
@@ -424,6 +426,21 @@ export function DriveSceneClient({
     () => buildTrackPath({ pieces: city.pieces }),
     [city.pieces],
   )
+
+  // City validity readout (REQ-066, REQ-019, REQ-064). The substrate-level
+  // `validateConnections` returns the list of every connector port that
+  // does not have an opposing neighbor; the count is the input to the HUD
+  // city-validity label so a player driving a city with open ends sees a
+  // visible explanation when they run out of road. Memoized so the walk
+  // runs once per city change instead of every render. The actual HUD
+  // label is rendered conditionally in the JSX below; the data attributes
+  // ride on the scene root in every case so a test can assert the
+  // substrate signal without inspecting the visible HUD.
+  const unmatchedPortCount = useMemo(
+    () => validateConnections({ pieces: city.pieces }).length,
+    [city.pieces],
+  )
+  const cityValidityState = cityValidity(unmatchedPortCount)
 
   // Wheel offsets in the car's local frame (REQ-032). Mirrors the four
   // wheel positions baked into the placed mesh by `carWheelOffsets()`;
@@ -1389,6 +1406,8 @@ export function DriveSceneClient({
       data-hud-speed="0"
       data-hud-direction="idle"
       data-hud-surface="street"
+      data-city-validity={cityValidityState}
+      data-unmatched-port-count={unmatchedPortCount}
       data-engine-audio-muted={engineMuted ? 'true' : 'false'}
       data-engine-audio-started="false"
       data-minimap-visible={hasVehicle && !showPauseMenu ? 'true' : 'false'}
@@ -1600,6 +1619,29 @@ export function DriveSceneClient({
               }}
             />
           </div>
+          {cityValidityState === 'open' ? (
+            <div
+              style={{
+                minHeight: 14,
+                display: 'flex',
+                alignItems: 'baseline',
+              }}
+            >
+              <span
+                data-testid="drive-hud-city-validity"
+                data-city-validity={cityValidityState}
+                data-unmatched-port-count={unmatchedPortCount}
+                style={{
+                  fontSize: 11,
+                  letterSpacing: 0.4,
+                  textTransform: 'uppercase',
+                  color: '#9bb6e0',
+                }}
+              >
+                {HUD_CITY_VALIDITY_LABEL[cityValidityState]}
+              </span>
+            </div>
+          ) : null}
           <div
             data-testid="drive-hud-speed-bar"
             style={{
