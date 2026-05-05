@@ -68,6 +68,24 @@ export const SPAWN_ARROW_HALF_PIXELS = CELL_PIXELS / 5
 export type SpawnDirectionLabel = 'N' | 'E' | 'S' | 'W'
 
 /**
+ * Long-form compass label per `SpawnDirectionLabel` so the editor
+ * toolbar readout reads as a full English word ("North", "East",
+ * "South", "West") rather than the single-letter compass attribute. The
+ * single-letter form stays on the SVG `data-spawn-marker-direction`
+ * attribute so a Playwright locator can pin orientation by short
+ * compass code; the full word lands in the visible toolbar text so a
+ * builder reads "Spawn: (0, 0) facing North" without having to translate
+ * the compass letter in their head.
+ */
+export const SPAWN_DIRECTION_LONG_LABEL: Record<SpawnDirectionLabel, string> =
+  {
+    N: 'North',
+    E: 'East',
+    S: 'South',
+    W: 'West',
+  }
+
+/**
  * Direction unit vector in editor SVG pixel space (`+x` rightward, `+y`
  * downward) per `Rotation` value. Mirrors the heading convention used
  * by `applyDriveStep` in `driveControls.ts` (heading 0 advances along
@@ -188,5 +206,47 @@ export function spawnAnchorMarker(city: City): SpawnAnchorMarker | null {
     points,
     direction: dir.label,
     rotation: first.rotation,
+  }
+}
+
+/**
+ * One spawn-anchor toolbar readout ready for the editor toolbar to
+ * render (REQ-019, REQ-036).
+ *
+ * `cellRow` / `cellCol` mirror the spawn-anchor cell (matching
+ * `spawnAnchorMarker`'s returned cell so a test can cross-check the two
+ * surfaces). `direction` carries the short compass label ('N' / 'E' /
+ * 'S' / 'W') so a test can pin the value by readable string. `text` is
+ * the full toolbar string ("Spawn: (row, col) facing North") rendered
+ * in the readout paragraph.
+ */
+export interface SpawnAnchorReadout {
+  cellRow: number
+  cellCol: number
+  direction: SpawnDirectionLabel
+  text: string
+}
+
+/**
+ * Resolve the spawn-anchor toolbar readout for a city's first placed
+ * piece. Returns `null` when the city has zero pieces (mirrors
+ * `spawnAnchorMarker`'s null contract: the drive scene never mounts the
+ * car on an empty grid, so the editor toolbar has nothing to read out).
+ * The cell coordinates and direction match `spawnAnchorMarker(city)`
+ * exactly so the visible marker on the grid agrees with the visible
+ * readout in the toolbar; if the substrate `spawnAnchor` contract
+ * changes, both helpers update in the same slice. Returns a fresh
+ * object on every call so callers cannot mutate cached state.
+ */
+export function spawnAnchorReadout(city: City): SpawnAnchorReadout | null {
+  const first: Piece | undefined = city.pieces[0]
+  if (!first) return null
+  const dir = SPAWN_DIRECTION_VECTOR[first.rotation]
+  const longLabel = SPAWN_DIRECTION_LONG_LABEL[dir.label]
+  return {
+    cellRow: first.row,
+    cellCol: first.col,
+    direction: dir.label,
+    text: `Spawn: (${first.row}, ${first.col}) facing ${longLabel}`,
   }
 }

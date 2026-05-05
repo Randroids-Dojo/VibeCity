@@ -75,7 +75,7 @@ import {
   unmatchedPortCells,
   validateConnections,
 } from '@/lib/trackPath'
-import { spawnAnchorMarker } from './spawnMarker'
+import { spawnAnchorMarker, spawnAnchorReadout } from './spawnMarker'
 import { SceneTransitionCurtain } from '../SceneTransitionCurtain'
 
 /**
@@ -644,6 +644,11 @@ export function EditorClient({
   // from `src/app/[slug]/respawn.ts` exactly so the editor cue agrees
   // with the live drive-scene behavior.
   const spawnMarker = spawnAnchorMarker(city)
+  // Resolve the spawn-anchor toolbar readout so a builder reads the
+  // exact spawn cell and heading direction without scanning the SVG
+  // marker (REQ-019, REQ-036). Same null-on-empty-city contract as the
+  // marker so the readout stays silent on a city with no pieces.
+  const spawnReadout = spawnAnchorReadout(city)
 
   return (
     <div
@@ -967,6 +972,22 @@ export function EditorClient({
           }}
         >
           {`Open ends: ${unmatchedPortCount}`}
+        </p>
+      ) : null}
+      {spawnReadout !== null ? (
+        <p
+          data-testid="editor-spawn-anchor-readout"
+          data-spawn-anchor-row={spawnReadout.cellRow}
+          data-spawn-anchor-col={spawnReadout.cellCol}
+          data-spawn-anchor-direction={spawnReadout.direction}
+          style={{
+            fontSize: 12,
+            margin: 0,
+            opacity: 0.65,
+            color: '#3a6ea0',
+          }}
+        >
+          {spawnReadout.text}
         </p>
       ) : null}
       <p

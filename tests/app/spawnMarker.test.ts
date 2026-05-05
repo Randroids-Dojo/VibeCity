@@ -2,10 +2,13 @@ import { describe, expect, it } from 'vitest'
 import {
   SPAWN_ARROW_HALF_PIXELS,
   SPAWN_ARROW_REACH_PIXELS,
+  SPAWN_DIRECTION_LONG_LABEL,
   SPAWN_DIRECTION_VECTOR,
   SPAWN_MARKER_HALF_PIXELS,
   SPAWN_MARKER_INSET_PIXELS,
   spawnAnchorMarker,
+  spawnAnchorReadout,
+  type SpawnDirectionLabel,
 } from '@/app/[slug]/edit/spawnMarker'
 import { CELL_PIXELS, GRID_RADIUS } from '@/app/[slug]/edit/snapGrid'
 import { EMPTY_CITY, type City, type Piece } from '@/lib/schemas'
@@ -246,5 +249,131 @@ describe('spawnAnchorMarker (REQ-019, REQ-036)', () => {
     const anchor = spawnAnchor(city.pieces)
     expect(marker?.cellRow).toBe(anchor.row)
     expect(marker?.cellCol).toBe(anchor.col)
+  })
+})
+
+describe('SPAWN_DIRECTION_LONG_LABEL (REQ-019, REQ-036)', () => {
+  it('maps each compass label to its full English word', () => {
+    expect(SPAWN_DIRECTION_LONG_LABEL.N).toBe('North')
+    expect(SPAWN_DIRECTION_LONG_LABEL.E).toBe('East')
+    expect(SPAWN_DIRECTION_LONG_LABEL.S).toBe('South')
+    expect(SPAWN_DIRECTION_LONG_LABEL.W).toBe('West')
+  })
+
+  it('covers every cardinal compass label without duplicates', () => {
+    const values = Object.values(SPAWN_DIRECTION_LONG_LABEL)
+    expect(values).toHaveLength(4)
+    expect(new Set(values).size).toBe(4)
+  })
+
+  it('every long label is non-empty and trims to the same word', () => {
+    for (const label of ['N', 'E', 'S', 'W'] as const) {
+      const long = SPAWN_DIRECTION_LONG_LABEL[label]
+      expect(long.length).toBeGreaterThan(0)
+      expect(long.trim()).toBe(long)
+    }
+  })
+})
+
+describe('spawnAnchorReadout (REQ-019, REQ-036)', () => {
+  it('returns null on an empty city', () => {
+    expect(spawnAnchorReadout(EMPTY_CITY)).toBeNull()
+  })
+
+  it('returns null on a city with only buildings (no pieces)', () => {
+    const city: City = {
+      pieces: [],
+      buildings: [
+        { type: 'small-house', row: 0, col: 0, rotation: 0 },
+      ],
+    }
+    expect(spawnAnchorReadout(city)).toBeNull()
+  })
+
+  it('returns the first piece cell and direction at rotation 0 (North)', () => {
+    const city = cityWith([piece({ row: 0, col: 0, rotation: 0 })])
+    const readout = spawnAnchorReadout(city)
+    expect(readout).not.toBeNull()
+    expect(readout?.cellRow).toBe(0)
+    expect(readout?.cellCol).toBe(0)
+    expect(readout?.direction).toBe('N')
+    expect(readout?.text).toBe('Spawn: (0, 0) facing North')
+  })
+
+  it('emits the East long label for rotation 90', () => {
+    const city = cityWith([piece({ row: 1, col: 2, rotation: 90 })])
+    const readout = spawnAnchorReadout(city)
+    expect(readout?.direction).toBe('E')
+    expect(readout?.text).toBe('Spawn: (1, 2) facing East')
+  })
+
+  it('emits the South long label for rotation 180', () => {
+    const city = cityWith([piece({ row: -3, col: 4, rotation: 180 })])
+    const readout = spawnAnchorReadout(city)
+    expect(readout?.direction).toBe('S')
+    expect(readout?.text).toBe('Spawn: (-3, 4) facing South')
+  })
+
+  it('emits the West long label for rotation 270', () => {
+    const city = cityWith([piece({ row: 5, col: -2, rotation: 270 })])
+    const readout = spawnAnchorReadout(city)
+    expect(readout?.direction).toBe('W')
+    expect(readout?.text).toBe('Spawn: (5, -2) facing West')
+  })
+
+  it('mirrors pieces[0] not the most recently placed piece', () => {
+    // Drive-scene spawn anchor reads pieces[0] (the first placed piece),
+    // not the most recently placed; the readout must agree.
+    const city = cityWith([
+      piece({ row: 2, col: -1, rotation: 0 }),
+      piece({ row: 0, col: 0, rotation: 90 }),
+    ])
+    const readout = spawnAnchorReadout(city)
+    expect(readout?.cellRow).toBe(2)
+    expect(readout?.cellCol).toBe(-1)
+    expect(readout?.direction).toBe('N')
+  })
+
+  it('readout direction agrees with spawnAnchorMarker direction for every rotation', () => {
+    const rotations = [0, 90, 180, 270] as const
+    for (const rotation of rotations) {
+      const city = cityWith([piece({ row: 1, col: -1, rotation })])
+      const readout = spawnAnchorReadout(city)
+      const marker = spawnAnchorMarker(city)
+      expect(readout?.direction).toBe(marker?.direction)
+      expect(readout?.cellRow).toBe(marker?.cellRow)
+      expect(readout?.cellCol).toBe(marker?.cellCol)
+    }
+  })
+
+  it('returns a fresh object on every call so callers cannot mutate cached state', () => {
+    const city = cityWith([piece({ row: 0, col: 0, rotation: 0 })])
+    const a = spawnAnchorReadout(city)
+    const b = spawnAnchorReadout(city)
+    expect(a).not.toBe(b)
+    expect(a).toEqual(b)
+  })
+
+  it('does not mutate the input city', () => {
+    const city = cityWith([piece({ row: 1, col: 2, rotation: 90 })])
+    const snapshot = JSON.stringify(city)
+    spawnAnchorReadout(city)
+    expect(JSON.stringify(city)).toBe(snapshot)
+  })
+
+  it('text mentions the direction long-label so the reader does not have to translate the compass letter', () => {
+    const labels: SpawnDirectionLabel[] = ['N', 'E', 'S', 'W']
+    for (const label of labels) {
+      const rotation = (label === 'N' ? 0 : label === 'E' ? 90 : label === 'S' ? 180 : 270) as 0 | 90 | 180 | 270
+      const city = cityWith([piece({ rotation })])
+      const readout = spawnAnchorReadout(city)
+      expect(readout?.text).toContain(SPAWN_DIRECTION_LONG_LABEL[label])
+    }
+  })
+
+  it('text starts with "Spawn:" so the toolbar readout is visually distinct from the other toolbar readouts', () => {
+    const city = cityWith([piece({ row: 0, col: 0, rotation: 0 })])
+    const readout = spawnAnchorReadout(city)
+    expect(readout?.text.startsWith('Spawn:')).toBe(true)
   })
 })
