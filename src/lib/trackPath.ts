@@ -419,6 +419,81 @@ function samePort(a: ConnectorPort, b: ConnectorPort): boolean {
 }
 
 /**
+ * One-shot summary of a built `TrackPath` (REQ-019, REQ-064).
+ *
+ * Surfaces the substrate-level signals the editor toolbar reads:
+ *
+ * - `mainSegmentLength`: number of pieces in the segment that contains
+ *   `city.pieces[0]` (the canonical `main` segment). Zero when the city
+ *   has no pieces.
+ * - `totalPieces`: unique pieces across every segment, deduped by
+ *   reference identity. Equal to the placed piece count when every
+ *   piece is reachable from a connected component (always true given
+ *   the multi-component walker). Deduped because the deterministic
+ *   intersection pass-through can revisit the same piece from a sibling
+ *   arm seeded as a separate segment.
+ * - `mainSegmentClosesLoop`: whether the main segment is a closed loop
+ *   (the last walked piece's exit port connects back to the first
+ *   piece). False when no main segment exists.
+ * - `segmentCount`: number of connected components. Zero on empty city.
+ *
+ * The shape stays substrate-flavoured: no labels, no formatting, no
+ * pixel coordinates. The editor toolbar formats these into "Pieces in
+ * main path: K of N" / "Main path: closed loop" text. Future slices
+ * (drive-mode "city is open chain" warning HUD, save-time integrity
+ * check) read the same shape.
+ */
+export interface TrackPathSummary {
+  mainSegmentLength: number
+  totalPieces: number
+  mainSegmentClosesLoop: boolean
+  segmentCount: number
+}
+
+/**
+ * Summarize a built `TrackPath` (REQ-019, REQ-064).
+ *
+ * Reads the segment-based substrate and projects it into a flat
+ * `{ mainSegmentLength, totalPieces, mainSegmentClosesLoop, segmentCount }`
+ * shape so callers (the editor toolbar readout, future drive-mode HUD,
+ * future save-time integrity check) can render or branch on the
+ * connected-graph topology without iterating segments themselves.
+ *
+ * `totalPieces` counts unique pieces across every segment, not the sum
+ * of segment lengths. The walker's deterministic intersection pass-
+ * through can revisit the same piece from a sibling arm seeded as a
+ * new segment, so summing segment lengths would over-count; deduping by
+ * piece identity keeps `totalPieces` equal to the placed piece count
+ * when every piece is reachable from a connected component.
+ *
+ * Empty path returns zeros and `mainSegmentClosesLoop: false`. The main
+ * segment is always `path.segments[0]` per `buildTrackPath`'s contract.
+ */
+export function summarizeTrackPath(path: TrackPath): TrackPathSummary {
+  if (path.segments.length === 0) {
+    return {
+      mainSegmentLength: 0,
+      totalPieces: 0,
+      mainSegmentClosesLoop: false,
+      segmentCount: 0,
+    }
+  }
+  const main = path.segments[0]
+  const seen = new Set<Piece>()
+  for (const segment of path.segments) {
+    for (const ordered of segment.order) {
+      seen.add(ordered.piece)
+    }
+  }
+  return {
+    mainSegmentLength: main.order.length,
+    totalPieces: seen.size,
+    mainSegmentClosesLoop: main.closesLoop,
+    segmentCount: path.segments.length,
+  }
+}
+
+/**
  * One unmatched connector port across the city (REQ-019, REQ-064).
  *
  * `pieceIndex` is the position of the source piece in `city.pieces`.

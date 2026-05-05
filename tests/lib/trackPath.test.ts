@@ -15,6 +15,7 @@ import {
   neighborAnchorCell,
   portCell,
   portsConnect,
+  summarizeTrackPath,
   validateConnections,
 } from '@/lib/trackPath'
 
@@ -738,5 +739,169 @@ describe('validateConnections (REQ-019, REQ-064)', () => {
     expect(result).toHaveLength(2)
     expect(result[0].pieceIndex).toBe(0)
     expect(result[1].pieceIndex).toBe(1)
+  })
+})
+
+describe('summarizeTrackPath (REQ-019, REQ-064)', () => {
+  it('returns zeros for an empty city', () => {
+    const path = buildTrackPath({ pieces: [] })
+    expect(summarizeTrackPath(path)).toEqual({
+      mainSegmentLength: 0,
+      totalPieces: 0,
+      mainSegmentClosesLoop: false,
+      segmentCount: 0,
+    })
+  })
+
+  it('reports a single straight as a one-piece open main segment', () => {
+    const path = buildTrackPath({ pieces: [piece('straight', 0, 0, 0)] })
+    expect(summarizeTrackPath(path)).toEqual({
+      mainSegmentLength: 1,
+      totalPieces: 1,
+      mainSegmentClosesLoop: false,
+      segmentCount: 1,
+    })
+  })
+
+  it('reports two stacked straights as a two-piece open main segment', () => {
+    const path = buildTrackPath({
+      pieces: [piece('straight', 0, 0, 0), piece('straight', 1, 0, 0)],
+    })
+    expect(summarizeTrackPath(path)).toEqual({
+      mainSegmentLength: 2,
+      totalPieces: 2,
+      mainSegmentClosesLoop: false,
+      segmentCount: 1,
+    })
+  })
+
+  it('flags a 2x2 closed loop as mainSegmentClosesLoop=true', () => {
+    // Four 90deg corners walking N -> E -> S -> W and back into the
+    // first piece form a closed rectangular loop.
+    const path = buildTrackPath({
+      pieces: [
+        piece('right90', 0, 0, 0),
+        piece('left90', 0, 1, 0),
+        piece('right90', 1, 1, 180),
+        piece('left90', 1, 0, 180),
+      ],
+    })
+    const summary = summarizeTrackPath(path)
+    expect(summary.mainSegmentClosesLoop).toBe(true)
+    expect(summary.mainSegmentLength).toBe(4)
+    expect(summary.totalPieces).toBe(4)
+    expect(summary.segmentCount).toBe(1)
+  })
+
+  it('counts disconnected components separately so mainSegmentLength is less than totalPieces', () => {
+    // Two stacked straights are the main segment; a lone straight at
+    // (5, 5) is a separate component (segment-1).
+    const path = buildTrackPath({
+      pieces: [
+        piece('straight', 0, 0, 0),
+        piece('straight', 1, 0, 0),
+        piece('straight', 5, 5, 0),
+      ],
+    })
+    expect(summarizeTrackPath(path)).toEqual({
+      mainSegmentLength: 2,
+      totalPieces: 3,
+      mainSegmentClosesLoop: false,
+      segmentCount: 2,
+    })
+  })
+
+  it('reports segmentCount = 3 for three isolated pieces', () => {
+    const path = buildTrackPath({
+      pieces: [
+        piece('straight', 0, 0, 0),
+        piece('straight', 5, 5, 0),
+        piece('straight', -3, -3, 0),
+      ],
+    })
+    const summary = summarizeTrackPath(path)
+    expect(summary.segmentCount).toBe(3)
+    expect(summary.totalPieces).toBe(3)
+    expect(summary.mainSegmentLength).toBe(1)
+    expect(summary.mainSegmentClosesLoop).toBe(false)
+  })
+
+  it('counts a multi-cell hairpin as one piece in the main segment', () => {
+    // A single hairpin is a one-piece component even though it occupies
+    // six footprint cells; the summary counts pieces, not cells.
+    const path = buildTrackPath({ pieces: [piece('hairpin', 5, 7, 0)] })
+    expect(summarizeTrackPath(path)).toEqual({
+      mainSegmentLength: 1,
+      totalPieces: 1,
+      mainSegmentClosesLoop: false,
+      segmentCount: 1,
+    })
+  })
+
+  it('totals pieces across every segment', () => {
+    // Two two-piece chains plus an isolated piece.
+    const path = buildTrackPath({
+      pieces: [
+        piece('straight', 0, 0, 0),
+        piece('straight', 1, 0, 0),
+        piece('straight', 5, 5, 0),
+        piece('straight', 6, 5, 0),
+        piece('straight', -3, -3, 0),
+      ],
+    })
+    const summary = summarizeTrackPath(path)
+    expect(summary.mainSegmentLength).toBe(2)
+    expect(summary.totalPieces).toBe(5)
+    expect(summary.segmentCount).toBe(3)
+    expect(summary.mainSegmentClosesLoop).toBe(false)
+  })
+
+  it('does not mutate the input path', () => {
+    const path = buildTrackPath({
+      pieces: [piece('straight', 0, 0, 0), piece('straight', 1, 0, 0)],
+    })
+    const beforeSegments = path.segments.slice()
+    const beforeMainOrder = path.segments[0].order.slice()
+    summarizeTrackPath(path)
+    expect(path.segments).toHaveLength(beforeSegments.length)
+    expect(path.segments[0].order).toEqual(beforeMainOrder)
+  })
+
+  it('reports the walker output for an intersection wired to four straights', () => {
+    // An intersection wired with a straight on each cardinal arm walks
+    // a pass-through main segment (intersection + entry + opposite exit)
+    // and the two non-pass-through arms become their own segments per
+    // the multi-component walker. The multi-segment-per-intersection
+    // walker that absorbs every arm into one branching segment is still
+    // deferred to its own slice; the summary reflects the walker output
+    // verbatim so a future walker upgrade lands in this test.
+    const path = buildTrackPath({
+      pieces: [
+        piece('intersection', 0, 0, 0),
+        piece('straight', -1, 0, 0),
+        piece('straight', 0, 1, 90),
+        piece('straight', 1, 0, 0),
+        piece('straight', 0, -1, 90),
+      ],
+    })
+    const summary = summarizeTrackPath(path)
+    expect(summary.totalPieces).toBe(5)
+    expect(summary.mainSegmentLength).toBeGreaterThanOrEqual(1)
+    expect(summary.mainSegmentLength).toBeLessThanOrEqual(5)
+    expect(summary.segmentCount).toBeGreaterThanOrEqual(1)
+    expect(summary.mainSegmentClosesLoop).toBe(false)
+  })
+
+  it('survives a CitySchema round trip', () => {
+    const a = piece('straight', 0, 0, 0)
+    const b = piece('straight', 1, 0, 0)
+    const parsed = CitySchema.parse({ pieces: [a, b], buildings: [] })
+    const path = buildTrackPath(parsed)
+    expect(summarizeTrackPath(path)).toEqual({
+      mainSegmentLength: 2,
+      totalPieces: 2,
+      mainSegmentClosesLoop: false,
+      segmentCount: 1,
+    })
   })
 })
