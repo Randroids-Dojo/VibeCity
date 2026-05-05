@@ -141,12 +141,14 @@
       "implementationRefs": [
         "src/app/[slug]/edit/page.tsx",
         "src/app/[slug]/edit/EditorClient.tsx",
-        "src/app/[slug]/slugMetadata.ts"
+        "src/app/[slug]/slugMetadata.ts",
+        "src/app/[slug]/shareUrl.ts"
       ],
       "testRefs": [
         "tests/app/editRoute.test.ts",
         "e2e/editor.spec.ts",
-        "tests/app/slugMetadata.test.ts"
+        "tests/app/slugMetadata.test.ts",
+        "tests/app/shareUrl.test.ts"
       ],
       "followupRefs": []
     },
@@ -626,10 +628,12 @@
       "status": "done",
       "implementationRefs": [
         "src/app/[slug]/edit/EditorClient.tsx",
-        "src/app/[slug]/edit/page.tsx"
+        "src/app/[slug]/edit/page.tsx",
+        "src/app/[slug]/shareUrl.ts"
       ],
       "testRefs": [
-        "e2e/editor.spec.ts"
+        "e2e/editor.spec.ts",
+        "tests/app/shareUrl.test.ts"
       ],
       "followupRefs": []
     },

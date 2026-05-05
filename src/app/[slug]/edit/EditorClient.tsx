@@ -77,6 +77,13 @@ import {
 } from '@/lib/trackPath'
 import { spawnAnchorMarker, spawnAnchorReadout } from './spawnMarker'
 import { SceneTransitionCurtain } from '../SceneTransitionCurtain'
+import {
+  buildEditUrl,
+  editCopyAriaLabel,
+  editCopyLabel,
+  SHARE_COPY_RESET_DELAY_MS,
+  type CopyShareStatus,
+} from '../shareUrl'
 
 /**
  * Editor client surface (REQ-017, REQ-020, REQ-021, REQ-022, REQ-023,
@@ -313,6 +320,54 @@ export function EditorClient({
   const handleResetViewport = useCallback(() => {
     setViewport(DEFAULT_VIEWPORT)
   }, [])
+
+  // Build-URL copy button state (REQ-007, REQ-026). Mirrors the drive
+  // HUD's share-copy state machine: the button reads "Copy build URL"
+  // at rest, flips to "Copied!" on a successful clipboard write, and
+  // flips to "Copy failed" when the browser refuses the call. The
+  // status drives the visible button label via `editCopyLabel`; the
+  // timer ref clears a stale reset timer if the player clicks again
+  // before the prior success / error label has timed out so we never
+  // schedule two overlapping resets. The drive HUD covers the share
+  // (drive) URL; this button covers the build (editor) URL so a
+  // co-author hand-off does not require copying the address bar.
+  const [editCopyStatus, setEditCopyStatus] =
+    useState<CopyShareStatus>('idle')
+  const editCopyResetTimerRef = useRef<ReturnType<
+    typeof setTimeout
+  > | null>(null)
+  useEffect(() => {
+    return () => {
+      if (editCopyResetTimerRef.current !== null) {
+        clearTimeout(editCopyResetTimerRef.current)
+        editCopyResetTimerRef.current = null
+      }
+    }
+  }, [])
+  const handleCopyEditUrl = useCallback(async () => {
+    const origin =
+      typeof window !== 'undefined' ? window.location.origin : null
+    const url = buildEditUrl(slug, origin)
+    let nextStatus: CopyShareStatus = 'error'
+    try {
+      const clipboard =
+        typeof navigator !== 'undefined' ? navigator.clipboard : null
+      if (clipboard && typeof clipboard.writeText === 'function') {
+        await clipboard.writeText(url)
+        nextStatus = 'copied'
+      }
+    } catch {
+      nextStatus = 'error'
+    }
+    setEditCopyStatus(nextStatus)
+    if (editCopyResetTimerRef.current !== null) {
+      clearTimeout(editCopyResetTimerRef.current)
+    }
+    editCopyResetTimerRef.current = setTimeout(() => {
+      editCopyResetTimerRef.current = null
+      setEditCopyStatus('idle')
+    }, SHARE_COPY_RESET_DELAY_MS)
+  }, [slug])
 
   // Track the last city the network successfully persisted (or the
   // server-loaded initial city). The autosave effect compares the live
@@ -707,6 +762,7 @@ export function EditorClient({
         data-testid="editor-palette"
         data-tool-mode={toolMode}
         data-palette-category={paletteCategory}
+        data-copy-build-status={editCopyStatus}
         style={{
           display: 'flex',
           gap: 8,
@@ -881,6 +937,32 @@ export function EditorClient({
           }}
         >
           Reset View
+        </button>
+        <button
+          type="button"
+          data-testid="editor-copy-build-url"
+          data-copy-status={editCopyStatus}
+          aria-label={editCopyAriaLabel(slug, editCopyStatus)}
+          title="Copy this city's build link"
+          onClick={handleCopyEditUrl}
+          style={{
+            padding: '8px 14px',
+            fontSize: 14,
+            fontFamily: 'inherit',
+            color: editCopyStatus === 'error' ? '#a3372a' : '#222',
+            background: '#efe7d2',
+            border:
+              editCopyStatus === 'copied'
+                ? '1px solid #6a8f5a'
+                : editCopyStatus === 'error'
+                  ? '1px solid #a3372a'
+                  : '1px solid #d6cfbf',
+            borderRadius: 4,
+            cursor: 'pointer',
+            lineHeight: 1,
+          }}
+        >
+          {editCopyLabel(editCopyStatus)}
         </button>
         <Link
           href={`/${slug}`}
