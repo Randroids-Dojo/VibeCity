@@ -23,7 +23,13 @@ Keep `F-NNN` IDs monotonically increasing. When a followup ships, leave the entr
 
 ## Blocks Release
 
-(none yet)
+### F-009: Migrate VibeCity to a dedicated Upstash store
+
+- Priority: blocks-release
+- Context: PR #65 wired the `vibe-city` Vercel project to the same `upstash-kv-rose-garden` Upstash store that backs `vibe-racer`. Saving works on production, but the shared store violates AGENTS.md Rule 11 (one backing store per project), which landed in the same PR. Q-007 resolved in favor of dedicated stores. The shared state is interim until this followup migrates.
+- Blocker: dedicated Upstash store provisioning lives in the Vercel marketplace UI, not the CLI. Requires a human action.
+- Unblock condition: provision a fresh Upstash for Redis store on the Vercel marketplace and attach it to the `vibe-city` project. Then run `vercel env pull` to refresh `.env.local`, redeploy production, and verify a fresh slug round-trips through the new store. Once verified, run `vercel env rm` for the legacy shared-store credentials so VibeCity stops reading them. Detach the legacy resource from `vibe-city` if it shows up under `vercel integration ls` for the `vibe-city` project.
+- PR / Dot reference (when picked up): TBD
 
 ## Nice To Have
 
