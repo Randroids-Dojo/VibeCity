@@ -239,3 +239,103 @@ describe('recentCities (REQ-011, REQ-050)', () => {
     expect(kvKeys.cityIndex()).toBe('city:index')
   })
 })
+
+/**
+ * REQ-011 + REQ-050: cityIndexCount returns the total number of cities
+ * tracked in `city:index` via `ZCARD`. The home page (REQ-050) surfaces
+ * this as a "N cities so far" header cue alongside the recently-updated
+ * list so a visitor reads at a glance how active the substrate is.
+ */
+describe('cityIndexCount (REQ-011, REQ-050)', () => {
+  let snap: Record<string, string | undefined>
+
+  beforeEach(async () => {
+    snap = snapshotEnv()
+    process.env.KV_REST_API_URL = 'http://fake'
+    process.env.KV_REST_API_TOKEN = 'fake'
+    await fake.del(kvKeys.cityIndex())
+  })
+
+  afterEach(() => {
+    restoreEnv(snap)
+  })
+
+  it('returns 0 when KV is not configured', async () => {
+    delete process.env.KV_REST_API_URL
+    delete process.env.KV_REST_API_TOKEN
+    const { cityIndexCount } = await import('@/lib/recentSlugs')
+    expect(await cityIndexCount()).toBe(0)
+  })
+
+  it('returns 0 when the city:index sorted set is empty', async () => {
+    const { cityIndexCount } = await import('@/lib/recentSlugs')
+    expect(await cityIndexCount()).toBe(0)
+  })
+
+  it('returns the count of distinct slugs in the sorted set', async () => {
+    await fake.zadd(kvKeys.cityIndex(), { score: 1, member: 'a' })
+    await fake.zadd(kvKeys.cityIndex(), { score: 2, member: 'b' })
+    await fake.zadd(kvKeys.cityIndex(), { score: 3, member: 'c' })
+    const { cityIndexCount } = await import('@/lib/recentSlugs')
+    expect(await cityIndexCount()).toBe(3)
+  })
+
+  it('returns 1 for a single-entry sorted set', async () => {
+    await fake.zadd(kvKeys.cityIndex(), { score: 1, member: 'only-one' })
+    const { cityIndexCount } = await import('@/lib/recentSlugs')
+    expect(await cityIndexCount()).toBe(1)
+  })
+
+  it('counts duplicate writes for the same slug as one (ZADD upsert semantics)', async () => {
+    // The PUT route calls ZADD on every save; the same slug saved twice
+    // must read as one entry, not two. The fake KV mirrors Redis's upsert
+    // semantics for ZADD (member set is a Set, scores update in place).
+    await fake.zadd(kvKeys.cityIndex(), { score: 1, member: 'same-slug' })
+    await fake.zadd(kvKeys.cityIndex(), { score: 2, member: 'same-slug' })
+    const { cityIndexCount } = await import('@/lib/recentSlugs')
+    expect(await cityIndexCount()).toBe(1)
+  })
+
+  it('calls zcard against the cityIndex key once per call', async () => {
+    await fake.zadd(kvKeys.cityIndex(), { score: 1, member: 'x' })
+    const zcardSpy = vi.spyOn(fake, 'zcard')
+    const { cityIndexCount } = await import('@/lib/recentSlugs')
+    await cityIndexCount()
+    expect(zcardSpy).toHaveBeenCalledTimes(1)
+    expect(zcardSpy.mock.calls[0][0]).toBe(kvKeys.cityIndex())
+    zcardSpy.mockRestore()
+  })
+
+  it('returns 0 with a warning when ZCARD returns a non-finite value', async () => {
+    const zcardSpy = vi
+      .spyOn(fake, 'zcard')
+      .mockResolvedValue(Number.NaN as unknown as number)
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    const { cityIndexCount } = await import('@/lib/recentSlugs')
+    expect(await cityIndexCount()).toBe(0)
+    expect(warn).toHaveBeenCalled()
+    zcardSpy.mockRestore()
+    warn.mockRestore()
+  })
+
+  it('returns 0 with a warning when ZCARD returns a negative value', async () => {
+    const zcardSpy = vi.spyOn(fake, 'zcard').mockResolvedValue(-3)
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    const { cityIndexCount } = await import('@/lib/recentSlugs')
+    expect(await cityIndexCount()).toBe(0)
+    expect(warn).toHaveBeenCalled()
+    zcardSpy.mockRestore()
+    warn.mockRestore()
+  })
+
+  it('floors a fractional ZCARD return so the home page never paints a partial count', async () => {
+    const zcardSpy = vi.spyOn(fake, 'zcard').mockResolvedValue(7.9)
+    const { cityIndexCount } = await import('@/lib/recentSlugs')
+    expect(await cityIndexCount()).toBe(7)
+    zcardSpy.mockRestore()
+  })
+
+  it('uses the cityIndex key so the count reader and ZADD writer share the namespace', async () => {
+    expect(kvKeys.cityIndex()).toBe('city:index')
+  })
+})
