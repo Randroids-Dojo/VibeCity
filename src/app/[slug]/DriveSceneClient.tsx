@@ -92,7 +92,9 @@ import {
 } from './buildingCollision'
 import {
   applyOffStreetPenalty,
+  closestStreetPiece,
   wheelOnStreet,
+  type ClosestStreetPiece,
 } from './offStreetPenalty'
 import { buildTrackPath } from '@/lib/trackPath'
 import {
@@ -963,6 +965,36 @@ export function DriveSceneClient({
       if (!root) return
       root.setAttribute('data-off-street', offStreet ? 'true' : 'false')
     }
+    // Closest-piece mirror (REQ-032 / REQ-065). Surfaces the locator
+    // for the closest piece any of the four wheels is in contact with
+    // (resolved via `wheelTrackContact` plus `pieceFootprintDistance`)
+    // so a future debug HUD or per-piece-type off-street tuning can
+    // read the closest piece without re-walking the path each frame.
+    // `null` (no wheel on any piece) maps to empty-string attributes
+    // and a `data-closest-piece='none'` flag so a test can assert the
+    // off-piece state without inspecting the WebGL scene graph.
+    const updateClosestPieceAttrs = (closest: ClosestStreetPiece | null) => {
+      if (!root) return
+      if (closest === null) {
+        root.setAttribute('data-closest-piece', 'none')
+        root.setAttribute('data-closest-piece-index', '')
+        root.setAttribute('data-closest-piece-type', '')
+        root.setAttribute('data-closest-piece-segment', '')
+        root.setAttribute('data-closest-piece-wheel', '')
+        return
+      }
+      root.setAttribute('data-closest-piece', 'on')
+      root.setAttribute(
+        'data-closest-piece-index',
+        String(closest.pieceIndex),
+      )
+      root.setAttribute('data-closest-piece-type', closest.pieceType)
+      root.setAttribute('data-closest-piece-segment', closest.segmentId)
+      root.setAttribute(
+        'data-closest-piece-wheel',
+        String(closest.wheelIndex),
+      )
+    }
     if (vehicle) {
       updateVehicleAttrs()
       updateOnBuildingAttr(
@@ -970,6 +1002,15 @@ export function DriveSceneClient({
       )
       updateOffStreetAttr(
         !wheelOnStreet(
+          vehicle,
+          wheelLocalOffsets,
+          trackPath,
+          city.pieces,
+          CELL_SIZE,
+        ),
+      )
+      updateClosestPieceAttrs(
+        closestStreetPiece(
           vehicle,
           wheelLocalOffsets,
           trackPath,
@@ -1040,6 +1081,15 @@ export function DriveSceneClient({
       )
       updateOffStreetAttr(
         !wheelOnStreet(
+          vehicle,
+          wheelLocalOffsets,
+          trackPath,
+          city.pieces,
+          CELL_SIZE,
+        ),
+      )
+      updateClosestPieceAttrs(
+        closestStreetPiece(
           vehicle,
           wheelLocalOffsets,
           trackPath,
@@ -1155,6 +1205,22 @@ export function DriveSceneClient({
         updateVehicleAttrs()
         updateOnBuildingAttr(onBuilding)
         updateOffStreetAttr(!onStreet)
+        // Closest-piece readout (REQ-032 / REQ-065). Called after the
+        // integrator advances the car so the locator reflects the live
+        // post-penalty pose. Resolves through `wheelTrackContact` plus
+        // `pieceFootprintDistance` so a multi-cell piece (hairpin, mega
+        // sweep) the wheel sits on resolves to that piece rather than
+        // an overlapping neighbor; pure helper, no allocation beyond
+        // the picked record.
+        updateClosestPieceAttrs(
+          closestStreetPiece(
+            vehicle,
+            wheelLocalOffsets,
+            trackPath,
+            city.pieces,
+            CELL_SIZE,
+          ),
+        )
         updateHud()
         updateMinimap()
         // Engine audio (REQ-068). The rig's `update` is a no-op until
@@ -1281,6 +1347,11 @@ export function DriveSceneClient({
       data-pause-state={pauseState}
       data-on-building="false"
       data-off-street="false"
+      data-closest-piece="none"
+      data-closest-piece-index=""
+      data-closest-piece-type=""
+      data-closest-piece-segment=""
+      data-closest-piece-wheel=""
       data-hud-visible={hasVehicle && !showPauseMenu ? 'true' : 'false'}
       data-hud-speed="0"
       data-hud-direction="idle"
