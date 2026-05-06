@@ -615,6 +615,20 @@ export const DISASTER_DEFAULT_DURATION_TICKS: Record<DisasterKind, number> = {
   monster: 80,
 }
 
+/**
+ * Per-tick fire spread probability (REQ-105 slice 3). Each active
+ * fire rolls once per tick; on a hit, the fire spawns a fresh fire
+ * at a random 4-adjacent cell. The probability is intentionally low
+ * so a single fire is a slow burn rather than instant pandemonium;
+ * the player has time to build fire stations or wait it out. Fire
+ * stations within their coverage radius prevent new fires from
+ * landing on covered cells.
+ *
+ * The "rng" is a deterministic hash of `(tick, row, col)` so the
+ * event log replays bit-for-bit identically across clients.
+ */
+export const FIRE_SPREAD_PROBABILITY_PER_TICK = 0.05
+
 export const DisasterSchema = z
   .object({
     kind: DisasterKindSchema,

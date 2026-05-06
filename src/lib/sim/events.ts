@@ -1,5 +1,6 @@
 import { z } from 'zod'
 import { BuilderIdSchema } from '@/lib/schemas'
+import { computeFireSpread } from './fireSpread'
 import { solveSewageStatus } from './sewageSolver'
 import {
   DEFAULT_SIM_SPEED,
@@ -43,6 +44,7 @@ import {
   type Disaster,
   type DisasterKind,
   type DisastersBucket,
+  type ServicesBucket,
   type SewageTreatmentPlant,
   type WaterBucket,
   type WaterPipeKind,
@@ -541,7 +543,11 @@ function applyTick(state: SimState, event: TickEvent): SimState {
   // removed. Identity-on-no-change short-circuits when no disasters
   // are active and when the bucket's array of remaining counts does
   // not need to shrink.
-  const nextDisasters = applyDisasterTick(state.disasters)
+  const nextDisasters = applyDisasterTick(
+    state.disasters,
+    nextTick,
+    state.services,
+  )
   return {
     ...state,
     tick: nextTick,
@@ -1098,23 +1104,32 @@ function applySpawnDisaster(
 }
 
 /**
- * Per-tick disaster lifetime reducer (REQ-105 substrate slice 1).
+ * Per-tick disaster lifetime + spread reducer (REQ-105 slice 1 + 3).
  * Decrements `ticksRemaining` on every active disaster; entries that
- * hit 0 are removed. Identity-on-no-change short-circuits when the
- * active array is empty.
+ * hit 0 are removed. After the decrement, computes fire spread
+ * deterministically (a hash of `(tick, row, col)` for each surviving
+ * fire) and appends any new fires that pass the coverage / duplicate
+ * gate. Identity-on-no-change short-circuits when the active array
+ * is empty before the decrement.
  */
 export function applyDisasterTick(
   disasters: DisastersBucket,
+  tick: number,
+  services: ServicesBucket,
 ): DisastersBucket {
   if (disasters.active.length === 0) return disasters
-  const next: Disaster[] = []
+  const survivors: Disaster[] = []
   for (const disaster of disasters.active) {
     const ticksRemaining = disaster.ticksRemaining - 1
     if (ticksRemaining > 0) {
-      next.push({ ...disaster, ticksRemaining })
+      survivors.push({ ...disaster, ticksRemaining })
     }
   }
-  return { active: next }
+  const spawned = computeFireSpread({ active: survivors }, tick, services)
+  if (spawned.length === 0) {
+    return { active: survivors }
+  }
+  return { active: [...survivors, ...spawned] }
 }
 
 /**
