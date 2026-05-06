@@ -1388,6 +1388,7 @@
         "src/lib/sim/state.ts",
         "src/lib/sim/events.ts",
         "src/lib/sim/fireSpread.ts",
+        "src/lib/sim/fireDamage.ts",
         "src/app/[slug]/edit/editorState.ts",
         "src/app/[slug]/edit/EditorClient.tsx",
         "src/app/[slug]/edit/SnapGridView.tsx"
@@ -1396,6 +1397,7 @@
         "tests/lib/sim/state.test.ts",
         "tests/lib/sim/events.test.ts",
         "tests/lib/sim/fireSpread.test.ts",
+        "tests/lib/sim/fireDamage.test.ts",
         "e2e/sim.spec.ts"
       ],
       "followupRefs": []

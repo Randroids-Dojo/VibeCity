@@ -1,5 +1,6 @@
 import { z } from 'zod'
 import { BuilderIdSchema } from '@/lib/schemas'
+import { applyFireDamage } from './fireDamage'
 import { computeFireSpread } from './fireSpread'
 import { solveSewageStatus } from './sewageSolver'
 import {
@@ -501,7 +502,11 @@ function applyTick(state: SimState, event: TickEvent): SimState {
   // a stray paused-tick event does not advance state.
   if (state.speed === 0) return state
   const nextTick = state.tick + 1
-  const nextZones = maybeGrowZones(state.zones, nextTick)
+  // Fire damage (REQ-105 slice 4). Drops density on zoned cells that
+  // host an active fire BEFORE growth so a fire that erodes a cell
+  // does not see growth replenish it on the same tick.
+  const damagedZones = applyFireDamage(state.zones, state.disasters, nextTick)
+  const nextZones = maybeGrowZones(damagedZones, nextTick)
   // Population follows zone density. The sync runs on every growth
   // tick so a place + grow + erase sequence cleans up the population
   // entry the next time the growth interval fires (within ~5s at

@@ -629,6 +629,17 @@ export const DISASTER_DEFAULT_DURATION_TICKS: Record<DisasterKind, number> = {
  */
 export const FIRE_SPREAD_PROBABILITY_PER_TICK = 0.05
 
+/**
+ * Per-tick fire damage probability (REQ-105 slice 4). Each active
+ * fire on a zoned cell rolls once per tick; on a hit, the cell's
+ * density drops by 1. A fire on a density-0 cell or unzoned cell is
+ * a no-op (the fire keeps burning until its `ticksRemaining` hits 0).
+ * The "rng" is a deterministic hash of `(tick, row, col)` with a
+ * different mixing seed than fire spread so the two rolls are
+ * independent.
+ */
+export const FIRE_DAMAGE_PROBABILITY_PER_TICK = 0.05
+
 export const DisasterSchema = z
   .object({
     kind: DisasterKindSchema,
