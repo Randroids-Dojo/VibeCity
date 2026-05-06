@@ -16,6 +16,16 @@ Format for each slice:
 - Followups: any new `F-NNN` entries created. Link to them.
 ```
 
+## 2026-05-06, REQ-092 Sewage Slice 4: Per-Tick Waste Accumulation Reducer
+
+- Branch: `feature/20260506-waste-accumulation`
+- PR: #N (when known)
+- Changed: New `WASTE_INCREMENT_PER_TICK = 1` and `WASTE_MAX_PER_CELL = 100`. `WaterBucketSchema` extended with `wasteAccumulation: Record<string, number>`; `EMPTY_WATER_BUCKET` seeds empty. New pure `applyWasteTick(water, population, zones)` reducer wired into `applyTick`: walks populated cells, resets to 0 when sewage solver reports 'drained', else increments capped at 100, drops entries for unpopulated cells, identity-on-no-change. Type-check fallout: SnapGridView water-fallback + two solver test fixtures all seed `wasteAccumulation: {}`.
+- Verification: `npm run type-check` green. `npm test` 1999/1999 unit pass (1993 prior + 6 new waste tick cases + state shape assertion bump). `npm run build` green. `npm run check:dashes` clean. `git diff --check` clean. `npx playwright test e2e/sim.spec.ts --project=chromium` 18/18 local (no new e2e; UI-visible signal lands with the happiness penalty in slice 5).
+- Assumptions: Per-cell waste demand uniform 1 unit and waste counter capped at 100 keeps reducer output bounded for stable long-replay. 'drained' resets to 0 (rather than a separate drain-rate constant) so the simplest possible mental model is "drained = clean, undrained = filthy". Solver runs once per tick rather than only on growth ticks because waste is a per-tick stock; the population walk is O(populated-cell-count) so the per-tick cost is small. The waste signal is invisible to the player until slice 5 wires it into the happiness HUD, which is fine because slice 5 is the next slice; if slice 5 slipped, the unused state would still be schema-valid and replay-deterministic.
+- GDD coverage: REQ-090 stays `partial` (happiness penalty REQ-092 slice 5 + drive-visible REQ-094 still outstanding). Coverage row implementation/test refs unchanged (entities added to already-listed files).
+- Followups: none new. Next REQ-092 slices: happiness penalty wiring (citizen happiness drops as average city waste exceeds a threshold; tanks zone growth) in slice 5; drive-visible water towers + sewage plants (REQ-094) in slice 6.
+
 ## 2026-05-06, REQ-092 Sewage Slice 3: Sewage Connectivity Solver + Visible Drained/Unmanaged on Zones
 
 - Branch: `feature/20260506-sewage-solver`

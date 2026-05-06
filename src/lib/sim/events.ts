@@ -1,5 +1,6 @@
 import { z } from 'zod'
 import { BuilderIdSchema } from '@/lib/schemas'
+import { solveSewageStatus } from './sewageSolver'
 import {
   DEFAULT_SIM_SPEED,
   DEFAULT_TAX_RATES,
@@ -12,6 +13,8 @@ import {
   ServiceKindSchema,
   SimSpeedSchema,
   TaxRatesSchema,
+  WASTE_INCREMENT_PER_TICK,
+  WASTE_MAX_PER_CELL,
   WaterPipeKindSchema,
   WaterSourceKindSchema,
   ZoneKindSchema,
@@ -28,6 +31,7 @@ import {
   type SimState,
   type TaxRates,
   type SewageTreatmentPlant,
+  type WaterBucket,
   type WaterPipeKind,
   type WaterSource,
   type ZoneCell,
@@ -489,6 +493,12 @@ function applyTick(state: SimState, event: TickEvent): SimState {
     state.power,
     state.taxRates,
   )
+  // Waste tick (REQ-092 slice 4). Populated cells accumulate waste
+  // unless their sewage status is 'drained' (in which case the
+  // counter resets to 0). The reducer is identity-on-no-change so a
+  // tick with no populated cells AND nothing to clean up keeps the
+  // same water bucket reference.
+  const nextWater = applyWasteTick(state.water, nextPopulation, nextZones)
   return {
     ...state,
     tick: nextTick,
@@ -496,6 +506,7 @@ function applyTick(state: SimState, event: TickEvent): SimState {
     zones: nextZones,
     population: nextPopulation,
     economy: nextEconomy,
+    water: nextWater,
   }
 }
 
@@ -555,6 +566,56 @@ export function applyEconomyTick(
  * `applyTick` reducer relies on identity-on-no-change to avoid
  * allocating a new bucket reference per growth tick.
  */
+/**
+ * Per-tick waste reducer (REQ-092 sewage slice 4).
+ *
+ * For each populated cell (residents > 0):
+ *   - if its sewage status is 'drained', the cell's waste counter
+ *     resets to 0 (handled by the treatment plant);
+ *   - otherwise (overloaded / unmanaged), the counter increments by
+ *     `WASTE_INCREMENT_PER_TICK`, capped at `WASTE_MAX_PER_CELL`.
+ * Entries for cells that are no longer populated are dropped so the
+ * map size stays bounded by the populated-cell count.
+ *
+ * Identity-on-no-change short-circuits when every populated cell's
+ * waste counter is unchanged AND the set of keys matches the prior
+ * map. The first tick after placing a residential zone with no
+ * sewage will not short-circuit because the new cell starts at 1.
+ */
+export function applyWasteTick(
+  water: WaterBucket,
+  population: PopulationBucket,
+  zones: ZonesBucket,
+): WaterBucket {
+  const sewage = solveSewageStatus(zones, water)
+  const prev = water.wasteAccumulation
+  const next: Record<string, number> = {}
+  let changed = false
+  let populatedCount = 0
+  for (const [key, cell] of Object.entries(population.cells)) {
+    if (cell.residents <= 0) continue
+    populatedCount += 1
+    const status = sewage[key] ?? 'unmanaged'
+    let nextValue: number
+    if (status === 'drained') {
+      nextValue = 0
+    } else {
+      const prevValue = prev[key] ?? 0
+      nextValue = Math.min(WASTE_MAX_PER_CELL, prevValue + WASTE_INCREMENT_PER_TICK)
+    }
+    next[key] = nextValue
+    if ((prev[key] ?? 0) !== nextValue) changed = true
+  }
+  // If a cell that previously had a waste entry is no longer populated,
+  // drop it. This is the source of the "removes entries" behavior.
+  if (Object.keys(prev).length !== populatedCount) changed = true
+  if (!changed) return water
+  return {
+    ...water,
+    wasteAccumulation: next,
+  }
+}
+
 export function syncPopulationToZones(
   population: PopulationBucket,
   zones: ZonesBucket,

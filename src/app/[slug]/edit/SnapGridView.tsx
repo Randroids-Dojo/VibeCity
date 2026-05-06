@@ -503,11 +503,23 @@ export function SnapGrid({
             )
             const waterStatus = solveWaterStatus(
               zones,
-              water ?? { sources: [], pipes: {}, treatmentPlants: [] },
+              water ??
+                {
+                  sources: [],
+                  pipes: {},
+                  treatmentPlants: [],
+                  wasteAccumulation: {},
+                },
             )
             const sewageStatus = solveSewageStatus(
               zones,
-              water ?? { sources: [], pipes: {}, treatmentPlants: [] },
+              water ??
+                {
+                  sources: [],
+                  pipes: {},
+                  treatmentPlants: [],
+                  wasteAccumulation: {},
+                },
             )
             return Object.entries(zones.cells).map(([key, zone]) => {
               const [rowStr, colStr] = key.split(',')

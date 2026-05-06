@@ -1109,6 +1109,108 @@ describe('applySimEvent', () => {
     })
   })
 
+  describe('per-tick waste accumulation (REQ-092 sewage slice 4)', () => {
+    function tickN(times: number, start: SimState): SimState {
+      let s = start
+      for (let i = 0; i < times; i++) {
+        s = applySimEvent(s, {
+          type: 'tick',
+          payload: { deltaMs: 250 },
+          clientCreatedAt: i,
+          authorBuilderId: A_BUILDER,
+        })
+      }
+      return s
+    }
+
+    function placeRes(row: number, col: number): SimEvent {
+      return {
+        type: 'placeZone',
+        payload: { kind: 'residential', row, col },
+        clientCreatedAt: 0,
+        authorBuilderId: A_BUILDER,
+      }
+    }
+
+    function placeTreatmentPlant(row: number, col: number): SimEvent {
+      return {
+        type: 'placeSewageTreatmentPlant',
+        payload: { row, col },
+        clientCreatedAt: 0,
+        authorBuilderId: A_BUILDER,
+      }
+    }
+
+    function eraseZone(row: number, col: number): SimEvent {
+      return {
+        type: 'eraseZone',
+        payload: { row, col },
+        clientCreatedAt: 0,
+        authorBuilderId: A_BUILDER,
+      }
+    }
+
+    it('keeps wasteAccumulation empty before any populated cell exists', () => {
+      const s = tickN(20, EMPTY_SIM_STATE)
+      expect(s.water.wasteAccumulation).toEqual({})
+    })
+
+    it('increments waste each tick on an unmanaged populated cell', () => {
+      // Place res at (0, 0). Wait 20 ticks for the first growth pass to
+      // populate it, then 3 more ticks to accumulate waste.
+      let s = applySimEvent(EMPTY_SIM_STATE, placeRes(0, 0))
+      s = tickN(20, s)
+      // After growth, the cell is populated. The growth tick itself
+      // bumps waste to 1 (cell is unmanaged, no sewage).
+      expect(s.water.wasteAccumulation['0,0']).toBe(1)
+      s = tickN(3, s)
+      expect(s.water.wasteAccumulation['0,0']).toBe(4)
+    })
+
+    it('resets waste to 0 when the populated cell is drained', () => {
+      // Res at (0, 1) adjacent to a treatment plant at (0, 0).
+      let s = applySimEvent(EMPTY_SIM_STATE, placeRes(0, 1))
+      s = applySimEvent(s, placeTreatmentPlant(0, 0))
+      s = tickN(20, s)
+      expect(s.water.wasteAccumulation['0,1']).toBe(0)
+    })
+
+    it('caps waste at WASTE_MAX_PER_CELL after long unmanaged accumulation', () => {
+      let s = applySimEvent(EMPTY_SIM_STATE, placeRes(0, 0))
+      // 20 ticks to grow + 200 ticks of unmanaged accumulation.
+      // First growth bump = 1, then 199 more ticks adds up to 200 raw
+      // but cap is 100, so we stop at 100.
+      s = tickN(220, s)
+      expect(s.water.wasteAccumulation['0,0']).toBe(100)
+    })
+
+    it('drops a waste entry for a cell that is no longer populated', () => {
+      let s = applySimEvent(EMPTY_SIM_STATE, placeRes(0, 0))
+      s = tickN(20, s)
+      expect(s.water.wasteAccumulation['0,0']).toBe(1)
+      // Erasing the zone clears population on the next growth tick.
+      s = applySimEvent(s, eraseZone(0, 0))
+      s = tickN(20, s)
+      expect(s.water.wasteAccumulation['0,0']).toBeUndefined()
+    })
+
+    it('two replays of a mixed waste event log derive identical state', () => {
+      const events: SimEvent[] = [
+        placeRes(0, 1),
+        placeTreatmentPlant(0, 0),
+        ...Array.from({ length: 25 }, (_, i) => ({
+          type: 'tick' as const,
+          payload: { deltaMs: 250 },
+          clientCreatedAt: i,
+          authorBuilderId: A_BUILDER,
+        })),
+      ]
+      const a = applyMany(EMPTY_SIM_STATE, events)
+      const b = applyMany(EMPTY_SIM_STATE, events)
+      expect(a.water).toEqual(b.water)
+    })
+  })
+
   describe('reduceSimEvents over the full zoning vocabulary', () => {
     it('replays place + erase deterministically', () => {
       const events: SimEvent[] = [
