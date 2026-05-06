@@ -16,6 +16,16 @@ Format for each slice:
 - Followups: any new `F-NNN` entries created. Link to them.
 ```
 
+## 2026-05-06, REQ-101 Services Coverage Solver + Zone Coverage Count Signal
+
+- Branch: `feature/20260506-services-solver`
+- PR: #N (when known)
+- Changed: First slice where services have a visible "this zone is covered by N services" signal. New `src/lib/sim/servicesSolver.ts` ships pure helpers: `cellCoverage(row, col, services)` returns a per-kind `Record<ServiceKind, boolean>` by Manhattan distance against `SERVICE_COVERAGE_CELLS[kind]`; `coverageCount(coverage)` collapses to 0..5; `solveServicesCoverage(zones, services)` per-cell map for all zones; `cellCoverageCountFor` single-cell convenience. Manhattan distance picked because the grid is square and orthogonal-step distance reads as a diamond radius (player-friendly); Chebyshev would be a square. SnapGridView calls `solveServicesCoverage` alongside `solvePowerStatus` and mirrors `coverageCount` onto each zone overlay's `data-zone-coverage-count` attribute.
+- Verification: `npm run type-check` green. `npm test` 1941/1941 unit pass (1921 prior + 20 new servicesSolver cases). `npm run build` green. `npm run check:dashes` clean. `git diff --check` clean. `npx playwright test e2e/sim.spec.ts --project=chromium` 14/14 local (13 prior + 1 new "coverage count climbs" case verifying placeZone -> count=0, placePoliceStation nearby -> 1, placeHospital nearby -> 2).
+- Assumptions: Manhattan distance for v1; Chebyshev / Euclidean swap is a one-line change if playtest reveals a felt difference. Per-kind coverage radii are the SERVICE_COVERAGE_CELLS constants (police/fire/garbage 6, hospital 8, school 5). Multiple services of the same kind are boolean-OR (one police station nearby is the same as five for coverage purposes); a future "saturation" slice could split into a per-kind count if useful. The `data-zone-coverage-count` attribute (0..5) is the e2e assertion surface; future slices can render the count as a per-cell badge or color-code each zone overlay's stroke based on full vs partial coverage. Coverage is recomputed once per render rather than cached on state because the grid is small; if profiling reveals it as hot, a memoized variant or a per-tick cached field on the sim state can land as a follow-on.
+- GDD coverage: REQ-100 stays `partial`; coverage solver is the substrate underneath REQ-101 (solver), REQ-102 (per-kind happiness), REQ-103 (service-specific behaviors), REQ-104 (drive signals). The shared row tracks cumulative progress on the services layer. `implementationRefs` extended with `src/lib/sim/servicesSolver.ts`; `testRefs` extended with `tests/lib/sim/servicesSolver.test.ts`. `docs/gdd/19-services.md` Status stays `partial`; gains a build log entry recording the coverage solver landing.
+- Followups: none new. Next slices: per-kind happiness contribution to citizen layer (REQ-102), service-specific behaviors (REQ-103: police lower crime, fire lower fire-disaster spawn, hospital lower sickness, school raise property value, garbage prevent garbage accumulation), drive-visible service buildings (REQ-104).
+
 ## 2026-05-06, REQ-100 Services Slice 2: Editor Services Tab + 5 Tools
 
 - Branch: `feature/20260506-services-ui`

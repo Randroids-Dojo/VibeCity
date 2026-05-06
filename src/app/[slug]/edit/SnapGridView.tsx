@@ -7,6 +7,10 @@ import type {
 } from '@/lib/sim/state'
 import { solvePowerStatus, type CellPowerStatus } from '@/lib/sim/powerSolver'
 import {
+  coverageCount,
+  solveServicesCoverage,
+} from '@/lib/sim/servicesSolver'
+import {
   CELL_PIXELS,
   GRID_DIAMETER,
   GRID_PIXEL_SIZE,
@@ -436,15 +440,17 @@ export function SnapGrid({
       })}
       {zones
         ? (() => {
-            // Compute power status once per render so the per-cell
-            // map drives both the stroke color and the data
-            // attribute. When `power` is null the solver runs against
-            // the empty bucket and every cell reads as 'unpowered',
-            // which is the right default for slugs without any
-            // power infrastructure placed.
+            // Compute power status + service coverage once per render
+            // so the per-cell map drives both the stroke color and
+            // the data attributes. Empty fallback buckets ensure the
+            // solver runs cleanly when a layer is absent.
             const powerStatus = solvePowerStatus(
               zones,
               power ?? { plants: [], lines: {} },
+            )
+            const servicesCoverage = solveServicesCoverage(
+              zones,
+              services ?? { buildings: [] },
             )
             return Object.entries(zones.cells).map(([key, zone]) => {
               const [rowStr, colStr] = key.split(',')
@@ -453,6 +459,8 @@ export function SnapGrid({
               if (!Number.isFinite(row) || !Number.isFinite(col)) return null
               const { x, y } = cellToPixel({ row, col })
               const status: CellPowerStatus = powerStatus[key] ?? 'unpowered'
+              const coverage = servicesCoverage[key]
+              const cov = coverage ? coverageCount(coverage) : 0
               return (
                 <rect
                   key={`zone-${key}`}
@@ -462,6 +470,7 @@ export function SnapGrid({
                   data-zone-kind={zone.kind}
                   data-zone-density={zone.density}
                   data-zone-power-status={status}
+                  data-zone-coverage-count={cov}
                   x={x + 1}
                   y={y + 1}
                   width={CELL_PIXELS - 2}
