@@ -68,3 +68,13 @@ VibeRacer ships more piece types than VibeCity (wideArc45Right/Left, diagonalSwe
 - [ ] No em-dash / en-dash via grep
 - [ ] `validateConnections` still returns the same results for every existing test case (no regression on the connectivity layer)
 - [ ] Existing `summarizeTrackPath` and `cellToLocators` consumers continue to work without changes
+
+## Coverage impact
+
+Shipping this slice should flip `REQ-064` (segment-based path) from `partial` to `done` in `docs/GDD_COVERAGE.json` (the geometry layer was the named missing piece). It also advances:
+
+- `REQ-032` (drive mode wheel contact) toward `done` once `offStreetPenalty.ts` adopts the per-wheel distance-to-centerline scoring (could be a follow-on slice or part of the arc45-diagonal sister slice).
+- `REQ-060` (hairpin) toward `done` (geometry is the missing piece for full drivability).
+- Unblocks the arc45-diagonal sister slice, which closes `REQ-061` and `REQ-062`.
+
+Append a build log entry to `docs/gdd/06-city-schema.md` per the GDD build-log discipline (paths-scoped rule loads when editing GDD section files).
