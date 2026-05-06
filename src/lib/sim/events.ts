@@ -8,6 +8,8 @@ import {
   GROWTH_INTERVAL_TICKS,
   LINE_MAINTENANCE_PER_TICK,
   BANKRUPTCY_THRESHOLD_TICKS,
+  DISASTER_DEFAULT_DURATION_TICKS,
+  DisasterKindSchema,
   PLANT_MAINTENANCE_PER_TICK,
   POWER_LINE_BUILD_COST,
   POWER_PLANT_BUILD_COST,
@@ -38,6 +40,9 @@ import {
   type ServiceKind,
   type SimState,
   type TaxRates,
+  type Disaster,
+  type DisasterKind,
+  type DisastersBucket,
   type SewageTreatmentPlant,
   type WaterBucket,
   type WaterPipeKind,
@@ -373,11 +378,27 @@ export type EraseSewageTreatmentPlantEvent = z.infer<
  * `runWaterPipe` / `eraseWaterPipe` (REQ-090) all have strict schemas
  * and are routed in the union below.
  */
-const PlaceholderLayerEventSchema = EventMetaSchema.extend({
-  type: z.enum(['spawnDisaster']),
-  payload: z.unknown(),
+/**
+ * `spawnDisaster` event (REQ-105 substrate slice 1). Adds an active
+ * disaster of the given kind at `(row, col)` with a default
+ * `ticksRemaining` from `DISASTER_DEFAULT_DURATION_TICKS[kind]`. The
+ * per-tick reducer decrements `ticksRemaining` and removes the
+ * entry when it hits 0. v1 has no overlap rejection: two disasters
+ * at the same anchor coexist in the active array (the visible-
+ * payoff slice can dedupe by kind+anchor if playtest reveals it as
+ * a felt issue).
+ */
+export const SpawnDisasterEventSchema = EventMetaSchema.extend({
+  type: z.literal('spawnDisaster'),
+  payload: z
+    .object({
+      kind: DisasterKindSchema,
+      row: z.number().int(),
+      col: z.number().int(),
+    })
+    .strict(),
 }).strict()
-export type PlaceholderLayerEvent = z.infer<typeof PlaceholderLayerEventSchema>
+export type SpawnDisasterEvent = z.infer<typeof SpawnDisasterEventSchema>
 
 /**
  * The sim event union. Discriminated on `type`.
@@ -398,7 +419,7 @@ export const SimEventSchema = z.discriminatedUnion('type', [
   EraseWaterPipeEventSchema,
   PlaceSewageTreatmentPlantEventSchema,
   EraseSewageTreatmentPlantEventSchema,
-  PlaceholderLayerEventSchema,
+  SpawnDisasterEventSchema,
 ])
 export type SimEvent = z.infer<typeof SimEventSchema>
 
@@ -446,6 +467,8 @@ export function applySimEvent(state: SimState, event: SimEvent): SimState {
       return applyPlaceSewageTreatmentPlant(state, event)
     case 'eraseSewageTreatmentPlant':
       return applyEraseSewageTreatmentPlant(state, event)
+    case 'spawnDisaster':
+      return applySpawnDisaster(state, event)
     default:
       // Layer-specific events fall through to no-op until their slice
       // lands and extends the dispatch.
@@ -513,6 +536,12 @@ function applyTick(state: SimState, event: TickEvent): SimState {
     nextPopulation,
     nextWater,
   )
+  // Disaster lifetime tick (REQ-105 substrate slice 1). Each active
+  // disaster decrements its `ticksRemaining`; entries that hit 0 are
+  // removed. Identity-on-no-change short-circuits when no disasters
+  // are active and when the bucket's array of remaining counts does
+  // not need to shrink.
+  const nextDisasters = applyDisasterTick(state.disasters)
   return {
     ...state,
     tick: nextTick,
@@ -521,6 +550,7 @@ function applyTick(state: SimState, event: TickEvent): SimState {
     population: nextPopulationWithHappiness,
     economy: nextEconomy,
     water: nextWater,
+    disasters: nextDisasters,
   }
 }
 
@@ -1046,6 +1076,45 @@ function applyEraseSewageTreatmentPlant(
       treatmentPlants: next,
     },
   }
+}
+
+function applySpawnDisaster(
+  state: SimState,
+  event: SpawnDisasterEvent,
+): SimState {
+  const { kind, row, col } = event.payload
+  const disaster: Disaster = {
+    kind,
+    row,
+    col,
+    ticksRemaining: DISASTER_DEFAULT_DURATION_TICKS[kind],
+  }
+  return {
+    ...state,
+    disasters: {
+      active: [...state.disasters.active, disaster],
+    },
+  }
+}
+
+/**
+ * Per-tick disaster lifetime reducer (REQ-105 substrate slice 1).
+ * Decrements `ticksRemaining` on every active disaster; entries that
+ * hit 0 are removed. Identity-on-no-change short-circuits when the
+ * active array is empty.
+ */
+export function applyDisasterTick(
+  disasters: DisastersBucket,
+): DisastersBucket {
+  if (disasters.active.length === 0) return disasters
+  const next: Disaster[] = []
+  for (const disaster of disasters.active) {
+    const ticksRemaining = disaster.ticksRemaining - 1
+    if (ticksRemaining > 0) {
+      next.push({ ...disaster, ticksRemaining })
+    }
+  }
+  return { active: next }
 }
 
 /**

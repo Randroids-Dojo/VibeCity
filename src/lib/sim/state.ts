@@ -580,7 +580,56 @@ export const ServicesBucketSchema = z
   })
   .strict()
 
-export const DisastersBucketSchema = z.object({}).passthrough()
+/**
+ * Disaster layer (REQ-105 substrate slice 1 of N).
+ *
+ * v1 ships five disaster kinds matching the spec: fire, flood,
+ * tornado, earthquake, monster. Each is anchored at a single cell
+ * and carries a `ticksRemaining` counter that the per-tick reducer
+ * decrements until it hits 0 (the disaster ends and the entry is
+ * removed). The substrate slice ships only the place / despawn
+ * events and the per-tick decrement; the visible payoff (damage
+ * application, mesh visualization, audio) lands in follow-on slices.
+ */
+export const DisasterKindSchema = z.enum([
+  'fire',
+  'flood',
+  'tornado',
+  'earthquake',
+  'monster',
+])
+export type DisasterKind = z.infer<typeof DisasterKindSchema>
+
+/**
+ * Default duration per disaster kind (in ticks). At the default 4Hz
+ * tick rate, 60 ticks = 15 seconds; long enough for the player to
+ * react and short enough that the disaster does not stretch into
+ * tedium. Numbers are tunable; playtest will scale them as the
+ * damage / repair / insurance loops come online.
+ */
+export const DISASTER_DEFAULT_DURATION_TICKS: Record<DisasterKind, number> = {
+  fire: 60,
+  flood: 120,
+  tornado: 40,
+  earthquake: 20,
+  monster: 80,
+}
+
+export const DisasterSchema = z
+  .object({
+    kind: DisasterKindSchema,
+    row: z.number().int(),
+    col: z.number().int(),
+    ticksRemaining: z.number().int().min(0),
+  })
+  .strict()
+export type Disaster = z.infer<typeof DisasterSchema>
+
+export const DisastersBucketSchema = z
+  .object({
+    active: z.array(DisasterSchema),
+  })
+  .strict()
 
 export type PopulationBucket = z.infer<typeof PopulationBucketSchema>
 
@@ -611,6 +660,10 @@ export const EMPTY_SERVICES_BUCKET: ServicesBucket = Object.freeze({
   buildings: Object.freeze([] as ServiceBuilding[]) as ServiceBuilding[],
 }) as ServicesBucket
 export type DisastersBucket = z.infer<typeof DisastersBucketSchema>
+
+export const EMPTY_DISASTERS_BUCKET: DisastersBucket = Object.freeze({
+  active: Object.freeze([] as Disaster[]) as Disaster[],
+}) as DisastersBucket
 
 /**
  * Top-level sim state. Stored on `City.sim` (optional; absent on
@@ -656,5 +709,5 @@ export const EMPTY_SIM_STATE: SimState = Object.freeze({
   water: EMPTY_WATER_BUCKET,
   economy: EMPTY_ECONOMY_BUCKET,
   services: EMPTY_SERVICES_BUCKET,
-  disasters: Object.freeze({}) as DisastersBucket,
+  disasters: EMPTY_DISASTERS_BUCKET,
 }) as SimState

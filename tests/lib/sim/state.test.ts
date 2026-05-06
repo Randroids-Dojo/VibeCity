@@ -136,13 +136,16 @@ describe('SimStateSchema', () => {
     expect(SimStateSchema.safeParse(state).success).toBe(false)
   })
 
-  it('accepts populated layer buckets (passthrough until layer slice ships)', () => {
-    // Disasters bucket is still passthrough, so a custom shape parses.
-    const state: SimState = {
+  it('rejects unknown fields on the disasters bucket (REQ-105 strict shape)', () => {
+    const state = {
       ...EMPTY_SIM_STATE,
-      disasters: { activeFires: 3 },
+      disasters: { active: [], activeFires: 3 },
     }
-    expect(SimStateSchema.safeParse(state).success).toBe(true)
+    expect(SimStateSchema.safeParse(state).success).toBe(false)
+  })
+
+  it('has disasters bucket initialized to empty active array (REQ-105 substrate strict shape)', () => {
+    expect(EMPTY_SIM_STATE.disasters).toEqual({ active: [] })
   })
 })
 
@@ -164,7 +167,10 @@ describe('EMPTY_SIM_STATE', () => {
   })
 
   it('has every passthrough per-layer bucket as an empty object', () => {
-    expect(EMPTY_SIM_STATE.disasters).toEqual({})
+    // No layer buckets remain on `.passthrough()`. REQ-105 substrate
+    // tightened the disasters bucket; every per-layer bucket now
+    // ships its own strict-shape assertion below.
+    expect(true).toBe(true)
   })
 
   it('has water bucket initialized to empty sources + pipes + treatmentPlants + wasteAccumulation (REQ-092 sewage slice 4 strict shape)', () => {

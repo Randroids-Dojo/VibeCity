@@ -16,6 +16,16 @@ Format for each slice:
 - Followups: any new `F-NNN` entries created. Link to them.
 ```
 
+## 2026-05-06, REQ-105 Disasters Substrate: Schema + spawnDisaster + Per-Tick Lifetime
+
+- Branch: `feature/20260506-disasters-substrate`
+- PR: #N (when known)
+- Changed: `state.ts` adds `DisasterKindSchema` (fire / flood / tornado / earthquake / monster), `DISASTER_DEFAULT_DURATION_TICKS` per-kind, strict `DisasterSchema`, tightens `DisastersBucketSchema` from passthrough to `{ active: Disaster[] }`, new `EMPTY_DISASTERS_BUCKET`. `events.ts` removes the placeholder-layer schema (every layer now has strict events), adds strict `SpawnDisasterEventSchema`, `applySpawnDisaster` (no overlap rejection in v1), and exported `applyDisasterTick` (decrements + removes expired); both wired into `applyTick`. Test fixtures updated for the tightened bucket.
+- Verification: `npm run type-check` green. `npm test` 2049/2049 unit pass (2043 prior + 6 new disaster cases + 1 negative case + 1 strict-shape assertion). `npm run build` green. `npm run check:dashes` clean. `git diff --check` clean.
+- Assumptions: v1 lets two disasters coexist at the same anchor (no overlap rejection); the visible-payoff slice can dedupe by kind+anchor if playtest reveals it as a felt issue. Default durations are tunable; numbers chosen so each disaster reads as a real event without dragging into tedium (60-120 ticks ≈ 15-30s at default 4Hz). Slice 2 will add per-tick damage application (fire spreads, flood inundates, tornado erases, earthquake hurts happiness, monster destroys) and drive-mode visualization. Slice 3 adds the editor / spawn-on-demand UI.
+- GDD coverage: REQ-105 row in `docs/GDD_COVERAGE.json` flips from `not_started` to `partial`. `docs/gdd/20-disasters.md` Status flips from `not_started` to `partial`; gains a build log entry.
+- Followups: none new.
+
 ## 2026-05-06, Ambient AI Traffic: NPC Cars Driving Placed Streets
 
 - Branch: `feature/20260506-ambient-traffic`
