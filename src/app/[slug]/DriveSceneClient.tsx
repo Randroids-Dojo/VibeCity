@@ -7,6 +7,12 @@ import type { BuilderId, City, Slug } from '@/lib/schemas'
 import { useSimEngine } from '@/lib/sim/useSimEngine'
 import { solvePowerStatus, type CellPowerStatus } from '@/lib/sim/powerSolver'
 import {
+  TIME_OF_DAY_PALETTE,
+  resolveTimeOfDay,
+  zoneEmissiveHex,
+  zoneEmissiveIntensity,
+} from './timeOfDay'
+import {
   AMBIENT_LIGHT_INTENSITY,
   CAMERA_DISTANCE,
   CAMERA_FAR,
@@ -571,8 +577,19 @@ export function DriveSceneClient({
       Math.min(typeof window !== 'undefined' ? window.devicePixelRatio : 1, 2),
     )
 
+    // Resolve time-of-day from the persisted city mood (REQ-088 slice
+    // 2 of 2). Day mode renders with the existing sky / ground / sun
+    // palette; night mode dims the sky + ground and lights powered
+    // zones via emissive material so the player driving at night
+    // sees the city's power state rendered as warm windows on
+    // residential, cool office lights on commercial, and brownout
+    // flicker on under-capacity cells.
+    const timeOfDay = resolveTimeOfDay(city.mood)
+    const todPalette = TIME_OF_DAY_PALETTE[timeOfDay]
     const scene = new THREE.Scene()
-    scene.background = new THREE.Color(SKY_COLOR)
+    scene.background = new THREE.Color(
+      timeOfDay === 'night' ? todPalette.skyHex : SKY_COLOR,
+    )
 
     // Camera FOV reads the persisted tuning at mount time (REQ-040) so
     // a returning player whose tuning differs from the defaults sees
@@ -590,11 +607,21 @@ export function DriveSceneClient({
     // Lighting (REQ-044): ambient keeps unlit faces from going pure
     // black; the directional key light reads as noon from the south
     // east so extruded buildings cast a believable shadowless lift.
-    const ambient = new THREE.AmbientLight(0xffffff, AMBIENT_LIGHT_INTENSITY)
+    // Day-vs-night lighting: night mode tones down both ambient and
+    // directional so the powered-zone emissive contributions read as
+    // the brightest things on the ground.
+    const ambient = new THREE.AmbientLight(
+      0xffffff,
+      timeOfDay === 'night'
+        ? todPalette.ambientIntensity
+        : AMBIENT_LIGHT_INTENSITY,
+    )
     scene.add(ambient)
     const directional = new THREE.DirectionalLight(
       0xffffff,
-      DIRECTIONAL_LIGHT_INTENSITY,
+      timeOfDay === 'night'
+        ? todPalette.sunIntensity
+        : DIRECTIONAL_LIGHT_INTENSITY,
     )
     directional.position.set(...DIRECTIONAL_LIGHT_POSITION)
     scene.add(directional)
@@ -604,7 +631,9 @@ export function DriveSceneClient({
     const groundSize = CELL_SIZE * 64
     const ground = new THREE.Mesh(
       new THREE.PlaneGeometry(groundSize, groundSize),
-      new THREE.MeshLambertMaterial({ color: GROUND_COLOR }),
+      new THREE.MeshLambertMaterial({
+        color: timeOfDay === 'night' ? todPalette.groundHex : GROUND_COLOR,
+      }),
     )
     ground.rotation.x = -Math.PI / 2
     scene.add(ground)
@@ -657,22 +686,14 @@ export function DriveSceneClient({
       if (!Number.isFinite(row) || !Number.isFinite(col)) continue
       const { x, z } = cellToWorld(row, col)
       const status: CellPowerStatus = zonePowerStatus[key] ?? 'unpowered'
+      const emissiveHex = zoneEmissiveHex(timeOfDay, zone.kind, status)
+      const emissiveIntensity = zoneEmissiveIntensity(timeOfDay, status)
       const material = new THREE.MeshLambertMaterial({
         color: zoneColors[zone.kind],
         transparent: true,
         opacity: zoneOpacity[zone.density],
-        // Browned-out zones render slightly darker so a builder
-        // driving past a low-power district sees the warning state
-        // without needing the editor's stroke tint. Unpowered zones
-        // keep full color for slice 1; the night-mode lit-windows
-        // signal in slice 2 will provide the unpowered-vs-powered
-        // distinction at low light.
-        emissive:
-          status === 'powered'
-            ? new THREE.Color(0x000000)
-            : status === 'brownout'
-              ? new THREE.Color(0x222200)
-              : new THREE.Color(0x000000),
+        emissive: new THREE.Color(emissiveHex),
+        emissiveIntensity,
       })
       const mesh = new THREE.Mesh(zoneGeometry, material)
       // Sit just above the ground (PIECE_GROUND_LIFT / 2) so a piece
@@ -1544,6 +1565,7 @@ export function DriveSceneClient({
   }, [
     city.pieces,
     city.buildings,
+    city.mood,
     bounds,
     spawn,
     buildingCells,
@@ -1582,6 +1604,7 @@ export function DriveSceneClient({
       data-vehicle={hasVehicle ? 'true' : 'false'}
       data-controls-active={hasVehicle ? 'true' : 'false'}
       data-camera-mode={hasVehicle ? 'chase' : 'orbit'}
+      data-time-of-day={resolveTimeOfDay(city.mood)}
       data-pause-state={pauseState}
       data-on-building="false"
       data-off-street="false"
