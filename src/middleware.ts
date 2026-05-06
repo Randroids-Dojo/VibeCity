@@ -35,7 +35,17 @@ export function middleware(req: NextRequest) {
   }
 
   const builderId = newBuilderId()
-  const res = NextResponse.next()
+  // Propagate to BOTH request and response cookies so a server
+  // component on the same request (e.g. /<slug>/sim per REQ-110) can
+  // read the freshly-minted id via `cookies()` instead of having to
+  // wait for the browser to round-trip the response. Without this,
+  // the first-visit page handler sees no cookie and would either
+  // 404, redirect, or have to fall back to a temporary anonymous id.
+  req.cookies.set({
+    name: BUILDER_ID_COOKIE,
+    value: builderId,
+  })
+  const res = NextResponse.next({ request: { headers: req.headers } })
   res.cookies.set({
     name: BUILDER_ID_COOKIE,
     value: builderId,
