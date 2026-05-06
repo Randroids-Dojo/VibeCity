@@ -16,6 +16,16 @@ Format for each slice:
 - Followups: any new `F-NNN` entries created. Link to them.
 ```
 
+## 2026-05-06, REQ-105 Slice 7: Tornado Damage Erases Sim-State Infrastructure
+
+- Branch: `feature/20260506-tornado-damage`
+- PR: #N (when known)
+- Changed: New `TORNADO_DAMAGE_PROBABILITY_PER_TICK = 0.1`. New `src/lib/sim/tornadoDamage.ts`: `tornadoDamageHash` (independent mixing constants) and `applyTornadoDamage` that on a hit erases power line / plant / water source / pipe / treatment plant / service building at the tornado's anchor. `applyTick` runs it BEFORE the economy reducer so post-erase counts feed maintenance + income on the same tick; return state's `power` / `water` / `services` reflect the post-tornado buckets.
+- Verification: `npm run type-check` green. `npm test` 2111/2111 unit pass (2098 prior + 13 new tornadoDamage cases). `npm run build` green. `npm run check:dashes` clean. `git diff --check` clean. `npx playwright test e2e/sim.spec.ts --project=chromium` 22/22 local.
+- Assumptions: Tornado damage is "punchy and brief" by design: high 10% per-tick probability balanced by short 40-tick default duration. Expected total damage per tornado = 4 hits, each erasing every sim-state item at the anchor cell. Street pieces (`City.pieces`) cannot be erased because they live outside sim state; a future slice could either lift them into sim or introduce a damaged-piece-key list.
+- GDD coverage: REQ-105 stays `partial` (monster damage slice 8+ + drive visualization later). Coverage row implementationRefs gain `src/lib/sim/tornadoDamage.ts`; testRefs gain `tests/lib/sim/tornadoDamage.test.ts`.
+- Followups: F-NEW (deferred): monster damage; tornado damage on street pieces (would need sim-side pieces or damaged-piece-keys mechanism).
+
 ## 2026-05-06, REQ-105 Slice 6: Earthquake Happiness Penalty
 
 - Branch: `feature/20260506-earthquake-damage`
