@@ -1,9 +1,11 @@
 ---
 title: "implement: port car.glb to drive scene (REQ-047 fidelity bump)"
-status: open
+status: closed
 priority: 4
 issue-type: task
-created-at: "2026-05-05T21:21:49.098712-05:00"
+created-at: "\"2026-05-05T21:21:49.098712-05:00\""
+closed-at: "2026-05-06T17:04:57.098752-05:00"
+close-reason: "car.glb ported. covered by PR #129."
 ---
 
 ## Description
