@@ -1178,7 +1178,9 @@ export function EditorClient({
             marginLeft: 6,
             fontFamily: 'ui-monospace, Menlo, monospace',
             color:
-              simState.population.cityHappiness < 50 ? '#a3372a' : undefined,
+              simState.population.cityHappiness <= GROWTH_HAPPINESS_THRESHOLD
+                ? '#a3372a'
+                : undefined,
           }}
         >
           {`happy ${Math.round(simState.population.cityHappiness)}`}
