@@ -16,6 +16,7 @@ import {
   type Building,
   type City,
 } from '@/lib/schemas'
+import { EMPTY_SIM_STATE } from '@/lib/sim/state'
 
 describe('SlugSchema', () => {
   it('accepts a single lowercase letter', () => {
@@ -412,5 +413,47 @@ describe('EMPTY_CITY', () => {
   it('has empty pieces and buildings arrays', () => {
     expect(EMPTY_CITY.pieces).toEqual([])
     expect(EMPTY_CITY.buildings).toEqual([])
+  })
+
+  it('has no sim field by default (pre-pivot v1 cities are sim-less)', () => {
+    expect(EMPTY_CITY.sim).toBeUndefined()
+  })
+})
+
+describe('CitySchema sim field (REQ-070..074 substrate slice 1)', () => {
+  it('accepts a city with no sim field (v1 backwards compat)', () => {
+    const city: City = { pieces: [], buildings: [] }
+    expect(CitySchema.safeParse(city).success).toBe(true)
+  })
+
+  it('accepts a city with sim set to the empty sim state', () => {
+    const city: City = {
+      pieces: [],
+      buildings: [],
+      sim: EMPTY_SIM_STATE,
+    }
+    expect(CitySchema.safeParse(city).success).toBe(true)
+  })
+
+  it('accepts a city with sim set to an arbitrary object (passthrough)', () => {
+    // The substrate's CitySchema treats sim as z.unknown().optional() to
+    // avoid an import cycle with src/lib/sim/. The strict shape lives in
+    // src/lib/sim/state.ts; consumers that need it validate separately.
+    const city = {
+      pieces: [],
+      buildings: [],
+      sim: { tick: 42, futureLayer: { foo: 'bar' } },
+    }
+    expect(CitySchema.safeParse(city).success).toBe(true)
+  })
+
+  it('rejects extra top-level fields besides sim (strict)', () => {
+    const city = {
+      pieces: [],
+      buildings: [],
+      sim: EMPTY_SIM_STATE,
+      somethingElse: 'nope',
+    }
+    expect(CitySchema.safeParse(city).success).toBe(false)
   })
 })

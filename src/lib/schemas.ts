@@ -162,7 +162,25 @@ export const MAX_PIECES_PER_CITY = 256
 export const MAX_BUILDINGS_PER_CITY = 512
 
 /**
- * The canonical city payload (REQ-012).
+ * Sim state schema for the City.sim field (REQ-070..074 substrate
+ * slice 1). Defined inline here as a `z.unknown()` placeholder so the
+ * core schema stays parseable on cities that pre-date the sim layer
+ * (sim is absent on v1 cities). The strict schema lives in
+ * `src/lib/sim/state.ts`; consumers that need the full type validate
+ * separately. This indirection avoids an import cycle between schemas.ts
+ * (the v1 building blocks) and the sim subdirectory (which depends on
+ * `BuilderIdSchema` from this file).
+ *
+ * Future hardening (a follow-on slice can flip this to import the
+ * strict `SimStateSchema` directly once the import shape is sorted):
+ * the tradeoff is that strict validation here would force every load
+ * path to know about the sim layer, while the unknown-passthrough
+ * keeps the core schema oblivious until the sim layer surfaces.
+ */
+const CitySimFieldSchema = z.unknown().optional()
+
+/**
+ * The canonical city payload (REQ-012, extended REQ-070 substrate).
  *
  * Strict on unknown fields: any extra key fails validation. Pieces
  * and buildings are arrays so an empty city (`pieces: [], buildings: []`)
@@ -171,12 +189,19 @@ export const MAX_BUILDINGS_PER_CITY = 512
  * `mood` is excluded from the version hash (REQ-013), so changing
  * mood does not produce a new version. Persistence rules are in
  * `docs/gdd/03-persistence.md`.
+ *
+ * `sim` is the substrate's sim state (REQ-072). Absent on pre-pivot
+ * v1 cities; present after the first sim event fires on a slug. The
+ * strict schema for the field lives in `src/lib/sim/state.ts`; this
+ * file accepts unknown so the core schema does not depend on the sim
+ * subdirectory.
  */
 export const CitySchema = z
   .object({
     pieces: z.array(PieceSchema).max(MAX_PIECES_PER_CITY),
     buildings: z.array(BuildingSchema).max(MAX_BUILDINGS_PER_CITY),
     mood: CityMoodSchema.optional(),
+    sim: CitySimFieldSchema,
   })
   .strict()
 export type City = z.infer<typeof CitySchema>
