@@ -1,9 +1,30 @@
 'use client'
 
 import Link from 'next/link'
+import { useState } from 'react'
 import { useSimEngine } from '@/lib/sim/useSimEngine'
 import type { BuilderId, Slug } from '@/lib/schemas'
-import type { SimSpeed } from '@/lib/sim/state'
+import type { PlaceZoneEvent, EraseZoneEvent } from '@/lib/sim/events'
+import type { SimSpeed, ZoneKind } from '@/lib/sim/state'
+import { SimGridView } from './SimGridView'
+
+/**
+ * Tool selection in the sim view (REQ-080 zoning slice 2 of N).
+ *
+ * Mirrors the editor's place / erase tool vocabulary; selecting a
+ * zone kind paints that kind on every clicked cell, selecting
+ * `'erase'` removes the zone on every clicked cell. A future slice
+ * can add power / water / service tools alongside.
+ */
+type ZoneTool = ZoneKind | 'erase'
+
+const ZONE_TOOLS: ReadonlyArray<{ id: ZoneTool; label: string; bg: string }> =
+  [
+    { id: 'residential', label: 'Residential', bg: '#5fae5f' },
+    { id: 'commercial', label: 'Commercial', bg: '#5f8aae' },
+    { id: 'industrial', label: 'Industrial', bg: '#ae8a5f' },
+    { id: 'erase', label: 'Erase', bg: '#999999' },
+  ]
 
 /**
  * Sim view client (REQ-110 sim-as-primary view scaffold + REQ-070
@@ -26,6 +47,27 @@ export function SimViewClient({
   const engine = useSimEngine(slug, builderId)
   const { runtime } = engine
   const { state, pendingEvents, serverCursor } = runtime
+  const [tool, setTool] = useState<ZoneTool>('residential')
+
+  const handleCellClick = (row: number, col: number) => {
+    if (tool === 'erase') {
+      const event: EraseZoneEvent = {
+        type: 'eraseZone',
+        payload: { row, col },
+        clientCreatedAt: Date.now(),
+        authorBuilderId: builderId,
+      }
+      engine.enqueue(event)
+      return
+    }
+    const event: PlaceZoneEvent = {
+      type: 'placeZone',
+      payload: { kind: tool, row, col },
+      clientCreatedAt: Date.now(),
+      authorBuilderId: builderId,
+    }
+    engine.enqueue(event)
+  }
 
   return (
     <main
@@ -96,6 +138,54 @@ export function SimViewClient({
             </button>
           ))}
         </div>
+      </section>
+
+      <section
+        data-testid="sim-zone-palette"
+        style={{
+          display: 'flex',
+          flexDirection: 'column',
+          gap: 8,
+          alignItems: 'center',
+        }}
+      >
+        <p style={{ fontSize: 13, margin: 0, opacity: 0.65 }}>Zone tool</p>
+        <div style={{ display: 'flex', gap: 8 }}>
+          {ZONE_TOOLS.map((entry) => (
+            <button
+              key={entry.id}
+              type="button"
+              onClick={() => setTool(entry.id)}
+              data-testid={`sim-zone-tool-${entry.id}`}
+              data-sim-zone-tool={entry.id}
+              data-sim-zone-tool-active={tool === entry.id ? 'true' : 'false'}
+              aria-pressed={tool === entry.id ? 'true' : 'false'}
+              style={{
+                padding: '8px 14px',
+                fontSize: 13,
+                color: tool === entry.id ? '#fff' : '#222',
+                background: tool === entry.id ? entry.bg : '#fdfaf2',
+                border: `1px solid ${tool === entry.id ? entry.bg : '#d6cfbf'}`,
+                borderRadius: 4,
+                cursor: 'pointer',
+              }}
+            >
+              {entry.label}
+            </button>
+          ))}
+        </div>
+      </section>
+
+      <section
+        data-testid="sim-grid-section"
+        data-sim-active-tool={tool}
+        style={{ display: 'flex', justifyContent: 'center' }}
+      >
+        <SimGridView
+          zones={state.zones}
+          onCellClick={handleCellClick}
+          cursorMode={tool === 'erase' ? 'erase' : 'place'}
+        />
       </section>
 
       <section
