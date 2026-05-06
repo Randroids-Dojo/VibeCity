@@ -57,6 +57,7 @@ import type {
   RunWaterPipeEvent,
 } from '@/lib/sim/events'
 import { BANKRUPTCY_THRESHOLD_TICKS, type SimSpeed } from '@/lib/sim/state'
+import { TICK_INTERVAL_MS_BASE } from '@/lib/sim/engine'
 import {
   AUTOSAVE_STATUS_LABEL,
   DEFAULT_AUTOSAVE_DEBOUNCE_MS,
@@ -1065,9 +1066,11 @@ export function EditorClient({
             {`bankrupt in ${Math.max(
               0,
               Math.ceil(
-                (BANKRUPTCY_THRESHOLD_TICKS -
-                  simState.economy.bankruptcyTickCounter) /
-                  4,
+                ((BANKRUPTCY_THRESHOLD_TICKS -
+                  simState.economy.bankruptcyTickCounter) *
+                  TICK_INTERVAL_MS_BASE) /
+                  (1000 *
+                    (simState.speed === 0 ? 1 : simState.speed)),
               ),
             )}s`}
           </span>

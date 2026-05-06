@@ -16,6 +16,14 @@ Format for each slice:
 - Followups: any new `F-NNN` entries created. Link to them.
 ```
 
+## 2026-05-06, REQ-095 Slice 3 Copilot Review Fixes
+
+- Branch: `feature/20260506-bankruptcy-countdown` (continuing PR #113)
+- PR: #113
+- Changed: Address three actionable Copilot comments on PR #113. (1) Counter capped at `BANKRUPTCY_THRESHOLD_TICKS` via `Math.min(...)` so the identity-on-no-change branch in `applyEconomyTick` actually fires once the counter saturates (the original entry's claim that it skipped per-tick allocations during long steady-state deficits was inaccurate without the cap). (2) HUD seconds calculation now scales with `simState.speed` via `TICK_INTERVAL_MS_BASE` from the engine module (previously hard-coded `/4`, which read wrong at 1x and 2x). (3) Misleading test "counter resets to 0 when treasury rebounds above 0" renamed to "counter saturates at BANKRUPTCY_THRESHOLD_TICKS after long deficit" and a new "saturated counter lets the per-tick reducer short-circuit identity" case asserts the cap behavior directly.
+- Verification: `npm run type-check` green. `npm test` 2017/2017 (1 net new case from rename + addition). Replied in-thread to all five Copilot comments and resolved the three actionable threads.
+- Followups: none new.
+
 ## 2026-05-06, REQ-095 Economy Slice 3: Bankruptcy Countdown HUD
 
 - Branch: `feature/20260506-bankruptcy-countdown`

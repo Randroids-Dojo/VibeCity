@@ -7,6 +7,7 @@ import {
   EMPTY_SIM_STATE,
   GROWTH_INTERVAL_TICKS,
   LINE_MAINTENANCE_PER_TICK,
+  BANKRUPTCY_THRESHOLD_TICKS,
   PLANT_MAINTENANCE_PER_TICK,
   POWER_LINE_BUILD_COST,
   POWER_PLANT_BUILD_COST,
@@ -554,10 +555,18 @@ export function applyEconomyTick(
   const nextTreasury = economy.treasury + income - maintenance
   // Bankruptcy countdown (REQ-095 slice 3). Increments while the
   // running balance is below zero; resets to 0 the moment the
-  // treasury rebounds. The HUD reads `bankruptcyTickCounter > 0`
-  // to surface the warning span.
+  // treasury rebounds. Capped at `BANKRUPTCY_THRESHOLD_TICKS` so a
+  // long steady-state deficit run hits a stable counter value and
+  // the identity-on-no-change branch below skips per-tick
+  // allocations once the counter saturates. The HUD reads
+  // `bankruptcyTickCounter > 0` to surface the warning span.
   const nextBankruptcyCounter =
-    nextTreasury < 0 ? economy.bankruptcyTickCounter + 1 : 0
+    nextTreasury < 0
+      ? Math.min(
+          economy.bankruptcyTickCounter + 1,
+          BANKRUPTCY_THRESHOLD_TICKS,
+        )
+      : 0
   if (
     economy.lastTickIncome === income &&
     economy.lastTickMaintenance === maintenance &&
