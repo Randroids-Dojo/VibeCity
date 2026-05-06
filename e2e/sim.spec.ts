@@ -767,6 +767,61 @@ test('editor: Disasters tab spawns a fire and renders an overlay (REQ-105)', asy
   await expect(overlay).toHaveAttribute('data-disaster-kind', 'fire')
 })
 
+test('editor: R/C/I demand readouts show signed deltas (REQ-082)', async ({
+  page,
+}) => {
+  await page.route('**/api/city/**', async (route, req) => {
+    if (req.method() === 'PUT') {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          slug: 'sim-demand-spec',
+          versionHash: '0'.repeat(64),
+          updatedAt: 0,
+        }),
+      })
+    } else {
+      await route.fallback()
+    }
+  })
+
+  await page.goto('/sim-demand-spec/edit')
+  await page.getByTestId('editor-sim-speed-0').click()
+
+  // Empty city: all three readouts at 0.
+  for (const kind of ['residential', 'commercial', 'industrial']) {
+    await expect(
+      page.getByTestId(`editor-sim-demand-${kind}`),
+    ).toHaveAttribute('data-sim-demand', '0')
+  }
+
+  // Place an industrial zone (4 jobs at density 1, but density grows
+  // from 0). Pre-growth density 0 = 0 jobs.
+  await page.getByTestId('editor-palette-category-zone').click()
+  const palette = page.getByTestId('editor-palette')
+  await palette.locator('[data-zone-type="industrial"]').click()
+  await page
+    .locator(
+      '[data-testid="editor-snap-grid"] rect[data-cell-row="0"][data-cell-col="0"]',
+    )
+    .click()
+
+  // Tick 20 to grow to density 1 (4 industrial jobs).
+  await page.getByTestId('editor-sim-speed-4').click()
+  await expect
+    .poll(
+      async () => {
+        const value = await page
+          .getByTestId('editor-sim-demand-residential')
+          .getAttribute('data-sim-demand')
+        return Number.parseInt(value ?? '0', 10)
+      },
+      { timeout: 6000 },
+    )
+    .toBeGreaterThan(0)
+})
+
 test('editor: residential tax HUD slider adjusts the per-tick income (REQ-095)', async ({
   page,
 }) => {
