@@ -16,6 +16,16 @@ Format for each slice:
 - Followups: any new `F-NNN` entries created. Link to them.
 ```
 
+## 2026-05-06, Ambient AI Traffic: NPC Cars Driving Placed Streets
+
+- Branch: `feature/20260506-ambient-traffic`
+- PR: #N (when known)
+- Changed: New pure module `src/app/[slug]/ambientTraffic.ts` exports `AmbientCar` type, `AMBIENT_CAR_SPEED = 6`, `AMBIENT_CAR_COUNT = 12`, color palette, `dirToVector` / `dirToHeadingY` direction helpers, `spawnAmbientCar` / `spawnAmbientFleet` rng-driven spawn, `stepAmbientCar` per-frame advance with bounds-aware respawn, `streetCellWorldCenters` helper that walks placed pieces' footprints to derive spawn cells. `DriveSceneClient.tsx` mounts the fleet right before the player vehicle: each car is a small box body + 4 cylinder wheels, colored from the palette, oriented along its initial cardinal direction. The per-frame tick steps every car via the pure helper and copies x/z + rotation back to the mesh group.
+- Verification: `npm run type-check` green. `npm test` 2043/2043 unit pass (2019 prior + 24 new ambient-traffic cases). `npm run build` green. `npm run check:dashes` clean. `git diff --check` clean. `npx playwright test e2e/drive.spec.ts --project=chromium` 4/4 local (no new e2e because mesh motion is best validated by screenshot).
+- Assumptions: Cars drive in straight lines only (no turning at intersections, no collision). When one leaves the city bounds it respawns on a random street cell with a random cardinal direction. Speed (6 world units / sec) is roughly walking pace so the cars read as "ambient" rather than racing the player. Spawn uses `Math.random` in production; the pure module accepts an `Rng` callable so tests can pass a deterministic sequence and verify replay-stable paths. Future polish: turn at corners by reading the connector graph, slow when behind the player, despawn far cars and respawn near.
+- GDD coverage: This slice does not map to a single GDD requirement; it's a fun-factor visual layer. Build log entry lives in `docs/gdd/09-drive-mode.md` since the rendering happens in the drive scene.
+- Followups: F-NEW (deferred): turn cars at intersections by reading the connector graph; current straight-line behavior reads as cars ignoring the road network when they pass through a turn.
+
 ## 2026-05-06, Lit-Window Night Ambience: Buildings + Intersection Streetlamps
 
 - Branch: `feature/20260506-lit-windows`
