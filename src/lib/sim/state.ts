@@ -718,6 +718,23 @@ export const TAX_HAPPINESS_WEIGHT = 200
 export const TAX_NEUTRAL_RATE = 0.10
 
 /**
+ * Happiness gate for organic zone growth (REQ-081 + REQ-076 follow-on).
+ *
+ * `maybeGrowZones` skips the per-`GROWTH_INTERVAL_TICKS` density
+ * advance whenever `cityHappiness` is at or below this threshold.
+ * Players who tank happiness (high taxes, untreated waste, no
+ * services, ongoing disasters) see their city stagnate at its
+ * current density mix instead of organically advancing toward
+ * density 3.
+ *
+ * 50 is the midpoint of the [0, 100] happiness range. The default
+ * starter city sits at 100 (no waste, no infra, no taxes above
+ * neutral, no disasters) so growth runs out of the box; happiness
+ * has to drop materially before growth stalls.
+ */
+export const GROWTH_HAPPINESS_THRESHOLD = 50
+
+/**
  * Per-tick tornado damage probability (REQ-105 slice 7). Higher
  * than fire / flood because tornados are short-lived (40-tick
  * default) and damage is visually dramatic: every infrastructure

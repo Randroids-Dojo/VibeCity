@@ -18,6 +18,7 @@ import {
   TAX_NEUTRAL_RATE,
   WASTE_HAPPINESS_WEIGHT,
   EMPTY_SIM_STATE,
+  GROWTH_HAPPINESS_THRESHOLD,
   GROWTH_INTERVAL_TICKS,
   INDUSTRIAL_JOBS_BY_DENSITY,
   LINE_MAINTENANCE_PER_TICK,
@@ -565,7 +566,11 @@ function applyTick(state: SimState, event: TickEvent): SimState {
     state.disasters,
     nextTick,
   )
-  const nextZones = maybeGrowZones(floodDamagedZones, nextTick)
+  const nextZones = maybeGrowZones(
+    floodDamagedZones,
+    nextTick,
+    state.population.cityHappiness,
+  )
   // Tornado damage (REQ-105 slice 7). Erases sim-state infrastructure
   // (power line / plant, water source / pipe / treatment plant,
   // service building) at every active tornado's anchor cell on a hit.
@@ -940,22 +945,29 @@ export function syncPopulationToZones(
 }
 
 /**
- * Per-tick zone growth (REQ-081 slice 1). Returns the input bucket
- * unchanged when this tick is not a growth tick OR every zoned cell
- * is already at max density. Otherwise returns a fresh bucket with
- * every density-<3 cell advanced by 1.
+ * Per-tick zone growth (REQ-081). Returns the input bucket
+ * unchanged when any of the short-circuit conditions hold:
+ *   - this tick is not a growth tick (`tick % GROWTH_INTERVAL_TICKS !== 0`),
+ *   - city-wide `cityHappiness` sits at or below
+ *     `GROWTH_HAPPINESS_THRESHOLD` (REQ-076 follow-on gate; an
+ *     unhappy city stagnates at its current density mix until the
+ *     player addresses the underlying penalties),
+ *   - every zoned cell is already at max density.
+ * Otherwise returns a fresh bucket with every density-<3 cell
+ * advanced by 1.
  *
  * Deterministic: replay over the same event log produces the same
- * growth at the same ticks. v1 advances unconditionally; the
- * follow-on slice gates growth on per-cell supply / demand from the
- * citizens (REQ-075), power (REQ-085), water (REQ-090), and services
- * (REQ-100) layers.
+ * growth at the same ticks. Per-cell supply / demand gating from
+ * power (REQ-085), water (REQ-090), and services (REQ-100) layers
+ * stays a follow-on slice.
  */
 export function maybeGrowZones(
   zones: ZonesBucket,
   tick: number,
+  cityHappiness: number,
 ): ZonesBucket {
   if (tick <= 0 || tick % GROWTH_INTERVAL_TICKS !== 0) return zones
+  if (cityHappiness <= GROWTH_HAPPINESS_THRESHOLD) return zones
   const cellKeys = Object.keys(zones.cells)
   if (cellKeys.length === 0) return zones
   let changed = false
