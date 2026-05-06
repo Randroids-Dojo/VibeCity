@@ -1,6 +1,44 @@
 import { expect, test } from '@playwright/test'
 
 /**
+ * Default autosave PUT interceptor for every editor spec. The editor's
+ * autosave path (REQ-025) issues `PUT /api/city/<slug>` whenever the
+ * tool reducer accepts a mutation. Without this fallback, any test
+ * that does not register its own `page.route` for `/api/city/<slug>`
+ * lets the PUT travel to whatever KV the playwright webServer points
+ * at, polluting the global `city:index` and the per-slug version
+ * history with synthetic test data. That is exactly what produced the
+ * "rejection-flash-spec" leak which surfaced as a "Save failed" banner
+ * in the live editor before the open-edit pivot landed (Q-008).
+ *
+ * Per playwright contract, handlers added later are evaluated first.
+ * This `beforeEach` runs before each test body, so a test that
+ * registers its own `page.route('**\/api/city/**', ...)` inside the
+ * test takes precedence; this default only catches the PUTs that no
+ * test explicitly handled. Read paths (`GET /api/city/<slug>` and the
+ * `?v=<hash>` deep-link variant) are continued because the test
+ * webServer still serves the empty city soft-fallback for those.
+ */
+test.beforeEach(async ({ page }) => {
+  await page.route('**/api/city/**', async (route) => {
+    if (route.request().method() !== 'PUT') {
+      await route.continue()
+      return
+    }
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        slug: 'e2e-default-intercept',
+        versionHash:
+          '0000000000000000000000000000000000000000000000000000000000000000',
+        updatedAt: 0,
+      }),
+    })
+  })
+})
+
+/**
  * REQ-017 + REQ-020 + REQ-021: street piece palette, click-to-place,
  * and rotation cycling.
  *
