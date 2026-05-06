@@ -16,6 +16,16 @@ Format for each slice:
 - Followups: any new `F-NNN` entries created. Link to them.
 ```
 
+## 2026-05-06, REQ-079 + REQ-081 Three-Tier Growth/Decline
+
+- Branch: `feature/20260506-density-decline`
+- PR: #N (when known)
+- Changed: `maybeGrowZones` now branches on three tiers of `cityHappiness`. Above `GROWTH_HAPPINESS_THRESHOLD` (50): density advances by 1 per cell (existing happy band). Between (25, 50]: stagnant band, identity (existing stall, slightly tightened lower bound). At or below the new `DECLINE_HAPPINESS_THRESHOLD = 25` (in `src/lib/sim/state.ts`): every density-greater-than-0 cell steps DOWN by 1, floored at 0; cells stay zoned at density 0 so the player can recover the city without re-painting. Doc comment block describes the three bands and notes per-cell supply / demand gating remains a follow-on. Closes the SimCity feedback loop: miserable cities don't just stop growing, they shrink.
+- Verification: `npm test` 2136/2136 unit (3 reworked + 1 new direct unit case). `npm run build` green. `npm run check:dashes` clean. `git diff --check` clean. `npx playwright test e2e/sim.spec.ts --project=chromium` 25/25 local.
+- Assumptions: 25 is half the GROWTH threshold; the stagnant band gives the player breathing room to react before the bottom drops out. Decline removes one density step per growth interval (not per tick) so the wall-time pace at 1x is 5s per shrink step. Cells decline to density 0 and stay zoned (instead of unzoning) so a player who restores happiness sees their layout grow back instead of having to repaint zones. Once a cell reaches density 0, residents = 0 by `RESIDENTIAL_CAPACITY_BY_DENSITY`, populatedKeys empties, and happiness recomputes back to 100, which triggers re-growth on the next interval. This grow / decline / grow oscillation is intentional for now: it gives the player visible feedback that abandoned cells refill if they fix the underlying problem; a follow-on slice can damp the oscillation by tracking abandoned-cell-count as a happiness penalty.
+- GDD coverage: `docs/gdd/14-citizens.md` REQ-079 build log gains a decline entry; `docs/gdd/15-zoning-and-business.md` REQ-081 build log gains a parallel entry. `docs/GDD_COVERAGE.json` REQ-075 stays `partial` (pedestrians + NPCs + trip demand still outstanding); REQ-081 stays `partial` (per-cell gating still a follow-on).
+- Followups: F-NEW (deferred): damp the post-decline oscillation by tracking abandoned-cell density as a happiness penalty; per-cell happiness so decline can be local instead of city-wide; visual decline cue in the editor (e.g. greying out density-0-via-decline cells).
+
 ## 2026-05-06, REQ-081 HUD: "Growth Stalled" Indicator
 
 - Branch: `feature/20260506-stall-hud`

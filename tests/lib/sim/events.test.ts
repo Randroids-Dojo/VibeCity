@@ -3,6 +3,7 @@ import {
   SimEventSchema,
   applyEconomyTick,
   applySimEvent,
+  maybeGrowZones,
   reduceSimEvents,
   type SimEvent,
   type TickEvent,
@@ -1144,15 +1145,48 @@ describe('applySimEvent', () => {
       expect(s.zones.cells['2,2']?.density).toBe(1)
     })
 
-    it('does not advance density when cityHappiness <= GROWTH_HAPPINESS_THRESHOLD (REQ-076 follow-on)', () => {
-      // High residential tax (50%) on a populated cell drives the
-      // happiness penalty above the (100 - 50)=50 threshold so the
-      // next growth tick stalls. Tick 20 still grows to density 1
-      // because pre-tick happiness on tick 20 reads the empty-state
-      // 100 baseline; the penalty only kicks in once residents
-      // exist. Tick 40 reads post-tick-20 happiness (now low) and
-      // skips the advance.
+    function placeTreatmentPlantGrowth(row: number, col: number): SimEvent {
+      return {
+        type: 'placeSewageTreatmentPlant',
+        payload: { row, col },
+        clientCreatedAt: 0,
+        authorBuilderId: A_BUILDER,
+      }
+    }
+
+    it('does not advance density when cityHappiness sits in the stagnant band (REQ-076 follow-on)', () => {
+      // Residential tax 35% + adjacent treatment plant: tick-20
+      // happiness = 100 - 0(waste, drained) - 20(coverage) -
+      // 50(tax) = 30, which sits in the stagnant band
+      // (DECLINE_HAPPINESS_THRESHOLD 25 < 30 <=
+      // GROWTH_HAPPINESS_THRESHOLD 50). Tick 20 still grows to
+      // density 1 because pre-tick happiness reads the empty-state
+      // 100 baseline; penalties only kick in once residents exist.
       let s = applySimEvent(EMPTY_SIM_STATE, placeZone('residential', 0, 0))
+      s = applySimEvent(s, placeTreatmentPlantGrowth(0, 1))
+      s = applySimEvent(s, {
+        type: 'setTaxRate',
+        payload: { kind: 'residential', rate: 0.35 },
+        clientCreatedAt: 0,
+        authorBuilderId: A_BUILDER,
+      })
+      s = tickN(20, s)
+      expect(s.zones.cells['0,0']?.density).toBe(1)
+      expect(s.population.cityHappiness).toBeGreaterThan(25)
+      expect(s.population.cityHappiness).toBeLessThanOrEqual(50)
+      const before = s
+      s = tickN(20, s)
+      expect(s.zones.cells['0,0']?.density).toBe(1)
+      expect(s.zones).toBe(before.zones)
+    })
+
+    it('density steps DOWN when cityHappiness drops to the miserable band (REQ-079 follow-on)', () => {
+      // Residential tax 50% + drained sewage: tick-20 happiness =
+      // 100 - 0 - 20 - 80 = 0, which sits in the miserable band
+      // (<= DECLINE_HAPPINESS_THRESHOLD 25). Every populated cell
+      // steps density down by 1 on the next growth tick.
+      let s = applySimEvent(EMPTY_SIM_STATE, placeZone('residential', 0, 0))
+      s = applySimEvent(s, placeTreatmentPlantGrowth(0, 1))
       s = applySimEvent(s, {
         type: 'setTaxRate',
         payload: { kind: 'residential', rate: 0.5 },
@@ -1161,18 +1195,31 @@ describe('applySimEvent', () => {
       })
       s = tickN(20, s)
       expect(s.zones.cells['0,0']?.density).toBe(1)
-      expect(s.population.cityHappiness).toBeLessThanOrEqual(50)
-      const before = s
+      expect(s.population.cityHappiness).toBeLessThanOrEqual(25)
       s = tickN(20, s)
-      expect(s.zones.cells['0,0']?.density).toBe(1)
-      expect(s.zones).toBe(before.zones)
+      expect(s.zones.cells['0,0']?.density).toBe(0)
+    })
+
+    it('maybeGrowZones in the miserable band returns identity when every cell is already at density 0', () => {
+      // Direct unit test: a bucket of density-0 cells with a
+      // miserable cityHappiness must not decline below 0. The
+      // helper returns the input bucket reference unchanged.
+      const zones = {
+        cells: {
+          '0,0': { kind: 'residential' as const, density: 0 as const },
+          '0,1': { kind: 'commercial' as const, density: 0 as const },
+        },
+      }
+      const next = maybeGrowZones(zones, 20, 10)
+      expect(next).toBe(zones)
     })
 
     it('growth resumes once happiness recovers above the threshold (tax cut path)', () => {
       let s = applySimEvent(EMPTY_SIM_STATE, placeZone('residential', 0, 0))
+      s = applySimEvent(s, placeTreatmentPlantGrowth(0, 1))
       s = applySimEvent(s, {
         type: 'setTaxRate',
-        payload: { kind: 'residential', rate: 0.5 },
+        payload: { kind: 'residential', rate: 0.35 },
         clientCreatedAt: 0,
         authorBuilderId: A_BUILDER,
       })
