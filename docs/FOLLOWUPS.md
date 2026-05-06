@@ -27,6 +27,14 @@ Keep `F-NNN` IDs monotonically increasing. When a followup ships, leave the entr
 
 ## Resolved
 
+### F-010: Stop e2e specs from polluting the production-like KV via uncovered PUTs
+
+- Priority: nice-to-have
+- Context: REQ-014's PUT route was open-edit-pivoted (Q-008) so test cookies no longer lock real-user slugs out, but the e2e Playwright editor specs still write to whatever KV the webServer points at when a test goto's `/<slug>/edit` and places a piece without registering its own `page.route` for `/api/city/<slug>`. The slug `rejection-flash-spec` ended up in production's `city:index` from a live CI run and surfaced on the home page's recently-updated cards alongside real cities.
+- Blocker: none.
+- Unblock condition: register a default PUT interceptor in a `test.beforeEach` so every editor spec falls back to a synthetic 200 response unless the test registers its own handler. Verify via local `playwright --grep rejection-flash-spec` that no PUT escapes to KV.
+- Resolved: 2026-05-05. `e2e/editor.spec.ts` gained a `test.beforeEach` that registers a default `**/api/city/**` PUT interceptor returning a synthetic 200 with a zero-hash payload. Per-test handlers (registered inside the test body via `page.route`) still take precedence per playwright's "later handler matches first" contract; the beforeEach is the fallback for tests that did not register one. PR #N.
+
 ### F-009: Migrate VibeCity to a dedicated Upstash store
 
 - Priority: blocks-release
