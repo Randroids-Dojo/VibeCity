@@ -55,8 +55,13 @@ export async function GET(
 /**
  * PUT /api/city/[slug] (REQ-014).
  *
+ * Open-edit by design: any visitor with a valid builder id cookie can
+ * write to any slug. There is no per-slug owner; the builder id stays
+ * minted (middleware) and shape-validated here, available for future
+ * activity attribution, but is not persisted with the save and is not a
+ * write gate.
+ *
  * Validates body against `CitySchema`, validates the builder id cookie,
- * gates ownership against `city:${slug}:owner` (first PUT claims the slug),
  * computes `hash = hashCity(body)`, and writes:
  *   1. `city:${slug}:version:${hash}` (idempotent on identical content)
  *   2. `city:${slug}:latest` -> the new hash
@@ -66,7 +71,6 @@ export async function GET(
  *      itself is left in place because deleting it would invalidate any
  *      outstanding `?v=<hash>` deep link to that snapshot.
  *   5. `ZADD city:index ${now} ${slug}`
- *   6. On first claim: `city:${slug}:owner` -> the requesting builder id.
  *
  * Ordering: the version key is written before `:latest` advances so a
  * concurrent reader can never see a `:latest` that points at a missing
@@ -105,11 +109,6 @@ export async function PUT(
 
   const kv = getKv()
 
-  const owner = await kv.get<string>(kvKeys.cityOwner(slug))
-  if (owner && owner !== builderId) {
-    return jsonError(403, 'not owner')
-  }
-
   const hash = hashCity(city)
   const now = Date.now()
 
@@ -127,9 +126,6 @@ export async function PUT(
       -(MAX_CITY_VERSIONS + 1),
     )
     await kv.zadd(kvKeys.cityIndex(), { score: now, member: slug })
-    if (!owner) {
-      await kv.set(kvKeys.cityOwner(slug), builderId)
-    }
   } catch (e) {
     console.error('Failed to persist city version', e)
     return jsonError(503, 'storage unavailable', {
