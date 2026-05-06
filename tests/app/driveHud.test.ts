@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest'
 import {
+  COMPASS_DIRECTIONS,
   HUD_CITY_VALIDITY_LABEL,
+  HUD_COMPASS_LABEL,
   HUD_CONTROLS_HINT_LINES,
   HUD_SPEED_DIRECTION_LABEL,
   HUD_SPEED_LABEL,
@@ -9,10 +11,12 @@ import {
   SPEED_DIRECTION_THRESHOLD,
   cityValidity,
   formatSpeed,
+  headingToCompass,
   speedDirection,
   speedFraction,
   surfaceState,
   type CityValidity,
+  type CompassDirection,
   type SpeedDirection,
   type SurfaceState,
 } from '@/app/[slug]/driveHud'
@@ -348,5 +352,209 @@ describe('HUD_SPEED_DIRECTION_LABEL (REQ-066)', () => {
     expect(HUD_SPEED_DIRECTION_LABEL.reverse).not.toBe(
       HUD_CITY_VALIDITY_LABEL.open,
     )
+  })
+})
+
+describe('COMPASS_DIRECTIONS (REQ-066)', () => {
+  it('lists exactly eight directions', () => {
+    expect(COMPASS_DIRECTIONS).toHaveLength(8)
+  })
+
+  it('starts at north and walks clockwise through the eight cardinals', () => {
+    expect(COMPASS_DIRECTIONS).toEqual([
+      'N',
+      'NE',
+      'E',
+      'SE',
+      'S',
+      'SW',
+      'W',
+      'NW',
+    ])
+  })
+
+  it('contains every CompassDirection union member exactly once', () => {
+    const set = new Set<CompassDirection>(COMPASS_DIRECTIONS)
+    expect(set.size).toBe(COMPASS_DIRECTIONS.length)
+    const members: CompassDirection[] = [
+      'N',
+      'NE',
+      'E',
+      'SE',
+      'S',
+      'SW',
+      'W',
+      'NW',
+    ]
+    for (const member of members) {
+      expect(set.has(member)).toBe(true)
+    }
+  })
+})
+
+describe('headingToCompass (REQ-066)', () => {
+  // Heading convention from `applyDriveStep`: 0 radians = car points
+  // north; forward at heading h is `(sin h, -cos h)`. So +pi/2 = east,
+  // pi = south, -pi/2 (or +3pi/2) = west.
+  it('reads N at heading 0', () => {
+    expect(headingToCompass(0)).toBe('N')
+  })
+
+  it('reads E at heading +pi/2', () => {
+    expect(headingToCompass(Math.PI / 2)).toBe('E')
+  })
+
+  it('reads S at heading +pi', () => {
+    expect(headingToCompass(Math.PI)).toBe('S')
+  })
+
+  it('reads W at heading -pi/2', () => {
+    expect(headingToCompass(-Math.PI / 2)).toBe('W')
+  })
+
+  it('reads NE at heading +pi/4', () => {
+    expect(headingToCompass(Math.PI / 4)).toBe('NE')
+  })
+
+  it('reads SE at heading +3pi/4', () => {
+    expect(headingToCompass((3 * Math.PI) / 4)).toBe('SE')
+  })
+
+  it('reads SW at heading -3pi/4', () => {
+    expect(headingToCompass(-(3 * Math.PI) / 4)).toBe('SW')
+  })
+
+  it('reads NW at heading -pi/4', () => {
+    expect(headingToCompass(-Math.PI / 4)).toBe('NW')
+  })
+
+  it('handles a heading slightly inside the N bin around the +pi/8 boundary', () => {
+    const eps = 1e-6
+    expect(headingToCompass(Math.PI / 8 - eps)).toBe('N')
+    expect(headingToCompass(-Math.PI / 8 + eps)).toBe('N')
+  })
+
+  it('flips to NE just past the +pi/8 boundary', () => {
+    expect(headingToCompass(Math.PI / 8 + 1e-6)).toBe('NE')
+  })
+
+  it('flips to NW just below the -pi/8 boundary', () => {
+    expect(headingToCompass(-Math.PI / 8 - 1e-6)).toBe('NW')
+  })
+
+  it('reads N for headings just under +2pi (wrap-around)', () => {
+    expect(headingToCompass(Math.PI * 2 - 1e-6)).toBe('N')
+  })
+
+  it('reads N for +2pi exactly (full wrap)', () => {
+    expect(headingToCompass(Math.PI * 2)).toBe('N')
+  })
+
+  it('reads N for negative wrap-around at -2pi', () => {
+    expect(headingToCompass(-Math.PI * 2)).toBe('N')
+  })
+
+  it('reads E for a heading equal to +pi/2 + 2pi (wrap invariant)', () => {
+    expect(headingToCompass(Math.PI / 2 + Math.PI * 2)).toBe('E')
+  })
+
+  it('reads W for a heading equal to -pi/2 - 2pi (negative wrap invariant)', () => {
+    expect(headingToCompass(-Math.PI / 2 - Math.PI * 2)).toBe('W')
+  })
+
+  it('returns N for non-finite headings (defensive against NaN leaks)', () => {
+    expect(headingToCompass(Number.NaN)).toBe('N')
+    expect(headingToCompass(Number.POSITIVE_INFINITY)).toBe('N')
+    expect(headingToCompass(Number.NEGATIVE_INFINITY)).toBe('N')
+  })
+
+  it('produces every compass direction across a full sweep', () => {
+    const seen = new Set<CompassDirection>()
+    const STEP = Math.PI / 32
+    for (let h = -Math.PI; h < Math.PI; h += STEP) {
+      seen.add(headingToCompass(h))
+    }
+    expect(seen.size).toBe(8)
+    for (const direction of COMPASS_DIRECTIONS) {
+      expect(seen.has(direction)).toBe(true)
+    }
+  })
+
+  it('is deterministic on the heading value', () => {
+    const samples = [0, Math.PI / 6, Math.PI / 2, Math.PI, -Math.PI / 3]
+    for (const heading of samples) {
+      expect(headingToCompass(heading)).toBe(headingToCompass(heading))
+    }
+  })
+
+  it('returns one of the eight compass directions for every finite heading', () => {
+    const set = new Set<CompassDirection>(COMPASS_DIRECTIONS)
+    for (let h = -10; h <= 10; h += 0.1) {
+      expect(set.has(headingToCompass(h))).toBe(true)
+    }
+  })
+
+  it('walks the bin clockwise as the heading increases through one full turn', () => {
+    // Sample at the center of each 45deg bin and confirm the sequence
+    // matches `COMPASS_DIRECTIONS` order.
+    const QUARTER_PI = Math.PI / 4
+    for (let i = 0; i < COMPASS_DIRECTIONS.length; i++) {
+      const heading = i * QUARTER_PI
+      expect(headingToCompass(heading)).toBe(COMPASS_DIRECTIONS[i])
+    }
+  })
+})
+
+describe('HUD_COMPASS_LABEL (REQ-066)', () => {
+  it('emits a non-empty trimmed label for every compass direction', () => {
+    for (const direction of COMPASS_DIRECTIONS) {
+      const label = HUD_COMPASS_LABEL[direction]
+      expect(label.length).toBeGreaterThan(0)
+      expect(label).toBe(label.trim())
+    }
+  })
+
+  it('uses the canonical one- or two-character compass abbreviations', () => {
+    expect(HUD_COMPASS_LABEL.N).toBe('N')
+    expect(HUD_COMPASS_LABEL.NE).toBe('NE')
+    expect(HUD_COMPASS_LABEL.E).toBe('E')
+    expect(HUD_COMPASS_LABEL.SE).toBe('SE')
+    expect(HUD_COMPASS_LABEL.S).toBe('S')
+    expect(HUD_COMPASS_LABEL.SW).toBe('SW')
+    expect(HUD_COMPASS_LABEL.W).toBe('W')
+    expect(HUD_COMPASS_LABEL.NW).toBe('NW')
+  })
+
+  it('emits eight pairwise distinct labels', () => {
+    const labels = COMPASS_DIRECTIONS.map((d) => HUD_COMPASS_LABEL[d])
+    const set = new Set(labels)
+    expect(set.size).toBe(labels.length)
+  })
+
+  it('covers every CompassDirection union member', () => {
+    const directions: CompassDirection[] = [
+      'N',
+      'NE',
+      'E',
+      'SE',
+      'S',
+      'SW',
+      'W',
+      'NW',
+    ]
+    for (const direction of directions) {
+      expect(HUD_COMPASS_LABEL).toHaveProperty(direction)
+      expect(typeof HUD_COMPASS_LABEL[direction]).toBe('string')
+    }
+  })
+
+  it('emits labels distinct from the surface, speed-direction, and city-validity vocabulary', () => {
+    for (const direction of COMPASS_DIRECTIONS) {
+      const label = HUD_COMPASS_LABEL[direction]
+      expect(label).not.toBe(HUD_SURFACE_LABEL['off-street'])
+      expect(label).not.toBe(HUD_SURFACE_LABEL.building)
+      expect(label).not.toBe(HUD_SPEED_DIRECTION_LABEL.reverse)
+      expect(label).not.toBe(HUD_CITY_VALIDITY_LABEL.open)
+    }
   })
 })

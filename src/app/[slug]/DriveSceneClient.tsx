@@ -104,6 +104,7 @@ import {
 import { buildTrackPath, validateConnections } from '@/lib/trackPath'
 import {
   HUD_CITY_VALIDITY_LABEL,
+  HUD_COMPASS_LABEL,
   HUD_CONTROLS_HINT_LINES,
   HUD_SPEED_DIRECTION_LABEL,
   HUD_SPEED_LABEL,
@@ -111,6 +112,7 @@ import {
   HUD_SURFACE_LABEL,
   cityValidity,
   formatSpeed,
+  headingToCompass,
   speedDirection,
   speedFraction,
   surfaceState,
@@ -258,6 +260,14 @@ export function DriveSceneClient({
   // default keeps the HUD silent on idle and forward driving where the
   // speed bar already conveys the live state.
   const hudDirectionRef = useRef<HTMLSpanElement | null>(null)
+  // HUD compass ref (REQ-066). Mirrors the live `headingToCompass` label
+  // into a span inside the speed HUD so a player driving across a long
+  // city sees their cardinal heading at a glance instead of relying on
+  // the chase camera's relative orientation. The integration loop writes
+  // the text imperatively each frame inside `updateHud`; the value is
+  // always non-empty (the compass is informational rather than a
+  // conditional alert) so the span stays mounted on every render.
+  const hudCompassRef = useRef<HTMLSpanElement | null>(null)
   // Minimap car marker ref (REQ-069). The integration loop writes the
   // live `transform` attribute on the SVG group each tick so the
   // marker tracks the car position and heading without forcing a
@@ -1024,12 +1034,16 @@ export function DriveSceneClient({
       const valueText = formatSpeed(vehicle.speed)
       const direction = speedDirection(vehicle.speed)
       const fraction = speedFraction(vehicle.speed)
+      const compass = headingToCompass(vehicle.heading)
       if (hudSpeedValueRef.current) {
         hudSpeedValueRef.current.textContent = valueText
       }
       if (hudDirectionRef.current) {
         hudDirectionRef.current.textContent =
           HUD_SPEED_DIRECTION_LABEL[direction]
+      }
+      if (hudCompassRef.current) {
+        hudCompassRef.current.textContent = HUD_COMPASS_LABEL[compass]
       }
       if (hudSpeedBarFillRef.current) {
         // CSS `transform: scaleX(...)` keeps the bar's reflow-free; the
@@ -1040,6 +1054,7 @@ export function DriveSceneClient({
       if (root) {
         root.setAttribute('data-hud-speed', valueText)
         root.setAttribute('data-hud-direction', direction)
+        root.setAttribute('data-hud-compass', compass)
       }
     }
     // HUD surface mirror (REQ-030, REQ-054, REQ-066). Collapses the
@@ -1502,6 +1517,7 @@ export function DriveSceneClient({
       data-hud-visible={hasVehicle && !showPauseMenu ? 'true' : 'false'}
       data-hud-speed="0"
       data-hud-direction="idle"
+      data-hud-compass="N"
       data-hud-surface="street"
       data-city-validity={cityValidityState}
       data-unmatched-port-count={unmatchedPortCount}
@@ -1749,6 +1765,8 @@ export function DriveSceneClient({
               minHeight: 14,
               display: 'flex',
               alignItems: 'baseline',
+              justifyContent: 'space-between',
+              gap: 8,
             }}
           >
             <span
@@ -1761,6 +1779,18 @@ export function DriveSceneClient({
                 color: '#f5b94a',
               }}
             />
+            <span
+              ref={hudCompassRef}
+              data-testid="drive-hud-compass"
+              style={{
+                fontSize: 11,
+                letterSpacing: 0.4,
+                textTransform: 'uppercase',
+                color: '#a3c8a3',
+              }}
+            >
+              N
+            </span>
           </div>
           {cityValidityState === 'open' ? (
             <div
