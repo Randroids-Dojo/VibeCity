@@ -21,13 +21,16 @@ import {
   DEFAULT_PALETTE_TYPE,
   DEFAULT_POWER_TOOL,
   DEFAULT_ROTATION,
+  DEFAULT_SERVICE_TOOL,
   DEFAULT_TOOL_MODE,
   DEFAULT_ZONE_TYPE,
   POWER_PALETTE,
+  SERVICE_PALETTE,
   STREET_PALETTE,
   ZONE_PALETTE,
   type PaletteCategory,
   type PowerPaletteToolType,
+  type ServicePaletteToolType,
   type ToolMode,
   type ZonePaletteEntry,
   eraseBuilding,
@@ -39,8 +42,10 @@ import {
 import { useSimEngine } from '@/lib/sim/useSimEngine'
 import type {
   EraseLineEvent,
+  EraseServiceBuildingEvent,
   EraseZoneEvent,
   PlacePowerPlantEvent,
+  PlaceServiceBuildingEvent,
   PlaceZoneEvent,
   RunPowerLineEvent,
 } from '@/lib/sim/events'
@@ -215,6 +220,9 @@ export function EditorClient({
   const [selectedPowerTool, setSelectedPowerTool] = useState<
     PowerPaletteToolType
   >(DEFAULT_POWER_TOOL)
+  const [selectedServiceTool, setSelectedServiceTool] = useState<
+    ServicePaletteToolType
+  >(DEFAULT_SERVICE_TOOL)
   const [rotation, setRotation] = useState<Rotation>(DEFAULT_ROTATION)
   const [toolMode, setToolMode] = useState<ToolMode>(DEFAULT_TOOL_MODE)
   const [autosaveStatus, setAutosaveStatus] =
@@ -536,6 +544,29 @@ export function EditorClient({
       simEngine.enqueue(event)
       return
     }
+    // Services category (REQ-100 slice 2 UI). Dispatches
+    // placeServiceBuilding (or eraseServiceBuilding in erase mode)
+    // through the sim event log.
+    if (paletteCategory === 'services') {
+      if (toolMode === 'erase') {
+        const event: EraseServiceBuildingEvent = {
+          type: 'eraseServiceBuilding',
+          payload: { row, col },
+          clientCreatedAt: Date.now(),
+          authorBuilderId: builderId,
+        }
+        simEngine.enqueue(event)
+        return
+      }
+      const event: PlaceServiceBuildingEvent = {
+        type: 'placeServiceBuilding',
+        payload: { kind: selectedServiceTool, row, col },
+        clientCreatedAt: Date.now(),
+        authorBuilderId: builderId,
+      }
+      simEngine.enqueue(event)
+      return
+    }
     if (toolMode === 'erase') {
       setCityWithHistory((current) => {
         const next =
@@ -818,7 +849,9 @@ export function EditorClient({
           alignItems: 'center',
         }}
       >
-        {(['street', 'building', 'zone', 'power'] as const).map((category) => {
+        {(
+          ['street', 'building', 'zone', 'power', 'services'] as const
+        ).map((category) => {
           const isActive = category === paletteCategory
           const label =
             category === 'street'
@@ -827,7 +860,9 @@ export function EditorClient({
                 ? 'Buildings'
                 : category === 'zone'
                   ? 'Zones'
-                  : 'Power'
+                  : category === 'power'
+                    ? 'Power'
+                    : 'Services'
           return (
             <button
               key={category}
@@ -1090,42 +1125,80 @@ export function EditorClient({
                     </button>
                   )
                 })
-              : POWER_PALETTE.map((entry) => {
-                  const isSelected = entry.type === selectedPowerTool
-                  const bg =
-                    entry.type === 'plant-coal'
-                      ? '#4a3a2a'
-                      : entry.type === 'plant-solar'
-                        ? '#d4b85f'
-                        : '#e0a020'
-                  return (
-                    <button
-                      key={entry.type}
-                      type="button"
-                      aria-pressed={isSelected}
-                      data-power-tool={entry.type}
-                      data-selected={isSelected ? 'true' : 'false'}
-                      onClick={() => {
-                        setSelectedPowerTool(entry.type)
-                      }}
-                      style={{
-                        padding: '8px 14px',
-                        fontSize: 14,
-                        fontFamily: 'inherit',
-                        color:
-                          isSelected && entry.type === 'plant-coal'
-                            ? '#fff'
-                            : '#222',
-                        background: isSelected ? bg : '#fdfaf2',
-                        border: `1px solid ${isSelected ? bg : '#d6cfbf'}`,
-                        borderRadius: 4,
-                        cursor: 'pointer',
-                      }}
-                    >
-                      {entry.label}
-                    </button>
-                  )
-                })}
+              : paletteCategory === 'power'
+                ? POWER_PALETTE.map((entry) => {
+                    const isSelected = entry.type === selectedPowerTool
+                    const bg =
+                      entry.type === 'plant-coal'
+                        ? '#4a3a2a'
+                        : entry.type === 'plant-solar'
+                          ? '#d4b85f'
+                          : '#e0a020'
+                    return (
+                      <button
+                        key={entry.type}
+                        type="button"
+                        aria-pressed={isSelected}
+                        data-power-tool={entry.type}
+                        data-selected={isSelected ? 'true' : 'false'}
+                        onClick={() => {
+                          setSelectedPowerTool(entry.type)
+                        }}
+                        style={{
+                          padding: '8px 14px',
+                          fontSize: 14,
+                          fontFamily: 'inherit',
+                          color:
+                            isSelected && entry.type === 'plant-coal'
+                              ? '#fff'
+                              : '#222',
+                          background: isSelected ? bg : '#fdfaf2',
+                          border: `1px solid ${isSelected ? bg : '#d6cfbf'}`,
+                          borderRadius: 4,
+                          cursor: 'pointer',
+                        }}
+                      >
+                        {entry.label}
+                      </button>
+                    )
+                  })
+                : SERVICE_PALETTE.map((entry) => {
+                    const isSelected = entry.type === selectedServiceTool
+                    const bg =
+                      entry.type === 'police-station'
+                        ? '#3a4a7a'
+                        : entry.type === 'fire-station'
+                          ? '#a3372a'
+                          : entry.type === 'hospital'
+                            ? '#cc4f4f'
+                            : entry.type === 'school'
+                              ? '#7a5fae'
+                              : '#5a5a3a'
+                    return (
+                      <button
+                        key={entry.type}
+                        type="button"
+                        aria-pressed={isSelected}
+                        data-service-tool={entry.type}
+                        data-selected={isSelected ? 'true' : 'false'}
+                        onClick={() => {
+                          setSelectedServiceTool(entry.type)
+                        }}
+                        style={{
+                          padding: '8px 14px',
+                          fontSize: 14,
+                          fontFamily: 'inherit',
+                          color: isSelected ? '#fff' : '#222',
+                          background: isSelected ? bg : '#fdfaf2',
+                          border: `1px solid ${isSelected ? bg : '#d6cfbf'}`,
+                          borderRadius: 4,
+                          cursor: 'pointer',
+                        }}
+                      >
+                        {entry.label}
+                      </button>
+                    )
+                  })}
         <button
           type="button"
           data-testid="editor-rotate"
@@ -1401,6 +1474,7 @@ export function EditorClient({
         spawnMarker={spawnMarker}
         zones={simState.zones}
         power={simState.power}
+        services={simState.services}
         onSurfaceWheel={handleSurfaceWheel}
         onSurfacePointerDown={handleSurfacePointerDown}
       />

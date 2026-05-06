@@ -1,6 +1,10 @@
 import type { PointerEvent as ReactPointerEvent, WheelEvent as ReactWheelEvent } from 'react'
 import type { City } from '@/lib/schemas'
-import type { PowerBucket, ZonesBucket } from '@/lib/sim/state'
+import type {
+  PowerBucket,
+  ServicesBucket,
+  ZonesBucket,
+} from '@/lib/sim/state'
 import { solvePowerStatus, type CellPowerStatus } from '@/lib/sim/powerSolver'
 import {
   CELL_PIXELS,
@@ -60,6 +64,27 @@ const POWER_PLANT_STROKE = {
 
 const POWER_LINE_FILL = '#e0a020'
 const POWER_LINE_STROKE = '#a07010'
+
+/**
+ * Per-service-kind fill / stroke (REQ-100 slice 2 UI). Each kind
+ * renders as a small inset square at the cell with a kind-distinct
+ * color matching the editor palette.
+ */
+const SERVICE_FILL = {
+  'police-station': '#3a4a7a',
+  'fire-station': '#a3372a',
+  hospital: '#cc4f4f',
+  school: '#7a5fae',
+  'garbage-depot': '#5a5a3a',
+} as const
+
+const SERVICE_STROKE = {
+  'police-station': '#1f2f5a',
+  'fire-station': '#7a2a20',
+  hospital: '#8a2f2f',
+  school: '#5a3f8a',
+  'garbage-depot': '#3a3a20',
+} as const
 
 /**
  * Per-status zone overlay stroke (REQ-087 slice 3 visible payoff).
@@ -221,6 +246,7 @@ export function SnapGrid({
   spawnMarker,
   zones,
   power,
+  services,
   onSurfaceWheel,
   onSurfacePointerDown,
 }: {
@@ -254,6 +280,14 @@ export function SnapGrid({
    * place / erase ghosts and open-end warnings stay legible.
    */
   power?: PowerBucket | null
+  /**
+   * Optional sim services layer (REQ-100 slice 2 UI). When supplied,
+   * each service building renders as a small kind-distinct overlay
+   * at its anchor cell. Services render after the power layer but
+   * before the connector glyphs so the place / erase ghosts and
+   * open-end warnings stay legible.
+   */
+  services?: ServicesBucket | null
   onSurfaceWheel?: (event: ReactWheelEvent<SVGSVGElement>) => void
   onSurfacePointerDown?: (event: ReactPointerEvent<SVGSVGElement>) => void
 }) {
@@ -466,6 +500,28 @@ export function SnapGrid({
                 fill={POWER_LINE_FILL}
                 stroke={POWER_LINE_STROKE}
                 strokeWidth={1}
+                pointerEvents="none"
+              />
+            )
+          })
+        : null}
+      {services
+        ? services.buildings.map((building, index) => {
+            const { x, y } = cellToPixel({ row: building.row, col: building.col })
+            return (
+              <rect
+                key={`service-${building.kind}-${building.row}-${building.col}-${index}`}
+                data-testid="editor-service-building"
+                data-service-kind={building.kind}
+                data-service-row={building.row}
+                data-service-col={building.col}
+                x={x + 4}
+                y={y + 4}
+                width={CELL_PIXELS - 8}
+                height={CELL_PIXELS - 8}
+                fill={SERVICE_FILL[building.kind]}
+                stroke={SERVICE_STROKE[building.kind]}
+                strokeWidth={2}
                 pointerEvents="none"
               />
             )

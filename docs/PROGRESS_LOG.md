@@ -16,6 +16,16 @@ Format for each slice:
 - Followups: any new `F-NNN` entries created. Link to them.
 ```
 
+## 2026-05-06, REQ-100 Services Slice 2: Editor Services Tab + 5 Tools
+
+- Branch: `feature/20260506-services-ui`
+- PR: #N (when known)
+- Changed: First user-visible services-layer feature on top of slice 1. Editor's category switcher gains a fifth tab (Streets / Buildings / Zones / Power / Services); the Services palette exposes Police / Fire / Hospital / School / Garbage buttons. Cell click in services category dispatches `placeServiceBuilding` (with kind from the selected tool) via `engine.enqueue`; erase mode dispatches `eraseServiceBuilding`. SnapGridView accepts an optional `services` prop and renders each service as a kind-tinted full-cell overlay (4px inset). Police is the default selected tool because crime gets worst fastest in the absence of a station.
+- Verification: `npm run type-check` green. `npm test` 1921/1921 unit pass (no new unit cases; UI exercised by e2e). `npm run build` green; editor route bundle minimally grew (5 new buttons + 1 SVG render path). `npm run check:dashes` clean. `git diff --check` clean. `npx playwright test e2e/sim.spec.ts --project=chromium` 13/13 local (12 prior + 1 new services-tab case).
+- Assumptions: Default selected service is police because it's the canonical SimCity first-service-placed. Service icons are kind-distinct full-cell overlays (5 colors); a future polish slice can add proper SVG glyphs (police badge, fire helmet, etc.) for stronger readability. The services UI does not yet validate footprint overlap against pieces / buildings / lines / plants / other services; the player can stack services on a road if they want, which the coverage solver will simply count. Per-cell coverage rendering (visualizing which zones are within radius of which service) lands with the coverage solver in slice 3.
+- GDD coverage: REQ-100 stays `partial` (coverage solver REQ-101, happiness REQ-102, service-specific behaviors REQ-103, drive signals REQ-104 still outstanding). `implementationRefs` extended with `src/app/[slug]/edit/editorState.ts`, `src/app/[slug]/edit/EditorClient.tsx`, `src/app/[slug]/edit/SnapGridView.tsx`. `testRefs` extended with `e2e/sim.spec.ts`. `docs/gdd/19-services.md` Status stays `partial`; gains a build log entry.
+- Followups: none new. Next REQ-100 slices: per-cell coverage solver (REQ-101) reading SERVICE_COVERAGE_CELLS + manhattan distance + zone overlap, per-kind happiness contribution to citizen layer (REQ-102), service-specific behaviors (REQ-103), drive-visible service buildings (REQ-104).
+
 ## 2026-05-06, REQ-100 Services Slice 1: Schema + Place/Erase Events + Reducer
 
 - Branch: `feature/20260506-services-events`

@@ -471,6 +471,66 @@ test('editor: place plant + line + adjacent zone -> zone shows powered status (R
   )
 })
 
+test('editor: Services tab exposes 5 tools and paints a hospital (REQ-100)', async ({
+  page,
+}) => {
+  await page.route('**/api/city/**', async (route, req) => {
+    if (req.method() === 'PUT') {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          slug: 'sim-services-spec',
+          versionHash: '0'.repeat(64),
+          updatedAt: 0,
+        }),
+      })
+    } else {
+      await route.fallback()
+    }
+  })
+
+  await page.goto('/sim-services-spec/edit')
+  await page.getByTestId('editor-sim-speed-0').click()
+
+  // Switch to Services.
+  const servicesTab = page.getByTestId('editor-palette-category-services')
+  await expect(servicesTab).toBeVisible()
+  await servicesTab.click()
+  await expect(servicesTab).toHaveAttribute('aria-selected', 'true')
+
+  const palette = page.getByTestId('editor-palette')
+  await expect(palette).toHaveAttribute('data-palette-category', 'services')
+
+  // All 5 service tools render.
+  for (const kind of [
+    'police-station',
+    'fire-station',
+    'hospital',
+    'school',
+    'garbage-depot',
+  ]) {
+    await expect(palette.locator(`[data-service-tool="${kind}"]`)).toBeVisible()
+  }
+  // Police is the default selected tool.
+  await expect(
+    palette.locator('[data-service-tool="police-station"]'),
+  ).toHaveAttribute('aria-pressed', 'true')
+
+  // Switch to hospital, paint at (1, 1).
+  await palette.locator('[data-service-tool="hospital"]').click()
+  await page
+    .locator(
+      '[data-testid="editor-snap-grid"] rect[data-cell-row="1"][data-cell-col="1"]',
+    )
+    .click()
+  const hospitalOverlay = page.locator(
+    '[data-testid="editor-service-building"][data-service-row="1"][data-service-col="1"]',
+  )
+  await expect(hospitalOverlay).toBeVisible()
+  await expect(hospitalOverlay).toHaveAttribute('data-service-kind', 'hospital')
+})
+
 test('editor: zone tab switches kind and erase tool removes a zone', async ({
   page,
 }) => {
