@@ -16,6 +16,16 @@ Format for each slice:
 - Followups: any new `F-NNN` entries created. Link to them.
 ```
 
+## 2026-05-06, REQ-105 Slice 9: Drive-Mode Disaster Visualization (Section Done)
+
+- Branch: `feature/20260506-disaster-meshes`
+- PR: #N (when known)
+- Changed: DriveSceneClient renders each active disaster as a kind-distinct primitive mesh at its anchor cell. Fire = warm-orange cone + emissive. Flood = translucent blue plane. Tornado = tall dark funnel cylinder. Earthquake = brown half-sphere dust dome. Monster = purple body box + emissive head sphere group. Effect dependency array gains `simState.disasters`.
+- Verification: `npm run type-check` green. `npm test` 2123/2123 unit. `npm run build` green. `npm run check:dashes` clean. `git diff --check` clean. `npx playwright test e2e/drive.spec.ts e2e/sim.spec.ts --project=chromium` 26/26 local.
+- Assumptions: Three.js mesh primitives only (no model imports). Static meshes (no animation in v1). Visible payoff reads as a screenshot regression target rather than programmatic e2e. Future polish: per-disaster animation (fire flicker, tornado spin, water rise), per-disaster audio cues, automatic stochastic spawn probabilities driven by industrial density / missing fire coverage / seasonal flood probability.
+- GDD coverage: REQ-105 row in `docs/GDD_COVERAGE.json` flips from `partial` to `done`. `docs/gdd/20-disasters.md` Status flips from `partial` to `done`. Section ships substrate + palette + 5 damage kinds + drive visualization across 9 slices.
+- Followups: F-NEW (deferred): disaster animation; disaster audio; stochastic auto-spawn.
+
 ## 2026-05-06, REQ-105 Slice 8: Monster Damage (Combined Density Drop + Infra Erase)
 
 - Branch: `feature/20260506-monster-damage`
