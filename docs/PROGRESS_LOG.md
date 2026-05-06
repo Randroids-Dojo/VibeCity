@@ -16,6 +16,16 @@ Format for each slice:
 - Followups: any new `F-NNN` entries created. Link to them.
 ```
 
+## 2026-05-06, REQ-100 Services Slice 1: Schema + Place/Erase Events + Reducer
+
+- Branch: `feature/20260506-services-events`
+- PR: #N (when known)
+- Changed: First services-layer slice. Tightened `ServicesBucketSchema` from passthrough to strict `{ buildings: ServiceBuilding[] }`. New `ServiceKindSchema` enum (police-station / fire-station / hospital / school / garbage-depot), `SERVICE_COVERAGE_CELLS` per-kind radius constants (hospital largest at 8, school smallest at 5), `SERVICE_MAINTENANCE_PER_TICK` per-kind upkeep that the economy reducer in slice 2 will pull. New strict event schemas `PlaceServiceBuildingEventSchema` and `EraseServiceBuildingEventSchema` route in the `SimEventSchema` discriminated union. New reducer cases: `applyPlaceServiceBuilding` idempotent on duplicate anchor+kind, allows different kinds at the same anchor for v1; `applyEraseServiceBuilding` removes any service at the cell, identity on no-op.
+- Verification: `npm run type-check` green. `npm test` 1921/1921 unit pass (1912 prior + 9 new services cases). `npm run build` green. `npm run check:dashes` clean. `git diff --check` clean.
+- Assumptions: Services are single-cell anchors in slice 1; future tier upgrades (basic clinic vs hospital) live as new kinds, not as per-building tier fields. Per-kind coverage radii (police/fire/garbage 6, hospital 8, school 5) are tunable; values reflect the spec's "hospital is the largest, school is the smallest" intuition. Coverage uses Manhattan distance in slice 2 for simplicity since the grid is square; Chebyshev or Euclidean can swap in if playtest reveals a felt difference. Maintenance numbers (1.0 / 1.5 / 0.8 / 0.6) are higher than power infrastructure (0.05 / 0.5) because services bring a coverage benefit beyond raw capacity. Allowing multiple kinds at the same anchor in slice 1 is permissive; the UI slice will add overlap validation so the player cannot stack two services on one cell.
+- GDD coverage: REQ-100 flips `not_started` to `partial`. `implementationRefs` populated with `src/lib/sim/state.ts`, `src/lib/sim/events.ts`. `testRefs` populated with `tests/lib/sim/state.test.ts`, `tests/lib/sim/events.test.ts`. `docs/gdd/19-services.md` Status flips to `partial`; gains a build log entry.
+- Followups: none new. Next REQ-100 slices: Services tab + 5 tools in editor (slice 2), per-cell coverage solver + per-kind happiness signal (REQ-101 / REQ-102), service-specific behaviors and drive-visible signals.
+
 ## 2026-05-06, REQ-095 Economy Slice 1: Treasury + Per-Tick Tax / Maintenance + HUD Readout
 
 - Branch: `feature/20260506-economy-treasury`

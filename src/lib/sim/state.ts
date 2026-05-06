@@ -342,7 +342,81 @@ export const EMPTY_ECONOMY_BUCKET: EconomyBucket = Object.freeze({
   lastTickIncome: 0,
   lastTickMaintenance: 0,
 }) as EconomyBucket
-export const ServicesBucketSchema = z.object({}).passthrough()
+/**
+ * Service buildings (REQ-100 slice 1 of N).
+ *
+ * v1 ships five service kinds matching the section spec: police,
+ * fire, hospital, school, and garbage. Each is a single-cell
+ * footprint anchored at `(row, col)`. Per-kind coverage radius
+ * (`SERVICE_COVERAGE_CELLS`) and per-tick maintenance cost
+ * (`SERVICE_MAINTENANCE_PER_TICK`) constants live alongside.
+ */
+export const ServiceKindSchema = z.enum([
+  'police-station',
+  'fire-station',
+  'hospital',
+  'school',
+  'garbage-depot',
+])
+export type ServiceKind = z.infer<typeof ServiceKindSchema>
+
+/**
+ * Per-kind coverage radius in grid cells (REQ-101 solver, slice 2).
+ * The solver counts a populated cell as "covered" by service kind X
+ * when at least one X service building's anchor is within the radius
+ * (4-direction Chebyshev or L1; v1 picks Manhattan distance for
+ * simplicity since the grid is square). Numbers are tunable; the
+ * ratios reflect the spec's "hospital is the largest, school is the
+ * smallest" intuition.
+ */
+export const SERVICE_COVERAGE_CELLS: Record<ServiceKind, number> = {
+  'police-station': 6,
+  'fire-station': 6,
+  hospital: 8,
+  school: 5,
+  'garbage-depot': 6,
+}
+
+/**
+ * Per-tick maintenance cost per service (REQ-095 + REQ-100). Services
+ * are more expensive than power infrastructure because they bring a
+ * coverage benefit; the economy layer pulls these numbers in slice 2
+ * once `applyEconomyTick` reads from `state.services`.
+ */
+export const SERVICE_MAINTENANCE_PER_TICK: Record<ServiceKind, number> = {
+  'police-station': 1.0,
+  'fire-station': 1.0,
+  hospital: 1.5,
+  school: 0.8,
+  'garbage-depot': 0.6,
+}
+
+/**
+ * One placed service building (REQ-100 slice 1). Single-cell anchor
+ * + kind. v1 has no per-building tier (clinic vs hospital); the
+ * coverage radius is uniform per kind. A future slice can extend
+ * with funding sliders or service quality.
+ */
+export const ServiceBuildingSchema = z
+  .object({
+    kind: ServiceKindSchema,
+    row: z.number().int(),
+    col: z.number().int(),
+  })
+  .strict()
+export type ServiceBuilding = z.infer<typeof ServiceBuildingSchema>
+
+/**
+ * Services bucket (REQ-100 slice 1). Buildings array preserves
+ * placement order; the per-tick coverage solver (slice 2) walks the
+ * array. A future denser-grid optimization can add a per-cell index.
+ */
+export const ServicesBucketSchema = z
+  .object({
+    buildings: z.array(ServiceBuildingSchema),
+  })
+  .strict()
+
 export const DisastersBucketSchema = z.object({}).passthrough()
 
 export type PopulationBucket = z.infer<typeof PopulationBucketSchema>
@@ -354,6 +428,10 @@ export const EMPTY_POPULATION_BUCKET: PopulationBucket = Object.freeze({
 }) as PopulationBucket
 export type WaterBucket = z.infer<typeof WaterBucketSchema>
 export type ServicesBucket = z.infer<typeof ServicesBucketSchema>
+
+export const EMPTY_SERVICES_BUCKET: ServicesBucket = Object.freeze({
+  buildings: Object.freeze([] as ServiceBuilding[]) as ServiceBuilding[],
+}) as ServicesBucket
 export type DisastersBucket = z.infer<typeof DisastersBucketSchema>
 
 /**
@@ -399,6 +477,6 @@ export const EMPTY_SIM_STATE: SimState = Object.freeze({
   power: EMPTY_POWER_BUCKET,
   water: Object.freeze({}) as WaterBucket,
   economy: EMPTY_ECONOMY_BUCKET,
-  services: Object.freeze({}) as ServicesBucket,
+  services: EMPTY_SERVICES_BUCKET,
   disasters: Object.freeze({}) as DisastersBucket,
 }) as SimState

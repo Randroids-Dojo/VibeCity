@@ -165,8 +165,11 @@ describe('EMPTY_SIM_STATE', () => {
 
   it('has every passthrough per-layer bucket as an empty object', () => {
     expect(EMPTY_SIM_STATE.water).toEqual({})
-    expect(EMPTY_SIM_STATE.services).toEqual({})
     expect(EMPTY_SIM_STATE.disasters).toEqual({})
+  })
+
+  it('has services bucket initialized to empty buildings array (REQ-100 slice 1 strict shape)', () => {
+    expect(EMPTY_SIM_STATE.services).toEqual({ buildings: [] })
   })
 
   it('has economy bucket initialized with INITIAL_TREASURY (REQ-095 slice 1)', () => {
