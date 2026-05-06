@@ -48,9 +48,17 @@ export const AUTOSAVE_STATUS_LABEL: Record<AutosaveStatus, string> = {
  * fetch when the city snapshot has not changed since the last saved
  * snapshot avoids that cost.
  *
- * Equality is structural over `pieces` and `buildings` (mood is excluded
- * to mirror REQ-013 hash semantics): same length, same per-index entries
- * by `JSON.stringify`. Pure so it can be unit-tested without React.
+ * Equality is structural over `pieces`, `buildings`, AND `mood`. Mood
+ * is included here even though REQ-013 hashCity excludes it: the
+ * version hash (REQ-013) stays stable across mood-only changes
+ * because the hash function itself omits mood, but the autosave
+ * needs to detect mood changes so a Day -> Night toggle (REQ-088
+ * follow-on) actually persists. Without mood in this equality
+ * check, the autosave skip-on-equal path silently drops the mood
+ * change and the player's preference is lost on refresh.
+ *
+ * Same length / same per-index entries by `JSON.stringify`. Pure so
+ * it can be unit-tested without React.
  */
 export function isCityContentEqual(a: City, b: City): boolean {
   if (a === b) return true
@@ -63,6 +71,9 @@ export function isCityContentEqual(a: City, b: City): boolean {
     if (JSON.stringify(a.buildings[i]) !== JSON.stringify(b.buildings[i])) {
       return false
     }
+  }
+  if (JSON.stringify(a.mood ?? null) !== JSON.stringify(b.mood ?? null)) {
+    return false
   }
   return true
 }
