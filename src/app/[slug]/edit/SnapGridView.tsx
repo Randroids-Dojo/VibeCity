@@ -1,6 +1,6 @@
 import type { PointerEvent as ReactPointerEvent, WheelEvent as ReactWheelEvent } from 'react'
 import type { City } from '@/lib/schemas'
-import type { ZonesBucket } from '@/lib/sim/state'
+import type { PowerBucket, ZonesBucket } from '@/lib/sim/state'
 import {
   CELL_PIXELS,
   GRID_DIAMETER,
@@ -38,6 +38,27 @@ const ZONE_DENSITY_OPACITY = {
   2: 0.78,
   3: 1.0,
 } as const
+
+/**
+ * Per-power-element render constants (REQ-085 slice 2 UI). Plant
+ * fills are kind-distinct: coal is industrial brown, solar is bright
+ * yellow. Power lines render as bright yellow squares, clearly visible
+ * over zoned + piece + building cells. The connectivity solver
+ * (REQ-087, slice 3) will tint lines and lit zones based on per-cell
+ * power status; slice 2 ships static visuals.
+ */
+const POWER_PLANT_FILL = {
+  coal: '#4a3a2a',
+  solar: '#d4b85f',
+} as const
+
+const POWER_PLANT_STROKE = {
+  coal: '#2a1f10',
+  solar: '#a08530',
+} as const
+
+const POWER_LINE_FILL = '#e0a020'
+const POWER_LINE_STROKE = '#a07010'
 import {
   PREVIEW_FILL,
   PREVIEW_FILL_OPACITY,
@@ -178,6 +199,7 @@ export function SnapGrid({
   openEndArrows,
   spawnMarker,
   zones,
+  power,
   onSurfaceWheel,
   onSurfacePointerDown,
 }: {
@@ -202,6 +224,15 @@ export function SnapGrid({
    * warning rings stay legible over a zoned background.
    */
   zones?: ZonesBucket | null
+  /**
+   * Optional sim power layer (REQ-085 slice 2 UI). When supplied,
+   * every line cell renders as a yellow overlay and every plant
+   * renders as a kind-distinct anchor square. Plants and lines
+   * render ABOVE zones (so a plant on a zoned cell stays visible)
+   * but BELOW the connector glyphs and preview overlays so the
+   * place / erase ghosts and open-end warnings stay legible.
+   */
+  power?: PowerBucket | null
   onSurfaceWheel?: (event: ReactWheelEvent<SVGSVGElement>) => void
   onSurfacePointerDown?: (event: ReactPointerEvent<SVGSVGElement>) => void
 }) {
@@ -371,6 +402,53 @@ export function SnapGrid({
                 fillOpacity={ZONE_DENSITY_OPACITY[zone.density]}
                 stroke={ZONE_STROKE[zone.kind]}
                 strokeWidth={1}
+                pointerEvents="none"
+              />
+            )
+          })
+        : null}
+      {power
+        ? Object.keys(power.lines).map((key) => {
+            const [rowStr, colStr] = key.split(',')
+            const row = Number(rowStr)
+            const col = Number(colStr)
+            if (!Number.isFinite(row) || !Number.isFinite(col)) return null
+            const { x, y } = cellToPixel({ row, col })
+            return (
+              <rect
+                key={`power-line-${key}`}
+                data-testid="editor-power-line"
+                data-power-line-row={row}
+                data-power-line-col={col}
+                x={x + CELL_PIXELS / 4}
+                y={y + CELL_PIXELS / 4}
+                width={CELL_PIXELS / 2}
+                height={CELL_PIXELS / 2}
+                fill={POWER_LINE_FILL}
+                stroke={POWER_LINE_STROKE}
+                strokeWidth={1}
+                pointerEvents="none"
+              />
+            )
+          })
+        : null}
+      {power
+        ? power.plants.map((plant, index) => {
+            const { x, y } = cellToPixel({ row: plant.row, col: plant.col })
+            return (
+              <rect
+                key={`power-plant-${plant.kind}-${plant.row}-${plant.col}-${index}`}
+                data-testid="editor-power-plant"
+                data-power-plant-kind={plant.kind}
+                data-power-plant-row={plant.row}
+                data-power-plant-col={plant.col}
+                x={x + 2}
+                y={y + 2}
+                width={CELL_PIXELS - 4}
+                height={CELL_PIXELS - 4}
+                fill={POWER_PLANT_FILL[plant.kind]}
+                stroke={POWER_PLANT_STROKE[plant.kind]}
+                strokeWidth={2}
                 pointerEvents="none"
               />
             )

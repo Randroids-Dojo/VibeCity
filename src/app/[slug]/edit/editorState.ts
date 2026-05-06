@@ -270,19 +270,23 @@ export function erasePiece(city: City, row: number, col: number): City {
 }
 
 /**
- * Editor palette category (REQ-028, REQ-029, REQ-080 unification).
+ * Editor palette category (REQ-028, REQ-029, REQ-080 unification, REQ-085 power UI).
  *
  * `street` selects pieces from `STREET_PALETTE`; `building` selects
  * buildings from `BUILDING_PALETTE`; `zone` selects R/C/I zones from
  * `ZONE_PALETTE` and routes click handlers through the sim event log
- * via `placeZone` / `eraseZone` (REQ-080). The category gates which
- * array (or sim layer) a click mutates so a placed zone never lands
- * in the pieces array, a placed piece never zones a cell, and so on.
- * The erase tool (REQ-022, REQ-029) also follows the active category:
- * erasing in street mode removes a piece, in building mode removes a
- * building, in zone mode removes a zone via `eraseZone`.
+ * via `placeZone` / `eraseZone` (REQ-080); `power` selects power
+ * plants / power lines from `POWER_PALETTE` and routes through
+ * `placePowerPlant` / `runPowerLine` / `eraseLine` (REQ-085). The
+ * category gates which array (or sim layer) a click mutates so a
+ * placed zone never lands in the pieces array, a placed power line
+ * never zones a cell, and so on. The erase tool (REQ-022, REQ-029)
+ * follows the active category: in street / building modes it removes
+ * a piece / building, in zone mode it dispatches `eraseZone`, in
+ * power mode it dispatches `eraseLine` (or in a future slice when
+ * `erasePowerPlant` ships, removes a plant when the click hits one).
  */
-export type PaletteCategory = 'street' | 'building' | 'zone'
+export type PaletteCategory = 'street' | 'building' | 'zone' | 'power'
 
 /**
  * Default palette category on first render (REQ-028).
@@ -354,6 +358,38 @@ export const ZONE_PALETTE: readonly ZonePaletteEntry[] = [
  * click is most likely housing.
  */
 export const DEFAULT_ZONE_TYPE: ZonePaletteEntry['type'] = ZONE_PALETTE[0].type
+
+/**
+ * v1 power palette (REQ-085 slice 2 UI).
+ *
+ * Three tools: a coal plant, a solar plant, and a power line. The
+ * plant tools dispatch `placePowerPlant` with the corresponding
+ * kind; the line tool dispatches `runPowerLine`. v1 plant placement
+ * records only the anchor cell (the substrate slice 1 contract);
+ * the 2x2 footprint validation lands in a follow-on slice. Erase
+ * mode in the power category dispatches `eraseLine` for clicked line
+ * cells; plant erase ships with the future `erasePowerPlant` event.
+ */
+export type PowerPaletteToolType = 'plant-coal' | 'plant-solar' | 'line'
+
+export interface PowerPaletteEntry {
+  type: PowerPaletteToolType
+  label: string
+}
+
+export const POWER_PALETTE: readonly PowerPaletteEntry[] = [
+  { type: 'plant-coal', label: 'Coal Plant' },
+  { type: 'plant-solar', label: 'Solar Plant' },
+  { type: 'line', label: 'Power Line' },
+]
+
+/**
+ * Default selected power tool on first render (REQ-085 slice 2 UI).
+ * The Power line tool is the lowest-friction default because most
+ * power-grid edits are running line cells; the player picks a plant
+ * type explicitly when they want to add capacity.
+ */
+export const DEFAULT_POWER_TOOL: PowerPaletteToolType = 'line'
 
 /**
  * Place a building on the grid (REQ-028, REQ-029).
