@@ -208,16 +208,88 @@ describe('applySimEvent', () => {
     })
   })
 
-  describe('layer-specific events (forward-compat)', () => {
-    it('returns state unchanged for spawnDisaster (REQ-105 not landed yet)', () => {
-      const event: SimEvent = {
+  describe('spawnDisaster + per-tick lifetime (REQ-105 substrate slice 1)', () => {
+    function spawn(
+      kind: 'fire' | 'flood' | 'tornado' | 'earthquake' | 'monster',
+      row: number,
+      col: number,
+    ): SimEvent {
+      return {
         type: 'spawnDisaster',
-        payload: { kind: 'fire', row: 0, col: 0 },
+        payload: { kind, row, col },
         clientCreatedAt: 0,
         authorBuilderId: A_BUILDER,
       }
-      const next = applySimEvent(EMPTY_SIM_STATE, event)
-      expect(next).toBe(EMPTY_SIM_STATE)
+    }
+
+    it('appends a disaster with the per-kind default duration', () => {
+      const next = applySimEvent(EMPTY_SIM_STATE, spawn('fire', 2, 3))
+      expect(next.disasters.active).toHaveLength(1)
+      expect(next.disasters.active[0]).toEqual({
+        kind: 'fire',
+        row: 2,
+        col: 3,
+        ticksRemaining: 60,
+      })
+    })
+
+    it('allows two disasters at the same anchor (no overlap rejection in v1)', () => {
+      let s = applySimEvent(EMPTY_SIM_STATE, spawn('fire', 0, 0))
+      s = applySimEvent(s, spawn('flood', 0, 0))
+      expect(s.disasters.active).toHaveLength(2)
+    })
+
+    it('per-tick decrement reduces ticksRemaining by 1 on each active disaster', () => {
+      let s = applySimEvent(EMPTY_SIM_STATE, spawn('tornado', 0, 0))
+      // Tornado default duration = 40 ticks.
+      s = applySimEvent(s, {
+        type: 'tick',
+        payload: { deltaMs: 250 },
+        clientCreatedAt: 1,
+        authorBuilderId: A_BUILDER,
+      })
+      expect(s.disasters.active[0].ticksRemaining).toBe(39)
+    })
+
+    it('disasters are removed when ticksRemaining reaches 0', () => {
+      let s = applySimEvent(EMPTY_SIM_STATE, spawn('earthquake', 0, 0))
+      // Earthquake default duration = 20 ticks. Tick 20 times to expire.
+      for (let i = 0; i < 20; i++) {
+        s = applySimEvent(s, {
+          type: 'tick',
+          payload: { deltaMs: 250 },
+          clientCreatedAt: i + 1,
+          authorBuilderId: A_BUILDER,
+        })
+      }
+      expect(s.disasters.active).toHaveLength(0)
+    })
+
+    it('two replays of a mixed disaster event log produce identical state', () => {
+      const events: SimEvent[] = [
+        spawn('fire', 0, 0),
+        spawn('flood', 1, 1),
+        ...Array.from({ length: 30 }, (_, i) => ({
+          type: 'tick' as const,
+          payload: { deltaMs: 250 },
+          clientCreatedAt: i,
+          authorBuilderId: A_BUILDER,
+        })),
+        spawn('tornado', 2, 2),
+      ]
+      const a = applyMany(EMPTY_SIM_STATE, events)
+      const b = applyMany(EMPTY_SIM_STATE, events)
+      expect(a.disasters).toEqual(b.disasters)
+    })
+
+    it('tick is identity on disasters bucket when no active disasters', () => {
+      const s1 = applySimEvent(EMPTY_SIM_STATE, {
+        type: 'tick',
+        payload: { deltaMs: 250 },
+        clientCreatedAt: 0,
+        authorBuilderId: A_BUILDER,
+      })
+      expect(s1.disasters).toBe(EMPTY_SIM_STATE.disasters)
     })
   })
 
