@@ -16,6 +16,16 @@ Format for each slice:
 - Followups: any new `F-NNN` entries created. Link to them.
 ```
 
+## 2026-05-06, REQ-105 Slice 8: Monster Damage (Combined Density Drop + Infra Erase)
+
+- Branch: `feature/20260506-monster-damage`
+- PR: #N (when known)
+- Changed: New `MONSTER_DAMAGE_PROBABILITY_PER_TICK = 0.08`. New `src/lib/sim/monsterDamage.ts`: monsterDamageHash + applyMonsterDamage that on a hit drops zone density by 1 AND erases all sim-state infra at the anchor cell. `applyTick` runs it after tornado damage and before the economy reducer; the return state's zones / power / water / services reflect the post-monster buckets.
+- Verification: `npm run type-check` green. `npm test` 2123/2123 unit pass (2111 prior + 12 new monsterDamage cases). `npm run build` green. `npm run check:dashes` clean. `git diff --check` clean. `npx playwright test e2e/sim.spec.ts --project=chromium` 22/22 local.
+- Assumptions: Monster combines fire-style density erosion with tornado-style infra erasure on a single per-tick hit. Probability 8% is between fire (5%) and tornado (10%); 80-tick duration gives ~6 expected hits, the most damage of any disaster kind.
+- GDD coverage: REQ-105 stays `partial` (drive visualization still outstanding). Coverage row implementationRefs gain `src/lib/sim/monsterDamage.ts`; testRefs gain `tests/lib/sim/monsterDamage.test.ts`. With slice 8, all 5 disaster kinds have damage application; drive-mode visualization is the last remaining substrate task for REQ-105.
+- Followups: F-NEW (deferred): drive-mode disaster visualization (per-kind mesh overlay so the player can see disasters from inside their car).
+
 ## 2026-05-06, REQ-105 Slice 7: Tornado Damage Erases Sim-State Infrastructure
 
 - Branch: `feature/20260506-tornado-damage`

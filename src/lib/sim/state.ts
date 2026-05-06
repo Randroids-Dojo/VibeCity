@@ -696,6 +696,16 @@ export const EARTHQUAKE_HAPPINESS_PENALTY = 25
  */
 export const TORNADO_DAMAGE_PROBABILITY_PER_TICK = 0.1
 
+/**
+ * Per-tick monster damage probability (REQ-105 slice 8). Sits
+ * between fire (0.05) and tornado (0.10). Each hit on an active
+ * monster drops the zone density at the monster's anchor by 1
+ * (like fire) AND erases all sim-state infrastructure at the cell
+ * (like tornado). Monsters last 80 ticks so the expected damage
+ * budget per monster is ~6 hits.
+ */
+export const MONSTER_DAMAGE_PROBABILITY_PER_TICK = 0.08
+
 export const DisasterSchema = z
   .object({
     kind: DisasterKindSchema,
