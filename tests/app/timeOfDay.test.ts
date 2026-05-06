@@ -1,5 +1,9 @@
 import { describe, it, expect } from 'vitest'
 import {
+  BUILDING_LIT_WINDOW_HEX_NIGHT,
+  BUILDING_LIT_WINDOW_INTENSITY_NIGHT,
+  STREETLAMP_HEX_NIGHT,
+  STREETLAMP_INTENSITY_NIGHT,
   TIME_OF_DAY_PALETTE,
   resolveTimeOfDay,
   zoneEmissiveHex,
@@ -158,5 +162,19 @@ describe('zoneEmissiveIntensity', () => {
         expect(v).toBeGreaterThanOrEqual(0)
       }
     }
+  })
+})
+
+describe('lit-window night-ambience constants', () => {
+  it('building lit-window emissive is a warm-amber hex with positive intensity', () => {
+    expect(BUILDING_LIT_WINDOW_HEX_NIGHT).toBeGreaterThan(0)
+    expect(BUILDING_LIT_WINDOW_INTENSITY_NIGHT).toBeGreaterThan(0)
+  })
+
+  it('streetlamp night emissive is bright enough to read against the night palette', () => {
+    expect(STREETLAMP_HEX_NIGHT).toBeGreaterThan(0)
+    expect(STREETLAMP_INTENSITY_NIGHT).toBeGreaterThan(
+      BUILDING_LIT_WINDOW_INTENSITY_NIGHT,
+    )
   })
 })
