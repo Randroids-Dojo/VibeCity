@@ -5,10 +5,13 @@ import {
   DEFAULT_TAX_RATES,
   EMPTY_SIM_STATE,
   GROWTH_INTERVAL_TICKS,
+  PowerPlantKindSchema,
   SimSpeedSchema,
   TaxRatesSchema,
   ZoneKindSchema,
+  powerLineKey,
   zoneCellKey,
+  type PowerPlant,
   type SimState,
   type ZoneCell,
   type ZoneDensity,
@@ -141,7 +144,64 @@ export const EraseZoneEventSchema = EventMetaSchema.extend({
 export type EraseZoneEvent = z.infer<typeof EraseZoneEventSchema>
 
 /**
- * Layer-specific event schemas reserved for forward-compat (REQ-085
+ * `placePowerPlant` event (REQ-085 power slice 1 of N). Adds a plant
+ * at `(row, col)` with the given kind. v1 records the anchor cell
+ * only; the 2x2 footprint resolution lands with the UI slice when
+ * placement validation against pieces / buildings / lines / other
+ * plants is needed. A `placePowerPlant` on a cell that already hosts
+ * the same kind of plant returns identity (no-op idempotent click).
+ */
+export const PlacePowerPlantEventSchema = EventMetaSchema.extend({
+  type: z.literal('placePowerPlant'),
+  payload: z
+    .object({
+      kind: PowerPlantKindSchema,
+      row: z.number().int(),
+      col: z.number().int(),
+    })
+    .strict(),
+}).strict()
+export type PlacePowerPlantEvent = z.infer<typeof PlacePowerPlantEventSchema>
+
+/**
+ * `runPowerLine` event (REQ-085 power slice 1 of N). Marks `(row,
+ * col)` as a power line cell. Lines are single-cell pieces; the
+ * connectivity solver (REQ-087, slice 2) computes connected
+ * components by walking the line cells. A `runPowerLine` on a cell
+ * that already has a line returns identity.
+ */
+export const RunPowerLineEventSchema = EventMetaSchema.extend({
+  type: z.literal('runPowerLine'),
+  payload: z
+    .object({
+      row: z.number().int(),
+      col: z.number().int(),
+    })
+    .strict(),
+}).strict()
+export type RunPowerLineEvent = z.infer<typeof RunPowerLineEventSchema>
+
+/**
+ * `eraseLine` event (REQ-085 power slice 1 of N). Removes the line
+ * cell at `(row, col)`. No-op if the cell does not have a line.
+ * Plants are erased via a future `erasePowerPlant` event (slice 3
+ * along with the UI tool). v1 reducer ignores the event when the
+ * cell has no line so client-side optimistic clicks can dispatch
+ * without checking the local map first.
+ */
+export const EraseLineEventSchema = EventMetaSchema.extend({
+  type: z.literal('eraseLine'),
+  payload: z
+    .object({
+      row: z.number().int(),
+      col: z.number().int(),
+    })
+    .strict(),
+}).strict()
+export type EraseLineEvent = z.infer<typeof EraseLineEventSchema>
+
+/**
+ * Layer-specific event schemas reserved for forward-compat (REQ-090
  * through REQ-105).
  *
  * Reserved in the union for forward-compat so a city built on a newer
@@ -151,15 +211,13 @@ export type EraseZoneEvent = z.infer<typeof EraseZoneEventSchema>
  * (see `applySimEvent` below). Each layer slice replaces its placeholder
  * schema with a strict spec when it lands.
  *
- * `placeZone` and `eraseZone` are NOT in this list because REQ-080
- * slice 1 ships their strict schemas; the discriminated union below
- * routes them to their typed variants.
+ * `placeZone` / `eraseZone` (REQ-080) and `placePowerPlant` /
+ * `runPowerLine` / `eraseLine` (REQ-085) are NOT in this list because
+ * their owning slices ship strict schemas; the discriminated union
+ * below routes them to their typed variants.
  */
 const PlaceholderLayerEventSchema = EventMetaSchema.extend({
   type: z.enum([
-    'runPowerLine',
-    'eraseLine',
-    'placePowerPlant',
     'placeWaterSource',
     'placeServiceBuilding',
     'spawnDisaster',
@@ -177,6 +235,9 @@ export const SimEventSchema = z.discriminatedUnion('type', [
   SetTaxRateEventSchema,
   PlaceZoneEventSchema,
   EraseZoneEventSchema,
+  PlacePowerPlantEventSchema,
+  RunPowerLineEventSchema,
+  EraseLineEventSchema,
   PlaceholderLayerEventSchema,
 ])
 export type SimEvent = z.infer<typeof SimEventSchema>
@@ -205,6 +266,12 @@ export function applySimEvent(state: SimState, event: SimEvent): SimState {
       return applyPlaceZone(state, event)
     case 'eraseZone':
       return applyEraseZone(state, event)
+    case 'placePowerPlant':
+      return applyPlacePowerPlant(state, event)
+    case 'runPowerLine':
+      return applyRunPowerLine(state, event)
+    case 'eraseLine':
+      return applyEraseLine(state, event)
     default:
       // Layer-specific events fall through to no-op until their slice
       // lands and extends the dispatch.
@@ -339,6 +406,64 @@ function applyEraseZone(state: SimState, event: EraseZoneEvent): SimState {
   return {
     ...state,
     zones: { cells: nextCells },
+  }
+}
+
+function applyPlacePowerPlant(
+  state: SimState,
+  event: PlacePowerPlantEvent,
+): SimState {
+  const { kind, row, col } = event.payload
+  // Idempotent on the same anchor + kind: a player clicking twice on
+  // the same anchor with the same plant kind selected gets one plant,
+  // not two. Different kinds at the same anchor stack (the player
+  // intentionally retypes); a future slice can add explicit plant
+  // overwrite semantics if playtest reveals players want it.
+  const existing = state.power.plants.find(
+    (plant) => plant.row === row && plant.col === col && plant.kind === kind,
+  )
+  if (existing) return state
+  const plant: PowerPlant = { kind, row, col }
+  return {
+    ...state,
+    power: {
+      ...state.power,
+      plants: [...state.power.plants, plant],
+    },
+  }
+}
+
+function applyRunPowerLine(
+  state: SimState,
+  event: RunPowerLineEvent,
+): SimState {
+  const { row, col } = event.payload
+  const key = powerLineKey(row, col)
+  if (state.power.lines[key] === true) return state
+  return {
+    ...state,
+    power: {
+      ...state.power,
+      lines: {
+        ...state.power.lines,
+        [key]: true,
+      },
+    },
+  }
+}
+
+function applyEraseLine(state: SimState, event: EraseLineEvent): SimState {
+  const { row, col } = event.payload
+  const key = powerLineKey(row, col)
+  if (state.power.lines[key] !== true) return state
+  const nextLines = { ...state.power.lines }
+  delete nextLines[key]
+  return {
+    ...state,
+    power: {
+      ...state.power,
+      lines: nextLines,
+    },
   }
 }
 

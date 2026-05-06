@@ -12,11 +12,19 @@ import {
   ZonesBucketSchema,
   EMPTY_ZONES_BUCKET,
   zoneCellKey,
+  PowerPlantKindSchema,
+  PowerPlantSchema,
+  PowerBucketSchema,
+  POWER_PLANT_CAPACITY_MW,
+  EMPTY_POWER_BUCKET,
+  powerLineKey,
   type SimSpeed,
   type TaxRates,
   type SimState,
   type ZonesBucket,
   type ZoneCell,
+  type PowerBucket,
+  type PowerPlant,
 } from '@/lib/sim/state'
 
 describe('SimSpeedSchema', () => {
@@ -156,7 +164,6 @@ describe('EMPTY_SIM_STATE', () => {
 
   it('has every passthrough per-layer bucket as an empty object', () => {
     expect(EMPTY_SIM_STATE.population).toEqual({})
-    expect(EMPTY_SIM_STATE.power).toEqual({})
     expect(EMPTY_SIM_STATE.water).toEqual({})
     expect(EMPTY_SIM_STATE.economy).toEqual({})
     expect(EMPTY_SIM_STATE.services).toEqual({})
@@ -165,6 +172,10 @@ describe('EMPTY_SIM_STATE', () => {
 
   it('has zones bucket initialized to empty cells map (REQ-080 slice 1 strict shape)', () => {
     expect(EMPTY_SIM_STATE.zones).toEqual({ cells: {} })
+  })
+
+  it('has power bucket initialized to empty plants + lines (REQ-085 slice 1 strict shape)', () => {
+    expect(EMPTY_SIM_STATE.power).toEqual({ plants: [], lines: {} })
   })
 
   it('is frozen at the top level', () => {
@@ -275,6 +286,108 @@ describe('EMPTY_ZONES_BUCKET', () => {
 
   it('is frozen at the top level', () => {
     expect(Object.isFrozen(EMPTY_ZONES_BUCKET)).toBe(true)
+  })
+})
+
+describe('PowerPlantKindSchema (REQ-085 slice 1)', () => {
+  it('accepts coal and solar', () => {
+    expect(PowerPlantKindSchema.safeParse('coal').success).toBe(true)
+    expect(PowerPlantKindSchema.safeParse('solar').success).toBe(true)
+  })
+
+  it('rejects unknown plant kinds', () => {
+    expect(PowerPlantKindSchema.safeParse('nuclear').success).toBe(false)
+    expect(PowerPlantKindSchema.safeParse('wind').success).toBe(false)
+  })
+})
+
+describe('POWER_PLANT_CAPACITY_MW (REQ-085 slice 1)', () => {
+  it('coal is 100 MW per spec', () => {
+    expect(POWER_PLANT_CAPACITY_MW.coal).toBe(100)
+  })
+
+  it('solar is 30 MW per spec', () => {
+    expect(POWER_PLANT_CAPACITY_MW.solar).toBe(30)
+  })
+
+  it('coal is higher capacity than solar (the spec name pair is the v1 trade-off)', () => {
+    expect(POWER_PLANT_CAPACITY_MW.coal).toBeGreaterThan(
+      POWER_PLANT_CAPACITY_MW.solar,
+    )
+  })
+})
+
+describe('PowerPlantSchema (REQ-085 slice 1)', () => {
+  it('accepts a coal plant at the origin', () => {
+    const plant: PowerPlant = { kind: 'coal', row: 0, col: 0 }
+    expect(PowerPlantSchema.safeParse(plant).success).toBe(true)
+  })
+
+  it('accepts negative coordinates', () => {
+    const plant: PowerPlant = { kind: 'solar', row: -2, col: 5 }
+    expect(PowerPlantSchema.safeParse(plant).success).toBe(true)
+  })
+
+  it('rejects extra fields (strict)', () => {
+    const plant = { kind: 'coal', row: 0, col: 0, capacityMW: 100 }
+    expect(PowerPlantSchema.safeParse(plant).success).toBe(false)
+  })
+
+  it('rejects non-integer coordinates', () => {
+    const plant = { kind: 'coal', row: 1.5, col: 0 }
+    expect(PowerPlantSchema.safeParse(plant).success).toBe(false)
+  })
+})
+
+describe('PowerBucketSchema (REQ-085 slice 1)', () => {
+  it('accepts the empty bucket', () => {
+    expect(PowerBucketSchema.safeParse(EMPTY_POWER_BUCKET).success).toBe(true)
+  })
+
+  it('accepts a populated bucket', () => {
+    const bucket: PowerBucket = {
+      plants: [
+        { kind: 'coal', row: 0, col: 0 },
+        { kind: 'solar', row: 5, col: 5 },
+      ],
+      lines: {
+        '0,1': true,
+        '0,2': true,
+      },
+    }
+    expect(PowerBucketSchema.safeParse(bucket).success).toBe(true)
+  })
+
+  it('rejects extra top-level fields (strict)', () => {
+    const bucket = { plants: [], lines: {}, meterReadings: {} }
+    expect(PowerBucketSchema.safeParse(bucket).success).toBe(false)
+  })
+
+  it('rejects a line value that is not literally true', () => {
+    const bucket = { plants: [], lines: { '0,0': false } }
+    expect(PowerBucketSchema.safeParse(bucket).success).toBe(false)
+  })
+})
+
+describe('EMPTY_POWER_BUCKET', () => {
+  it('is shaped { plants: [], lines: {} }', () => {
+    expect(EMPTY_POWER_BUCKET).toEqual({ plants: [], lines: {} })
+  })
+
+  it('passes PowerBucketSchema', () => {
+    expect(PowerBucketSchema.safeParse(EMPTY_POWER_BUCKET).success).toBe(true)
+  })
+
+  it('is frozen at the top level', () => {
+    expect(Object.isFrozen(EMPTY_POWER_BUCKET)).toBe(true)
+  })
+})
+
+describe('powerLineKey', () => {
+  it('matches the zoneCellKey convention exactly', () => {
+    expect(powerLineKey(3, 4)).toBe(zoneCellKey(3, 4))
+    expect(powerLineKey(0, 0)).toBe(zoneCellKey(0, 0))
+    expect(powerLineKey(-2, 5)).toBe(zoneCellKey(-2, 5))
   })
 })
 

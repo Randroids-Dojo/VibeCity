@@ -203,15 +203,148 @@ describe('applySimEvent', () => {
   })
 
   describe('layer-specific events (forward-compat)', () => {
-    it('returns state unchanged for placePowerPlant (REQ-085 not landed yet)', () => {
+    it('returns state unchanged for placeServiceBuilding (REQ-100 not landed yet)', () => {
       const event: SimEvent = {
-        type: 'placePowerPlant',
-        payload: { kind: 'coal', row: 0, col: 0 },
+        type: 'placeServiceBuilding',
+        payload: { kind: 'police', row: 0, col: 0 },
         clientCreatedAt: 0,
         authorBuilderId: A_BUILDER,
       }
       const next = applySimEvent(EMPTY_SIM_STATE, event)
       expect(next).toBe(EMPTY_SIM_STATE)
+    })
+  })
+
+  describe('placePowerPlant (REQ-085 slice 1)', () => {
+    function placePlant(
+      kind: 'coal' | 'solar',
+      row: number,
+      col: number,
+    ): SimEvent {
+      return {
+        type: 'placePowerPlant',
+        payload: { kind, row, col },
+        clientCreatedAt: 0,
+        authorBuilderId: A_BUILDER,
+      }
+    }
+
+    it('appends a coal plant to the empty bucket', () => {
+      const next = applySimEvent(EMPTY_SIM_STATE, placePlant('coal', 3, 4))
+      expect(next.power.plants).toHaveLength(1)
+      expect(next.power.plants[0]).toEqual({ kind: 'coal', row: 3, col: 4 })
+    })
+
+    it('returns identity on a duplicate plant (same anchor + kind)', () => {
+      const after = applySimEvent(EMPTY_SIM_STATE, placePlant('coal', 0, 0))
+      const again = applySimEvent(after, placePlant('coal', 0, 0))
+      expect(again).toBe(after)
+    })
+
+    it('allows two plants of different kinds at the same anchor', () => {
+      let s = applySimEvent(EMPTY_SIM_STATE, placePlant('coal', 0, 0))
+      s = applySimEvent(s, placePlant('solar', 0, 0))
+      expect(s.power.plants).toHaveLength(2)
+    })
+
+    it('appends multiple plants at distinct anchors', () => {
+      let s = applySimEvent(EMPTY_SIM_STATE, placePlant('coal', 0, 0))
+      s = applySimEvent(s, placePlant('solar', 5, 5))
+      s = applySimEvent(s, placePlant('coal', 2, 7))
+      expect(s.power.plants).toHaveLength(3)
+    })
+
+    it('does not mutate the input state', () => {
+      const before = JSON.parse(JSON.stringify(EMPTY_SIM_STATE))
+      applySimEvent(EMPTY_SIM_STATE, placePlant('coal', 0, 0))
+      expect(EMPTY_SIM_STATE).toEqual(before)
+    })
+
+    it('preserves zones / other buckets when placing a plant', () => {
+      const seeded: SimEvent[] = [
+        {
+          type: 'placeZone',
+          payload: { kind: 'residential', row: 0, col: 0 },
+          clientCreatedAt: 0,
+          authorBuilderId: A_BUILDER,
+        },
+      ]
+      const withZone = applyMany(EMPTY_SIM_STATE, seeded)
+      const next = applySimEvent(withZone, placePlant('coal', 5, 5))
+      expect(next.zones.cells['0,0']).toEqual({
+        kind: 'residential',
+        density: 0,
+      })
+      expect(next.power.plants).toHaveLength(1)
+    })
+  })
+
+  describe('runPowerLine + eraseLine (REQ-085 slice 1)', () => {
+    function runLine(row: number, col: number): SimEvent {
+      return {
+        type: 'runPowerLine',
+        payload: { row, col },
+        clientCreatedAt: 0,
+        authorBuilderId: A_BUILDER,
+      }
+    }
+
+    function eraseLine(row: number, col: number): SimEvent {
+      return {
+        type: 'eraseLine',
+        payload: { row, col },
+        clientCreatedAt: 0,
+        authorBuilderId: A_BUILDER,
+      }
+    }
+
+    it('adds a single line cell', () => {
+      const next = applySimEvent(EMPTY_SIM_STATE, runLine(0, 1))
+      expect(next.power.lines['0,1']).toBe(true)
+    })
+
+    it('returns identity on a duplicate runPowerLine', () => {
+      const after = applySimEvent(EMPTY_SIM_STATE, runLine(0, 0))
+      const again = applySimEvent(after, runLine(0, 0))
+      expect(again).toBe(after)
+    })
+
+    it('runs many line cells', () => {
+      let s = EMPTY_SIM_STATE
+      for (let i = 0; i < 5; i++) s = applySimEvent(s, runLine(0, i))
+      expect(Object.keys(s.power.lines)).toHaveLength(5)
+    })
+
+    it('eraseLine returns identity when no line at the cell', () => {
+      const next = applySimEvent(EMPTY_SIM_STATE, eraseLine(0, 0))
+      expect(next).toBe(EMPTY_SIM_STATE)
+    })
+
+    it('eraseLine removes a placed line cell', () => {
+      const after = applySimEvent(EMPTY_SIM_STATE, runLine(2, 3))
+      const erased = applySimEvent(after, eraseLine(2, 3))
+      expect(erased.power.lines['2,3']).toBeUndefined()
+    })
+
+    it('eraseLine only removes the targeted cell', () => {
+      let s = applySimEvent(EMPTY_SIM_STATE, runLine(0, 0))
+      s = applySimEvent(s, runLine(0, 1))
+      const erased = applySimEvent(s, eraseLine(0, 0))
+      expect(erased.power.lines['0,0']).toBeUndefined()
+      expect(erased.power.lines['0,1']).toBe(true)
+    })
+
+    it('two replays of the same power event log derive identical state', () => {
+      const events: SimEvent[] = [
+        { type: 'placePowerPlant', payload: { kind: 'coal', row: 0, col: 0 }, clientCreatedAt: 0, authorBuilderId: A_BUILDER },
+        runLine(0, 1),
+        runLine(0, 2),
+        runLine(0, 3),
+        eraseLine(0, 2),
+      ]
+      const a = applyMany(EMPTY_SIM_STATE, events)
+      const b = applyMany(EMPTY_SIM_STATE, events)
+      expect(a).toEqual(b)
     })
   })
 

@@ -1287,9 +1287,15 @@
       "id": "REQ-085",
       "requirement": "Power grid: two v1 plant types (coal 100MW, solar 30MW) with 2x2 footprints, single-cell power-line pieces forming connected components, per-tick connectivity solver assigning powered / brownout / unpowered to each demanding cell, drive-mode visible signal (lit windows at night for powered residential, dark for browned out), per-cell pollution from coal plants feeding into citizen happiness.",
       "gddRef": "docs/gdd/16-power-grid.md",
-      "status": "not_started",
-      "implementationRefs": [],
-      "testRefs": [],
+      "status": "partial",
+      "implementationRefs": [
+        "src/lib/sim/state.ts",
+        "src/lib/sim/events.ts"
+      ],
+      "testRefs": [
+        "tests/lib/sim/state.test.ts",
+        "tests/lib/sim/events.test.ts"
+      ],
       "followupRefs": []
     },
     {
