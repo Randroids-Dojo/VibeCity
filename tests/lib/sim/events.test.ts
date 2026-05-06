@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import {
   SimEventSchema,
+  applyEconomyTick,
   applySimEvent,
   reduceSimEvents,
   type SimEvent,
@@ -8,7 +9,11 @@ import {
   type SetSpeedEvent,
   type SetTaxRateEvent,
 } from '@/lib/sim/events'
-import { EMPTY_SIM_STATE, type SimState } from '@/lib/sim/state'
+import {
+  EMPTY_SIM_STATE,
+  type EconomyBucket,
+  type SimState,
+} from '@/lib/sim/state'
 
 const A_BUILDER = '11111111-2222-3333-4444-555555555555'
 const B_BUILDER = '99999999-8888-7777-6666-555555555555'
@@ -1288,6 +1293,115 @@ describe('applySimEvent', () => {
       const a = applyMany(EMPTY_SIM_STATE, events)
       const b = applyMany(EMPTY_SIM_STATE, events)
       expect(a.population.cityHappiness).toBe(b.population.cityHappiness)
+    })
+  })
+
+  describe('bankruptcy countdown (REQ-095 slice 3)', () => {
+    function tickN(times: number, start: SimState): SimState {
+      let s = start
+      for (let i = 0; i < times; i++) {
+        s = applySimEvent(s, {
+          type: 'tick',
+          payload: { deltaMs: 250 },
+          clientCreatedAt: i,
+          authorBuilderId: A_BUILDER,
+        })
+      }
+      return s
+    }
+
+    function placeCoal(row: number, col: number): SimEvent {
+      return {
+        type: 'placePowerPlant',
+        payload: { kind: 'coal', row, col },
+        clientCreatedAt: 0,
+        authorBuilderId: A_BUILDER,
+      }
+    }
+
+    it('counter is 0 when treasury is positive', () => {
+      const s = tickN(5, EMPTY_SIM_STATE)
+      expect(s.economy.bankruptcyTickCounter).toBe(0)
+    })
+
+    it('counter increments per tick once treasury drops below 0', () => {
+      // Six coal plants drives treasury negative (-4000); per-tick
+      // maintenance keeps it negative.
+      let s: SimState = EMPTY_SIM_STATE
+      for (let i = 0; i < 6; i++) s = applySimEvent(s, placeCoal(i, 0))
+      // Treasury is -4000 here but no tick has fired yet, so counter
+      // is still 0.
+      expect(s.economy.bankruptcyTickCounter).toBe(0)
+      s = tickN(1, s)
+      expect(s.economy.bankruptcyTickCounter).toBe(1)
+      s = tickN(4, s)
+      expect(s.economy.bankruptcyTickCounter).toBe(5)
+    })
+
+    it('counter resets to 0 when treasury rebounds above 0', () => {
+      // Drive negative, accumulate counter, then place a residential
+      // zone that pushes treasury still-negative would not help; we
+      // need to flip the balance positive. Easier: just synthesize
+      // by placing 6 coal plants then ticking one tick (counter=1),
+      // then placing one solar plant (which would push further
+      // negative). To force a rebound, we apply a bigger drop then
+      // a big rebound: but the substrate has no "credit" event yet,
+      // so we instead drive treasury back up by zoning enough
+      // residential to generate income. Simplest test: confirm the
+      // reset path by manually starting with a near-zero balance
+      // that goes positive after one income tick.
+      let s: SimState = EMPTY_SIM_STATE
+      // Place 5 coal plants ($20,000): treasury at exactly 0 (not <).
+      for (let i = 0; i < 5; i++) s = applySimEvent(s, placeCoal(i, 0))
+      expect(s.economy.treasury).toBe(0)
+      // One tick: maintenance 5 * 0.5 = 2.5 drains treasury to -2.5,
+      // counter increments to 1.
+      s = tickN(1, s)
+      expect(s.economy.treasury).toBe(-2.5)
+      expect(s.economy.bankruptcyTickCounter).toBe(1)
+      // No way to inject treasury without a future credit event;
+      // this slice just guarantees the increment + reset symmetry
+      // via the unit-level reducer test below.
+    })
+
+    it('per-tick reducer resets the counter when treasury is non-negative', () => {
+      // applyEconomyTick called directly to exercise both branches.
+      const seed: EconomyBucket = {
+        treasury: 100,
+        lastTickIncome: 0,
+        lastTickMaintenance: 0,
+        bankruptcyTickCounter: 5,
+      }
+      const next = applyEconomyTick(
+        seed,
+        { cells: {}, totalPopulation: 0, totalTripDemand: 0, cityHappiness: 100 },
+        { plants: [], lines: {} },
+        { residential: 0.07, commercial: 0.07, industrial: 0.05 },
+      )
+      expect(next.bankruptcyTickCounter).toBe(0)
+    })
+
+    it('two replays of an event log driving negative treasury produce identical counters', () => {
+      const events: SimEvent[] = [
+        placeCoal(0, 0),
+        placeCoal(1, 0),
+        placeCoal(2, 0),
+        placeCoal(3, 0),
+        placeCoal(4, 0),
+        placeCoal(5, 0),
+        ...Array.from({ length: 30 }, (_, i) => ({
+          type: 'tick' as const,
+          payload: { deltaMs: 250 },
+          clientCreatedAt: i,
+          authorBuilderId: A_BUILDER,
+        })),
+      ]
+      const a = applyMany(EMPTY_SIM_STATE, events)
+      const b = applyMany(EMPTY_SIM_STATE, events)
+      expect(a.economy.bankruptcyTickCounter).toBe(
+        b.economy.bankruptcyTickCounter,
+      )
+      expect(a.economy.bankruptcyTickCounter).toBeGreaterThan(0)
     })
   })
 

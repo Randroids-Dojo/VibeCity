@@ -16,6 +16,16 @@ Format for each slice:
 - Followups: any new `F-NNN` entries created. Link to them.
 ```
 
+## 2026-05-06, REQ-095 Economy Slice 3: Bankruptcy Countdown HUD
+
+- Branch: `feature/20260506-bankruptcy-countdown`
+- PR: #N (when known)
+- Changed: New `BANKRUPTCY_THRESHOLD_TICKS = 240` (60s at default 4Hz). `EconomyBucketSchema` extended with `bankruptcyTickCounter: z.number().int().min(0)`; `EMPTY_ECONOMY_BUCKET` seeds it 0. `applyEconomyTick` now increments the counter when `nextTreasury < 0` and resets it on rebound; identity-on-no-change includes the counter so long steady-state deficit runs do not allocate per tick. EditorClient HUD adds an `editor-sim-bankruptcy-warning` span when counter > 0 ("bankrupt in Ns", red and bold).
+- Verification: `npm run type-check` green. `npm test` 2016/2016 unit pass (2011 prior + 5 new bankruptcy cases + updated bucket shape assertion). `npm run build` green. `npm run check:dashes` clean. `git diff --check` clean. `npx playwright test e2e/sim.spec.ts --project=chromium` 20/20 local (19 prior + 1 new bankruptcy-warning case).
+- Assumptions: 60s deadline at default 4Hz tick rate. Long enough for the player to react after the warning fires, short enough to be a real pressure. Counter is consecutive-deficit ticks (not cumulative) so a player who briefly dips negative then rebounds gets a clean reset. Slice 4 will add `resetBudget` (zero out treasury back to `INITIAL_TREASURY`, keep city intact) and `resetCity` (full sim reset) events fired when the counter hits the threshold; for now the warning is informational and the sim continues to run past the threshold.
+- GDD coverage: REQ-095 stays `partial` (resetBudget / resetCity events slice 4 + commercial/industrial revenue REQ-083 still outstanding). `docs/gdd/18-economy.md` Status stays `partial`; gains a build log entry.
+- Followups: none new. Next REQ-095 slice 4: resetBudget + resetCity events that fire on the countdown hitting threshold; modal HUD that surfaces the choice when warning crosses some midpoint (e.g., 30s remaining).
+
 ## 2026-05-06, REQ-095 Economy Slice 2: Build Cost on Placement
 
 - Branch: `feature/20260506-build-costs`

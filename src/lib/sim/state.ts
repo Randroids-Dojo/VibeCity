@@ -441,6 +441,18 @@ export const POWER_PLANT_BUILD_COST: Record<PowerPlantKind, number> = {
   coal: 4000,
   solar: 2500,
 }
+
+/**
+ * Bankruptcy threshold (REQ-095 slice 3). The economy reducer counts
+ * consecutive ticks where `treasury < 0` and the HUD warning fires
+ * once the counter is positive. The threshold names the deadline:
+ * after `BANKRUPTCY_THRESHOLD_TICKS` consecutive deficit ticks the
+ * city is bankrupt and the player is offered reset-budget /
+ * reset-city (slice 4 lands those reset events). At the default 4Hz
+ * tick rate, 240 ticks = 60 seconds; long enough for the player to
+ * react after the warning fires, short enough to be a real pressure.
+ */
+export const BANKRUPTCY_THRESHOLD_TICKS = 240
 export const POWER_LINE_BUILD_COST = 5
 export const ZONE_BUILD_COST: Record<'residential' | 'commercial' | 'industrial', number> = {
   residential: 50,
@@ -468,6 +480,7 @@ export const EconomyBucketSchema = z
     treasury: z.number(),
     lastTickIncome: z.number().min(0),
     lastTickMaintenance: z.number().min(0),
+    bankruptcyTickCounter: z.number().int().min(0),
   })
   .strict()
 export type EconomyBucket = z.infer<typeof EconomyBucketSchema>
@@ -476,6 +489,7 @@ export const EMPTY_ECONOMY_BUCKET: EconomyBucket = Object.freeze({
   treasury: INITIAL_TREASURY,
   lastTickIncome: 0,
   lastTickMaintenance: 0,
+  bankruptcyTickCounter: 0,
 }) as EconomyBucket
 /**
  * Service buildings (REQ-100 slice 1 of N).

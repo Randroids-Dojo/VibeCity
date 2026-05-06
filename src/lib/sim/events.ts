@@ -552,10 +552,17 @@ export function applyEconomyTick(
     lineCount * LINE_MAINTENANCE_PER_TICK +
     plantCount * PLANT_MAINTENANCE_PER_TICK
   const nextTreasury = economy.treasury + income - maintenance
+  // Bankruptcy countdown (REQ-095 slice 3). Increments while the
+  // running balance is below zero; resets to 0 the moment the
+  // treasury rebounds. The HUD reads `bankruptcyTickCounter > 0`
+  // to surface the warning span.
+  const nextBankruptcyCounter =
+    nextTreasury < 0 ? economy.bankruptcyTickCounter + 1 : 0
   if (
     economy.lastTickIncome === income &&
     economy.lastTickMaintenance === maintenance &&
-    economy.treasury === nextTreasury
+    economy.treasury === nextTreasury &&
+    economy.bankruptcyTickCounter === nextBankruptcyCounter
   ) {
     return economy
   }
@@ -563,6 +570,7 @@ export function applyEconomyTick(
     treasury: nextTreasury,
     lastTickIncome: income,
     lastTickMaintenance: maintenance,
+    bankruptcyTickCounter: nextBankruptcyCounter,
   }
 }
 

@@ -716,6 +716,51 @@ test('editor: Water palette includes a sewage-treatment tool that paints a plant
   await expect(plantOverlay).toBeVisible()
 })
 
+test('editor: bankruptcy warning fires once treasury drops below 0 (REQ-095)', async ({
+  page,
+}) => {
+  await page.route('**/api/city/**', async (route, req) => {
+    if (req.method() === 'PUT') {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          slug: 'sim-bankruptcy-spec',
+          versionHash: '0'.repeat(64),
+          updatedAt: 0,
+        }),
+      })
+    } else {
+      await route.fallback()
+    }
+  })
+
+  await page.goto('/sim-bankruptcy-spec/edit')
+  await page.getByTestId('editor-sim-speed-0').click()
+
+  // Place six coal plants ($24,000 of build cost vs $20,000 starter
+  // treasury). Treasury goes to -4000 immediately.
+  await page.getByTestId('editor-palette-category-power').click()
+  const palette = page.getByTestId('editor-palette')
+  await palette.locator('[data-power-tool="plant-coal"]').click()
+  for (let row = 0; row < 6; row++) {
+    await page
+      .locator(
+        `[data-testid="editor-snap-grid"] rect[data-cell-row="${row}"][data-cell-col="0"]`,
+      )
+      .click()
+  }
+
+  const treasury = page.getByTestId('editor-sim-treasury')
+  await expect(treasury).toHaveAttribute('data-sim-treasury', '-4000')
+
+  // Resume at 4x; the first tick that fires while treasury is negative
+  // increments the bankruptcy counter and the warning surfaces.
+  await page.getByTestId('editor-sim-speed-4').click()
+  const warning = page.getByTestId('editor-sim-bankruptcy-warning')
+  await expect(warning).toBeVisible({ timeout: 4000 })
+})
+
 test('editor: city happiness HUD drops below 100 when populated cells go unmanaged (REQ-092)', async ({
   page,
 }) => {
