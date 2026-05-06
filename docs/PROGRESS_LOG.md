@@ -16,6 +16,16 @@ Format for each slice:
 - Followups: any new `F-NNN` entries created. Link to them.
 ```
 
+## 2026-05-06, REQ-075 Citizens Slice 1: Population Bucket + Density-Tied Growth
+
+- Branch: `feature/20260506-citizens-population`
+- PR: #N (when known)
+- Changed: First citizens-layer slice. Tightened `PopulationBucketSchema` from passthrough to strict `{ cells: Record<key, { residents, tripDemand }>, totalPopulation, totalTripDemand }`. New `RESIDENTIAL_CAPACITY_BY_DENSITY` constant: density 0 = 0 residents, density 1 = 4, density 2 = 12, density 3 = 40. Population follows zone density automatically: when a residential zone advances on a growth tick, residents jump to the per-density capacity. The sync runs on every growth tick (every 20 ticks), iterating zone cells and setting residents based on density; commercial / industrial cells are skipped (they will contribute to job slots in REQ-083 follow-on); cells removed via eraseZone clean up on the next sync. `totalPopulation` summary is recomputed each sync so the editor toolbar's new readout displays the live count without a per-render reduce. `EMPTY_POPULATION_BUCKET` frozen at module load.
+- Verification: `npm run type-check` green. `npm test` 1903/1903 unit pass (1894 prior + 9 new population cases). `npm run build` green. `npm run check:dashes` clean. `git diff --check` clean. `npx playwright test e2e/sim.spec.ts --project=chromium` 11/11 local (10 prior + 1 new population-readout case).
+- Assumptions: Residents-per-density numbers (0/4/12/40) are tunable. The SimCity 2000 small-house / mid-density / apartment progression is the rough mental model. Commercial and industrial zones do not generate residents in slice 1; their job-slot contribution lands in REQ-083. Population sync runs only on growth ticks (every 5s at 1x) so an eraseZone clears the population entry within ~5s; immediate cleanup is a follow-on slice if the lag becomes a felt bug. The bucket carries `tripDemand` per cell as a placeholder for REQ-078; slice 1 keeps it at 0 because the per-tick increment lands with the trip-generation slice. The `syncPopulationToZones` helper is identity-on-no-change so a growth tick that did not actually mutate any density nor have any cells to clean up returns the same bucket reference, keeping the engine's downstream consumers (the React hook re-render pass) stable.
+- GDD coverage: REQ-075 flips `not_started` to `partial`. `implementationRefs` populated with `src/lib/sim/state.ts`, `src/lib/sim/events.ts`, `src/app/[slug]/edit/EditorClient.tsx`. `testRefs` populated with `tests/lib/sim/state.test.ts`, `tests/lib/sim/events.test.ts`, `e2e/sim.spec.ts`. `docs/gdd/14-citizens.md` Status flips to `partial`; gains a build log entry.
+- Followups: none new. Next REQ-075 slices: pedestrians (REQ-076), NPC vehicle traffic (REQ-077, dot already filed; will be unblocked once the centerline geometry is back from p4 deferral or a simpler cell-to-cell path covers it), trip demand counters (REQ-078), demand-gated growth (REQ-079).
+
 ## 2026-05-06, Editor Day/Night Mood Toggle (REQ-088 follow-on)
 
 - Branch: `feature/20260506-day-night-toggle`

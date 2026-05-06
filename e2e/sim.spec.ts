@@ -309,6 +309,50 @@ test('editor: day/night mood toggle flips active state and triggers autosave (RE
   })
 })
 
+test('editor: residential zone growth bumps population readout (REQ-075)', async ({
+  page,
+}) => {
+  await page.route('**/api/city/**', async (route, req) => {
+    if (req.method() === 'PUT') {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          slug: 'sim-population-spec',
+          versionHash: '0'.repeat(64),
+          updatedAt: 0,
+        }),
+      })
+    } else {
+      await route.fallback()
+    }
+  })
+
+  await page.goto('/sim-population-spec/edit')
+
+  // Default sim speed = 1x, growth tick fires every 20 ticks (~5s).
+  // To accelerate the test, swap to 4x so the first growth tick lands
+  // in ~1.25s.
+  await page.getByTestId('editor-sim-speed-4').click()
+
+  // Switch to Zones, paint a residential cell at the origin.
+  await page.getByTestId('editor-palette-category-zone').click()
+  const cell = page.locator(
+    '[data-testid="editor-snap-grid"] rect[data-cell-row="0"][data-cell-col="0"]',
+  )
+  await cell.click()
+
+  // Population starts at 0 because density 0 = 0 residents.
+  const popReadout = page.getByTestId('editor-sim-population')
+  await expect(popReadout).toHaveAttribute('data-sim-population', '0')
+
+  // Wait for the first growth tick at 4x speed (250ms / 4 = 62.5ms per
+  // tick, 20 ticks = 1.25s). Use 4s timeout to absorb CI flake.
+  await expect(popReadout).toHaveAttribute('data-sim-population', '4', {
+    timeout: 4000,
+  })
+})
+
 test('editor: place plant + line + adjacent zone -> zone shows powered status (REQ-087)', async ({
   page,
 }) => {

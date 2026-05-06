@@ -477,6 +477,129 @@ describe('applySimEvent', () => {
     })
   })
 
+  describe('population follows zone density (REQ-075 slice 1)', () => {
+    function tickN(times: number, start: SimState): SimState {
+      let s = start
+      for (let i = 0; i < times; i++) {
+        s = applySimEvent(s, {
+          type: 'tick',
+          payload: { deltaMs: 250 },
+          clientCreatedAt: i,
+          authorBuilderId: A_BUILDER,
+        })
+      }
+      return s
+    }
+
+    function placeZone(
+      kind: 'residential' | 'commercial' | 'industrial',
+      row: number,
+      col: number,
+    ): SimEvent {
+      return {
+        type: 'placeZone',
+        payload: { kind, row, col },
+        clientCreatedAt: 0,
+        authorBuilderId: A_BUILDER,
+      }
+    }
+
+    it('placing a residential zone keeps residents at 0 (density 0 has 0 capacity)', () => {
+      const s = applySimEvent(EMPTY_SIM_STATE, placeZone('residential', 0, 0))
+      // placeZone alone does not run a growth tick, so density stays 0
+      // and population stays empty.
+      expect(s.population.cells['0,0']).toBeUndefined()
+      expect(s.population.totalPopulation).toBe(0)
+    })
+
+    it('first growth tick on a residential zone bumps residents to 4 (density 1 capacity)', () => {
+      let s = applySimEvent(EMPTY_SIM_STATE, placeZone('residential', 0, 0))
+      s = tickN(20, s)
+      expect(s.zones.cells['0,0']?.density).toBe(1)
+      expect(s.population.cells['0,0']?.residents).toBe(4)
+      expect(s.population.totalPopulation).toBe(4)
+    })
+
+    it('density 2 bumps residents to 12; density 3 to 40', () => {
+      let s = applySimEvent(EMPTY_SIM_STATE, placeZone('residential', 0, 0))
+      s = tickN(40, s)
+      expect(s.zones.cells['0,0']?.density).toBe(2)
+      expect(s.population.cells['0,0']?.residents).toBe(12)
+      expect(s.population.totalPopulation).toBe(12)
+      s = tickN(20, s)
+      expect(s.zones.cells['0,0']?.density).toBe(3)
+      expect(s.population.cells['0,0']?.residents).toBe(40)
+      expect(s.population.totalPopulation).toBe(40)
+    })
+
+    it('commercial and industrial zones do not contribute to residents', () => {
+      let s = applySimEvent(EMPTY_SIM_STATE, placeZone('commercial', 0, 0))
+      s = applySimEvent(s, placeZone('industrial', 1, 1))
+      s = tickN(20, s)
+      expect(s.population.totalPopulation).toBe(0)
+    })
+
+    it('totalPopulation sums across multiple residential cells', () => {
+      let s = applySimEvent(EMPTY_SIM_STATE, placeZone('residential', 0, 0))
+      s = applySimEvent(s, placeZone('residential', 1, 1))
+      s = applySimEvent(s, placeZone('residential', 2, 2))
+      s = tickN(20, s)
+      // 3 cells at density 1 = 3 * 4 = 12
+      expect(s.population.totalPopulation).toBe(12)
+    })
+
+    it('eraseZone removes the cell from the population bucket', () => {
+      let s = applySimEvent(EMPTY_SIM_STATE, placeZone('residential', 0, 0))
+      s = tickN(20, s)
+      expect(s.population.cells['0,0']?.residents).toBe(4)
+      s = applySimEvent(s, {
+        type: 'eraseZone',
+        payload: { row: 0, col: 0 },
+        clientCreatedAt: 0,
+        authorBuilderId: A_BUILDER,
+      })
+      // After eraseZone the population bucket still carries the prior
+      // resident count until the next growth tick syncs it back to
+      // zone density. This is acceptable for slice 1 (the population
+      // is eventually consistent with zones); slice 2 can choose to
+      // sync immediately on eraseZone if the lag becomes a felt bug.
+      expect(s.population.cells['0,0']?.residents).toBe(4)
+      // Next tick re-syncs (density 0 = 0, but zone is now gone).
+      s = tickN(20, s)
+      expect(s.population.cells['0,0']).toBeUndefined()
+      expect(s.population.totalPopulation).toBe(0)
+    })
+
+    it('paused sim does not advance population', () => {
+      let s = applySimEvent(EMPTY_SIM_STATE, placeZone('residential', 0, 0))
+      s = applySimEvent(s, {
+        type: 'setSpeed',
+        payload: { speed: 0 },
+        clientCreatedAt: 0,
+        authorBuilderId: A_BUILDER,
+      })
+      s = tickN(20, s)
+      expect(s.population.totalPopulation).toBe(0)
+    })
+
+    it('two replays of the same event log derive identical population', () => {
+      const events: SimEvent[] = [
+        placeZone('residential', 0, 0),
+        placeZone('residential', 1, 0),
+        placeZone('commercial', 0, 1),
+        ...Array.from({ length: 20 }, (_, i) => ({
+          type: 'tick' as const,
+          payload: { deltaMs: 250 },
+          clientCreatedAt: i,
+          authorBuilderId: A_BUILDER,
+        })),
+      ]
+      const a = applyMany(EMPTY_SIM_STATE, events)
+      const b = applyMany(EMPTY_SIM_STATE, events)
+      expect(a.population).toEqual(b.population)
+    })
+  })
+
   describe('per-tick zone growth (REQ-081 slice 1)', () => {
     function tickN(times: number, start: SimState): SimState {
       let s = start

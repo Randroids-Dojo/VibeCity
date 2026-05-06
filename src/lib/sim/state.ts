@@ -68,7 +68,64 @@ export const DEFAULT_TAX_RATES: TaxRates = {
  * has not landed yet means its events fall through to a no-op
  * return-state-unchanged.
  */
-export const PopulationBucketSchema = z.object({}).passthrough()
+/**
+ * Residential capacity per density step (REQ-075 slice 1 of N).
+ *
+ * Mirrors the SimCity 2000 organic-growth taxonomy: density 0 is
+ * "zoned but nothing built" (0 residents), density 1 is a single
+ * small house (4), density 2 is a mid-density block (12), density 3
+ * is an apartment building (40). Numbers are tunable; playtest can
+ * scale them as the citizen happiness / employment layers come
+ * online and we see what feels right.
+ *
+ * Commercial and industrial zones do not contribute to residents
+ * but DO contribute to job slots in a follow-on slice (REQ-083).
+ * v1 ships only the residential capacity numbers because residents
+ * are the first visible-on-the-grid sim signal.
+ */
+export const RESIDENTIAL_CAPACITY_BY_DENSITY: Record<0 | 1 | 2 | 3, number> = {
+  0: 0,
+  1: 4,
+  2: 12,
+  3: 40,
+}
+
+/**
+ * Per-cell population state (REQ-075 slice 1 of N).
+ *
+ * `residents` is the integer count of citizens living in this cell.
+ * `tripDemand` counts the pending trips this cell has generated
+ * toward commercial / industrial cells; the NPC vehicle layer
+ * (REQ-077, future ambient-AI dot) drains this counter by spawning
+ * cars from the cell. v1 ships the field on the cell so the
+ * vehicle layer has something to read; the per-tick increment
+ * lands in slice 2.
+ */
+export const PopulationCellSchema = z
+  .object({
+    residents: z.number().int().min(0),
+    tripDemand: z.number().int().min(0),
+  })
+  .strict()
+export type PopulationCell = z.infer<typeof PopulationCellSchema>
+
+/**
+ * Population bucket (REQ-075 slice 1).
+ *
+ * `cells` is keyed by `"row,col"` matching `zoneCellKey` so a future
+ * slice that joins zones with population (e.g. "render the resident
+ * count on top of each residential zone cell") compares string keys
+ * directly. `totalPopulation` is the sum across cells; carrying it
+ * on the bucket avoids an O(N) reduce on every read in the HUD.
+ * `totalTripDemand` likewise.
+ */
+export const PopulationBucketSchema = z
+  .object({
+    cells: z.record(z.string(), PopulationCellSchema),
+    totalPopulation: z.number().int().min(0),
+    totalTripDemand: z.number().int().min(0),
+  })
+  .strict()
 
 /**
  * Zone cell state (REQ-080 zoning slice 1 of N).
@@ -250,6 +307,12 @@ export const ServicesBucketSchema = z.object({}).passthrough()
 export const DisastersBucketSchema = z.object({}).passthrough()
 
 export type PopulationBucket = z.infer<typeof PopulationBucketSchema>
+
+export const EMPTY_POPULATION_BUCKET: PopulationBucket = Object.freeze({
+  cells: Object.freeze({}) as Record<string, PopulationCell>,
+  totalPopulation: 0,
+  totalTripDemand: 0,
+}) as PopulationBucket
 export type WaterBucket = z.infer<typeof WaterBucketSchema>
 export type EconomyBucket = z.infer<typeof EconomyBucketSchema>
 export type ServicesBucket = z.infer<typeof ServicesBucketSchema>
@@ -293,7 +356,7 @@ export const EMPTY_SIM_STATE: SimState = Object.freeze({
   simTimeMs: 0,
   speed: DEFAULT_SIM_SPEED,
   taxRates: DEFAULT_TAX_RATES,
-  population: Object.freeze({}) as PopulationBucket,
+  population: EMPTY_POPULATION_BUCKET,
   zones: EMPTY_ZONES_BUCKET,
   power: EMPTY_POWER_BUCKET,
   water: Object.freeze({}) as WaterBucket,
