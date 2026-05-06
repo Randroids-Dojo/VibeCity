@@ -1493,6 +1493,118 @@ describe('applySimEvent', () => {
     })
   })
 
+  describe('resetBudget + resetCity (REQ-095 slice 4)', () => {
+    function placeCoal(row: number, col: number): SimEvent {
+      return {
+        type: 'placePowerPlant',
+        payload: { kind: 'coal', row, col },
+        clientCreatedAt: 0,
+        authorBuilderId: A_BUILDER,
+      }
+    }
+
+    it('resetBudget restores treasury to INITIAL_TREASURY', () => {
+      // Drive treasury negative with 6 coal plants ($24,000 vs $20,000).
+      let s: SimState = EMPTY_SIM_STATE
+      for (let i = 0; i < 6; i++) s = applySimEvent(s, placeCoal(i, 0))
+      expect(s.economy.treasury).toBe(-4000)
+      const next = applySimEvent(s, {
+        type: 'resetBudget',
+        payload: {},
+        clientCreatedAt: 0,
+        authorBuilderId: A_BUILDER,
+      })
+      expect(next.economy.treasury).toBe(20000)
+    })
+
+    it('resetBudget zeros bankruptcyTickCounter', () => {
+      let s: SimState = EMPTY_SIM_STATE
+      for (let i = 0; i < 6; i++) s = applySimEvent(s, placeCoal(i, 0))
+      // One tick to set the counter.
+      s = applySimEvent(s, {
+        type: 'tick',
+        payload: { deltaMs: 250 },
+        clientCreatedAt: 1,
+        authorBuilderId: A_BUILDER,
+      })
+      expect(s.economy.bankruptcyTickCounter).toBe(1)
+      const next = applySimEvent(s, {
+        type: 'resetBudget',
+        payload: {},
+        clientCreatedAt: 2,
+        authorBuilderId: A_BUILDER,
+      })
+      expect(next.economy.bankruptcyTickCounter).toBe(0)
+    })
+
+    it('resetBudget preserves placed infrastructure (other layers untouched)', () => {
+      let s = applySimEvent(EMPTY_SIM_STATE, placeCoal(0, 0))
+      s = applySimEvent(s, {
+        type: 'placeZone',
+        payload: { kind: 'residential', row: 1, col: 1 },
+        clientCreatedAt: 0,
+        authorBuilderId: A_BUILDER,
+      })
+      const next = applySimEvent(s, {
+        type: 'resetBudget',
+        payload: {},
+        clientCreatedAt: 0,
+        authorBuilderId: A_BUILDER,
+      })
+      expect(next.power.plants).toHaveLength(1)
+      expect(next.zones.cells['1,1']).toBeDefined()
+    })
+
+    it('resetCity returns the EMPTY_SIM_STATE reference', () => {
+      let s = applySimEvent(EMPTY_SIM_STATE, placeCoal(0, 0))
+      s = applySimEvent(s, {
+        type: 'placeZone',
+        payload: { kind: 'residential', row: 1, col: 1 },
+        clientCreatedAt: 0,
+        authorBuilderId: A_BUILDER,
+      })
+      const next = applySimEvent(s, {
+        type: 'resetCity',
+        payload: {},
+        clientCreatedAt: 0,
+        authorBuilderId: A_BUILDER,
+      })
+      expect(next).toBe(EMPTY_SIM_STATE)
+    })
+
+    it('two replays of an event log including resetBudget produce identical state', () => {
+      const events: SimEvent[] = [
+        placeCoal(0, 0),
+        placeCoal(1, 0),
+        placeCoal(2, 0),
+        placeCoal(3, 0),
+        placeCoal(4, 0),
+        placeCoal(5, 0),
+        {
+          type: 'tick',
+          payload: { deltaMs: 250 },
+          clientCreatedAt: 0,
+          authorBuilderId: A_BUILDER,
+        },
+        {
+          type: 'resetBudget',
+          payload: {},
+          clientCreatedAt: 1,
+          authorBuilderId: A_BUILDER,
+        },
+        {
+          type: 'tick',
+          payload: { deltaMs: 250 },
+          clientCreatedAt: 2,
+          authorBuilderId: A_BUILDER,
+        },
+      ]
+      const a = applyMany(EMPTY_SIM_STATE, events)
+      const b = applyMany(EMPTY_SIM_STATE, events)
+      expect(a).toEqual(b)
+    })
+  })
+
   describe('build cost on placement (REQ-095 slice 2)', () => {
     it('placing a residential zone deducts ZONE_BUILD_COST.residential', () => {
       const s = applySimEvent(EMPTY_SIM_STATE, {
