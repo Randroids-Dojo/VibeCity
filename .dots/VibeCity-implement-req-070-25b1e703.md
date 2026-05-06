@@ -1,9 +1,9 @@
 ---
 title: "implement: REQ-070..074 sim engine substrate (tick scheduler + event sourcing + reconcile)"
-status: open
+status: active
 priority: 1
 issue-type: task
-created-at: "2026-05-05T22:36:02.353723-05:00"
+created-at: "\"2026-05-05T22:36:02.353723-05:00\""
 ---
 
 ## Description
