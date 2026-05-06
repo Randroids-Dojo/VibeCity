@@ -508,6 +508,19 @@ export const CAR_CABIN_COLOR = 0x8e2a1f
 export const CAR_WHEEL_COLOR = 0x1c1c1c
 
 export const CAR_LENGTH = CELL_SIZE * 0.7
+
+/**
+ * Player car GLB model (REQ-047 fidelity bump). Asset lives in
+ * `public/models/car.glb` (Kenney's Car Kit 3.1, CC0). Loaded
+ * lazily by the drive scene so the empty city does not download
+ * the model. Yaw offset rotates the model so its forward axis
+ * aligns with the integrator's heading-zero direction; scale tunes
+ * the model dimensions to roughly match `CAR_LENGTH` /
+ * `CAR_WIDTH`.
+ */
+export const CAR_MODEL_URL = '/models/car.glb'
+export const CAR_MODEL_YAW_OFFSET = Math.PI / 2
+export const CAR_MODEL_SCALE = 0.33
 export const CAR_WIDTH = CELL_SIZE * 0.36
 export const CAR_BODY_HEIGHT = CELL_SIZE * 0.18
 export const CAR_CABIN_LENGTH = CELL_SIZE * 0.34

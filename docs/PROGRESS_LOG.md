@@ -76,6 +76,16 @@ Format for each slice:
 - GDD coverage: REQ-095 stays `partial` (REQ-083 was its main blocker; remaining gaps are demand bars REQ-082). REQ-083 row gets a build log entry in `docs/gdd/15-zoning-and-business.md`.
 - Followups: F-NEW (deferred): REQ-082 R/C/I demand bars; jobs-need-residents gate.
 
+## 2026-05-06, Port car.glb (REQ-047 Fidelity Bump)
+
+- Branch: `feature/20260506-car-glb`
+- PR: #N (when known)
+- Changed: Copied Kenney Car Kit 3.1 (CC0) into `public/models/`. New constants in `driveScene.ts` for yaw offset + scale. DriveSceneClient marks placeholder body / cabin / wheels with `userData.placeholder = true`, lazy-loads the GLB on mount, hides the placeholder children once it lands, adds the GLB as a child of the same car group so the integrator continues driving the loaded model. Effect cleanup `cancelled` flag prevents a deferred load from mutating after unmount.
+- Verification: `npm run type-check` green. `npm test` 2131/2131 unit. `npm run build` green. `npm run check:dashes` clean. `git diff --check` clean. `npx playwright test e2e/drive.spec.ts --project=chromium` 4/4 local.
+- Assumptions: GLB scale (0.33) matches CELL_SIZE-relative physics tuning ported from VibeRacer (where CELL_SIZE=20 and CAR_MODEL_SCALE=1.65; ratio 1.65/5 ≈ 0.33 since VibeCity CELL_SIZE=4). The yaw offset (π/2) aligns the Kenney model's forward axis with the integrator's heading-zero direction. Physics tuning is preserved: the placeholder's invisible meshes remain the source of truth for wheel-locator math; only visuals swap. Drive e2e validates the canvas mounts; the actual mesh swap is a screenshot regression target.
+- GDD coverage: REQ-047 stays `done` (was already shipped via the placeholder primitives; this is a polish bump). `docs/gdd/09-drive-mode.md` gains a build log entry.
+- Followups: F-NEW (deferred): per-driver paint variants, live recolor support (the Kenney atlas already supports it via the body material; VibeRacer's `setCarPaint` pattern ports straight over).
+
 ## 2026-05-06, REQ-082 R/C/I Demand HUD Readouts
 
 - Branch: `feature/20260506-rci-demand`

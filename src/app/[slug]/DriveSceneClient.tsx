@@ -3,6 +3,7 @@
 import Link from 'next/link'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import * as THREE from 'three'
+import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js'
 import type { BuilderId, City, Slug } from '@/lib/schemas'
 import { useSimEngine } from '@/lib/sim/useSimEngine'
 import { solvePowerStatus, type CellPowerStatus } from '@/lib/sim/powerSolver'
@@ -49,6 +50,9 @@ import {
   buildingRoofY,
   carBodyY,
   carCabinY,
+  CAR_MODEL_SCALE,
+  CAR_MODEL_URL,
+  CAR_MODEL_YAW_OFFSET,
   carWheelOffsets,
   cellToWorld,
   cityWorldBounds,
@@ -577,6 +581,10 @@ export function DriveSceneClient({
     // DOM nodes, so capturing the identity is safe across re-renders.
     const capturedSteerStick = steerStickRef.current
     const capturedThrottleStick = throttleStickRef.current
+    // Cancellation flag for async work (GLTFLoader). Flipped to
+    // `true` in the cleanup branch so a deferred load that resolves
+    // after unmount becomes a no-op.
+    let cancelled = false
 
     // Renderer + scene + camera bootstrap. The canvas is owned by
     // React so the renderer attaches to it directly instead of
@@ -1146,6 +1154,7 @@ export function DriveSceneClient({
         bodyMaterial,
       )
       bodyMesh.position.set(0, carBodyY(), 0)
+      bodyMesh.userData = { placeholder: true }
       car.add(bodyMesh)
 
       const cabinMaterial = new THREE.MeshLambertMaterial({
@@ -1162,6 +1171,7 @@ export function DriveSceneClient({
       // Cabin sits slightly toward the rear so the windscreen line
       // reads forward; the orbit camera then sees a clear nose.
       cabinMesh.position.set(0, carCabinY(), CAR_CABIN_OFFSET)
+      cabinMesh.userData = { placeholder: true }
       car.add(cabinMesh)
 
       const wheelGeometry = new THREE.CylinderGeometry(
@@ -1180,10 +1190,41 @@ export function DriveSceneClient({
       for (const offset of carWheelOffsets()) {
         const wheel = new THREE.Mesh(wheelGeometry, wheelMaterial)
         wheel.position.set(offset.x, CAR_WHEEL_RADIUS, offset.z)
+        wheel.userData = { placeholder: true }
         car.add(wheel)
       }
 
       scene.add(car)
+
+      // Lazy-load the Kenney Car GLB (REQ-047 fidelity bump). Mounted
+      // as a child of the same `car` group so the integrator's
+      // position / rotation continue to drive the loaded model. The
+      // placeholder body / cabin / wheel meshes stay in the tree but
+      // are hidden once the GLB lands; if loading fails the
+      // placeholders stay visible so the player still has a car.
+      const carGroup = car
+      const gltfLoader = new GLTFLoader()
+      gltfLoader.load(
+        CAR_MODEL_URL,
+        (gltf) => {
+          if (cancelled) return
+          const inner = new THREE.Group()
+          inner.rotation.y = CAR_MODEL_YAW_OFFSET
+          inner.scale.setScalar(CAR_MODEL_SCALE)
+          inner.add(gltf.scene)
+          inner.userData = { type: 'car-glb' }
+          for (const child of carGroup.children) {
+            if (child.userData?.placeholder) child.visible = false
+          }
+          carGroup.add(inner)
+        },
+        undefined,
+        (err) => {
+          // Keep placeholder visible on load failure.
+          // eslint-disable-next-line no-console
+          console.warn('Failed to load car.glb', err)
+        },
+      )
     }
 
     // Resize handling. The canvas fills its parent; we read the parent
@@ -1872,6 +1913,7 @@ export function DriveSceneClient({
     }
 
     return () => {
+      cancelled = true
       window.removeEventListener('resize', requestResize)
       if (resizeRafHandle !== null) {
         window.cancelAnimationFrame(resizeRafHandle)
