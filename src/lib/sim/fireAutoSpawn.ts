@@ -64,7 +64,7 @@ export function computeFireAutoSpawn(
   disasters: DisastersBucket,
   tick: number,
 ): Disaster[] {
-  const cellKeys = Object.keys(zones.cells)
+  const cellKeys = Object.keys(zones.cells).sort()
   if (cellKeys.length === 0) return []
   const existingFireKeys = new Set<string>()
   for (const disaster of disasters.active) {
@@ -80,6 +80,7 @@ export function computeFireAutoSpawn(
     const [rowStr, colStr] = key.split(',')
     const row = Number(rowStr)
     const col = Number(colStr)
+    if (!Number.isFinite(row) || !Number.isFinite(col)) continue
     if (existingFireKeys.has(key)) continue
     if (isCoveredByFireStation(row, col, services)) continue
     const roll = fireAutoSpawnHash(tick, row, col)

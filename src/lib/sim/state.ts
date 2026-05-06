@@ -668,13 +668,15 @@ export const FIRE_SPREAD_PROBABILITY_PER_TICK = 0.05
  * lever: zoning industrial without fire-station coverage now has
  * a real cost rather than just a happiness penalty.
  *
- * 0.001 per uncovered industrial cell per tick at the 4Hz default
- * gives roughly one fire per 250 cell-ticks (~62 wall-seconds for a
- * single uncovered industrial cell at 1x). A 10-cell uncovered
- * industrial belt sees a fire every ~6 wall-seconds. Calibrated to
- * be noticeable without overwhelming a coverage-poor starter city.
+ * 0.004 per uncovered industrial cell per tick at the 4Hz default
+ * gives an expected ~250 ticks (~62 wall-seconds at 1x) for a
+ * single uncovered industrial cell to catch fire. A 10-cell
+ * uncovered industrial belt sees the first fire roughly every
+ * ~6 wall-seconds. Calibrated to be noticeable without overwhelming
+ * a coverage-poor starter city. (The earlier 0.001 calibration
+ * mis-multiplied by tick rate; 0.004 reflects the intent.)
  */
-export const FIRE_AUTO_SPAWN_PROBABILITY_PER_TICK = 0.001
+export const FIRE_AUTO_SPAWN_PROBABILITY_PER_TICK = 0.004
 
 /**
  * Per-tick fire damage probability (REQ-105 slice 4). Each active
