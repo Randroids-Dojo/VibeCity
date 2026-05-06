@@ -1,0 +1,40 @@
+---
+title: "implement: sampled centerline geometry layer for trackPath"
+status: open
+priority: 2
+issue-type: task
+created-at: "2026-05-05T21:21:54.350863-05:00"
+---
+
+## Description
+
+Port VibeRacer's `SampledPoint` / `OrderedPiece.samples` / `arcCenter` shape into `src/lib/trackPath.ts` so each cell in the path exposes centerline geometry (`x`, `z`, `heading`, parameterized `t` in `[0, 1]` from entry to exit). Today `OrderedPiece` only carries `entryDir` / `exitDir`. There is no per-piece geometry, which is why REQ-032 wheel contact landed as cell-locator-binary instead of centerline-distance-scored.
+
+## Context
+
+This is the foundation slice for three downstream wins:
+
+1. **F-003 / F-004** (arc45 + diagonal sampled geometry + wheel contact) cannot land without it.
+2. **Per-wheel distance-to-centerline scoring** would let the off-street penalty grade smoothly instead of flipping at cell boundaries (meaningfully better drive feel).
+3. **Ambient AI traffic** (downstream dot) needs a continuous parameter to advance follower cars along the street.
+
+VibeRacer's reference implementation lives at `../VibeRacer/src/game/trackPath.ts`. The existing VibeCity port already has the connectivity layer and the `cellToLocators` map; this slice adds the geometry that those locators were always supposed to expose.
+
+## Affected Files
+
+- `src/lib/trackPath.ts`: extend `OrderedPiece` with `center` / `entry` / `exit` / `arcCenter` / `samples` fields; add `STRAIGHT_LOCAL_SAMPLES`, `LEFT90_LOCAL_SAMPLES`, `RIGHT90_LOCAL_SAMPLES`, `SWEEP_LEFT_LOCAL_SAMPLES`, `SWEEP_RIGHT_LOCAL_SAMPLES`, `MEGA_SWEEP_LEFT_LOCAL_SAMPLES`, `MEGA_SWEEP_RIGHT_LOCAL_SAMPLES`, `HAIRPIN_LOCAL_SAMPLES`, `SCURVE_LOCAL_SAMPLES` constants; add `sampledPointsForPiece(piece)` resolver
+- `tests/lib/trackPath.test.ts`: add cases for each piece type's sample set (entry-equal-first-sample, exit-equal-last-sample, monotonic `t`, heading-tangent-to-direction, fresh-array contract)
+
+## Implementation Notes
+
+- arc45 and diagonal samples are out of scope for this slice. They land in the follow-on (F-003 / F-004) so this slice stays reviewable. `sampledPointsForPiece` returns `null` for those types.
+- The intersection piece samples one straight per arm (4 sample arrays, indexed by which arm); for v1, return only the pass-through-by-entry-port arm so the existing intersection walker behavior stays unchanged.
+- Do NOT rewrite the connectivity layer. This slice adds geometry on top of the existing `OrderedPiece` shape, it does not refactor the walker.
+
+## Verify
+
+- [ ] `npm run type-check` passes
+- [ ] `npm run test` passes; new test cases cover every supported piece type
+- [ ] No em-dash / en-dash via grep
+- [ ] `validateConnections` still returns the same results for every existing test case (no regression on the connectivity layer)
+- [ ] Existing `summarizeTrackPath` and `cellToLocators` consumers continue to work without changes

@@ -23,6 +23,17 @@ Keep `Q-NNN` IDs monotonically increasing. When a question resolves, leave the e
 
 ## Open
 
+### Q-009: SimCity-like mechanics vs Pillar 3 ("core first, sim later")
+
+- Context: User direction at the start of an autonomous research loop on 2026-05-05 included "Find the fun. Figure out an actually fun feature set. Implement the real track pieces from ../VibeRacer, add real SimCity like mechanics, add a real car model." Coverage stands at 60/69 done = 87%, comfortably past the 80% threshold that activates `docs/FUN_FACTOR_AUDIT.md`. The "real track pieces" and "real car model" parts already have an in-scope path (the schema accepts every Phase 1 piece type, REQ-047 anticipates a fidelity-bump slice for the car). The "real SimCity like mechanics" part directly conflicts with `docs/gdd/01-vision-and-pillars.md` Pillar 3 ("Core first, sim later") and `docs/gdd/99-out-of-scope.md` which fence power, water, zoning, citizens, traffic AI, taxes, demand curves, disasters out of v1 entirely. AGENTS.md Rule 7 says when in doubt, ask, and prefer simple consistent flows.
+- Options:
+  - A. Honor pillar 3 strictly: ship NO sim mechanics in v1. The "find the fun" loop focuses on visual / feel polish (real car model, sampled centerline geometry, lit-window night ambience). Sim mechanics defer to v1.1 once the v1 loop ships and is validated.
+  - B. Open a narrow "ambient city life" carveout: visual-only signals that look like sim but persist no schema state and run no logic deeper than per-frame movement. Concrete carveout list: ambient AI traffic (follower cars on placed segments), day/night-only mood control, lit windows at night, optional traffic lights at intersection cells. None of these add sim state to `CitySchema`. None of them gate the player's drive. All of them are visible from inside the car within 30 seconds.
+  - C. Pivot the GDD: rewrite pillar 3 to admit a sim layer, scope a real population / demand / economy slice, and accept the v1 release-date hit. The Flatline failure mode warning in `docs/IMPLEMENTATION_PLAN.md` cuts both ways: shipping pillar-perfect-but-sterile is one failure; thrashing the pillars and shipping nothing is the other.
+- Recommended default: B. The user direction phrasing ("SimCity LIKE", not "be SimCity") and the simultaneous "find the fun" framing read as "the city should feel alive while I drive", not "implement an economy". Carveout B delivers the perceived sim feel without violating the schema-state fence or the persistence contract. A stays as the explicit fallback if dev overrides; C is the heavier alternative if dev wants to break the v1 fence properly. Ship under B unless overridden: the immediate downstream slices are the lit-window night ambience dot and the ambient-AI-traffic dot, both of which carry their own `## Verify` blocks and can ship independently.
+- Status: open
+- Resolution:
+
 ### Q-002: Build / drive page topology
 
 - Context: VibeRacer ships two separate pages (`/[slug]` for drive, `/[slug]/edit` for editor). VibeCity's pillar 1 ("Build it. Drive it. Build more.") wants the toggle to feel like one click, not a save-and-reload round trip. We can either inherit VibeRacer's two-page split or collapse to a single page with a build / drive mode switch.
