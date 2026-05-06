@@ -659,6 +659,24 @@ export const DISASTER_DEFAULT_DURATION_TICKS: Record<DisasterKind, number> = {
 export const FIRE_SPREAD_PROBABILITY_PER_TICK = 0.05
 
 /**
+ * Per-tick fire auto-spawn probability (REQ-105 + REQ-100 follow-on).
+ *
+ * Each tick, every industrial zone cell with density > 0 that is
+ * NOT covered by a fire-station rolls a deterministic hash. A roll
+ * below this probability spawns a fresh fire at that cell. Cells
+ * covered by a fire-station never auto-ignite, which is the gameplay
+ * lever: zoning industrial without fire-station coverage now has
+ * a real cost rather than just a happiness penalty.
+ *
+ * 0.001 per uncovered industrial cell per tick at the 4Hz default
+ * gives roughly one fire per 250 cell-ticks (~62 wall-seconds for a
+ * single uncovered industrial cell at 1x). A 10-cell uncovered
+ * industrial belt sees a fire every ~6 wall-seconds. Calibrated to
+ * be noticeable without overwhelming a coverage-poor starter city.
+ */
+export const FIRE_AUTO_SPAWN_PROBABILITY_PER_TICK = 0.001
+
+/**
  * Per-tick fire damage probability (REQ-105 slice 4). Each active
  * fire on a zoned cell rolls once per tick; on a hit, the cell's
  * density drops by 1. A fire on a density-0 cell or unzoned cell is
