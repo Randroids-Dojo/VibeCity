@@ -5,7 +5,7 @@ import { computeFireSpread } from './fireSpread'
 import { applyFloodDamage } from './floodDamage'
 import { applyMonsterDamage } from './monsterDamage'
 import { solveSewageStatus } from './sewageSolver'
-import { solveServicesCoverage } from './servicesSolver'
+import { coverageCount, solveServicesCoverage } from './servicesSolver'
 import { applyTornadoDamage } from './tornadoDamage'
 import {
   DEFAULT_SIM_SPEED,
@@ -805,14 +805,7 @@ export function computeCityHappiness(
     let totalCoverage = 0
     for (const key of populatedKeys) {
       const c = coverageMap[key]
-      const count = c
-        ? (c['police-station'] ? 1 : 0) +
-          (c['fire-station'] ? 1 : 0) +
-          (c.hospital ? 1 : 0) +
-          (c.school ? 1 : 0) +
-          (c['garbage-depot'] ? 1 : 0)
-        : 0
-      totalCoverage += count
+      totalCoverage += c ? coverageCount(c) : 0
     }
     const avgCoverage = totalCoverage / populatedKeys.length
     coveragePenalty = (5 - avgCoverage) * COVERAGE_HAPPINESS_WEIGHT

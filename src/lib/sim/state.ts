@@ -701,7 +701,10 @@ export const EARTHQUAKE_HAPPINESS_PENALTY = 25
  *   - Coverage penalty: `(5 - avgCoverage) * COVERAGE_HAPPINESS_WEIGHT`
  *     where `avgCoverage` averages the per-populated-cell coverage
  *     count from `solveServicesCoverage` (range 0..5). Max 20 when
- *     no services exist; 0 when all five are within range.
+ *     `avgCoverage === 0` (no service kind reaches any populated
+ *     cell, whether services are absent or just out of range); 0
+ *     when all five service kinds are within range of every
+ *     populated cell.
  *   - Tax penalty: `max(0, residentialRate - TAX_NEUTRAL_RATE) * TAX_HAPPINESS_WEIGHT`.
  *     7% residential rate is below neutral so the default starter
  *     city has no tax penalty; rates above 10% drag happiness down

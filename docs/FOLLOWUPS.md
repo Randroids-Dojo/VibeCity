@@ -45,6 +45,34 @@ Keep `F-NNN` IDs monotonically increasing. When a followup ships, leave the entr
 
 ## Nice To Have
 
+### F-017: Scope `solveServicesCoverage` to populated cells in `computeCityHappiness`
+
+- Priority: nice-to-have
+- Context: REQ-076 multi-input happiness calls `solveServicesCoverage(zones, services)` every tick, which sorts and walks all zoned cells even when only `populatedKeys` need a coverage count. On large cities the per-tick cost is `O(|zones| log |zones| + |zones| * |services|)`. Surfaced by Copilot review on PR #130.
+- Blocker: none.
+- Unblock condition: add a solver API (e.g. `solveServicesCoverageForKeys(keys, services)` or a per-key `cellCoverage(row, col, services)` shortcut already exported from `servicesSolver.ts`) and switch `computeCityHappiness` to compute coverage only for the populated subset. Verify happiness values stay numerically identical to the current full-zones implementation.
+
+### F-016: Resident abandonment when cell happiness drops below threshold
+
+- Priority: nice-to-have
+- Context: REQ-076 multi-input happiness reduces `cityHappiness` to a single 0..100 average but does not yet act on it. The natural follow-on (REQ-079 spec text) is per-cell decline: when a cell's local happiness stays below a threshold for N ticks, residents leave (density steps down or `residents` count drops toward 0). This closes the citizen growth-and-decline feedback loop.
+- Blocker: per-cell happiness is not yet tracked; only `cityHappiness` city-wide is exposed. A per-cell happiness reducer is a prerequisite, or the city-wide score has to suffice as the first cut (less satisfying because every cell loses residents at once).
+- Unblock condition: pick one of (a) extend the happiness layer to per-cell (cheap if the four-input formula is just localized: waste per cell, coverage per cell, tax flat, earthquakes per cell), or (b) ship a city-wide abandonment first (simpler, less fun) and split-iterate from there.
+
+### F-015: Per-cell happiness heatmap overlay in editor
+
+- Priority: nice-to-have
+- Context: REQ-076 multi-input happiness now reads four signals (waste, coverage, taxes, earthquakes), but the HUD only shows the city-wide average. A heatmap overlay (similar to REQ-101 zone coverage stroke) would let the player see which neighborhoods are underserved and why. Surfaced as a polish followup after REQ-076 happiness landed.
+- Blocker: depends on F-016 / a per-cell happiness reducer landing. The editor cannot render per-cell happiness it does not yet compute.
+- Unblock condition: per-cell happiness state lands. Heatmap then renders four palette tabs (waste / coverage / tax / earthquake) so the player can inspect the contributing penalty.
+
+### F-014: Pedestrian sprite render proxies (REQ-076 spec text)
+
+- Priority: nice-to-have
+- Context: REQ-076's GDD bullet covers "Citizen pedestrians: sidewalk-adjacent residential and commercial cells spawn ambient pedestrian sprites that walk between cells. Pedestrians are pure render; they have no goals, no schedule, no path-finding. Density mirrors population." The 2026-05-06 multi-input happiness slice took the REQ-076 ID but only addressed the citizen-happiness model; the pedestrian render proxies remain.
+- Blocker: none in principle. The drive scene already loads a Three.js scene per slug and the existing ambient traffic helper (`src/app/[slug]/ambientTraffic.ts`) is a near-template for sidewalk pedestrian motion.
+- Unblock condition: port the ambient traffic pattern to a sidewalk-pedestrian variant. Spawn density mirrors `population.totalPopulation`; despawn at any other zone cell. No goals, no schedule.
+
 ### F-008: Seed a non-empty city in playwright so visible-movement assertions land
 
 - Priority: nice-to-have

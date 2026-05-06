@@ -1425,6 +1425,18 @@ describe('applySimEvent', () => {
       expect(s.population.cityHappiness).toBe(30)
     })
 
+    it('residential tax above TAX_NEUTRAL_RATE drops happiness by (rate - neutral) * TAX_HAPPINESS_WEIGHT', () => {
+      // Drained sewage + treatment plant in coverage = 80 baseline (no
+      // tax penalty at default 7% since 7% < TAX_NEUTRAL_RATE 10%).
+      // Raising residential tax to 14% adds tax penalty
+      // = (0.14 - 0.10) * 200 = 8, so happiness drops to 72.
+      let s = applySimEvent(EMPTY_SIM_STATE, placeRes(0, 1))
+      s = applySimEvent(s, placeTreatmentPlant(0, 0))
+      s = applySimEvent(s, setTax('residential', 0.14))
+      s = tickN(20, s)
+      expect(s.population.cityHappiness).toBe(72)
+    })
+
     it('two replays of the same event log derive identical happiness', () => {
       const events: SimEvent[] = [
         placeRes(0, 0),
