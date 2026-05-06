@@ -137,10 +137,10 @@ describe('SimStateSchema', () => {
   })
 
   it('accepts populated layer buckets (passthrough until layer slice ships)', () => {
-    // Water bucket is still passthrough, so a custom shape parses.
+    // Disasters bucket is still passthrough, so a custom shape parses.
     const state: SimState = {
       ...EMPTY_SIM_STATE,
-      water: { reservoirCapacity: 100 },
+      disasters: { activeFires: 3 },
     }
     expect(SimStateSchema.safeParse(state).success).toBe(true)
   })
@@ -164,8 +164,11 @@ describe('EMPTY_SIM_STATE', () => {
   })
 
   it('has every passthrough per-layer bucket as an empty object', () => {
-    expect(EMPTY_SIM_STATE.water).toEqual({})
     expect(EMPTY_SIM_STATE.disasters).toEqual({})
+  })
+
+  it('has water bucket initialized to empty sources + pipes (REQ-090 slice 1 strict shape)', () => {
+    expect(EMPTY_SIM_STATE.water).toEqual({ sources: [], pipes: {} })
   })
 
   it('has services bucket initialized to empty buildings array (REQ-100 slice 1 strict shape)', () => {

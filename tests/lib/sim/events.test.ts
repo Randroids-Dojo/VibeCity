@@ -600,6 +600,105 @@ describe('applySimEvent', () => {
     })
   })
 
+  describe('water layer events (REQ-090 slice 1)', () => {
+    function placeSource(
+      kind: 'water-tower' | 'pump-station',
+      row: number,
+      col: number,
+    ): SimEvent {
+      return {
+        type: 'placeWaterSource',
+        payload: { kind, row, col },
+        clientCreatedAt: 0,
+        authorBuilderId: A_BUILDER,
+      }
+    }
+
+    function runPipe(
+      kind: 'water' | 'sewage',
+      row: number,
+      col: number,
+    ): SimEvent {
+      return {
+        type: 'runWaterPipe',
+        payload: { kind, row, col },
+        clientCreatedAt: 0,
+        authorBuilderId: A_BUILDER,
+      }
+    }
+
+    function erasePipe(row: number, col: number): SimEvent {
+      return {
+        type: 'eraseWaterPipe',
+        payload: { row, col },
+        clientCreatedAt: 0,
+        authorBuilderId: A_BUILDER,
+      }
+    }
+
+    it('appends a single water tower', () => {
+      const next = applySimEvent(EMPTY_SIM_STATE, placeSource('water-tower', 0, 0))
+      expect(next.water.sources).toHaveLength(1)
+      expect(next.water.sources[0]).toEqual({
+        kind: 'water-tower',
+        row: 0,
+        col: 0,
+      })
+    })
+
+    it('returns identity on duplicate water source anchor + kind', () => {
+      const after = applySimEvent(EMPTY_SIM_STATE, placeSource('pump-station', 0, 0))
+      const again = applySimEvent(after, placeSource('pump-station', 0, 0))
+      expect(again).toBe(after)
+    })
+
+    it('runs a water pipe', () => {
+      const next = applySimEvent(EMPTY_SIM_STATE, runPipe('water', 0, 1))
+      expect(next.water.pipes['0,1']).toBe('water')
+    })
+
+    it('runs a sewage pipe', () => {
+      const next = applySimEvent(EMPTY_SIM_STATE, runPipe('sewage', 0, 2))
+      expect(next.water.pipes['0,2']).toBe('sewage')
+    })
+
+    it('returns identity on duplicate same-kind pipe', () => {
+      const after = applySimEvent(EMPTY_SIM_STATE, runPipe('water', 0, 0))
+      const again = applySimEvent(after, runPipe('water', 0, 0))
+      expect(again).toBe(after)
+    })
+
+    it('overwrites pipe kind when a different kind is run on the same cell', () => {
+      let s = applySimEvent(EMPTY_SIM_STATE, runPipe('water', 0, 0))
+      s = applySimEvent(s, runPipe('sewage', 0, 0))
+      expect(s.water.pipes['0,0']).toBe('sewage')
+    })
+
+    it('eraseWaterPipe removes a placed pipe', () => {
+      let s = applySimEvent(EMPTY_SIM_STATE, runPipe('water', 0, 0))
+      s = applySimEvent(s, erasePipe(0, 0))
+      expect(s.water.pipes['0,0']).toBeUndefined()
+    })
+
+    it('eraseWaterPipe is identity when no pipe at the cell', () => {
+      const next = applySimEvent(EMPTY_SIM_STATE, erasePipe(0, 0))
+      expect(next).toBe(EMPTY_SIM_STATE)
+    })
+
+    it('two replays of the same water event log derive identical state', () => {
+      const events: SimEvent[] = [
+        placeSource('water-tower', 0, 0),
+        runPipe('water', 0, 1),
+        runPipe('water', 0, 2),
+        runPipe('sewage', 1, 2),
+        erasePipe(0, 1),
+      ]
+      const a = applyMany(EMPTY_SIM_STATE, events)
+      const b = applyMany(EMPTY_SIM_STATE, events)
+      expect(a.water).toEqual(b.water)
+    })
+  })
+
   describe('placeServiceBuilding + eraseServiceBuilding (REQ-100 slice 1)', () => {
     function placeService(
       kind:

@@ -1321,9 +1321,15 @@
       "id": "REQ-090",
       "requirement": "Water and sewage: two source types (water-tower 50, pump-station 200), single-cell pipe pieces, sewage waste production per populated cell flowing toward sewage-treatment plants via dedicated sewage pipes, per-tick connectivity solver mirroring REQ-087 shape, drive-visible water towers and treatment plants (pipes invisible underground).",
       "gddRef": "docs/gdd/17-water-and-sewage.md",
-      "status": "not_started",
-      "implementationRefs": [],
-      "testRefs": [],
+      "status": "partial",
+      "implementationRefs": [
+        "src/lib/sim/state.ts",
+        "src/lib/sim/events.ts"
+      ],
+      "testRefs": [
+        "tests/lib/sim/state.test.ts",
+        "tests/lib/sim/events.test.ts"
+      ],
       "followupRefs": []
     },
     {

@@ -16,6 +16,16 @@ Format for each slice:
 - Followups: any new `F-NNN` entries created. Link to them.
 ```
 
+## 2026-05-06, REQ-090 Water Slice 1: Schema + Place/Erase Events + Reducer
+
+- Branch: `feature/20260506-water-events`
+- PR: #N (when known)
+- Changed: Fourth sim layer to plug into the substrate after zoning, power, services. Tightened `WaterBucketSchema` from passthrough to strict `{ sources: WaterSource[], pipes: Record<key, 'water' | 'sewage'> }`. New `WaterSourceKindSchema` (water-tower / pump-station), `WATER_SOURCE_CAPACITY` (water-tower 50, pump-station 200) per spec, `WATER_PIPE_MAINTENANCE_PER_TICK = 0.04` and `WATER_SOURCE_MAINTENANCE_PER_TICK` per-kind for the economy reducer to pull in slice 2. New strict event schemas `PlaceWaterSourceEventSchema`, `RunWaterPipeEventSchema` (with kind discriminator so a single cell holds water OR sewage, retypeable), `EraseWaterPipeEventSchema`. Reducer cases: idempotent on duplicate anchor+kind for sources, idempotent on duplicate same-kind pipes, overwrites kind on different-kind-same-cell pipes, identity on missing-pipe erase.
+- Verification: `npm run type-check` green. `npm test` 1951/1951 unit pass (1941 prior + 10 new water cases). `npm run build` green. `npm run check:dashes` clean. `git diff --check` clean.
+- Assumptions: Single-cell pipe convention (one cell holds either water or sewage, not both) is simpler than per-cell water+sewage stacks. A future slice can split into two separate Records if dual-pipe cells become a felt gap. Pipe overwrite-on-retype mirrors how zone retype preserves density: the player paints over without explicit erase. Sources are anchor-only; pump-station footprint is single-cell in slice 1 and grows to 2x2 in the UI slice when placement validation lands. Water source maintenance scales with capacity (water-tower 0.3 / pump-station 0.8) so a small starter source costs less than a city-scale pumping setup.
+- GDD coverage: REQ-090 flips `not_started` to `partial`. `implementationRefs` populated with `src/lib/sim/state.ts`, `src/lib/sim/events.ts`. `testRefs` populated with `tests/lib/sim/state.test.ts`, `tests/lib/sim/events.test.ts`. `docs/gdd/17-water-and-sewage.md` Status flips to `partial`; gains a build log entry.
+- Followups: none new. Next REQ-090 slices: editor Water tab + 4 tools (water-tower, pump-station, water pipe, sewage pipe), connectivity solver mirroring `powerSolver.ts` pattern, sewage waste accumulation on populated cells (REQ-092), drive-visible water towers + sewage plants (REQ-094).
+
 ## 2026-05-06, REQ-101 Services Coverage Solver + Zone Coverage Count Signal
 
 - Branch: `feature/20260506-services-solver`
