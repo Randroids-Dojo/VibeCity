@@ -27,9 +27,39 @@ VibeRacer's reference implementation lives at `../VibeRacer/src/game/trackPath.t
 
 ## Implementation Notes
 
-- arc45 and diagonal samples are out of scope for this slice. They land in the follow-on (F-003 / F-004) so this slice stays reviewable. `sampledPointsForPiece` returns `null` for those types.
+- arc45 and diagonal samples are out of scope for this slice. They land in the follow-on (F-003 / F-004) so this slice stays reviewable. The resolver returns `null` for those types this slice.
 - The intersection piece samples one straight per arm (4 sample arrays, indexed by which arm); for v1, return only the pass-through-by-entry-port arm so the existing intersection walker behavior stays unchanged.
 - Do NOT rewrite the connectivity layer. This slice adds geometry on top of the existing `OrderedPiece` shape, it does not refactor the walker.
+
+### VibeRacer reference pattern
+
+`../VibeRacer/src/game/trackPath.ts` is the reference. Key shape to mirror:
+
+```ts
+const SCURVE_LOCAL_SAMPLES = sampleScurveLocal()
+const SCURVE_LEFT_LOCAL_SAMPLES = sampleScurveLeftLocal()
+const SWEEP_RIGHT_LOCAL_SAMPLES = sampleSweepRightLocal()
+const SWEEP_LEFT_LOCAL_SAMPLES = mirrorSweepSamples(SWEEP_RIGHT_LOCAL_SAMPLES)
+const MEGA_SWEEP_RIGHT_LOCAL_SAMPLES = sampleMegaSweepRightLocal()
+const MEGA_SWEEP_LEFT_LOCAL_SAMPLES = mirrorSweepSamples(MEGA_SWEEP_RIGHT_LOCAL_SAMPLES)
+const HAIRPIN_LOCAL_SAMPLES = sampleHairpinLocal()
+```
+
+Mirror helpers (`mirrorSweepSamples`) flip a right-handed sample set into the left-handed counterpart to halve the per-piece sampling code. Adopt the same pattern.
+
+The resolver in VibeRacer is split: `sweepLocalSamplesFor(piece)` for the sweep family (one big if-cascade), and a separate `buildScurveSamples(piece, entryDir)` for the scurve family because scurves carry an `entryDir`-dependent reversal. The reversal trick (lines around 800-820 in VibeRacer's trackPath.ts):
+
+```ts
+const reversed = entryDir !== baseEntryAfterRotation
+const transformed = localSamples.map((s) => transformSample(s, transform))
+if (!reversed) return transformed
+const out = transformed.slice().reverse()
+return out.map((s) => ({ x: s.x, z: s.z, heading: s.heading + Math.PI }))
+```
+
+The reversal-with-heading-flip is the load-bearing detail. When the path walker enters a piece from the opposite end, the local samples reverse AND every heading rotates 180deg so headings still face the direction of travel. Drop this and the chase camera will look backward through every reversed segment.
+
+VibeRacer ships more piece types than VibeCity (wideArc45Right/Left, diagonalSweepRight/Left, kinkRight/Left, offsetStraightRight/Left, grandSweepRight/Left, hairpinTight, hairpinWide, arc45Left, flexStraight). Port only the types that are in `PieceTypeSchema` today. Do NOT introduce new piece types this slice.
 
 ## Verify
 

@@ -31,6 +31,31 @@ User direction this iteration: "add a real car model". GDD pillar 3 fences asset
 - Keep the primitive-car as a fallback render path while the GLB is in flight (so the `data-car-mounted` attribute fires immediately and the chase camera does not hang on the asset load).
 - Do NOT tune chassis dimensions, color schemes, or per-wheel physics this slice. Wheel offsets read from the GLTF bounding box are the only structural change.
 
+### VibeRacer reference pattern
+
+`../VibeRacer/src/game/sceneBuilder.ts` lines 179-190 show the exact pattern to mirror:
+
+```ts
+import { GLTFLoader, type GLTF } from 'three/examples/jsm/loaders/GLTFLoader.js'
+
+const CAR_MODEL_URL = '/models/car.glb'
+
+let carGltfPromise: Promise<GLTF> | null = null
+function loadCarGltf(): Promise<GLTF> {
+  carGltfPromise ??= new GLTFLoader().loadAsync(CAR_MODEL_URL).catch((err) => {
+    carGltfPromise = null
+    throw err
+  })
+  return carGltfPromise
+}
+```
+
+Key details:
+- Module-level singleton promise so two car spawns reuse one fetch.
+- The `.catch` resets the promise to `null` so a transient failure does not cache permanently.
+- Per-instance: `const clone = gltf.scene.clone()` (sceneBuilder.ts line 476). Always clone before adding to the scene; never add the cached scene directly.
+- Import path is `'three/examples/jsm/loaders/GLTFLoader.js'` with the `.js` suffix. Without the suffix, the bundler may resolve to a different module under newer three versions.
+
 ## Verify
 
 - [ ] `npm run type-check` passes
