@@ -1220,6 +1220,7 @@
       "implementationRefs": [
         "src/lib/sim/state.ts",
         "src/lib/sim/events.ts",
+        "src/lib/sim/engine.ts",
         "src/lib/schemas.ts",
         "src/lib/kv.ts",
         "src/app/api/city/[slug]/events/route.ts"
@@ -1227,6 +1228,7 @@
       "testRefs": [
         "tests/lib/sim/state.test.ts",
         "tests/lib/sim/events.test.ts",
+        "tests/lib/sim/engine.test.ts",
         "tests/lib/schemas.test.ts",
         "tests/app/api.cityEvents.test.ts"
       ],
