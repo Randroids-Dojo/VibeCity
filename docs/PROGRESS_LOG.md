@@ -16,6 +16,16 @@ Format for each slice:
 - Followups: any new `F-NNN` entries created. Link to them.
 ```
 
+## 2026-05-06, REQ-105 Slice 5: Flood Damage Erodes Zone Density (Slower Rate)
+
+- Branch: `feature/20260506-flood-damage`
+- PR: #N (when known)
+- Changed: New `FLOOD_DAMAGE_PROBABILITY_PER_TICK = 0.03` (60% of fire's 0.05 to balance the longer 120-tick flood duration). New `src/lib/sim/floodDamage.ts` mirrors the fire-damage pattern: independent-hash damage rolls erode zone density by 1 on hit. `applyTick` now applies fire damage then flood damage in sequence so a cell hosting both takes both checks.
+- Verification: `npm run type-check` green. `npm test` 2093/2093 unit pass (2081 prior + 11 new floodDamage cases + 1 cross-comparison case). `npm run build` green. `npm run check:dashes` clean. `git diff --check` clean. `npx playwright test e2e/sim.spec.ts --project=chromium` 22/22 local.
+- Assumptions: Same per-cell damage semantics as fire (drop density by 1 on hit). Probability is lower than fire because flood duration is longer; expected total damage per disaster is ~3.6 hits (0.03 * 120) vs fire's ~3 hits (0.05 * 60), close enough that the two read as comparable threats with different visual + temporal characters. Independent hash mixing means a cell hosting both fire and flood disasters can take a damage hit from each on the same tick.
+- GDD coverage: REQ-105 stays `partial` (tornado / earthquake / monster damage slice 6+ + drive visualization later). Coverage row implementationRefs gain `src/lib/sim/floodDamage.ts`; testRefs gain `tests/lib/sim/floodDamage.test.ts`.
+- Followups: F-NEW (deferred): tornado erases pieces along its path, earthquake drops city-wide happiness penalty, monster destroys arbitrary infrastructure.
+
 ## 2026-05-06, REQ-083 Commercial / Industrial Revenue
 
 - Branch: `feature/20260506-cni-revenue`
