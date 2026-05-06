@@ -29,7 +29,12 @@ function sewageWith(
     row: p.row,
     col: p.col,
   }))
-  return { sources: [], pipes: pipeMap, treatmentPlants }
+  return {
+    sources: [],
+    pipes: pipeMap,
+    treatmentPlants,
+    wasteAccumulation: {},
+  }
 }
 
 function zonesWith(

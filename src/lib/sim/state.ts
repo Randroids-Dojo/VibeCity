@@ -339,6 +339,18 @@ export const SEWAGE_TREATMENT_CAPACITY = 100
 export const SEWAGE_TREATMENT_MAINTENANCE_PER_TICK = 0.6
 
 /**
+ * Per-tick waste accumulation tunables (REQ-092 sewage slice 4).
+ *
+ * Every populated cell adds `WASTE_INCREMENT_PER_TICK` to its waste
+ * counter each tick unless its sewage status is 'drained', in which
+ * case the counter resets to 0. The counter is capped at
+ * `WASTE_MAX_PER_CELL` so it does not grow unbounded; the cap also
+ * keeps reducer output stable across long replays.
+ */
+export const WASTE_INCREMENT_PER_TICK = 1
+export const WASTE_MAX_PER_CELL = 100
+
+/**
  * One placed sewage treatment plant (REQ-092 slice 1). Single-cell
  * anchor. v1 has no per-plant tier; capacity is the uniform
  * `SEWAGE_TREATMENT_CAPACITY` constant. Treatment plants pair with
@@ -382,6 +394,7 @@ export const WaterBucketSchema = z
     sources: z.array(WaterSourceSchema),
     pipes: z.record(z.string(), WaterPipeKindSchema),
     treatmentPlants: z.array(SewageTreatmentPlantSchema),
+    wasteAccumulation: z.record(z.string(), z.number().min(0)),
   })
   .strict()
 
@@ -516,6 +529,7 @@ export const EMPTY_WATER_BUCKET: WaterBucket = Object.freeze({
   treatmentPlants: Object.freeze(
     [] as SewageTreatmentPlant[],
   ) as SewageTreatmentPlant[],
+  wasteAccumulation: Object.freeze({}) as Record<string, number>,
 }) as WaterBucket
 
 /** Compose a stable pipe key matching `zoneCellKey` / `powerLineKey`. */

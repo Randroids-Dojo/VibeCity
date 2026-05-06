@@ -28,7 +28,7 @@ function waterWith(
   for (const pipe of pipes) {
     pipeMap[waterPipeKey(pipe.row, pipe.col)] = pipe.kind
   }
-  return { sources, pipes: pipeMap, treatmentPlants: [] }
+  return { sources, pipes: pipeMap, treatmentPlants: [], wasteAccumulation: {} }
 }
 
 function zonesWith(
