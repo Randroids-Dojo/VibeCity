@@ -301,7 +301,60 @@ export function powerLineKey(row: number, col: number): string {
   return `${row},${col}`
 }
 
-export const WaterBucketSchema = z.object({}).passthrough()
+/**
+ * Water layer constants (REQ-090 slice 1 of N).
+ *
+ * v1 ships two source types: `water-tower` (small, 50 units capacity)
+ * and `pump-station` (large, 200 units). Pipes are single-cell, snap-
+ * grid pieces with a `water` vs `sewage` kind so the connectivity
+ * solver in slice 2 can route fresh water from sources to zones and
+ * waste from zones to sewage-treatment plants.
+ */
+export const WaterSourceKindSchema = z.enum(['water-tower', 'pump-station'])
+export type WaterSourceKind = z.infer<typeof WaterSourceKindSchema>
+
+export const WATER_SOURCE_CAPACITY: Record<WaterSourceKind, number> = {
+  'water-tower': 50,
+  'pump-station': 200,
+}
+
+export const WATER_PIPE_MAINTENANCE_PER_TICK = 0.04
+export const WATER_SOURCE_MAINTENANCE_PER_TICK: Record<WaterSourceKind, number> = {
+  'water-tower': 0.3,
+  'pump-station': 0.8,
+}
+
+export const WaterPipeKindSchema = z.enum(['water', 'sewage'])
+export type WaterPipeKind = z.infer<typeof WaterPipeKindSchema>
+
+/**
+ * One placed water source (REQ-090 slice 1). Single-cell anchor +
+ * kind. v1 has no per-source tier; capacity is uniform per kind.
+ */
+export const WaterSourceSchema = z
+  .object({
+    kind: WaterSourceKindSchema,
+    row: z.number().int(),
+    col: z.number().int(),
+  })
+  .strict()
+export type WaterSource = z.infer<typeof WaterSourceSchema>
+
+/**
+ * Water bucket (REQ-090 slice 1). `sources` array preserves
+ * placement order; the slice 2 connectivity solver walks it. `pipes`
+ * is keyed by `"row,col"` with the kind discriminator so a single
+ * cell holds either a water pipe OR a sewage pipe (one cell, one
+ * kind; an attempt to overlay water + sewage at the same cell
+ * overwrites in slice 1, the UI slice will validate against
+ * existing entries).
+ */
+export const WaterBucketSchema = z
+  .object({
+    sources: z.array(WaterSourceSchema),
+    pipes: z.record(z.string(), WaterPipeKindSchema),
+  })
+  .strict()
 
 /**
  * Economy layer constants (REQ-095 slice 1 of N).
@@ -427,6 +480,16 @@ export const EMPTY_POPULATION_BUCKET: PopulationBucket = Object.freeze({
   totalTripDemand: 0,
 }) as PopulationBucket
 export type WaterBucket = z.infer<typeof WaterBucketSchema>
+
+export const EMPTY_WATER_BUCKET: WaterBucket = Object.freeze({
+  sources: Object.freeze([] as WaterSource[]) as WaterSource[],
+  pipes: Object.freeze({}) as Record<string, WaterPipeKind>,
+}) as WaterBucket
+
+/** Compose a stable pipe key matching `zoneCellKey` / `powerLineKey`. */
+export function waterPipeKey(row: number, col: number): string {
+  return `${row},${col}`
+}
 export type ServicesBucket = z.infer<typeof ServicesBucketSchema>
 
 export const EMPTY_SERVICES_BUCKET: ServicesBucket = Object.freeze({
@@ -475,7 +538,7 @@ export const EMPTY_SIM_STATE: SimState = Object.freeze({
   population: EMPTY_POPULATION_BUCKET,
   zones: EMPTY_ZONES_BUCKET,
   power: EMPTY_POWER_BUCKET,
-  water: Object.freeze({}) as WaterBucket,
+  water: EMPTY_WATER_BUCKET,
   economy: EMPTY_ECONOMY_BUCKET,
   services: EMPTY_SERVICES_BUCKET,
   disasters: Object.freeze({}) as DisastersBucket,

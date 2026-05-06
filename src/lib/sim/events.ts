@@ -12,8 +12,11 @@ import {
   ServiceKindSchema,
   SimSpeedSchema,
   TaxRatesSchema,
+  WaterPipeKindSchema,
+  WaterSourceKindSchema,
   ZoneKindSchema,
   powerLineKey,
+  waterPipeKey,
   zoneCellKey,
   type EconomyBucket,
   type PopulationBucket,
@@ -24,6 +27,8 @@ import {
   type ServiceKind,
   type SimState,
   type TaxRates,
+  type WaterPipeKind,
+  type WaterSource,
   type ZoneCell,
   type ZoneDensity,
   type ZonesBucket,
@@ -251,8 +256,61 @@ export type EraseServiceBuildingEvent = z.infer<
 >
 
 /**
- * Layer-specific event schemas reserved for forward-compat (REQ-090
- * water and REQ-105 disasters).
+ * `placeWaterSource` event (REQ-090 slice 1). Adds a water source
+ * (water-tower or pump-station) at `(row, col)`. Idempotent on
+ * duplicate anchor + kind.
+ */
+export const PlaceWaterSourceEventSchema = EventMetaSchema.extend({
+  type: z.literal('placeWaterSource'),
+  payload: z
+    .object({
+      kind: WaterSourceKindSchema,
+      row: z.number().int(),
+      col: z.number().int(),
+    })
+    .strict(),
+}).strict()
+export type PlaceWaterSourceEvent = z.infer<
+  typeof PlaceWaterSourceEventSchema
+>
+
+/**
+ * `runWaterPipe` event (REQ-090 slice 1). Lays a water OR sewage
+ * pipe at `(row, col)`. Identity on duplicate (same kind already
+ * at the cell). Different kind on the same cell overwrites; the UI
+ * slice will validate against existing pipes before dispatching.
+ */
+export const RunWaterPipeEventSchema = EventMetaSchema.extend({
+  type: z.literal('runWaterPipe'),
+  payload: z
+    .object({
+      kind: WaterPipeKindSchema,
+      row: z.number().int(),
+      col: z.number().int(),
+    })
+    .strict(),
+}).strict()
+export type RunWaterPipeEvent = z.infer<typeof RunWaterPipeEventSchema>
+
+/**
+ * `eraseWaterPipe` event (REQ-090 slice 1). Removes any pipe
+ * (water or sewage) at the cell. Source erase ships with a future
+ * eraseWaterSource event.
+ */
+export const EraseWaterPipeEventSchema = EventMetaSchema.extend({
+  type: z.literal('eraseWaterPipe'),
+  payload: z
+    .object({
+      row: z.number().int(),
+      col: z.number().int(),
+    })
+    .strict(),
+}).strict()
+export type EraseWaterPipeEvent = z.infer<typeof EraseWaterPipeEventSchema>
+
+/**
+ * Layer-specific event schemas reserved for forward-compat (REQ-105
+ * disasters).
  *
  * Reserved in the union for forward-compat so a city built on a newer
  * sim layer can be loaded by a substrate-only client without a parse
@@ -262,12 +320,13 @@ export type EraseServiceBuildingEvent = z.infer<
  * schema with a strict spec when it lands.
  *
  * `placeZone` / `eraseZone` (REQ-080), `placePowerPlant` /
- * `runPowerLine` / `eraseLine` (REQ-085), and `placeServiceBuilding` /
- * `eraseServiceBuilding` (REQ-100) all have strict schemas and are
- * routed in the union below.
+ * `runPowerLine` / `eraseLine` (REQ-085), `placeServiceBuilding` /
+ * `eraseServiceBuilding` (REQ-100), and `placeWaterSource` /
+ * `runWaterPipe` / `eraseWaterPipe` (REQ-090) all have strict schemas
+ * and are routed in the union below.
  */
 const PlaceholderLayerEventSchema = EventMetaSchema.extend({
-  type: z.enum(['placeWaterSource', 'spawnDisaster']),
+  type: z.enum(['spawnDisaster']),
   payload: z.unknown(),
 }).strict()
 export type PlaceholderLayerEvent = z.infer<typeof PlaceholderLayerEventSchema>
@@ -286,6 +345,9 @@ export const SimEventSchema = z.discriminatedUnion('type', [
   EraseLineEventSchema,
   PlaceServiceBuildingEventSchema,
   EraseServiceBuildingEventSchema,
+  PlaceWaterSourceEventSchema,
+  RunWaterPipeEventSchema,
+  EraseWaterPipeEventSchema,
   PlaceholderLayerEventSchema,
 ])
 export type SimEvent = z.infer<typeof SimEventSchema>
@@ -324,6 +386,12 @@ export function applySimEvent(state: SimState, event: SimEvent): SimState {
       return applyPlaceServiceBuilding(state, event)
     case 'eraseServiceBuilding':
       return applyEraseServiceBuilding(state, event)
+    case 'placeWaterSource':
+      return applyPlaceWaterSource(state, event)
+    case 'runWaterPipe':
+      return applyRunWaterPipe(state, event)
+    case 'eraseWaterPipe':
+      return applyEraseWaterPipe(state, event)
     default:
       // Layer-specific events fall through to no-op until their slice
       // lands and extends the dispatch.
@@ -682,6 +750,62 @@ function applyEraseServiceBuilding(
     services: {
       ...state.services,
       buildings: filtered,
+    },
+  }
+}
+
+function applyPlaceWaterSource(
+  state: SimState,
+  event: PlaceWaterSourceEvent,
+): SimState {
+  const { kind, row, col } = event.payload
+  const existing = state.water.sources.find(
+    (s) => s.row === row && s.col === col && s.kind === kind,
+  )
+  if (existing) return state
+  const source: WaterSource = { kind, row, col }
+  return {
+    ...state,
+    water: {
+      ...state.water,
+      sources: [...state.water.sources, source],
+    },
+  }
+}
+
+function applyRunWaterPipe(
+  state: SimState,
+  event: RunWaterPipeEvent,
+): SimState {
+  const { kind, row, col } = event.payload
+  const key = waterPipeKey(row, col)
+  if (state.water.pipes[key] === kind) return state
+  return {
+    ...state,
+    water: {
+      ...state.water,
+      pipes: {
+        ...state.water.pipes,
+        [key]: kind,
+      },
+    },
+  }
+}
+
+function applyEraseWaterPipe(
+  state: SimState,
+  event: EraseWaterPipeEvent,
+): SimState {
+  const { row, col } = event.payload
+  const key = waterPipeKey(row, col)
+  if (state.water.pipes[key] === undefined) return state
+  const nextPipes = { ...state.water.pipes }
+  delete nextPipes[key]
+  return {
+    ...state,
+    water: {
+      ...state.water,
+      pipes: nextPipes,
     },
   }
 }
