@@ -1369,6 +1369,79 @@ describe('applySimEvent', () => {
     })
   })
 
+  describe('commercial / industrial revenue (REQ-083 slice 1)', () => {
+    function placeZone(
+      kind: 'residential' | 'commercial' | 'industrial',
+      row: number,
+      col: number,
+    ): SimEvent {
+      return {
+        type: 'placeZone',
+        payload: { kind, row, col },
+        clientCreatedAt: 0,
+        authorBuilderId: A_BUILDER,
+      }
+    }
+
+    function tickN(times: number, start: SimState): SimState {
+      let s = start
+      for (let i = 0; i < times; i++) {
+        s = applySimEvent(s, {
+          type: 'tick',
+          payload: { deltaMs: 250 },
+          clientCreatedAt: i,
+          authorBuilderId: A_BUILDER,
+        })
+      }
+      return s
+    }
+
+    it('commercial zone at density 1 generates jobs * tax-rate per tick', () => {
+      let s = applySimEvent(EMPTY_SIM_STATE, placeZone('commercial', 0, 0))
+      // 20 ticks to grow from 0 to density 1.
+      s = tickN(20, s)
+      // Commercial density 1 = 3 jobs. Default rate = 0.07. Income = 0.21/tick.
+      expect(s.economy.lastTickIncome).toBeCloseTo(0.21, 5)
+    })
+
+    it('industrial zone at density 1 generates jobs * industrial-rate per tick', () => {
+      let s = applySimEvent(EMPTY_SIM_STATE, placeZone('industrial', 0, 0))
+      s = tickN(20, s)
+      // Industrial density 1 = 4 jobs. Default rate = 0.05. Income = 0.20/tick.
+      expect(s.economy.lastTickIncome).toBeCloseTo(0.20, 5)
+    })
+
+    it('residential + commercial + industrial all stack additively', () => {
+      let s: SimState = EMPTY_SIM_STATE
+      s = applySimEvent(s, placeZone('residential', 0, 0))
+      s = applySimEvent(s, placeZone('commercial', 0, 1))
+      s = applySimEvent(s, placeZone('industrial', 0, 2))
+      s = tickN(20, s)
+      // Residential density 1: 4 residents * 0.07 = 0.28
+      // Commercial density 1: 3 jobs * 0.07 = 0.21
+      // Industrial density 1: 4 jobs * 0.05 = 0.20
+      // Total: 0.69
+      expect(s.economy.lastTickIncome).toBeCloseTo(0.69, 5)
+    })
+
+    it('two replays of a mixed-zone event log produce identical economy state', () => {
+      const events: SimEvent[] = [
+        placeZone('residential', 0, 0),
+        placeZone('commercial', 0, 1),
+        placeZone('industrial', 0, 2),
+        ...Array.from({ length: 25 }, (_, i) => ({
+          type: 'tick' as const,
+          payload: { deltaMs: 250 },
+          clientCreatedAt: i,
+          authorBuilderId: A_BUILDER,
+        })),
+      ]
+      const a = applyMany(EMPTY_SIM_STATE, events)
+      const b = applyMany(EMPTY_SIM_STATE, events)
+      expect(a.economy).toEqual(b.economy)
+    })
+  })
+
   describe('bankruptcy countdown (REQ-095 slice 3)', () => {
     function tickN(times: number, start: SimState): SimState {
       let s = start
@@ -1448,6 +1521,7 @@ describe('applySimEvent', () => {
         },
         { plants: [{ kind: 'coal', row: 0, col: 0 }], lines: {} },
         { residential: 0.07, commercial: 0.07, industrial: 0.05 },
+        { cells: {} },
       )
       expect(next.bankruptcyTickCounter).toBe(BANKRUPTCY_THRESHOLD_TICKS)
     })
@@ -1465,6 +1539,7 @@ describe('applySimEvent', () => {
         { cells: {}, totalPopulation: 0, totalTripDemand: 0, cityHappiness: 100 },
         { plants: [], lines: {} },
         { residential: 0.07, commercial: 0.07, industrial: 0.05 },
+        { cells: {} },
       )
       expect(next.bankruptcyTickCounter).toBe(0)
     })

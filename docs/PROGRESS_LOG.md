@@ -16,6 +16,16 @@ Format for each slice:
 - Followups: any new `F-NNN` entries created. Link to them.
 ```
 
+## 2026-05-06, REQ-083 Commercial / Industrial Revenue
+
+- Branch: `feature/20260506-cni-revenue`
+- PR: #N (when known)
+- Changed: New `COMMERCIAL_JOBS_BY_DENSITY` and `INDUSTRIAL_JOBS_BY_DENSITY` per-density tables. `applyEconomyTick` now sums commercial + industrial job income alongside residential. Signature gains `zones: ZonesBucket` parameter; `applyTick` threads it through.
+- Verification: `npm run type-check` green. `npm test` 2081/2081 (2077 prior + 4 new revenue cases; 2 existing direct-call tests updated for the new arity). `npm run build` green. `npm run check:dashes` clean. `git diff --check` clean. `npx playwright test e2e/sim.spec.ts --project=chromium` 22/22 local.
+- Assumptions: v1 has no employment-matching reducer; every commercial/industrial job slot is treated as filled regardless of residential population. A future "jobs-need-residents" gate could limit income to `min(jobs, totalPopulation)` if playtest reveals it as a felt issue. Job count tables are tunable.
+- GDD coverage: REQ-095 stays `partial` (REQ-083 was its main blocker; remaining gaps are demand bars REQ-082). REQ-083 row gets a build log entry in `docs/gdd/15-zoning-and-business.md`.
+- Followups: F-NEW (deferred): REQ-082 R/C/I demand bars; jobs-need-residents gate.
+
 ## 2026-05-06, REQ-095 Slice 4: resetBudget + resetCity Events + HUD Buttons
 
 - Branch: `feature/20260506-bankruptcy-reset`

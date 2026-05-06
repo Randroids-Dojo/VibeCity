@@ -91,6 +91,35 @@ export const RESIDENTIAL_CAPACITY_BY_DENSITY: Record<0 | 1 | 2 | 3, number> = {
 }
 
 /**
+ * Commercial / industrial job slots per density step (REQ-083 slice 1).
+ *
+ * Mirrors the residential taxonomy: density 0 is "zoned but nothing
+ * built" (0 jobs), density 1 a small storefront / workshop, density
+ * 2 a mid-rise office / factory, density 3 a high-rise office /
+ * heavy industrial. Numbers are tunable; the v1 ratios put commercial
+ * job density slightly under residential (jobs travel; residents
+ * sleep) and industrial slightly higher than commercial because
+ * industrial cells are larger employers per footprint.
+ *
+ * The economy reducer multiplies these by the per-kind tax rate to
+ * derive income; v1 has no employment-matching reducer, so every
+ * job slot is treated as filled regardless of total population.
+ */
+export const COMMERCIAL_JOBS_BY_DENSITY: Record<0 | 1 | 2 | 3, number> = {
+  0: 0,
+  1: 3,
+  2: 10,
+  3: 30,
+}
+
+export const INDUSTRIAL_JOBS_BY_DENSITY: Record<0 | 1 | 2 | 3, number> = {
+  0: 0,
+  1: 4,
+  2: 14,
+  3: 35,
+}
+
+/**
  * Per-cell population state (REQ-075 slice 1 of N).
  *
  * `residents` is the integer count of citizens living in this cell.
