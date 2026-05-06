@@ -16,6 +16,16 @@ Format for each slice:
 - Followups: any new `F-NNN` entries created. Link to them.
 ```
 
+## 2026-05-06, REQ-105 Slice 4: Deterministic Fire Damage Erodes Zone Density
+
+- Branch: `feature/20260506-fire-damage`
+- PR: #N (when known)
+- Changed: New `FIRE_DAMAGE_PROBABILITY_PER_TICK = 0.05`. New `src/lib/sim/fireDamage.ts` with `fireDamageHash` (independent mixing constants from fireSpreadHash) and `applyFireDamage(zones, disasters, tick)` that walks active fires and on a hit drops the cell's density by 1 (if zoned and density > 0). `applyTick` calls it BEFORE `maybeGrowZones` so a damage hit is not replenished by a same-tick growth advance.
+- Verification: `npm run type-check` green. `npm test` 2072/2072 unit pass (2060 prior + 12 new fireDamage cases). `npm run build` green. `npm run check:dashes` clean. `git diff --check` clean. `npx playwright test e2e/sim.spec.ts --project=chromium` 21/21 local.
+- Assumptions: Density erodes by 1 per hit (gradual). A density-1 cell takes one hit to "burn out" to density 0; a density-3 cell takes 3 hits and on average ~60 ticks (15s at default 4Hz) at the 5%/tick rate. Damage is independent of fire ticksRemaining; a fire that runs its 60-tick natural lifetime can hit ~3 times on average (at 5%/tick), so a single fire is rarely catastrophic but a spread chain can flatten a neighborhood.
+- GDD coverage: REQ-105 stays `partial` (other-kind damage application slice 5+ + drive visualization still outstanding). Coverage row implementationRefs gain `src/lib/sim/fireDamage.ts`; testRefs gain `tests/lib/sim/fireDamage.test.ts`.
+- Followups: F-NEW (deferred): per-disaster damage for flood / tornado / earthquake / monster (slice 5+); drive-mode disaster visualization (later slice).
+
 ## 2026-05-06, REQ-105 Slice 3: Deterministic Fire Spread Mechanic
 
 - Branch: `feature/20260506-fire-spread`
