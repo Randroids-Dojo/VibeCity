@@ -270,16 +270,19 @@ export function erasePiece(city: City, row: number, col: number): City {
 }
 
 /**
- * Editor palette category (REQ-028, REQ-029).
+ * Editor palette category (REQ-028, REQ-029, REQ-080 unification).
  *
  * `street` selects pieces from `STREET_PALETTE`; `building` selects
- * buildings from `BUILDING_PALETTE`. The category gates which array a
- * click mutates so a placed building never accidentally lands in the
- * pieces array (and vice versa). The erase tool (REQ-022, REQ-029)
- * also follows the active category: erasing in street mode removes a
- * piece, erasing in building mode removes a building.
+ * buildings from `BUILDING_PALETTE`; `zone` selects R/C/I zones from
+ * `ZONE_PALETTE` and routes click handlers through the sim event log
+ * via `placeZone` / `eraseZone` (REQ-080). The category gates which
+ * array (or sim layer) a click mutates so a placed zone never lands
+ * in the pieces array, a placed piece never zones a cell, and so on.
+ * The erase tool (REQ-022, REQ-029) also follows the active category:
+ * erasing in street mode removes a piece, in building mode removes a
+ * building, in zone mode removes a zone via `eraseZone`.
  */
-export type PaletteCategory = 'street' | 'building'
+export type PaletteCategory = 'street' | 'building' | 'zone'
 
 /**
  * Default palette category on first render (REQ-028).
@@ -321,6 +324,36 @@ export const BUILDING_PALETTE: readonly BuildingPaletteEntry[] = [
  * along a street to test the build / drive loop.
  */
 export const DEFAULT_BUILDING_TYPE: BuildingType = BUILDING_PALETTE[0].type
+
+/**
+ * v1 zone palette (REQ-080 unification).
+ *
+ * Three zone categories matching `ZoneKind` from `src/lib/sim/state.ts`.
+ * Click in zone mode dispatches `placeZone` via the sim event log; the
+ * persistence path is the event log, NOT the legacy autosave PUT
+ * (which only writes pieces / buildings). Erase in zone mode dispatches
+ * `eraseZone`. The legacy `placeBuilding` / `placePiece` reducers do
+ * not touch zones; the `eraseZone` event reducer does not touch
+ * pieces or buildings.
+ */
+export interface ZonePaletteEntry {
+  /** Zone kind matching `ZoneKind` from `src/lib/sim/state.ts`. */
+  type: 'residential' | 'commercial' | 'industrial'
+  label: string
+}
+
+export const ZONE_PALETTE: readonly ZonePaletteEntry[] = [
+  { type: 'residential', label: 'Residential' },
+  { type: 'commercial', label: 'Commercial' },
+  { type: 'industrial', label: 'Industrial' },
+]
+
+/**
+ * Default selected zone entry on first render (REQ-080 unification).
+ * Residential is the most-used SimCity zone and a player's first zone
+ * click is most likely housing.
+ */
+export const DEFAULT_ZONE_TYPE: ZonePaletteEntry['type'] = ZONE_PALETTE[0].type
 
 /**
  * Place a building on the grid (REQ-028, REQ-029).

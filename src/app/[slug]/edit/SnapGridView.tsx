@@ -1,5 +1,6 @@
 import type { PointerEvent as ReactPointerEvent, WheelEvent as ReactWheelEvent } from 'react'
 import type { City } from '@/lib/schemas'
+import type { ZonesBucket } from '@/lib/sim/state'
 import {
   CELL_PIXELS,
   GRID_DIAMETER,
@@ -11,6 +12,32 @@ import {
   occupiedBuildingCells,
   occupiedPieceCells,
 } from './snapGrid'
+
+/**
+ * Per-zone-kind fill / stroke (REQ-080 unification). Mirrors the
+ * SimGridView palette so the editor and any other view of the city
+ * stay visually consistent. Density advances opacity per
+ * `ZONE_DENSITY_OPACITY` so a freshly-painted zone reads as faint and
+ * a max-density zone reads as solid.
+ */
+const ZONE_FILL = {
+  residential: '#5fae5f',
+  commercial: '#5f8aae',
+  industrial: '#ae8a5f',
+} as const
+
+const ZONE_STROKE = {
+  residential: '#3f7f3f',
+  commercial: '#3f5f7f',
+  industrial: '#7f5f3f',
+} as const
+
+const ZONE_DENSITY_OPACITY = {
+  0: 0.35,
+  1: 0.55,
+  2: 0.78,
+  3: 1.0,
+} as const
 import {
   PREVIEW_FILL,
   PREVIEW_FILL_OPACITY,
@@ -150,6 +177,7 @@ export function SnapGrid({
   openEndCellKeys,
   openEndArrows,
   spawnMarker,
+  zones,
   onSurfaceWheel,
   onSurfacePointerDown,
 }: {
@@ -165,6 +193,15 @@ export function SnapGrid({
   openEndCellKeys?: ReadonlySet<string> | null
   openEndArrows?: readonly OpenEndArrowGlyph[] | null
   spawnMarker?: SpawnAnchorMarker | null
+  /**
+   * Optional sim zones (REQ-080 unification). When supplied, every
+   * cell whose key matches a zone gets a translucent overlay tinted
+   * by zone kind and density. Pieces and buildings render on top of
+   * the cell base layer; zones render UNDER the connector glyphs and
+   * preview overlays so the place / erase ghosts and the open-end
+   * warning rings stay legible over a zoned background.
+   */
+  zones?: ZonesBucket | null
   onSurfaceWheel?: (event: ReactWheelEvent<SVGSVGElement>) => void
   onSurfacePointerDown?: (event: ReactPointerEvent<SVGSVGElement>) => void
 }) {
@@ -256,6 +293,7 @@ export function SnapGrid({
         const isOrigin = cell.row === 0 && cell.col === 0
         const isPiece = occupiedPieces.has(key)
         const isBuilding = occupiedBuildings.has(key)
+        const zone = zones?.cells[key]
         const fill = isPiece
           ? '#7d6b4a'
           : isBuilding
@@ -282,6 +320,9 @@ export function SnapGrid({
             data-cell-occupied-kind={occupiedKind}
             data-cell-previewed={isPreviewed ? 'true' : 'false'}
             data-cell-has-open-port={hasOpenPort ? 'true' : 'false'}
+            data-cell-zoned={zone ? 'true' : 'false'}
+            data-cell-zone-kind={zone ? zone.kind : ''}
+            data-cell-zone-density={zone ? zone.density : ''}
             onClick={
               interactive
                 ? () => {
@@ -307,6 +348,34 @@ export function SnapGrid({
           />
         )
       })}
+      {zones
+        ? Object.entries(zones.cells).map(([key, zone]) => {
+            const [rowStr, colStr] = key.split(',')
+            const row = Number(rowStr)
+            const col = Number(colStr)
+            if (!Number.isFinite(row) || !Number.isFinite(col)) return null
+            const { x, y } = cellToPixel({ row, col })
+            return (
+              <rect
+                key={`zone-${key}`}
+                data-testid="editor-zone-overlay"
+                data-zone-row={row}
+                data-zone-col={col}
+                data-zone-kind={zone.kind}
+                data-zone-density={zone.density}
+                x={x + 1}
+                y={y + 1}
+                width={CELL_PIXELS - 2}
+                height={CELL_PIXELS - 2}
+                fill={ZONE_FILL[zone.kind]}
+                fillOpacity={ZONE_DENSITY_OPACITY[zone.density]}
+                stroke={ZONE_STROKE[zone.kind]}
+                strokeWidth={1}
+                pointerEvents="none"
+              />
+            )
+          })
+        : null}
       {spawnMarker ? (
         <g data-testid="editor-spawn-marker" pointerEvents="none">
           <rect

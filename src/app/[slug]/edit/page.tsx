@@ -1,9 +1,12 @@
 import type { Metadata } from 'next'
+import { cookies } from 'next/headers'
 import { notFound } from 'next/navigation'
 import { loadCity } from '@/lib/loadCity'
 import { readVersionParam } from '@/lib/cityVersion'
 import { parseSlugParam } from '../slugRoute'
 import { editDescription, editTitle } from '../slugMetadata'
+import { BUILDER_ID_COOKIE, isValidBuilderId } from '@/lib/builderId'
+import type { BuilderId } from '@/lib/schemas'
 import { EditorClient } from './EditorClient'
 
 /**
@@ -86,6 +89,18 @@ export default async function EditCityPage({
 
   const { city } = await loadCity(slug, pinned ?? undefined)
 
+  // Read the builder cookie for the sim engine (REQ-080 unification:
+  // zone events authored by the builder go through /api/city/[slug]/events).
+  // Middleware mints + propagates the cookie on first visit so the
+  // value is available on the same request; if the cookie is somehow
+  // missing, fall back to notFound() and let a refresh recover.
+  const jar = await cookies()
+  const builderIdRaw = jar.get(BUILDER_ID_COOKIE)?.value
+  if (!builderIdRaw || !isValidBuilderId(builderIdRaw)) {
+    notFound()
+  }
+  const builderId = builderIdRaw as BuilderId
+
   return (
     <main
       style={{
@@ -112,7 +127,7 @@ export default async function EditCityPage({
         Ctrl+Y redoes. Edits autosave. Press the Drive button in the
         toolbar to take this city for a spin.
       </p>
-      <EditorClient slug={slug} initialCity={city} />
+      <EditorClient slug={slug} initialCity={city} builderId={builderId} />
     </main>
   )
 }

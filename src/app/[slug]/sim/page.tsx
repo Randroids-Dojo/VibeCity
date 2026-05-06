@@ -1,24 +1,21 @@
-import { cookies } from 'next/headers'
-import { notFound } from 'next/navigation'
+import { notFound, redirect } from 'next/navigation'
 import { parseSlugParam } from '../slugRoute'
-import { BUILDER_ID_COOKIE, isValidBuilderId } from '@/lib/builderId'
-import type { BuilderId } from '@/lib/schemas'
-import { SimViewClient } from './SimViewClient'
 
 /**
- * Sim view route at `/<slug>/sim` (REQ-110 + REQ-070..074 substrate
- * slice 5 of 5).
+ * Legacy sim view redirect (REQ-110 unification, 2026-05-06).
  *
- * Validates the slug, reads the builder cookie (REQ-009; middleware
- * mints it on first visit AND propagates the new value to the
- * request cookies so the same-request page handler sees it), then
- * mounts the `SimViewClient` so the useSimEngine hook can author
- * events on the slug. The middleware change is required because the
- * builder cookie is httpOnly and the client cannot read it via
- * document.cookie; the server component is the only path to surface
- * the id to the SimViewClient prop.
+ * The standalone `/<slug>/sim` route was a tactical artifact from
+ * when sim was prototyped separately from the editor. The user
+ * correctly observed that the editor and the sim view are the same
+ * kind of paintable-grid surface. Slice REQ-110 step 2 unifies them
+ * by absorbing the sim engine + zone palette + speed controls into
+ * the editor at `/<slug>/edit`. This route is preserved as a 308
+ * redirect so any external links or bookmarks to `/<slug>/sim` keep
+ * working; the canonical surface is now the editor.
  *
- * Invalid slugs return 404 via `notFound()`.
+ * Invalid slugs return 404 via `notFound()` so a malformed URL still
+ * surfaces the framework 404 instead of redirecting to a broken edit
+ * route.
  */
 export default async function SimViewPage({
   params,
@@ -30,17 +27,5 @@ export default async function SimViewPage({
   if (!slug) {
     notFound()
   }
-
-  const jar = await cookies()
-  const builderIdRaw = jar.get(BUILDER_ID_COOKIE)?.value
-  if (!builderIdRaw || !isValidBuilderId(builderIdRaw)) {
-    // Middleware should have minted and propagated the cookie before
-    // we got here. If it did not, fail closed with a 404 rather than
-    // looping the redirect; the next visit (or a refresh) should
-    // succeed because the response carries the cookie.
-    notFound()
-  }
-  const builderId = builderIdRaw as BuilderId
-
-  return <SimViewClient slug={slug} builderId={builderId} />
+  redirect(`/${slug}/edit`)
 }

@@ -7,6 +7,7 @@ import type {
   WheelEvent as ReactWheelEvent,
 } from 'react'
 import type {
+  BuilderId,
   BuildingType,
   City,
   PieceType,
@@ -20,15 +21,24 @@ import {
   DEFAULT_PALETTE_TYPE,
   DEFAULT_ROTATION,
   DEFAULT_TOOL_MODE,
+  DEFAULT_ZONE_TYPE,
   STREET_PALETTE,
+  ZONE_PALETTE,
   type PaletteCategory,
   type ToolMode,
+  type ZonePaletteEntry,
   eraseBuilding,
   erasePiece,
   nextRotation,
   placeBuilding,
   placePiece,
 } from './editorState'
+import { useSimEngine } from '@/lib/sim/useSimEngine'
+import type {
+  EraseZoneEvent,
+  PlaceZoneEvent,
+} from '@/lib/sim/events'
+import type { SimSpeed } from '@/lib/sim/state'
 import {
   AUTOSAVE_STATUS_LABEL,
   DEFAULT_AUTOSAVE_DEBOUNCE_MS,
@@ -157,12 +167,21 @@ import {
 export function EditorClient({
   slug,
   initialCity,
+  builderId,
   autosaveDebounceMs = DEFAULT_AUTOSAVE_DEBOUNCE_MS,
 }: {
   slug: Slug
   initialCity: City
+  builderId: BuilderId
   autosaveDebounceMs?: number
 }) {
+  // Sim engine (REQ-070..074 substrate + REQ-080 unification).
+  // Mounted here so the editor surface is the canonical place /
+  // place-zone / drive-toggle home; the legacy /<slug>/sim view is a
+  // historical artifact from when sim was prototyped separately.
+  const simEngine = useSimEngine(slug, builderId)
+  const simRuntime = simEngine.runtime
+  const simState = simRuntime.state
   const [history, setHistory] = useState<EditorHistory<City>>(() =>
     createHistory(initialCity),
   )
@@ -184,6 +203,9 @@ export function EditorClient({
   )
   const [selectedBuildingType, setSelectedBuildingType] =
     useState<BuildingType>(DEFAULT_BUILDING_TYPE)
+  const [selectedZoneType, setSelectedZoneType] = useState<
+    ZonePaletteEntry['type']
+  >(DEFAULT_ZONE_TYPE)
   const [rotation, setRotation] = useState<Rotation>(DEFAULT_ROTATION)
   const [toolMode, setToolMode] = useState<ToolMode>(DEFAULT_TOOL_MODE)
   const [autosaveStatus, setAutosaveStatus] =
@@ -445,6 +467,31 @@ export function EditorClient({
   )
 
   const handleCellClick = (row: number, col: number) => {
+    // Zone category routes through the sim event log (REQ-080), NOT
+    // the legacy autosave PUT path. The reducer is pure and the
+    // engine's enqueue helper buffers + advances local state
+    // synchronously; the autonomous flush trigger POSTs the buffer
+    // when idle / on save / on visibilitychange.
+    if (paletteCategory === 'zone') {
+      if (toolMode === 'erase') {
+        const event: EraseZoneEvent = {
+          type: 'eraseZone',
+          payload: { row, col },
+          clientCreatedAt: Date.now(),
+          authorBuilderId: builderId,
+        }
+        simEngine.enqueue(event)
+        return
+      }
+      const event: PlaceZoneEvent = {
+        type: 'placeZone',
+        payload: { kind: selectedZoneType, row, col },
+        clientCreatedAt: Date.now(),
+        authorBuilderId: builderId,
+      }
+      simEngine.enqueue(event)
+      return
+    }
     if (toolMode === 'erase') {
       setCityWithHistory((current) => {
         const next =
@@ -727,9 +774,14 @@ export function EditorClient({
           alignItems: 'center',
         }}
       >
-        {(['street', 'building'] as const).map((category) => {
+        {(['street', 'building', 'zone'] as const).map((category) => {
           const isActive = category === paletteCategory
-          const label = category === 'street' ? 'Streets' : 'Buildings'
+          const label =
+            category === 'street'
+              ? 'Streets'
+              : category === 'building'
+                ? 'Buildings'
+                : 'Zones'
           return (
             <button
               key={category}
@@ -755,6 +807,67 @@ export function EditorClient({
             </button>
           )
         })}
+      </div>
+      <div
+        role="toolbar"
+        aria-label="Sim speed"
+        data-testid="editor-sim-speed"
+        data-sim-speed={simState.speed}
+        data-sim-tick={simState.tick}
+        data-sim-pending={simRuntime.pendingEvents.length}
+        style={{
+          display: 'flex',
+          gap: 6,
+          flexWrap: 'wrap',
+          justifyContent: 'center',
+          alignItems: 'center',
+          fontSize: 12,
+          opacity: 0.75,
+        }}
+      >
+        <span
+          style={{
+            letterSpacing: 0.5,
+            textTransform: 'uppercase',
+            opacity: 0.65,
+          }}
+        >
+          Sim
+        </span>
+        {([0, 1, 2, 4] as SimSpeed[]).map((speed) => {
+          const active = simState.speed === speed
+          return (
+            <button
+              key={speed}
+              type="button"
+              data-testid={`editor-sim-speed-${speed}`}
+              data-sim-speed-button={speed}
+              data-sim-speed-active={active ? 'true' : 'false'}
+              aria-pressed={active}
+              onClick={() => simEngine.setSpeed(speed)}
+              style={{
+                padding: '4px 10px',
+                fontSize: 12,
+                fontFamily: 'inherit',
+                color: active ? '#f7f4ee' : '#222',
+                background: active ? '#222' : '#fdfaf2',
+                border: '1px solid #d6cfbf',
+                borderRadius: 4,
+                cursor: 'pointer',
+              }}
+            >
+              {speed === 0 ? 'Pause' : `${speed}x`}
+            </button>
+          )
+        })}
+        <span
+          data-testid="editor-sim-readout"
+          data-sim-tick={simState.tick}
+          data-sim-time-ms={simState.simTimeMs}
+          style={{ marginLeft: 6, fontFamily: 'ui-monospace, Menlo, monospace' }}
+        >
+          {`tick ${simState.tick}`}
+        </span>
       </div>
       <div
         role="toolbar"
@@ -799,33 +912,67 @@ export function EditorClient({
                 </button>
               )
             })
-          : BUILDING_PALETTE.map((entry) => {
-              const isSelected = entry.type === selectedBuildingType
-              return (
-                <button
-                  key={entry.type}
-                  type="button"
-                  aria-pressed={isSelected}
-                  data-building-type={entry.type}
-                  data-selected={isSelected ? 'true' : 'false'}
-                  onClick={() => {
-                    setSelectedBuildingType(entry.type)
-                  }}
-                  style={{
-                    padding: '8px 14px',
-                    fontSize: 14,
-                    fontFamily: 'inherit',
-                    color: isSelected ? '#f7f4ee' : '#222',
-                    background: isSelected ? '#3a4a3a' : '#efe7d2',
-                    border: '1px solid #d6cfbf',
-                    borderRadius: 4,
-                    cursor: 'pointer',
-                  }}
-                >
-                  {entry.label}
-                </button>
-              )
-            })}
+          : paletteCategory === 'building'
+            ? BUILDING_PALETTE.map((entry) => {
+                const isSelected = entry.type === selectedBuildingType
+                return (
+                  <button
+                    key={entry.type}
+                    type="button"
+                    aria-pressed={isSelected}
+                    data-building-type={entry.type}
+                    data-selected={isSelected ? 'true' : 'false'}
+                    onClick={() => {
+                      setSelectedBuildingType(entry.type)
+                    }}
+                    style={{
+                      padding: '8px 14px',
+                      fontSize: 14,
+                      fontFamily: 'inherit',
+                      color: isSelected ? '#f7f4ee' : '#222',
+                      background: isSelected ? '#3a4a3a' : '#efe7d2',
+                      border: '1px solid #d6cfbf',
+                      borderRadius: 4,
+                      cursor: 'pointer',
+                    }}
+                  >
+                    {entry.label}
+                  </button>
+                )
+              })
+            : ZONE_PALETTE.map((entry) => {
+                const isSelected = entry.type === selectedZoneType
+                const bg =
+                  entry.type === 'residential'
+                    ? '#5fae5f'
+                    : entry.type === 'commercial'
+                      ? '#5f8aae'
+                      : '#ae8a5f'
+                return (
+                  <button
+                    key={entry.type}
+                    type="button"
+                    aria-pressed={isSelected}
+                    data-zone-type={entry.type}
+                    data-selected={isSelected ? 'true' : 'false'}
+                    onClick={() => {
+                      setSelectedZoneType(entry.type)
+                    }}
+                    style={{
+                      padding: '8px 14px',
+                      fontSize: 14,
+                      fontFamily: 'inherit',
+                      color: isSelected ? '#fff' : '#222',
+                      background: isSelected ? bg : '#fdfaf2',
+                      border: `1px solid ${isSelected ? bg : '#d6cfbf'}`,
+                      borderRadius: 4,
+                      cursor: 'pointer',
+                    }}
+                  >
+                    {entry.label}
+                  </button>
+                )
+              })}
         <button
           type="button"
           data-testid="editor-rotate"
@@ -1099,6 +1246,7 @@ export function EditorClient({
         openEndCellKeys={openEndCellKeys}
         openEndArrows={openEndArrows}
         spawnMarker={spawnMarker}
+        zones={simState.zones}
         onSurfaceWheel={handleSurfaceWheel}
         onSurfacePointerDown={handleSurfacePointerDown}
       />
