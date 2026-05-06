@@ -1183,8 +1183,9 @@ describe('applySimEvent', () => {
     it('density steps DOWN when cityHappiness drops to the miserable band (REQ-079 follow-on)', () => {
       // Residential tax 50% + drained sewage: tick-20 happiness =
       // 100 - 0 - 20 - 80 = 0, which sits in the miserable band
-      // (<= DECLINE_HAPPINESS_THRESHOLD 25). Every populated cell
-      // steps density down by 1 on the next growth tick.
+      // (<= DECLINE_HAPPINESS_THRESHOLD 25). Every zoned cell with
+      // density > 0 steps down by 1 on the next growth tick
+      // regardless of kind (commercial / industrial included).
       let s = applySimEvent(EMPTY_SIM_STATE, placeZone('residential', 0, 0))
       s = applySimEvent(s, placeTreatmentPlantGrowth(0, 1))
       s = applySimEvent(s, {

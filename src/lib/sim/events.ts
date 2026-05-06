@@ -954,9 +954,10 @@ export function syncPopulationToZones(
  *   - stagnant band (`(DECLINE_HAPPINESS_THRESHOLD, GROWTH_HAPPINESS_THRESHOLD]`):
  *     density holds; the city neither grows nor decays.
  *   - miserable band (`<= DECLINE_HAPPINESS_THRESHOLD`): every
- *     density-greater-than-0 cell steps DOWN by 1 (residents
- *     abandon, but the cell stays zoned at density 0 so the player
- *     can recover the city without re-painting).
+ *     zoned cell with density > 0 steps DOWN by 1 regardless of
+ *     kind (commercial / industrial occupants leave too, not only
+ *     residential). The cell stays zoned at density 0 so the player
+ *     can recover the city without re-painting.
  *
  * Returns the input bucket unchanged when this tick is not a growth
  * tick or the band's transformation is a no-op (happy + everything
