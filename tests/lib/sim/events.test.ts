@@ -1667,17 +1667,20 @@ describe('applySimEvent', () => {
       expect(s.economy.bankruptcyTickCounter).toBe(5)
     })
 
-    it('counter auto-resets to 0 once it would have reached BANKRUPTCY_THRESHOLD_TICKS (REQ-095 slice 4 follow-on)', () => {
+    it('full economy bucket auto-resets at the bailout tick (REQ-095 slice 4 follow-on)', () => {
       // Six coal plants put treasury at -4000 immediately; per-tick
-      // maintenance keeps it negative. Run past the threshold to
-      // confirm the counter never observably reaches the cap because
-      // the auto-bankruptcy bailout fires when it would.
+      // maintenance keeps it negative. Run BANKRUPTCY_THRESHOLD_TICKS
+      // ticks; the bailout fires on the threshold-th tick and the
+      // economy bucket flips to the full EMPTY_ECONOMY_BUCKET shape:
+      // treasury back to INITIAL_TREASURY, counter zeroed, last-tick
+      // readouts zeroed.
       let s: SimState = EMPTY_SIM_STATE
       for (let i = 0; i < 6; i++) s = applySimEvent(s, placeCoal(i, 0))
-      s = tickN(BANKRUPTCY_THRESHOLD_TICKS + 50, s)
-      expect(s.economy.bankruptcyTickCounter).toBeLessThan(
-        BANKRUPTCY_THRESHOLD_TICKS,
-      )
+      s = tickN(BANKRUPTCY_THRESHOLD_TICKS, s)
+      expect(s.economy.bankruptcyTickCounter).toBe(0)
+      expect(s.economy.treasury).toBe(20000)
+      expect(s.economy.lastTickIncome).toBe(0)
+      expect(s.economy.lastTickMaintenance).toBe(0)
     })
 
     it('treasury restores to INITIAL_TREASURY at the auto-reset tick (REQ-095 slice 4 follow-on)', () => {
