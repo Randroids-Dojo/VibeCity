@@ -56,6 +56,39 @@ Keep `Q-NNN` IDs monotonically increasing. When a question resolves, leave the e
 - Status: open
 - Resolution:
 
+### Q-014: Are simulation ticks themselves events in the event log?
+
+- Context: Q-012's event-sourcing decision raises a sub-question: when the sim engine advances one tick (REQ-070), is "tick advanced" recorded as an event, or do user-action events alone form the canonical log? If sim ticks are events, the city becomes a pure deterministic reducer of `(initialState, events) -> currentState`; full replay regenerates sim. If sim ticks are not events, sim state is recomputed at load time from user-action events plus a wall-clock catch-up; this is non-deterministic across clients (a sim that has been paused for 10 minutes catches up differently than one that ran continuously).
+- Options:
+  - A. Sim ticks ARE events. `tick { atSimTime: number }` is recorded into the log on every advance. Pros: full replay is deterministic; two clients of the same slug derive identical state from the same event log; debugging is straightforward (event log is the truth). Cons: a 4 Hz sim accumulates 14400 tick events per hour; the log grows fast; snapshotting (Q-013) becomes load-bearing.
+  - B. Sim ticks are NOT events. Only user actions (`placeZone`, `runPowerLine`, etc.) are events; sim ticks are derived from `currentSimTime - lastEventSimTime` at replay time. Pros: log stays small (only user-action events). Cons: sim is non-deterministic across clients (timing differences cause divergent state); reconciling two clients that both ran the sim for different wall-clock durations is hard.
+  - C. Sim ticks ARE events, but only checkpoint ticks (every 60 seconds of sim time) get recorded; intermediate ticks are derived. Pros: log stays small; full replay is deterministic at checkpoint boundaries. Cons: complex to implement; off-checkpoint state diverges momentarily before snapping back at the next checkpoint.
+- Recommended default: A. Determinism is the load-bearing property of an event-sourced sim with concurrent editors. Without it, two clients of the same slug eventually disagree about the sim state, and "behind the scenes reconciliation" becomes "your city occasionally jumps". The 14400-events-per-hour cost is real but addressed by Q-013 snapshotting (snapshots every 1000 events bounds replay to at most 1000 events). Tick events compress well (they carry only a tick number); the storage cost is small.
+- Status: open
+- Resolution:
+
+### Q-013: Snapshotting strategy for the event log
+
+- Context: Q-012's event-sourcing decision means the city state is derived by replaying events from a starting point. A long-running city accumulates events fast (especially under Q-014 default A, where sim ticks are events). Replay from event 1 is O(N) and unbounded. Snapshotting captures the derived state every N events and prunes events older than the snapshot, so replay cost stays bounded.
+- Options:
+  - A. Snapshot every 1000 events OR every 30 minutes of sim time, whichever comes first. Prune events older than the most recent snapshot. Snapshot is the canonical resume point; cold-load from a slug fetches the latest snapshot plus any events since.
+  - B. Snapshot only on user-triggered "checkpoint" action. Pros: explicit dev control. Cons: forgetting to snapshot grows the log unboundedly; not a default the loop can rely on.
+  - C. Snapshot every event (state == log; effectively no event sourcing). Pros: trivial replay. Cons: defeats the entire reason for event sourcing; concurrent editing collapses back to LWW snapshot merging.
+- Recommended default: A. The 1000-events-or-30-minutes pair bounds replay cost in two dimensions: short-burst editing sessions snapshot on count, idle sessions snapshot on time. Pruning older events keeps storage bounded. The most recent N snapshots stay in KV (default N=10) so a "rewind to N events ago" debug button can land later without infrastructure changes.
+- Status: open
+- Resolution:
+
+### Q-011: Sim speed maximum (UI control on the sim view)
+
+- Context: SimCity 3000 used 1x / 2x / 3x; SimCity 4 used Pause / Turtle / Llama / Cheetah. VibeCity needs a UI for sim speed control (REQ-071, REQ-113).
+- Options:
+  - A. Pause / 1x / 2x / 4x. Four buttons. Tight UI. Predictable doubling.
+  - B. Pause / 1x / 2x / 3x / 4x / 8x. Six buttons. More dynamic range.
+  - C. A single slider continuously variable from 0.25x to 8x. Flexible, harder to pin to muscle memory.
+- Recommended default: A. Four states is enough granularity for the sim-builder pace; the doubling step keeps speed perception linear. Avoids the "the sim runs faster than I can think" failure mode that 8x+ speeds invite. If playtest reveals a felt gap, a v1.1 slice can add 8x.
+- Status: open
+- Resolution:
+
 ### Q-005: Drive mode collision with buildings
 
 - Context: REQ-030 says buildings collide with the car (treated as off-street). The collision model has options.
@@ -68,6 +101,44 @@ Keep `Q-NNN` IDs monotonically increasing. When a question resolves, leave the e
 - Resolution:
 
 ## Resolved
+
+### Q-012: Conflict reconciliation strategy for concurrent slug editors
+
+- Context: Q-009 admitted the sim layer; the implied next question is what happens when two browsers have the same slug open and both make changes. The OOS fence's multiplayer line previously fenced this out; the dev override 2026-05-05 lifts the partial that admits concurrent state edits behind the scenes (presence / avatars / cursors stay out). Three reasonable shapes for the reconciliation:
+- Options:
+  - A. Server-arbitrated state merge. Clients sim locally; push state snapshots every 1-2s; server merges per-cell LWW for placement, per-layer max for sim numbers; broadcast back via SSE / WebSocket. Medium complexity. No offline. Most predictable.
+  - B. Last-write-wins on full payload. Simplest. Each save replaces. Whoever saves last wins everything. Lossy on simultaneous edits but trivial.
+  - C. CRDT (per-cell, true conflict-free). Yjs / Automerge style. Highest complexity, offline-first, zero loss.
+  - D. Event sourcing. Every mutation is an event recorded on the server's append-only log; state derives from `events.reduce(reducer, initial)`; server orders concurrent events by receive-time with author tiebreak; clients replay the merged log. No per-field merge logic needed.
+- Recommended default: D (dev override 2026-05-05). Cleaner architectural fit than A: no per-field LWW logic, no schema-version-dependent merge rules, just an append-only log and a deterministic reducer. Sub-questions: snapshotting strategy (Q-013) and whether sim ticks themselves are events (Q-014). Sync cadence: events batch client-side and flush on idle / on save (per the dev's 2026-05-05 answer to the broadcast-rate question), so the server does not need WebSocket / SSE in v1. Other clients see updates on their next idle / save flush; the merge is silent.
+- Status: resolved
+- Resolution: 2026-05-05. Dev override: D (event sourcing). Server-ordered append-only log; client batches events on idle / save; deterministic reducer derives state. See Q-013 for snapshotting and Q-014 for sim-tick-as-event. The OOS multiplayer fence in `docs/gdd/99-out-of-scope.md` updated: concurrent state edits via event reconciliation move IN; presence / avatars / cursors / chat stay OUT.
+
+### Q-010: Sim engine authority - client-side or server-side
+
+- Context: REQ-070 (sim engine substrate) needs a decision on where the sim runs. Client-side runs in the browser (offline-friendly, lower server cost, snappier feel); server-side runs in a Vercel Function (canonical state, survives tab close, cron-friendly).
+- Options:
+  - A. Client-side authority. Sim ticks run in the browser; state snapshots PUT to the server periodically. Pros: snappy local feel, low server cost, offline-resilient. Cons: state diverges across clients; closed tab stops the sim.
+  - B. Server-side authority. Sim ticks run in a Vercel Function (cron or per-request); client renders a read-only view of the canonical state. Pros: state survives tab close, two clients see identical state. Cons: snappiness needs WebSocket / SSE; server cost scales with sim tick rate.
+  - C. Hybrid. Client runs the sim for snappy feel; server runs the sim for canonical state; a reconciliation pass keeps them aligned.
+- Recommended default: A. Client-side keeps the v1 cost low and the feel snappy; server-side becomes a v1.1 concern only if "the sim survives tab close" surfaces as a felt gap.
+- Status: resolved
+- Resolution: 2026-05-05. Dev override: A modified. Sim runs client-side for real-time feel, BUT events are pushed to the server as a canonical event log so two browsers on the same slug can both interact and the server reconciles via event sourcing (see Q-012). The pure A option (state-snapshot PUTs only) is replaced by event-log PUTs. The server's role becomes "ordered event log + snapshots", not "sim runner". Closed tab still stops local sim advance, but the event log preserves all user actions for the next visitor's replay.
+
+### Q-009: SimCity-like mechanics vs Pillar 3 ("core first, sim later")
+
+- Context: User direction at the start of an autonomous research loop on 2026-05-05 included "Find the fun. Figure out an actually fun feature set. Implement the real track pieces from ../VibeRacer, add real SimCity like mechanics, add a real car model." Coverage stands at 60/69 done = 87%, comfortably past the 80% threshold that activates `docs/FUN_FACTOR_AUDIT.md`. The "real track pieces" and "real car model" parts already have an in-scope path (the schema accepts every Phase 1 piece type, REQ-047 anticipates a fidelity-bump slice for the car). The "real SimCity like mechanics" part directly conflicts with `docs/gdd/01-vision-and-pillars.md` Pillar 3 ("Core first, sim later") and `docs/gdd/99-out-of-scope.md` which fence power, water, zoning, citizens, traffic AI, taxes, demand curves, disasters out of v1 entirely. AGENTS.md Rule 7 says when in doubt, ask, and prefer simple consistent flows.
+- Options:
+  - A. Honor pillar 3 strictly: ship NO sim mechanics in v1. The "find the fun" loop focuses on visual / feel polish (real car model, sampled centerline geometry, lit-window night ambience). Sim mechanics defer to v1.1 once the v1 loop ships and is validated.
+  - B. Open a narrow "ambient city life" carveout: visual-only signals that look like sim but persist no schema state and run no logic deeper than per-frame movement. Concrete carveout list: ambient AI traffic (follower cars on placed segments), day/night-only mood control, lit windows at night, optional traffic lights at intersection cells. None of these add sim state to `CitySchema`. None of them gate the player's drive. All of them are visible from inside the car within 30 seconds.
+  - C. Pivot the GDD: rewrite pillar 3 to admit a sim layer, scope a real population / demand / economy slice, and accept the v1 release-date hit. The Flatline failure mode warning in `docs/IMPLEMENTATION_PLAN.md` cuts both ways: shipping pillar-perfect-but-sterile is one failure; thrashing the pillars and shipping nothing is the other.
+- Recommended default: B. The user direction phrasing ("SimCity LIKE", not "be SimCity") and the simultaneous "find the fun" framing read as "the city should feel alive while I drive", not "implement an economy". Carveout B delivers the perceived sim feel without violating the schema-state fence or the persistence contract. A stays as the explicit fallback if dev overrides; C is the heavier alternative if dev wants to break the v1 fence properly. Ship under B unless overridden: the immediate downstream slices are the lit-window night ambience dot and the ambient-AI-traffic dot, both of which carry their own `## Verify` blocks and can ship independently. Supporting analysis with the full 12-candidate ranking and OOS-fence mapping lives at `docs/SIM_LITE_CANDIDATES.md`. Refined recommendation per that study: only the ambient-AI-traffic candidate actually needs Q-009 to resolve B; seven other "city feels alive" candidates are admissible under the existing narrow reading of `99-out-of-scope.md` and can ship without a fence pivot.
+- Status: resolved
+- Resolution: 2026-05-05. Dev override: C (full sim pivot), with primary-loop inversion. Real SimCity-style features are now in scope: citizens, zoning (commercial / industrial / residential), power infrastructure (lines + plants), water + sewage, economy (taxes, budgets, costs), services (police, fire, hospitals), and disasters. Racing layers (laps, checkpoints, leaderboards) STAY out per the same dev override. Multiplayer, account wall, and native mobile builds also stay out. **Primary loop inverts**: sim becomes primary, drive becomes a side mode. The build / drive toggle vocabulary that defined v1 is replaced by a sim-with-optional-drive vocabulary. Pillar 3 ("Core first, sim later") is replaced by a new pillar that names the sim layer as the core. Pillar 1 ("Build it. Drive it. Build more.") is rewritten to "Build the sim. Watch it run. Drive through the result." Pillar 2 ("Your city, your URL.") is unchanged.
+
+  Implementation cadence: scope is too large for one PR. Follow-on slices land per layer per section file. The order of arrival is sim engine substrate first (REQ-070 series), then citizens (REQ-075 series), then zoning + business (REQ-080 series), then power (REQ-085 series), then water (REQ-090 series), then economy (REQ-095 series), then services (REQ-100 series), then disasters (REQ-105 series), then the sim-as-primary view UI (REQ-110 series). Each layer can ship independently; the engine substrate is the only hard precedent for the rest.
+
+  Existing ambient-AI-traffic dot stays valid (NPC vehicle traffic is a sub-feature of the citizens layer and is now unblocked). Existing lit-window dot stays valid (cosmetic ambience that complements the sim layer). Existing port-car and centerline dots stay valid but reprioritize down because drive is no longer the primary loop. The `docs/SIM_LITE_CANDIDATES.md` study is partially superseded (the OOS-fence column is now stale for the seven items moved out); the candidate ranking still holds for "what looks good while you drive" planning.
 
 ### Q-008: Slug write gating: per-cookie owner or open-edit
 

@@ -1211,6 +1211,87 @@
       "followupRefs": [
         "F-008"
       ]
+    },
+    {
+      "id": "REQ-070",
+      "requirement": "Sim engine substrate: tick scheduler at fixed rate (4 Hz default), SimState schema (city.sim with per-layer buckets), persisted sim state in city payload, layer registration with fixed run order (power -> water -> zoning -> citizens -> economy -> services -> disasters), pure layer step(state, dt) contract.",
+      "gddRef": "docs/gdd/13-sim-engine.md",
+      "status": "not_started",
+      "implementationRefs": [],
+      "testRefs": [],
+      "followupRefs": []
+    },
+    {
+      "id": "REQ-075",
+      "requirement": "Citizens layer: per-cell residential population integer (capacity by building type), pedestrian sprite render proxies on sidewalk-adjacent cells, NPC vehicle traffic per trip-demand event, trip demand counter per residential cell flowing toward nearest commercial / industrial cell, growth and decline gated by services + employment + power.",
+      "gddRef": "docs/gdd/14-citizens.md",
+      "status": "not_started",
+      "implementationRefs": [],
+      "testRefs": [],
+      "followupRefs": []
+    },
+    {
+      "id": "REQ-080",
+      "requirement": "Zoning and business: three zone types (residential / commercial / industrial) painted on cells without street pieces, zone-to-building organic growth in density steps (low to high), R/C/I demand bars in sim view, job slots per commercial / industrial density step, schema migration that keeps existing v1 placeholder building types loadable.",
+      "gddRef": "docs/gdd/15-zoning-and-business.md",
+      "status": "not_started",
+      "implementationRefs": [],
+      "testRefs": [],
+      "followupRefs": []
+    },
+    {
+      "id": "REQ-085",
+      "requirement": "Power grid: two v1 plant types (coal 100MW, solar 30MW) with 2x2 footprints, single-cell power-line pieces forming connected components, per-tick connectivity solver assigning powered / brownout / unpowered to each demanding cell, drive-mode visible signal (lit windows at night for powered residential, dark for browned out), per-cell pollution from coal plants feeding into citizen happiness.",
+      "gddRef": "docs/gdd/16-power-grid.md",
+      "status": "not_started",
+      "implementationRefs": [],
+      "testRefs": [],
+      "followupRefs": []
+    },
+    {
+      "id": "REQ-090",
+      "requirement": "Water and sewage: two source types (water-tower 50, pump-station 200), single-cell pipe pieces, sewage waste production per populated cell flowing toward sewage-treatment plants via dedicated sewage pipes, per-tick connectivity solver mirroring REQ-087 shape, drive-visible water towers and treatment plants (pipes invisible underground).",
+      "gddRef": "docs/gdd/17-water-and-sewage.md",
+      "status": "not_started",
+      "implementationRefs": [],
+      "testRefs": [],
+      "followupRefs": []
+    },
+    {
+      "id": "REQ-095",
+      "requirement": "Economy: per-tick tax revenue from populated zones (rates default residential 7%, commercial 7%, industrial 5%), one-time build cost on infrastructure placement, per-tick maintenance cost on placed infrastructure, top-of-screen treasury HUD with monthly net income / loss and tax rate sliders, bankruptcy after 30 in-game days below zero treasury (offers reset budget or reset city).",
+      "gddRef": "docs/gdd/18-economy.md",
+      "status": "not_started",
+      "implementationRefs": [],
+      "testRefs": [],
+      "followupRefs": []
+    },
+    {
+      "id": "REQ-100",
+      "requirement": "Services: five v1 service buildings (police-station, fire-station, hospital, school, garbage-depot) each with fixed coverage radius and per-tick maintenance cost, per-tick coverage solver per service-type for every populated cell, citizen happiness penalty per missing service-type, service-specific behaviors (police lower crime, fire lower fire-disaster spawn, hospital lower sickness, school raise property value, garbage prevent garbage accumulation), drive-visible service buildings with active-event signals.",
+      "gddRef": "docs/gdd/19-services.md",
+      "status": "not_started",
+      "implementationRefs": [],
+      "testRefs": [],
+      "followupRefs": []
+    },
+    {
+      "id": "REQ-105",
+      "requirement": "Disasters: five v1 disaster types (fire, flood, tornado, earthquake, monster) with per-tick spawn probabilities (fire scales with industrial density and missing fire coverage; flood seasonal; others low base rate with fair-weather-mode toggle), per-disaster damage footprint and recovery via service responses, drive-visible disaster effects (flame particles, water level, debris column).",
+      "gddRef": "docs/gdd/20-disasters.md",
+      "status": "not_started",
+      "implementationRefs": [],
+      "testRefs": [],
+      "followupRefs": []
+    },
+    {
+      "id": "REQ-110",
+      "requirement": "Sim-as-primary view: top-down 45-degree iso camera as the new default at /<slug> (drive moves to /<slug>/drive, edit absorbs into the sim toolbar), pan / 90deg-snap rotate / zoom controls, redesigned toolbar tabs (zones, infrastructure, services, transit, terrain), sim controls panel (Pause / 1x / 2x / 4x speed, tax sliders, treasury readout, demand bars), persistent Drive toggle that drops to street level at the camera focus point.",
+      "gddRef": "docs/gdd/21-sim-as-primary-view.md",
+      "status": "not_started",
+      "implementationRefs": [],
+      "testRefs": [],
+      "followupRefs": []
     }
   ]
 }
