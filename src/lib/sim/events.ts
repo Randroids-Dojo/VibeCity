@@ -5,13 +5,18 @@ import { computeFireSpread } from './fireSpread'
 import { applyFloodDamage } from './floodDamage'
 import { applyMonsterDamage } from './monsterDamage'
 import { solveSewageStatus } from './sewageSolver'
+import { solveServicesCoverage } from './servicesSolver'
 import { applyTornadoDamage } from './tornadoDamage'
 import {
   DEFAULT_SIM_SPEED,
   DEFAULT_TAX_RATES,
   COMMERCIAL_JOBS_BY_DENSITY,
+  COVERAGE_HAPPINESS_WEIGHT,
   EARTHQUAKE_HAPPINESS_PENALTY,
   EMPTY_ECONOMY_BUCKET,
+  TAX_HAPPINESS_WEIGHT,
+  TAX_NEUTRAL_RATE,
+  WASTE_HAPPINESS_WEIGHT,
   EMPTY_SIM_STATE,
   GROWTH_INTERVAL_TICKS,
   INDUSTRIAL_JOBS_BY_DENSITY,
@@ -638,14 +643,18 @@ function applyTick(state: SimState, event: TickEvent): SimState {
     nextTick,
     monsterDamaged.services,
   )
-  // Citizen happiness (REQ-092 slice 5 + REQ-105 slice 6). Reads
-  // the freshly-updated waste accumulation AND the post-decrement
-  // disasters bucket so the HUD reflects this tick's drain state
-  // and any expiring earthquake's penalty drops off cleanly.
+  // Citizen happiness (REQ-076 multi-input). Reads waste, services
+  // coverage, taxes, and disasters from the post-tick state so the
+  // HUD reflects this tick's drain state, freshly-erased services
+  // (tornado / monster), and any expiring earthquake's penalty
+  // drops off cleanly.
   const nextPopulationWithHappiness = applyHappinessTick(
     nextPopulation,
     nextWater,
     nextDisasters,
+    monsterDamaged.services,
+    monsterDamaged.zones,
+    state.taxRates,
   )
   return {
     ...state,
@@ -747,20 +756,31 @@ export function applyEconomyTick(
  * allocating a new bucket reference per growth tick.
  */
 /**
- * Compute city happiness from current waste accumulation + active
- * disasters (REQ-092 slice 5 + REQ-105 slice 6). Returns a 0..100
- * score:
- *   - 100 when there are no populated cells AND no active
- *     earthquakes (no one to be unhappy);
- *   - 100 - (avgWaste / WASTE_MAX_PER_CELL) * 100 when populated;
- *   - minus `EARTHQUAKE_HAPPINESS_PENALTY` per active earthquake.
- * The score is clamped to [0, 100] and rounded to one decimal so
- * HUD reads stay stable under tiny per-tick deltas.
+ * Compute city happiness from waste / services / taxes / earthquakes
+ * (REQ-076 multi-input slice). Returns a 0..100 score from a 100
+ * baseline minus four subtractive penalties:
+ *   - Waste: avg-waste-ratio scaled by `WASTE_HAPPINESS_WEIGHT` (max 50).
+ *   - Services coverage: `(5 - avgCoverage) * COVERAGE_HAPPINESS_WEIGHT`
+ *     where avgCoverage is the per-populated-cell coverage count from
+ *     `solveServicesCoverage` (max 20 when nothing is covered).
+ *   - Taxes: residential rate above `TAX_NEUTRAL_RATE` (10%) drags
+ *     `(rate - TAX_NEUTRAL_RATE) * TAX_HAPPINESS_WEIGHT` per tick;
+ *     rates at or below 10% contribute 0.
+ *   - Earthquakes: `EARTHQUAKE_HAPPINESS_PENALTY` per active.
+ *
+ * With no populated cells, waste / services / tax all read 0 (no one
+ * to suffer them); only earthquakes can drop happiness in that case.
+ *
+ * The score is clamped to [0, 100] and rounded to one decimal so HUD
+ * reads stay stable under tiny per-tick deltas.
  */
 export function computeCityHappiness(
   water: WaterBucket,
   population: PopulationBucket,
   disasters: DisastersBucket,
+  services: ServicesBucket,
+  zones: ZonesBucket,
+  taxRates: TaxRates,
 ): number {
   const populatedKeys = Object.keys(population.cells).filter(
     (key) => population.cells[key].residents > 0,
@@ -771,35 +791,62 @@ export function computeCityHappiness(
       earthquakePenalty += EARTHQUAKE_HAPPINESS_PENALTY
     }
   }
-  let baseScore: number
-  if (populatedKeys.length === 0) {
-    baseScore = 100
-  } else {
-    let total = 0
+  let wastePenalty = 0
+  let coveragePenalty = 0
+  let taxPenalty = 0
+  if (populatedKeys.length > 0) {
+    let totalWaste = 0
     for (const key of populatedKeys) {
-      total += water.wasteAccumulation[key] ?? 0
+      totalWaste += water.wasteAccumulation[key] ?? 0
     }
-    const avg = total / populatedKeys.length
-    baseScore = 100 - (avg / WASTE_MAX_PER_CELL) * 100
+    const avgWaste = totalWaste / populatedKeys.length
+    wastePenalty = (avgWaste / WASTE_MAX_PER_CELL) * WASTE_HAPPINESS_WEIGHT
+    const coverageMap = solveServicesCoverage(zones, services)
+    let totalCoverage = 0
+    for (const key of populatedKeys) {
+      const c = coverageMap[key]
+      const count = c
+        ? (c['police-station'] ? 1 : 0) +
+          (c['fire-station'] ? 1 : 0) +
+          (c.hospital ? 1 : 0) +
+          (c.school ? 1 : 0) +
+          (c['garbage-depot'] ? 1 : 0)
+        : 0
+      totalCoverage += count
+    }
+    const avgCoverage = totalCoverage / populatedKeys.length
+    coveragePenalty = (5 - avgCoverage) * COVERAGE_HAPPINESS_WEIGHT
+    taxPenalty =
+      Math.max(0, taxRates.residential - TAX_NEUTRAL_RATE) *
+      TAX_HAPPINESS_WEIGHT
   }
-  const score = baseScore - earthquakePenalty
-  // Clamp + round to one decimal.
+  const score = 100 - wastePenalty - coveragePenalty - taxPenalty - earthquakePenalty
   const clamped = Math.max(0, Math.min(100, score))
   return Math.round(clamped * 10) / 10
 }
 
 /**
- * Per-tick happiness reducer (REQ-092 sewage slice 5 + REQ-105
- * slice 6). Recomputes `cityHappiness` from the freshly-updated
- * water bucket and active disasters. Identity-on-no-change short-
- * circuits when the score is unchanged.
+ * Per-tick happiness reducer (REQ-076 multi-input). Recomputes
+ * `cityHappiness` from the freshly-updated water bucket, active
+ * disasters, services coverage, zones, and tax rates. Identity-on-
+ * no-change short-circuits when the score is unchanged.
  */
 export function applyHappinessTick(
   population: PopulationBucket,
   water: WaterBucket,
   disasters: DisastersBucket,
+  services: ServicesBucket,
+  zones: ZonesBucket,
+  taxRates: TaxRates,
 ): PopulationBucket {
-  const next = computeCityHappiness(water, population, disasters)
+  const next = computeCityHappiness(
+    water,
+    population,
+    disasters,
+    services,
+    zones,
+    taxRates,
+  )
   if (next === population.cityHappiness) return population
   return { ...population, cityHappiness: next }
 }
