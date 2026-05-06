@@ -16,6 +16,16 @@ Format for each slice:
 - Followups: any new `F-NNN` entries created. Link to them.
 ```
 
+## 2026-05-06, REQ-094 Drive-Visible Water Towers + Sewage Treatment Plants (Section Done)
+
+- Branch: `feature/20260506-drive-water-sewage`
+- PR: #N (when known)
+- Changed: `DriveSceneClient.tsx` scene-build effect renders each placed water source and treatment plant after the buildings layer. Water tower = cylinder column (0.18 cell radius * 1.6 cell tall, blue-grey) + tank cap (0.4 cell radius * 0.5 cell tall, water-blue). Pump station = low blue box. Sewage treatment plant = low sewage-brown box larger than a residence. Effect dependency array gained `simState.water` so place / erase events refresh the scene. Underground pipes stay invisible per section spec.
+- Verification: `npm run type-check` green. `npm test` 2004/2004 unit. `npm run build` green. `npm run check:dashes` clean. `git diff --check` clean. `npx playwright test e2e/drive.spec.ts e2e/sim.spec.ts --project=chromium` 23/23 local.
+- Assumptions: Three.js mesh primitives only (no model imports yet, mirroring the placeholder car). Scene rebuild on water-bucket change is the same pattern the zones / power blocks already use. Drive-visible regressions (e.g., wrong height) read as screenshot diffs and would land in a follow-on visual-regression slice if needed; programmatic e2e assertions on 3D mesh placement are out of scope.
+- GDD coverage: REQ-090 row flips to `done` (all five sub-requirements REQ-090..REQ-094 shipped). `docs/gdd/17-water-and-sewage.md` Status flips from `partial` to `done`. Coverage row implementation refs are stable; `DriveSceneClient.tsx` was already in the `implementationRefs` list under the broader sim-as-primary work.
+- Followups: none new for the water + sewage section. Growth-gating on happiness lives under REQ-076 citizen-happiness reducer; that requirement's outstanding inputs are services coverage, taxes, jobs.
+
 ## 2026-05-06, REQ-092 Sewage Slice 5: Citizen Happiness from Waste + HUD Readout
 
 - Branch: `feature/20260506-citizen-happiness`
