@@ -344,6 +344,130 @@ describe('applySimEvent', () => {
     })
   })
 
+  describe('per-tick zone growth (REQ-081 slice 1)', () => {
+    function tickN(times: number, start: SimState): SimState {
+      let s = start
+      for (let i = 0; i < times; i++) {
+        s = applySimEvent(s, {
+          type: 'tick',
+          payload: { deltaMs: 250 },
+          clientCreatedAt: i,
+          authorBuilderId: A_BUILDER,
+        })
+      }
+      return s
+    }
+
+    function placeZone(
+      kind: 'residential' | 'commercial' | 'industrial',
+      row: number,
+      col: number,
+    ): SimEvent {
+      return {
+        type: 'placeZone',
+        payload: { kind, row, col },
+        clientCreatedAt: 0,
+        authorBuilderId: A_BUILDER,
+      }
+    }
+
+    it('does not grow before the first growth tick (tick 1..19 keep density 0)', () => {
+      let s = applySimEvent(EMPTY_SIM_STATE, placeZone('residential', 0, 0))
+      s = tickN(19, s)
+      expect(s.zones.cells['0,0']?.density).toBe(0)
+    })
+
+    it('advances density by 1 at exactly the first growth tick (tick 20)', () => {
+      let s = applySimEvent(EMPTY_SIM_STATE, placeZone('residential', 0, 0))
+      s = tickN(20, s)
+      expect(s.tick).toBe(20)
+      expect(s.zones.cells['0,0']?.density).toBe(1)
+    })
+
+    it('keeps density 1 between growth ticks (tick 21..39)', () => {
+      let s = applySimEvent(EMPTY_SIM_STATE, placeZone('residential', 0, 0))
+      s = tickN(39, s)
+      expect(s.zones.cells['0,0']?.density).toBe(1)
+    })
+
+    it('advances density by 1 at each growth tick (40 -> 2, 60 -> 3)', () => {
+      let s = applySimEvent(EMPTY_SIM_STATE, placeZone('residential', 0, 0))
+      s = tickN(40, s)
+      expect(s.zones.cells['0,0']?.density).toBe(2)
+      s = tickN(20, s)
+      expect(s.zones.cells['0,0']?.density).toBe(3)
+    })
+
+    it('caps density at 3 (further growth ticks are no-ops)', () => {
+      let s = applySimEvent(EMPTY_SIM_STATE, placeZone('residential', 0, 0))
+      s = tickN(60, s)
+      expect(s.zones.cells['0,0']?.density).toBe(3)
+      const before = s
+      s = tickN(20, s)
+      expect(s.zones.cells['0,0']?.density).toBe(3)
+      // Identity preservation: no work to do, so the state object is
+      // structurally equal but the zones bucket and the wrapping cell
+      // can be the same reference.
+      expect(s.zones).toBe(before.zones)
+    })
+
+    it('advances every cell on a growth tick (multi-cell)', () => {
+      let s = applySimEvent(EMPTY_SIM_STATE, placeZone('residential', 0, 0))
+      s = applySimEvent(s, placeZone('commercial', 1, 1))
+      s = applySimEvent(s, placeZone('industrial', 2, 2))
+      s = tickN(20, s)
+      expect(s.zones.cells['0,0']?.density).toBe(1)
+      expect(s.zones.cells['1,1']?.density).toBe(1)
+      expect(s.zones.cells['2,2']?.density).toBe(1)
+    })
+
+    it('mixed-density bucket: only <3 cells advance', () => {
+      let s = applySimEvent(EMPTY_SIM_STATE, placeZone('residential', 0, 0))
+      s = applySimEvent(s, placeZone('commercial', 1, 1))
+      // Force one cell to max density to test the cap-and-skip behavior.
+      s = {
+        ...s,
+        zones: {
+          cells: {
+            ...s.zones.cells,
+            '0,0': { kind: 'residential', density: 3 },
+          },
+        },
+      }
+      s = tickN(20, s)
+      expect(s.zones.cells['0,0']?.density).toBe(3)
+      expect(s.zones.cells['1,1']?.density).toBe(1)
+    })
+
+    it('paused sim does not grow', () => {
+      let s = applySimEvent(EMPTY_SIM_STATE, placeZone('residential', 0, 0))
+      s = applySimEvent(s, {
+        type: 'setSpeed',
+        payload: { speed: 0 },
+        clientCreatedAt: 0,
+        authorBuilderId: A_BUILDER,
+      })
+      s = tickN(20, s)
+      expect(s.tick).toBe(0)
+      expect(s.zones.cells['0,0']?.density).toBe(0)
+    })
+
+    it('two replays of the same event log derive identical density progression', () => {
+      const events: SimEvent[] = [
+        placeZone('residential', 0, 0),
+        ...Array.from({ length: 20 }, (_, i) => ({
+          type: 'tick' as const,
+          payload: { deltaMs: 250 },
+          clientCreatedAt: i,
+          authorBuilderId: A_BUILDER,
+        })),
+      ]
+      const a = applyMany(EMPTY_SIM_STATE, events)
+      const b = applyMany(EMPTY_SIM_STATE, events)
+      expect(a).toEqual(b)
+    })
+  })
+
   describe('reduceSimEvents over the full zoning vocabulary', () => {
     it('replays place + erase deterministically', () => {
       const events: SimEvent[] = [

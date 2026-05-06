@@ -4,12 +4,15 @@ import {
   DEFAULT_SIM_SPEED,
   DEFAULT_TAX_RATES,
   EMPTY_SIM_STATE,
+  GROWTH_INTERVAL_TICKS,
   SimSpeedSchema,
   TaxRatesSchema,
   ZoneKindSchema,
   zoneCellKey,
   type SimState,
   type ZoneCell,
+  type ZoneDensity,
+  type ZonesBucket,
 } from './state'
 
 /**
@@ -231,11 +234,49 @@ function applyTick(state: SimState, event: TickEvent): SimState {
   // while paused (REQ-070), but the reducer is the source of truth so
   // a stray paused-tick event does not advance state.
   if (state.speed === 0) return state
+  const nextTick = state.tick + 1
+  const nextZones = maybeGrowZones(state.zones, nextTick)
   return {
     ...state,
-    tick: state.tick + 1,
+    tick: nextTick,
     simTimeMs: state.simTimeMs + event.payload.deltaMs,
+    zones: nextZones,
   }
+}
+
+/**
+ * Per-tick zone growth (REQ-081 slice 1). Returns the input bucket
+ * unchanged when this tick is not a growth tick OR every zoned cell
+ * is already at max density. Otherwise returns a fresh bucket with
+ * every density-<3 cell advanced by 1.
+ *
+ * Deterministic: replay over the same event log produces the same
+ * growth at the same ticks. v1 advances unconditionally; the
+ * follow-on slice gates growth on per-cell supply / demand from the
+ * citizens (REQ-075), power (REQ-085), water (REQ-090), and services
+ * (REQ-100) layers.
+ */
+export function maybeGrowZones(
+  zones: ZonesBucket,
+  tick: number,
+): ZonesBucket {
+  if (tick <= 0 || tick % GROWTH_INTERVAL_TICKS !== 0) return zones
+  const cellKeys = Object.keys(zones.cells)
+  if (cellKeys.length === 0) return zones
+  let changed = false
+  const nextCells: Record<string, ZoneCell> = {}
+  for (const key of cellKeys) {
+    const cell = zones.cells[key]
+    if (cell.density >= 3) {
+      nextCells[key] = cell
+      continue
+    }
+    changed = true
+    const advanced: ZoneDensity = (cell.density + 1) as ZoneDensity
+    nextCells[key] = { kind: cell.kind, density: advanced }
+  }
+  if (!changed) return zones
+  return { cells: nextCells }
 }
 
 function applySetSpeed(state: SimState, event: SetSpeedEvent): SimState {
