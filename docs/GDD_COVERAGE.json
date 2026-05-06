@@ -1330,9 +1330,17 @@
       "id": "REQ-095",
       "requirement": "Economy: per-tick tax revenue from populated zones (rates default residential 7%, commercial 7%, industrial 5%), one-time build cost on infrastructure placement, per-tick maintenance cost on placed infrastructure, top-of-screen treasury HUD with monthly net income / loss and tax rate sliders, bankruptcy after 30 in-game days below zero treasury (offers reset budget or reset city).",
       "gddRef": "docs/gdd/18-economy.md",
-      "status": "not_started",
-      "implementationRefs": [],
-      "testRefs": [],
+      "status": "partial",
+      "implementationRefs": [
+        "src/lib/sim/state.ts",
+        "src/lib/sim/events.ts",
+        "src/app/[slug]/edit/EditorClient.tsx"
+      ],
+      "testRefs": [
+        "tests/lib/sim/state.test.ts",
+        "tests/lib/sim/events.test.ts",
+        "e2e/sim.spec.ts"
+      ],
       "followupRefs": []
     },
     {

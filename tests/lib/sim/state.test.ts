@@ -165,9 +165,14 @@ describe('EMPTY_SIM_STATE', () => {
 
   it('has every passthrough per-layer bucket as an empty object', () => {
     expect(EMPTY_SIM_STATE.water).toEqual({})
-    expect(EMPTY_SIM_STATE.economy).toEqual({})
     expect(EMPTY_SIM_STATE.services).toEqual({})
     expect(EMPTY_SIM_STATE.disasters).toEqual({})
+  })
+
+  it('has economy bucket initialized with INITIAL_TREASURY (REQ-095 slice 1)', () => {
+    expect(EMPTY_SIM_STATE.economy.treasury).toBe(20000)
+    expect(EMPTY_SIM_STATE.economy.lastTickIncome).toBe(0)
+    expect(EMPTY_SIM_STATE.economy.lastTickMaintenance).toBe(0)
   })
 
   it('has population bucket initialized to empty cells + zero totals (REQ-075 slice 1 strict shape)', () => {

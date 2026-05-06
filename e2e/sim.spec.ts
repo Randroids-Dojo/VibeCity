@@ -309,6 +309,62 @@ test('editor: day/night mood toggle flips active state and triggers autosave (RE
   })
 })
 
+test('editor: treasury starts at 20000 and decreases as power infrastructure is placed (REQ-095)', async ({
+  page,
+}) => {
+  await page.route('**/api/city/**', async (route, req) => {
+    if (req.method() === 'PUT') {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          slug: 'sim-treasury-spec',
+          versionHash: '0'.repeat(64),
+          updatedAt: 0,
+        }),
+      })
+    } else {
+      await route.fallback()
+    }
+  })
+
+  await page.goto('/sim-treasury-spec/edit')
+  // Pause so the per-tick maintenance does not run while we set up.
+  await page.getByTestId('editor-sim-speed-0').click()
+
+  const treasury = page.getByTestId('editor-sim-treasury')
+  await expect(treasury).toHaveAttribute('data-sim-treasury', '20000')
+
+  // Place a coal plant (no maintenance applied while paused).
+  await page.getByTestId('editor-palette-category-power').click()
+  const palette = page.getByTestId('editor-palette')
+  await palette.locator('[data-power-tool="plant-coal"]').click()
+  await page
+    .locator(
+      '[data-testid="editor-snap-grid"] rect[data-cell-row="0"][data-cell-col="0"]',
+    )
+    .click()
+
+  // Treasury still 20000 because no tick has fired (sim is paused).
+  await expect(treasury).toHaveAttribute('data-sim-treasury', '20000')
+
+  // Unpause to 4x; one tick at 4x = 62.5ms; plant maintenance is
+  // 0.5/tick. After several ticks the treasury should drop visibly.
+  await page.getByTestId('editor-sim-speed-4').click()
+  // Wait long enough for at least 5 ticks to fire (~315ms at 4x).
+  // After 10 ticks the treasury would be 20000 - 5 = 19995 (rounds
+  // to 19995); using inequality is more flake-tolerant than equality.
+  await expect
+    .poll(
+      async () => {
+        const value = await treasury.getAttribute('data-sim-treasury')
+        return Number.parseInt(value ?? '20000', 10)
+      },
+      { timeout: 4000 },
+    )
+    .toBeLessThan(20000)
+})
+
 test('editor: residential zone growth bumps population readout (REQ-075)', async ({
   page,
 }) => {

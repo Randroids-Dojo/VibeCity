@@ -16,6 +16,16 @@ Format for each slice:
 - Followups: any new `F-NNN` entries created. Link to them.
 ```
 
+## 2026-05-06, REQ-095 Economy Slice 1: Treasury + Per-Tick Tax / Maintenance + HUD Readout
+
+- Branch: `feature/20260506-economy-treasury`
+- PR: #N (when known)
+- Changed: First economy-layer slice. Tightened `EconomyBucketSchema` from passthrough to strict `{ treasury, lastTickIncome, lastTickMaintenance }`. INITIAL_TREASURY = 20000 (SimCity 2000 small-map default). Per-tick income = `population.totalPopulation * taxRates.residential`; per-tick maintenance = line count * 0.05 + plant count * 0.5. Treasury accumulates the net delta every tick. New `applyEconomyTick` pure helper called from `applyTick`; identity-on-no-change short-circuits when income, maintenance, and treasury all match. Editor toolbar shows a `$N,NNN` treasury readout next to the population readout; turns red when treasury < 0.
+- Verification: `npm run type-check` green. `npm test` 1912/1912 unit pass (1903 prior + 9 new economy cases). `npm run build` green. `npm run check:dashes` clean. `git diff --check` clean. `npx playwright test e2e/sim.spec.ts --project=chromium` 12/12 local (11 prior + 1 new treasury case verifying place-plant-while-paused does not drain treasury, unpausing drains it).
+- Assumptions: Per-tick numbers (0.05/line, 0.5/plant, 7% of pop per tick) are tunable. Goal in slice 1 is "treasury moves visibly within the first 30 seconds of placing a residential zone with power" so a player sees the loop tick over. Income comes only from residential population in slice 1; commercial / industrial revenue defers to REQ-083 (job slots) which has its own follow-on. Build costs (one-time deduction on placement) and bankruptcy countdown (30 in-game days below zero) defer to slice 2 of REQ-095. The economy reducer runs on every tick (not only growth ticks like population) because tax accrues continuously, not in steps; the math is O(1) on totalPopulation plus O(P+L) on infrastructure cell counts so the per-tick cost stays bounded by the grid. Bankruptcy semantics in slice 2 will use a tick-based timer (e.g. 1200 ticks = 5 minutes at 1x) rather than literal in-game days because the sim has no calendar yet.
+- GDD coverage: REQ-095 flips `not_started` to `partial`. `implementationRefs` populated with `src/lib/sim/state.ts`, `src/lib/sim/events.ts`, `src/app/[slug]/edit/EditorClient.tsx`. `testRefs` populated with `tests/lib/sim/state.test.ts`, `tests/lib/sim/events.test.ts`, `e2e/sim.spec.ts`. `docs/gdd/18-economy.md` Status flips to `partial`; gains a build log entry.
+- Followups: none new. Next REQ-095 slices: build-cost deduction on placement (slice 2), bankruptcy countdown + reset-budget / reset-city flow (slice 2), commercial / industrial revenue from job slots (depends on REQ-083).
+
 ## 2026-05-06, REQ-075 Citizens Slice 1: Population Bucket + Density-Tied Growth
 
 - Branch: `feature/20260506-citizens-population`

@@ -5,6 +5,8 @@ import {
   DEFAULT_TAX_RATES,
   EMPTY_SIM_STATE,
   GROWTH_INTERVAL_TICKS,
+  LINE_MAINTENANCE_PER_TICK,
+  PLANT_MAINTENANCE_PER_TICK,
   PowerPlantKindSchema,
   RESIDENTIAL_CAPACITY_BY_DENSITY,
   SimSpeedSchema,
@@ -12,10 +14,13 @@ import {
   ZoneKindSchema,
   powerLineKey,
   zoneCellKey,
+  type EconomyBucket,
   type PopulationBucket,
   type PopulationCell,
+  type PowerBucket,
   type PowerPlant,
   type SimState,
+  type TaxRates,
   type ZoneCell,
   type ZoneDensity,
   type ZonesBucket,
@@ -318,12 +323,68 @@ function applyTick(state: SimState, event: TickEvent): SimState {
   const nextPopulation = isGrowthTick
     ? syncPopulationToZones(state.population, nextZones)
     : state.population
+  // Economy ticks every frame (REQ-095 slice 1). Income from
+  // residents * tax rate, maintenance from infrastructure cell counts.
+  // Treasury accumulates each tick. The math is O(1) on the
+  // already-summed `population.totalPopulation` plus O(P) on the
+  // plants array length and O(L) on the line cell count, both
+  // bounded by the grid so the per-tick cost is tiny.
+  const nextEconomy = applyEconomyTick(
+    state.economy,
+    nextPopulation,
+    state.power,
+    state.taxRates,
+  )
   return {
     ...state,
     tick: nextTick,
     simTimeMs: state.simTimeMs + event.payload.deltaMs,
     zones: nextZones,
     population: nextPopulation,
+    economy: nextEconomy,
+  }
+}
+
+/**
+ * Per-tick economy reducer (REQ-095 slice 1).
+ *
+ * Income: every resident contributes `residentialTaxRate` per tick to
+ * the treasury. Slice 2 will add commercial / industrial revenue from
+ * job slots once those land (REQ-083). Maintenance: every line cell
+ * costs `LINE_MAINTENANCE_PER_TICK`, every plant
+ * `PLANT_MAINTENANCE_PER_TICK`. Treasury accumulates the net delta.
+ * `lastTickIncome` and `lastTickMaintenance` carry the per-tick gross
+ * numbers for HUD readouts.
+ *
+ * Identity-on-no-change short-circuits when income, maintenance, AND
+ * the resulting treasury all match the input bucket. The first tick
+ * after placing a zone or plant will not short-circuit because the
+ * income or maintenance changes.
+ */
+export function applyEconomyTick(
+  economy: EconomyBucket,
+  population: PopulationBucket,
+  power: PowerBucket,
+  taxRates: TaxRates,
+): EconomyBucket {
+  const income = population.totalPopulation * taxRates.residential
+  const lineCount = Object.keys(power.lines).length
+  const plantCount = power.plants.length
+  const maintenance =
+    lineCount * LINE_MAINTENANCE_PER_TICK +
+    plantCount * PLANT_MAINTENANCE_PER_TICK
+  const nextTreasury = economy.treasury + income - maintenance
+  if (
+    economy.lastTickIncome === income &&
+    economy.lastTickMaintenance === maintenance &&
+    economy.treasury === nextTreasury
+  ) {
+    return economy
+  }
+  return {
+    treasury: nextTreasury,
+    lastTickIncome: income,
+    lastTickMaintenance: maintenance,
   }
 }
 
