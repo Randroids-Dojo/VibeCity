@@ -108,6 +108,27 @@ Keep `F-NNN` IDs monotonically increasing. When a followup ships, leave the entr
 - Unblock condition: dev provides one paragraph of vision text or approves a draft.
 - Resolved: 2026-05-03. Drafted `docs/gdd/01-vision-and-pillars.md` plus `docs/gdd/99-out-of-scope.md`; coverage seeded with 57 atomic rows. See PROGRESS_LOG.md entry "Vision and Coverage Seeded".
 
+### F-013: Drive-feel texture pass (tire screech, suspension bob, brake light)
+
+- Priority: nice-to-have
+- Context: Surfaced in the 2026-05-05 fun-factor audit (`docs/FUN_FACTOR_AUDIT.md`). The drive surface today has engine pitch (REQ-068) but nothing else; mid and expert players see no skill expression because the kinematic integrator does not reward line choice with audio or visual feedback. The smallest slice: tire-screech SFX gated on lateral-acceleration above a threshold, suspension bob on the car body keyed to throttle / brake events, and a brake-light material on the car's rear faces that switches color when brake is pressed.
+- Blocker: best landed AFTER the real car model dot (so the brake light has a stable rear face to attach to).
+- Unblock condition: `implement: port car.glb to drive scene (REQ-047 fidelity bump)` lands.
+
+### F-012: First-session onboarding hint in the editor
+
+- Priority: nice-to-have
+- Context: Surfaced in the 2026-05-05 fun-factor audit. The editor currently presents a snap-grid SVG and a palette with no first-session hint. A brand-new player with no city-builder vocabulary may not realize the palette tile must be selected before the cell click. Smallest slice: a one-time pulsing outline on the first palette tile and the first empty cell on a fresh slug, dismissed after the first successful piece placement and never shown again for that slug (cookie or localStorage flag).
+- Blocker: none.
+- Unblock condition: pick a dismissal storage mechanism (cookie keyed by slug, localStorage flag) and ship.
+
+### F-011: Home page recent-card thumbnail (city preview SVG)
+
+- Priority: nice-to-have
+- Context: Surfaced in the 2026-05-05 fun-factor audit. The home page lists recent cities as text-only slug links (`src/app/page.tsx`). A first-time visitor cannot tell which slug is interesting from the list. Smallest slice: render a small SVG preview of each recent city's pieces (reuse `src/app/[slug]/edit/SnapGridView.tsx` rendering at a smaller scale) inline in each `home-recent-link` card. The city payload is already loaded for the recent-cities list in principle; if the index does not currently include the city payload, extend `recentCities()` to fetch each `city:${slug}:latest` payload (capped at the 12 most recent so the parallel fan-out is bounded).
+- Blocker: depends on whether `recentCities()` already loads city payloads or just slug + updatedAt.
+- Unblock condition: extend `recentCities()` if needed; render SVG preview in each card.
+
 ## Polish
 
 (none yet)
