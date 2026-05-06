@@ -211,3 +211,100 @@ export const HUD_CITY_VALIDITY_LABEL: Record<CityValidity, string> = {
   closed: '',
   open: 'Open ends',
 }
+
+/**
+ * Compass heading state shown in the drive HUD (REQ-066).
+ *
+ * The integrator's `heading` is a radian angle (0 = car points north,
+ * forward at heading `h` is `(sin h, -cos h)`). A player driving across
+ * a long city loses track of orientation when the chase camera follows
+ * the car turn-for-turn. Collapsing the heading into one of the eight
+ * cardinal / corner directions gives a quick "I am heading north-east"
+ * cue at the bottom of the HUD without forcing the player to read a
+ * radian value or count compass-rose tick marks.
+ *
+ * Eight bins of 45 degrees each, centered on each cardinal: a heading
+ * of `+/- 22.5deg` reads as `N`; `22.5deg` to `67.5deg` reads as `NE`,
+ * and so on around the compass. Mirrors the `Dir` taxonomy from
+ * `src/lib/connectors.ts` so a future compass-based piece-snap layer
+ * can speak the same vocabulary.
+ */
+export type CompassDirection =
+  | 'N'
+  | 'NE'
+  | 'E'
+  | 'SE'
+  | 'S'
+  | 'SW'
+  | 'W'
+  | 'NW'
+
+/**
+ * Ordered list of compass directions starting at north and walking
+ * clockwise. The index into this array is the bin index used by
+ * `headingToCompass`. Mirrors `connectors.Dir` (0 = N, 1 = NE, ...,
+ * 7 = NW) so a future caller that wants the index alongside the label
+ * can use `COMPASS_DIRECTIONS.indexOf(direction)` without recomputing.
+ */
+export const COMPASS_DIRECTIONS: ReadonlyArray<CompassDirection> = [
+  'N',
+  'NE',
+  'E',
+  'SE',
+  'S',
+  'SW',
+  'W',
+  'NW',
+]
+
+/**
+ * Resolve the live compass direction from the integrator's heading.
+ *
+ * The heading convention is `applyDriveStep`'s: 0 radians = car points
+ * north, `forward = (sin h, -cos h)`. We normalize the heading into
+ * `[0, 2pi)` and bin into eight 45deg sectors centered on each cardinal
+ * (`N` covers `-22.5deg` to `+22.5deg`, `NE` covers `22.5deg` to
+ * `67.5deg`, etc.). The result is deterministic on the heading value;
+ * non-finite inputs collapse to `N` so a tuning bug cannot flip the HUD
+ * into an undefined state.
+ *
+ * Pure: no allocation, no DOM. The drive scene client calls this each
+ * frame inside `updateHud` and writes the result to the visible span
+ * plus the `data-hud-compass` attribute on the scene root.
+ */
+export function headingToCompass(heading: number): CompassDirection {
+  if (!Number.isFinite(heading)) return 'N'
+  const TWO_PI = Math.PI * 2
+  // Normalize to `[0, 2pi)`. JavaScript's `%` keeps the sign of the
+  // dividend, so a negative heading after `% TWO_PI` lands in `(-2pi, 0]`;
+  // adding `TWO_PI` and modding again folds it back into `[0, 2pi)`.
+  const normalized = ((heading % TWO_PI) + TWO_PI) % TWO_PI
+  // Each bin is `pi/4` wide. Shift by `pi/8` so the `N` bin straddles
+  // zero (covers `[-pi/8, +pi/8)` after normalization), then floor to
+  // get an integer in `[0, 8)`. The `% 8` handles the `2pi` wrap so a
+  // heading just under `2pi` reads as `N` (back to bin 0) instead of
+  // bin 8.
+  const QUARTER_PI = Math.PI / 4
+  const HALF_BIN = QUARTER_PI / 2
+  const binIndex = Math.floor((normalized + HALF_BIN) / QUARTER_PI) % 8
+  return COMPASS_DIRECTIONS[binIndex]
+}
+
+/**
+ * Human-readable label per compass direction. The HUD writes this label
+ * imperatively into a span next to the speed readout each frame; every
+ * direction gets a non-empty label because the compass cue is always
+ * useful (unlike the surface state or the speed-direction labels which
+ * stay silent on the default state). The labels use the standard
+ * one- or two-character compass abbreviations to keep the HUD compact.
+ */
+export const HUD_COMPASS_LABEL: Record<CompassDirection, string> = {
+  N: 'N',
+  NE: 'NE',
+  E: 'E',
+  SE: 'SE',
+  S: 'S',
+  SW: 'SW',
+  W: 'W',
+  NW: 'NW',
+}
