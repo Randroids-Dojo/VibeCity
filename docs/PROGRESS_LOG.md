@@ -16,6 +16,16 @@ Format for each slice:
 - Followups: any new `F-NNN` entries created. Link to them.
 ```
 
+## 2026-05-06, Lit-Window Night Ambience: Buildings + Intersection Streetlamps
+
+- Branch: `feature/20260506-lit-windows`
+- PR: #N (when known)
+- Changed: `timeOfDay.ts` exports four new constants: `BUILDING_LIT_WINDOW_HEX_NIGHT` + `BUILDING_LIT_WINDOW_INTENSITY_NIGHT` + `STREETLAMP_HEX_NIGHT` + `STREETLAMP_INTENSITY_NIGHT`. `DriveSceneClient.tsx` building bodies now carry an emissive material that lights up at night; new intersection-lamppost render pass adds a small post + glowing bulb at every `intersection` piece, offset to a corner so the post does not sit in the middle of the road. Day mode renders the post but no glow so silhouettes stay consistent across modes.
+- Verification: `npm run type-check` green. `npm test` 2019/2019 unit pass (2017 prior + 2 new constant-shape cases). `npm run build` green. `npm run check:dashes` clean. `git diff --check` clean. e2e suites unchanged (3D rendering is best validated by screenshot rather than programmatic Playwright assertion).
+- Assumptions: v1 buildings light regardless of zone power because the placeholder `city.buildings` array is not yet wired into the power solver. Once REQ-046 buildings migrate into zoning, this can read per-cell power status and dim unpowered buildings. Streetlamp position is hard-coded to the +X +Z corner (≈0.35 cell offset); a follow-on slice could rotate the offset by piece.rotation so the post lands consistently at the same world corner regardless of intersection orientation.
+- GDD coverage: REQ-088 stays `done`. `docs/gdd/09-drive-mode.md` Status unchanged; gains a build log entry. No coverage row deltas (entities added to already-listed files).
+- Followups: none new. Visual regression via screenshot is the right test surface here; that lives behind a separate Playwright config and isn't part of this slice.
+
 ## 2026-05-06, REQ-095 Slice 3 Copilot Review Fixes
 
 - Branch: `feature/20260506-bankruptcy-countdown` (continuing PR #113)

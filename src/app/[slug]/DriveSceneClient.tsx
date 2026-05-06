@@ -7,6 +7,10 @@ import type { BuilderId, City, Slug } from '@/lib/schemas'
 import { useSimEngine } from '@/lib/sim/useSimEngine'
 import { solvePowerStatus, type CellPowerStatus } from '@/lib/sim/powerSolver'
 import {
+  BUILDING_LIT_WINDOW_HEX_NIGHT,
+  BUILDING_LIT_WINDOW_INTENSITY_NIGHT,
+  STREETLAMP_HEX_NIGHT,
+  STREETLAMP_INTENSITY_NIGHT,
   TIME_OF_DAY_PALETTE,
   resolveTimeOfDay,
   zoneEmissiveHex,
@@ -737,6 +741,52 @@ export function DriveSceneClient({
       }
     }
 
+    // Streetlamps at intersection cells (lit-window slice). v1 lights
+    // every intersection piece with a small post + glowing bulb at
+    // night so the player sees the grid corners as ambient cues
+    // rather than a uniform dark plane. Day mode renders the post
+    // but no glow so the silhouette stays consistent across modes.
+    const lampPostGeometry = new THREE.CylinderGeometry(
+      CELL_SIZE * 0.04,
+      CELL_SIZE * 0.04,
+      CELL_SIZE * 0.6,
+      8,
+    )
+    const lampPostMaterial = new THREE.MeshLambertMaterial({ color: 0x4a3f33 })
+    const lampBulbGeometry = new THREE.SphereGeometry(CELL_SIZE * 0.08, 10, 10)
+    const lampBulbMaterial = new THREE.MeshLambertMaterial({
+      color: timeOfDay === 'night' ? STREETLAMP_HEX_NIGHT : 0x444444,
+      emissive: new THREE.Color(
+        timeOfDay === 'night' ? STREETLAMP_HEX_NIGHT : 0x000000,
+      ),
+      emissiveIntensity: timeOfDay === 'night' ? STREETLAMP_INTENSITY_NIGHT : 0,
+    })
+    for (const piece of city.pieces) {
+      if (piece.type !== 'intersection') continue
+      const { x, z } = cellToWorld(piece.row, piece.col)
+      // Offset toward one corner of the cell so the post does not sit
+      // in the center of the road. Quarter-cell inward from the +X +Z
+      // corner reads as "northeast curb" at default rotation.
+      const offset = CELL_SIZE * 0.35
+      const postMesh = new THREE.Mesh(lampPostGeometry, lampPostMaterial)
+      postMesh.position.set(x + offset, CELL_SIZE * 0.3, z + offset)
+      postMesh.userData = {
+        type: 'streetlamp-post',
+        row: piece.row,
+        col: piece.col,
+      }
+      scene.add(postMesh)
+      const bulbMesh = new THREE.Mesh(lampBulbGeometry, lampBulbMaterial)
+      bulbMesh.position.set(x + offset, CELL_SIZE * 0.65, z + offset)
+      bulbMesh.userData = {
+        type: 'streetlamp-bulb',
+        row: piece.row,
+        col: piece.col,
+        litAtNight: timeOfDay === 'night',
+      }
+      scene.add(bulbMesh)
+    }
+
     // Buildings (REQ-046). Extruded boxes sized to the cell footprint
     // with per-type heights and colors so the four placeholder
     // primitives form a visible silhouette vocabulary from the orbit
@@ -757,10 +807,20 @@ export function DriveSceneClient({
       )
       const bodyMaterial = new THREE.MeshLambertMaterial({
         color: buildingColorFor(building.type),
+        emissive: new THREE.Color(
+          timeOfDay === 'night' ? BUILDING_LIT_WINDOW_HEX_NIGHT : 0x000000,
+        ),
+        emissiveIntensity:
+          timeOfDay === 'night' ? BUILDING_LIT_WINDOW_INTENSITY_NIGHT : 0,
       })
       const bodyMesh = new THREE.Mesh(bodyGeometry, bodyMaterial)
       bodyMesh.position.set(x, height / 2, z)
       bodyMesh.rotation.y = headingY
+      bodyMesh.userData = {
+        type: 'building-body',
+        buildingType: building.type,
+        litAtNight: timeOfDay === 'night',
+      }
       scene.add(bodyMesh)
 
       // Roof cap (REQ-046 visual polish). Sits on top of the body so

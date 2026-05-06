@@ -122,3 +122,25 @@ export function zoneEmissiveIntensity(
   if (status === 'brownout') return 0.8
   return 0
 }
+
+/**
+ * Per-building lit-window emissive at night (placement-layer payoff).
+ * Buildings light up regardless of zone power status because the v1
+ * `city.buildings` placeholders are not yet wired into the power
+ * solver (zones drive the powered / unpowered classification). Once
+ * REQ-046 buildings migrate into the zoning system, this can read
+ * the cell's power status and dim unpowered buildings.
+ *
+ * Day mode: 0 (no emissive). Night mode: warm amber for residential-
+ * shaped buildings, cooler white for commercial / utility buildings.
+ */
+export const BUILDING_LIT_WINDOW_HEX_NIGHT = 0xffb060
+export const BUILDING_LIT_WINDOW_INTENSITY_NIGHT = 0.9
+
+/**
+ * Streetlamp emissive (lit at night, off during day). Lamps render at
+ * intersection cells so the player driving at night sees the lit
+ * grid corners as an ambient cue rather than a uniform dark plane.
+ */
+export const STREETLAMP_HEX_NIGHT = 0xffd278
+export const STREETLAMP_INTENSITY_NIGHT = 1.4
