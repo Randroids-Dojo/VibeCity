@@ -16,6 +16,16 @@ Format for each slice:
 - Followups: any new `F-NNN` entries created. Link to them.
 ```
 
+## 2026-05-06, REQ-081 Follow-on: Happiness-Gated Zone Growth
+
+- Branch: `feature/20260506-happy-growth`
+- PR: #N (when known)
+- Changed: `maybeGrowZones` now takes a third `cityHappiness` argument and returns the input bucket unchanged when happiness sits at or below the new `GROWTH_HAPPINESS_THRESHOLD = 50` constant (in `src/lib/sim/state.ts`). `applyTick` passes `state.population.cityHappiness` (pre-tick happiness, so a one-tick lag) into the call site. Closes the multi-input happiness loop landed in PR #130: tanking happiness through high taxes, untreated waste, missing services, or active disasters now stalls organic density growth instead of being a HUD-only readout.
+- Verification: `npm test` 2134/2134 unit. `npm run build` green. `npm run check:dashes` clean. `git diff --check` clean. `npx playwright test e2e/sim.spec.ts --project=chromium` 24/24 local.
+- Assumptions: 50 is the midpoint of the [0, 100] happiness range; the default starter city sits at 100 so growth runs out of the box and the gate only fires after the player has visibly accumulated penalty. Reading pre-tick `cityHappiness` (eventual consistency) avoids reordering the applyTick pipeline; the one-tick lag is invisible at `GROWTH_INTERVAL_TICKS = 20` cadence. Per-cell supply / demand gating from power / water / services layers stays a follow-on slice.
+- GDD coverage: `docs/gdd/15-zoning-and-business.md` REQ-081 build log gains a happiness-gate entry; `docs/GDD_COVERAGE.json` REQ-081 row stays `partial` (per-cell supply / demand gating remains).
+- Followups: F-NEW (deferred): per-cell happiness so the gate can decline density on individual unhappy cells instead of stalling the whole city; visible "growth stalled" indicator in the HUD when `cityHappiness <= GROWTH_HAPPINESS_THRESHOLD`.
+
 ## 2026-05-06, REQ-076: Multi-Input Citizen Happiness (Services + Taxes + Waste + Earthquakes)
 
 - Branch: `feature/20260506-multi-happiness`

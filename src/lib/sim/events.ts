@@ -18,6 +18,7 @@ import {
   TAX_NEUTRAL_RATE,
   WASTE_HAPPINESS_WEIGHT,
   EMPTY_SIM_STATE,
+  GROWTH_HAPPINESS_THRESHOLD,
   GROWTH_INTERVAL_TICKS,
   INDUSTRIAL_JOBS_BY_DENSITY,
   LINE_MAINTENANCE_PER_TICK,
@@ -565,7 +566,11 @@ function applyTick(state: SimState, event: TickEvent): SimState {
     state.disasters,
     nextTick,
   )
-  const nextZones = maybeGrowZones(floodDamagedZones, nextTick)
+  const nextZones = maybeGrowZones(
+    floodDamagedZones,
+    nextTick,
+    state.population.cityHappiness,
+  )
   // Tornado damage (REQ-105 slice 7). Erases sim-state infrastructure
   // (power line / plant, water source / pipe / treatment plant,
   // service building) at every active tornado's anchor cell on a hit.
@@ -946,16 +951,21 @@ export function syncPopulationToZones(
  * every density-<3 cell advanced by 1.
  *
  * Deterministic: replay over the same event log produces the same
- * growth at the same ticks. v1 advances unconditionally; the
- * follow-on slice gates growth on per-cell supply / demand from the
- * citizens (REQ-075), power (REQ-085), water (REQ-090), and services
- * (REQ-100) layers.
+ * growth at the same ticks. Growth is gated on city-wide
+ * `cityHappiness`: when happiness sits at or below
+ * `GROWTH_HAPPINESS_THRESHOLD` the function returns the input
+ * bucket unchanged so unhappy cities stagnate at their current
+ * density mix until the player addresses the underlying penalties.
+ * Per-cell supply / demand gating from power (REQ-085), water
+ * (REQ-090), and services (REQ-100) layers stays a follow-on slice.
  */
 export function maybeGrowZones(
   zones: ZonesBucket,
   tick: number,
+  cityHappiness: number,
 ): ZonesBucket {
   if (tick <= 0 || tick % GROWTH_INTERVAL_TICKS !== 0) return zones
+  if (cityHappiness <= GROWTH_HAPPINESS_THRESHOLD) return zones
   const cellKeys = Object.keys(zones.cells)
   if (cellKeys.length === 0) return zones
   let changed = false

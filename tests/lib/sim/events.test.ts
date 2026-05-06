@@ -1144,6 +1144,55 @@ describe('applySimEvent', () => {
       expect(s.zones.cells['2,2']?.density).toBe(1)
     })
 
+    it('does not advance density when cityHappiness <= GROWTH_HAPPINESS_THRESHOLD (REQ-076 follow-on)', () => {
+      // High residential tax (50%) on a populated cell drives the
+      // happiness penalty above the (100 - 50)=50 threshold so the
+      // next growth tick stalls. Tick 20 still grows to density 1
+      // because pre-tick happiness on tick 20 reads the empty-state
+      // 100 baseline; the penalty only kicks in once residents
+      // exist. Tick 40 reads post-tick-20 happiness (now low) and
+      // skips the advance.
+      let s = applySimEvent(EMPTY_SIM_STATE, placeZone('residential', 0, 0))
+      s = applySimEvent(s, {
+        type: 'setTaxRate',
+        payload: { kind: 'residential', rate: 0.5 },
+        clientCreatedAt: 0,
+        authorBuilderId: A_BUILDER,
+      })
+      s = tickN(20, s)
+      expect(s.zones.cells['0,0']?.density).toBe(1)
+      expect(s.population.cityHappiness).toBeLessThanOrEqual(50)
+      const before = s
+      s = tickN(20, s)
+      expect(s.zones.cells['0,0']?.density).toBe(1)
+      expect(s.zones).toBe(before.zones)
+    })
+
+    it('growth resumes once happiness recovers above the threshold (tax cut path)', () => {
+      let s = applySimEvent(EMPTY_SIM_STATE, placeZone('residential', 0, 0))
+      s = applySimEvent(s, {
+        type: 'setTaxRate',
+        payload: { kind: 'residential', rate: 0.5 },
+        clientCreatedAt: 0,
+        authorBuilderId: A_BUILDER,
+      })
+      s = tickN(40, s)
+      expect(s.zones.cells['0,0']?.density).toBe(1)
+      // Player cuts the tax back below TAX_NEUTRAL_RATE so the tax
+      // penalty drops to 0; coverage penalty alone (20) keeps
+      // happiness at 80, comfortably above the 50 threshold.
+      s = applySimEvent(s, {
+        type: 'setTaxRate',
+        payload: { kind: 'residential', rate: 0.07 },
+        clientCreatedAt: 1,
+        authorBuilderId: A_BUILDER,
+      })
+      // One non-growth tick lets happiness recompute under the new
+      // tax rate before the next growth tick at tick 60.
+      s = tickN(20, s)
+      expect(s.zones.cells['0,0']?.density).toBe(2)
+    })
+
     it('mixed-density bucket: only <3 cells advance', () => {
       let s = applySimEvent(EMPTY_SIM_STATE, placeZone('residential', 0, 0))
       s = applySimEvent(s, placeZone('commercial', 1, 1))
