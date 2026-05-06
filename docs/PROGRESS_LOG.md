@@ -16,6 +16,16 @@ Format for each slice:
 - Followups: any new `F-NNN` entries created. Link to them.
 ```
 
+## 2026-05-06, REQ-092 Sewage Slice 3: Sewage Connectivity Solver + Visible Drained/Unmanaged on Zones
+
+- Branch: `feature/20260506-sewage-solver`
+- PR: #N (when known)
+- Changed: Mirrors the REQ-093 water solver pattern. New `src/lib/sim/sewageSolver.ts` ships pure helpers: `computeSewageComponents` runs BFS over (treatment plants ∪ sewage pipes) with 4-direction adjacency; water pipes are NOT in the drain graph. `solveSewageStatus` per-cell classifier emits 'drained' / 'overloaded' / 'unmanaged' with capacity tracked per component for stable replay. A zone adjacent only to plantless sewage pipes resolves to `unmanaged` (pipes alone do not treat waste). `cellSewageStatusFor` single-cell convenience. SnapGridView calls the solver alongside the power, services, and water solvers; mirrors the result onto each zone overlay's `data-zone-sewage-status` attribute.
+- Verification: `npm run type-check` green. `npm test` 1993/1993 unit pass (1974 prior + 19 new sewage solver cases). `npm run build` green. `npm run check:dashes` clean. `git diff --check` clean. `npx playwright test e2e/sim.spec.ts --project=chromium` 18/18 local (17 prior + 1 new sewage-status-flip case).
+- Assumptions: Per-cell waste demand uniform 1 unit so capacity reads as "this plant drains N cells". Capacity consumed in alphabetical cell-key order so two clients replaying the same state agree on which cells overload. Solver recomputed once per render rather than cached on state since the grid is small. Plantless sewage pipes resolve to `unmanaged` for zones adjacent to them rather than to a separate `pipeline-only` status because the player signal is "this cell is not drained" either way; introducing a 4th status would split the visual signal without a use case yet.
+- GDD coverage: REQ-090 stays `partial` (waste accumulation REQ-092 slice 4 + happiness penalty slice 5 + drive-visible REQ-094 still outstanding). Coverage row implementation/test refs unchanged (entities added to already-listed files; new sewage solver file is NOT yet in the row but listed in the GDD section build log).
+- Followups: none new. Next REQ-092 slices: per-tick waste accumulation on populated cells, drained when adjacent to a non-overloaded sewage component (slice 4); happiness penalty wiring (slice 5); drive-visible water towers + sewage plants (REQ-094 slice 6).
+
 ## 2026-05-06, REQ-092 Sewage Slice 2: Editor Sewage-Treatment Palette Tool + Plant Overlay
 
 - Branch: `feature/20260506-sewage-treatment-tool`
