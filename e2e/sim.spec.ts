@@ -677,6 +677,47 @@ test('editor: Water tab exposes 4 tools and paints a water tower + pipe (REQ-090
   await expect(sewageOverlay).toHaveAttribute('data-water-pipe-kind', 'sewage')
 })
 
+test('editor: Water palette includes a sewage-treatment tool that paints a plant overlay (REQ-092)', async ({
+  page,
+}) => {
+  await page.route('**/api/city/**', async (route, req) => {
+    if (req.method() === 'PUT') {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          slug: 'sim-sewage-plant-spec',
+          versionHash: '0'.repeat(64),
+          updatedAt: 0,
+        }),
+      })
+    } else {
+      await route.fallback()
+    }
+  })
+
+  await page.goto('/sim-sewage-plant-spec/edit')
+  await page.getByTestId('editor-sim-speed-0').click()
+
+  await page.getByTestId('editor-palette-category-water').click()
+  const palette = page.getByTestId('editor-palette')
+  await expect(
+    palette.locator('[data-water-tool="source-sewage-treatment"]'),
+  ).toBeVisible()
+
+  await palette.locator('[data-water-tool="source-sewage-treatment"]').click()
+  await page
+    .locator(
+      '[data-testid="editor-snap-grid"] rect[data-cell-row="2"][data-cell-col="3"]',
+    )
+    .click()
+
+  const plantOverlay = page.locator(
+    '[data-testid="editor-sewage-treatment-plant"][data-sewage-plant-row="2"][data-sewage-plant-col="3"]',
+  )
+  await expect(plantOverlay).toBeVisible()
+})
+
 test('editor: zone water status flips to served when wired to a water source (REQ-093)', async ({
   page,
 }) => {

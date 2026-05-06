@@ -16,6 +16,16 @@ Format for each slice:
 - Followups: any new `F-NNN` entries created. Link to them.
 ```
 
+## 2026-05-06, REQ-092 Sewage Slice 2: Editor Sewage-Treatment Palette Tool + Plant Overlay
+
+- Branch: `feature/20260506-sewage-treatment-tool`
+- PR: #N (when known)
+- Changed: `WaterPaletteToolType` gains `'source-sewage-treatment'`; `WATER_PALETTE` appends `{ type: 'source-sewage-treatment', label: 'Sewage Plant' }`. `EditorClient.tsx` water-category click handler grew a third source branch that dispatches `placeSewageTreatmentPlant`; palette button color resolver gained a 5th branch (deep brown). `SnapGridView.tsx` renders `water.treatmentPlants` as 4px-inset rects with `editor-sewage-treatment-plant` testid + row/col data attrs.
+- Verification: `npm run type-check` green. `npm test` 1974/1974 unit pass (no new unit cases; this slice is wiring + UI). `npm run build` green. `npm run check:dashes` clean. `git diff --check` clean. `npx playwright test e2e/sim.spec.ts --project=chromium` 17/17 local (16 prior + 1 new sewage-treatment-tool case).
+- Assumptions: Plant overlay sits between the water-source layer and the power-plant layer in z-order (matches the schema's water-bucket grouping). Plant erase + water source erase deferred to a future slice together for symmetry. The 5th palette color branch could collapse to a Record but two nested ternaries do not yet justify the abstraction (rule of three).
+- GDD coverage: REQ-090 stays `partial`. `docs/gdd/17-water-and-sewage.md` Status stays `partial`; gains a build log entry. Coverage row implementation/test refs unchanged (entities added to already-listed files).
+- Followups: none new. Next REQ-092 slices: sewage connectivity solver mirroring `waterSolver.ts` (BFS over treatment plants + sewage pipes) lands in slice 3; per-tick waste accumulation on populated cells with drain-when-connected lands in slice 4; happiness penalty wiring in slice 5.
+
 ## 2026-05-06, REQ-092 Sewage Slice 1: Sewage Treatment Plant Substrate
 
 - Branch: `feature/20260506-sewage-treatment-substrate`
