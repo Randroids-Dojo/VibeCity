@@ -161,4 +161,127 @@ test.describe('REQ-110 sim view scaffold', () => {
     expect(tick).toBeGreaterThanOrEqual(4)
     expect(tick).toBeLessThan(20)
   })
+
+  test('zone palette + grid: painting a residential zone updates the cell', async ({
+    page,
+  }) => {
+    await page.route('**/api/city/**/events', async (route, req) => {
+      if (req.method() === 'POST') {
+        await route.fulfill({
+          status: 200,
+          contentType: 'application/json',
+          body: JSON.stringify({
+            slug: 'sim-zone-spec',
+            appended: 1,
+            nextCursor: 1,
+          }),
+        })
+      } else {
+        await route.fulfill({
+          status: 200,
+          contentType: 'application/json',
+          body: JSON.stringify({
+            slug: 'sim-zone-spec',
+            cursor: 0,
+            events: [],
+            nextCursor: 0,
+            snapshot: null,
+            snapshotCursor: 0,
+          }),
+        })
+      }
+    })
+
+    await page.goto('/sim-zone-spec/sim')
+
+    // Pause first so the integration tick does not interfere with the
+    // assertion timing; zoning is independent of speed.
+    await page.getByTestId('sim-speed-0').click()
+
+    // Default selected tool is residential.
+    const residentialTool = page.getByTestId('sim-zone-tool-residential')
+    await expect(residentialTool).toHaveAttribute(
+      'data-sim-zone-tool-active',
+      'true',
+    )
+
+    // Click the origin cell on the grid.
+    const originCell = page.locator(
+      'svg[data-testid="sim-grid"] rect[data-cell-row="0"][data-cell-col="0"]',
+    )
+    await expect(originCell).toBeVisible()
+    await originCell.click()
+
+    // The same cell should now report a zoned state. The hook updates
+    // local state synchronously when enqueueEvent fires.
+    await expect(originCell).toHaveAttribute('data-cell-zoned', 'true')
+    await expect(originCell).toHaveAttribute(
+      'data-cell-zone-kind',
+      'residential',
+    )
+    await expect(originCell).toHaveAttribute('data-cell-zone-density', '0')
+
+    // Zone count on the grid root mirrors.
+    const grid = page.getByTestId('sim-grid')
+    await expect(grid).toHaveAttribute('data-zone-count', '1')
+  })
+
+  test('zone palette: switching tools and erasing removes a zone', async ({
+    page,
+  }) => {
+    await page.route('**/api/city/**/events', async (route, req) => {
+      if (req.method() === 'POST') {
+        await route.fulfill({
+          status: 200,
+          contentType: 'application/json',
+          body: JSON.stringify({
+            slug: 'sim-erase-spec',
+            appended: 1,
+            nextCursor: 1,
+          }),
+        })
+      } else {
+        await route.fulfill({
+          status: 200,
+          contentType: 'application/json',
+          body: JSON.stringify({
+            slug: 'sim-erase-spec',
+            cursor: 0,
+            events: [],
+            nextCursor: 0,
+            snapshot: null,
+            snapshotCursor: 0,
+          }),
+        })
+      }
+    })
+
+    await page.goto('/sim-erase-spec/sim')
+    await page.getByTestId('sim-speed-0').click()
+
+    // Switch to commercial and paint cell (1, 1).
+    await page.getByTestId('sim-zone-tool-commercial').click()
+    await expect(page.getByTestId('sim-zone-tool-commercial')).toHaveAttribute(
+      'data-sim-zone-tool-active',
+      'true',
+    )
+    const cell = page.locator(
+      'svg[data-testid="sim-grid"] rect[data-cell-row="1"][data-cell-col="1"]',
+    )
+    await cell.click()
+    await expect(cell).toHaveAttribute('data-cell-zone-kind', 'commercial')
+
+    // Switch to erase and click the same cell.
+    await page.getByTestId('sim-zone-tool-erase').click()
+    await expect(page.getByTestId('sim-zone-tool-erase')).toHaveAttribute(
+      'data-sim-zone-tool-active',
+      'true',
+    )
+    await cell.click()
+    await expect(cell).toHaveAttribute('data-cell-zoned', 'false')
+    await expect(page.getByTestId('sim-grid')).toHaveAttribute(
+      'data-zone-count',
+      '0',
+    )
+  })
 })

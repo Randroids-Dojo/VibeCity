@@ -1258,11 +1258,14 @@
       "status": "partial",
       "implementationRefs": [
         "src/lib/sim/state.ts",
-        "src/lib/sim/events.ts"
+        "src/lib/sim/events.ts",
+        "src/app/[slug]/sim/SimGridView.tsx",
+        "src/app/[slug]/sim/SimViewClient.tsx"
       ],
       "testRefs": [
         "tests/lib/sim/state.test.ts",
-        "tests/lib/sim/events.test.ts"
+        "tests/lib/sim/events.test.ts",
+        "e2e/sim.spec.ts"
       ],
       "followupRefs": []
     },
