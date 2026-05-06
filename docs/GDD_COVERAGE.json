@@ -1351,6 +1351,7 @@
       "implementationRefs": [
         "src/lib/sim/state.ts",
         "src/lib/sim/events.ts",
+        "src/lib/sim/servicesSolver.ts",
         "src/app/[slug]/edit/editorState.ts",
         "src/app/[slug]/edit/EditorClient.tsx",
         "src/app/[slug]/edit/SnapGridView.tsx"
@@ -1358,6 +1359,7 @@
       "testRefs": [
         "tests/lib/sim/state.test.ts",
         "tests/lib/sim/events.test.ts",
+        "tests/lib/sim/servicesSolver.test.ts",
         "e2e/sim.spec.ts"
       ],
       "followupRefs": []

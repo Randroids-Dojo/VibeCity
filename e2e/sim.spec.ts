@@ -471,6 +471,63 @@ test('editor: place plant + line + adjacent zone -> zone shows powered status (R
   )
 })
 
+test('editor: zone coverage count climbs as services are placed nearby (REQ-101)', async ({
+  page,
+}) => {
+  await page.route('**/api/city/**', async (route, req) => {
+    if (req.method() === 'PUT') {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          slug: 'sim-services-coverage-spec',
+          versionHash: '0'.repeat(64),
+          updatedAt: 0,
+        }),
+      })
+    } else {
+      await route.fallback()
+    }
+  })
+
+  await page.goto('/sim-services-coverage-spec/edit')
+  await page.getByTestId('editor-sim-speed-0').click()
+
+  // Paint a residential zone at origin.
+  await page.getByTestId('editor-palette-category-zone').click()
+  await page
+    .locator(
+      '[data-testid="editor-snap-grid"] rect[data-cell-row="0"][data-cell-col="0"]',
+    )
+    .click()
+  const zoneOverlay = page.locator(
+    '[data-testid="editor-zone-overlay"][data-zone-row="0"][data-zone-col="0"]',
+  )
+  // No services placed; coverage count = 0.
+  await expect(zoneOverlay).toHaveAttribute('data-zone-coverage-count', '0')
+
+  // Place a police station at (1, 0). Manhattan distance 1, well within
+  // police radius 6 -> coverage count flips to 1.
+  await page.getByTestId('editor-palette-category-services').click()
+  // Police is the default selected service.
+  await page
+    .locator(
+      '[data-testid="editor-snap-grid"] rect[data-cell-row="1"][data-cell-col="0"]',
+    )
+    .click()
+  await expect(zoneOverlay).toHaveAttribute('data-zone-coverage-count', '1')
+
+  // Add a hospital at (2, 0). Manhattan distance 2, hospital radius 8.
+  const palette = page.getByTestId('editor-palette')
+  await palette.locator('[data-service-tool="hospital"]').click()
+  await page
+    .locator(
+      '[data-testid="editor-snap-grid"] rect[data-cell-row="2"][data-cell-col="0"]',
+    )
+    .click()
+  await expect(zoneOverlay).toHaveAttribute('data-zone-coverage-count', '2')
+})
+
 test('editor: Services tab exposes 5 tools and paints a hospital (REQ-100)', async ({
   page,
 }) => {
