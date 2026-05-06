@@ -70,4 +70,25 @@ export const kvKeys = {
   cityVersions: (slug: Slug) => `city:${slug}:versions`,
   /** Sorted set of `(updatedAtMs, slug)` for the home page list (REQ-011, REQ-050). */
   cityIndex: () => 'city:index',
+  /**
+   * Append-only event log for a slug's sim events (REQ-072..074, Q-012
+   * event sourcing). Stored as a Redis list so insertion order is the
+   * canonical replay order. Each list entry is the JSON-encoded
+   * `SimEvent` augmented with the server-stamped `clientReceivedAt`.
+   * The list length is the cursor; cold load reads from index 0;
+   * incremental load reads from the client's last-seen cursor.
+   */
+  cityEvents: (slug: Slug) => `city:${slug}:events`,
+  /**
+   * Latest derived sim-state snapshot for a slug (REQ-073, Q-013
+   * snapshotting). Stored as a JSON-encoded SimState. The companion
+   * `cityEventsSnapshotCursor` records how many events the snapshot
+   * incorporates; cold load fetches snapshot + events from cursor on.
+   * Slice 4 (snapshotting trigger) writes these; slice 2 (this slice)
+   * reserves the key shape so the route handler can read it when
+   * present.
+   */
+  citySnapshot: (slug: Slug) => `city:${slug}:snapshot`,
+  /** Integer cursor: how many events the snapshot in `citySnapshot(slug)` includes. */
+  cityEventsSnapshotCursor: (slug: Slug) => `city:${slug}:snapshot:cursor`,
 } as const

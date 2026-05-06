@@ -159,6 +159,17 @@ export class FakeKv {
     return list.length
   }
 
+  async rpush(key: string, ...values: string[]): Promise<number> {
+    const list = this.lists.get(key) ?? []
+    list.push(...values)
+    this.lists.set(key, list)
+    return list.length
+  }
+
+  async llen(key: string): Promise<number> {
+    return (this.lists.get(key) ?? []).length
+  }
+
   async lrange(key: string, start: number, stop: number): Promise<string[]> {
     const list = this.lists.get(key) ?? []
     return list.slice(start, stop === -1 ? undefined : stop + 1)
