@@ -6,9 +6,11 @@ import { solveSewageStatus } from './sewageSolver'
 import {
   DEFAULT_SIM_SPEED,
   DEFAULT_TAX_RATES,
+  COMMERCIAL_JOBS_BY_DENSITY,
   EMPTY_ECONOMY_BUCKET,
   EMPTY_SIM_STATE,
   GROWTH_INTERVAL_TICKS,
+  INDUSTRIAL_JOBS_BY_DENSITY,
   LINE_MAINTENANCE_PER_TICK,
   BANKRUPTCY_THRESHOLD_TICKS,
   DISASTER_DEFAULT_DURATION_TICKS,
@@ -566,6 +568,7 @@ function applyTick(state: SimState, event: TickEvent): SimState {
     nextPopulation,
     state.power,
     state.taxRates,
+    nextZones,
   )
   // Waste tick (REQ-092 slice 4). Populated cells accumulate waste
   // unless their sewage status is 'drained' (in which case the
@@ -622,8 +625,21 @@ export function applyEconomyTick(
   population: PopulationBucket,
   power: PowerBucket,
   taxRates: TaxRates,
+  zones: ZonesBucket,
 ): EconomyBucket {
-  const income = population.totalPopulation * taxRates.residential
+  let commercialJobs = 0
+  let industrialJobs = 0
+  for (const cell of Object.values(zones.cells)) {
+    if (cell.kind === 'commercial') {
+      commercialJobs += COMMERCIAL_JOBS_BY_DENSITY[cell.density]
+    } else if (cell.kind === 'industrial') {
+      industrialJobs += INDUSTRIAL_JOBS_BY_DENSITY[cell.density]
+    }
+  }
+  const income =
+    population.totalPopulation * taxRates.residential +
+    commercialJobs * taxRates.commercial +
+    industrialJobs * taxRates.industrial
   const lineCount = Object.keys(power.lines).length
   const plantCount = power.plants.length
   const maintenance =
