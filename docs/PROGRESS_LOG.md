@@ -16,6 +16,16 @@ Format for each slice:
 - Followups: any new `F-NNN` entries created. Link to them.
 ```
 
+## 2026-05-06, REQ-081 HUD: "Growth Stalled" Indicator
+
+- Branch: `feature/20260506-stall-hud`
+- PR: #N (when known)
+- Changed: `src/app/[slug]/edit/EditorClient.tsx` adds an inline "growth stalled" indicator next to the existing happy readout that mounts whenever `cityHappiness <= GROWTH_HAPPINESS_THRESHOLD`. Imports `GROWTH_HAPPINESS_THRESHOLD` from `src/lib/sim/state.ts`. The indicator carries `data-testid="editor-sim-growth-stalled"` and `data-sim-growth-stalled="true"` for e2e selection. Color matches the existing low-happiness red so the visual cue is consistent.
+- Verification: `npm test` 2134/2134 unit. `npm run build` green. `npm run check:dashes` clean. `git diff --check` clean. `npx playwright test e2e/sim.spec.ts --project=chromium` 25/25 local (1 new case: indicator absent at 100, mounts after waste accumulation drives happiness past the gate).
+- Assumptions: City-wide happiness gate fires the same way `maybeGrowZones` reads it (`<=` threshold). Indicator is text-only this slice; a future polish slice could swap it for a colored badge or pulse.
+- GDD coverage: `docs/gdd/15-zoning-and-business.md` REQ-081 build log gains an indicator entry; `docs/GDD_COVERAGE.json` REQ-081 row stays `partial`.
+- Followups: F-NEW (deferred): visual badge / pulse for the stall indicator; per-cell stall outline so the player can see WHICH cells stalled.
+
 ## 2026-05-06, REQ-081 Follow-on: Happiness-Gated Zone Growth
 
 - Branch: `feature/20260506-happy-growth`

@@ -1000,6 +1000,46 @@ test('editor: city happiness HUD drops below 100 when populated cells go unmanag
     .toBeLessThan(100)
 })
 
+test('editor: growth-stalled indicator appears once happiness drops to GROWTH_HAPPINESS_THRESHOLD (REQ-081)', async ({
+  page,
+}) => {
+  await page.route('**/api/city/**', async (route, req) => {
+    if (req.method() === 'PUT') {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          slug: 'sim-stall-spec',
+          versionHash: '0'.repeat(64),
+          updatedAt: 0,
+        }),
+      })
+    } else {
+      await route.fallback()
+    }
+  })
+
+  await page.goto('/sim-stall-spec/edit')
+
+  // Indicator absent on a fresh city (happiness=100, well above 50).
+  await expect(page.getByTestId('editor-sim-growth-stalled')).toHaveCount(0)
+
+  // Pause, paint a residential cell, then run at 4x. Waste + missing
+  // services drag happiness down past 50 within a few seconds.
+  await page.getByTestId('editor-sim-speed-0').click()
+  await page.getByTestId('editor-palette-category-zone').click()
+  await page
+    .locator(
+      '[data-testid="editor-snap-grid"] rect[data-cell-row="0"][data-cell-col="0"]',
+    )
+    .click()
+  await page.getByTestId('editor-sim-speed-4').click()
+
+  await expect(page.getByTestId('editor-sim-growth-stalled')).toBeVisible({
+    timeout: 12000,
+  })
+})
+
 test('editor: zone sewage status flips to drained when wired to a treatment plant (REQ-092)', async ({
   page,
 }) => {
