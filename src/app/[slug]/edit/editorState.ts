@@ -293,6 +293,7 @@ export type PaletteCategory =
   | 'power'
   | 'services'
   | 'water'
+  | 'disaster'
 
 /**
  * Default palette category on first render (REQ-028).
@@ -465,6 +466,34 @@ export const WATER_PALETTE: readonly WaterPaletteEntry[] = [
  * pipe cells.
  */
 export const DEFAULT_WATER_TOOL: WaterPaletteToolType = 'pipe-water'
+
+/**
+ * Disaster palette (REQ-105 slice 2). Click in disaster mode
+ * dispatches `spawnDisaster` with the selected kind. Erase mode is
+ * a no-op for this category in v1: disasters self-expire via
+ * `applyDisasterTick` once their `ticksRemaining` runs out.
+ */
+export type DisasterPaletteToolType =
+  | 'fire'
+  | 'flood'
+  | 'tornado'
+  | 'earthquake'
+  | 'monster'
+
+export interface DisasterPaletteEntry {
+  type: DisasterPaletteToolType
+  label: string
+}
+
+export const DISASTER_PALETTE: readonly DisasterPaletteEntry[] = [
+  { type: 'fire', label: 'Fire' },
+  { type: 'flood', label: 'Flood' },
+  { type: 'tornado', label: 'Tornado' },
+  { type: 'earthquake', label: 'Earthquake' },
+  { type: 'monster', label: 'Monster' },
+]
+
+export const DEFAULT_DISASTER_TOOL: DisasterPaletteToolType = 'fire'
 
 /**
  * Place a building on the grid (REQ-028, REQ-029).

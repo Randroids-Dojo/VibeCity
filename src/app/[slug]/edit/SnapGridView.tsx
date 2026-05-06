@@ -1,6 +1,7 @@
 import type { PointerEvent as ReactPointerEvent, WheelEvent as ReactWheelEvent } from 'react'
 import type { City } from '@/lib/schemas'
 import type {
+  DisastersBucket,
   PowerBucket,
   ServicesBucket,
   WaterBucket,
@@ -293,6 +294,7 @@ export function SnapGrid({
   power,
   services,
   water,
+  disasters,
   onSurfaceWheel,
   onSurfacePointerDown,
 }: {
@@ -341,6 +343,14 @@ export function SnapGrid({
    * render after the services layer but before the connector glyphs.
    */
   water?: WaterBucket | null
+  /**
+   * Optional sim disasters layer (REQ-105 slice 2 UI). When supplied,
+   * each active disaster renders as a kind-distinct overlay at its
+   * anchor cell so the editor surface reads which cells are under
+   * disaster effect. Renders after the water layer but before the
+   * connector glyphs.
+   */
+  disasters?: DisastersBucket | null
   onSurfaceWheel?: (event: ReactWheelEvent<SVGSVGElement>) => void
   onSurfacePointerDown?: (event: ReactPointerEvent<SVGSVGElement>) => void
 }) {
@@ -775,6 +785,43 @@ export function SnapGrid({
           pointerEvents="none"
         />
       ))}
+      {disasters
+        ? disasters.active.map((disaster, index) => {
+            const { x, y } = cellToPixel({
+              row: disaster.row,
+              col: disaster.col,
+            })
+            const fill =
+              disaster.kind === 'fire'
+                ? '#c44d2a'
+                : disaster.kind === 'flood'
+                  ? '#3a78a8'
+                  : disaster.kind === 'tornado'
+                    ? '#6a5a4a'
+                    : disaster.kind === 'earthquake'
+                      ? '#8a6a3a'
+                      : '#5a2a4a'
+            return (
+              <rect
+                key={`disaster-${disaster.kind}-${disaster.row}-${disaster.col}-${index}`}
+                data-testid="editor-disaster-overlay"
+                data-disaster-kind={disaster.kind}
+                data-disaster-row={disaster.row}
+                data-disaster-col={disaster.col}
+                data-disaster-ticks-remaining={disaster.ticksRemaining}
+                x={x + 4}
+                y={y + 4}
+                width={CELL_PIXELS - 8}
+                height={CELL_PIXELS - 8}
+                fill={fill}
+                fillOpacity={0.55}
+                stroke={fill}
+                strokeWidth={2}
+                pointerEvents="none"
+              />
+            )
+          })
+        : null}
       {connectorGlyphs.map((glyph, index) => (
         <circle
           key={`connector-${glyph.pieceIndex}-${index}`}
