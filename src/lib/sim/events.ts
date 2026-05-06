@@ -1,6 +1,7 @@
 import { z } from 'zod'
 import { BuilderIdSchema } from '@/lib/schemas'
 import { applyFireDamage } from './fireDamage'
+import { computeFireAutoSpawn } from './fireAutoSpawn'
 import { computeFireSpread } from './fireSpread'
 import { applyFloodDamage } from './floodDamage'
 import { applyMonsterDamage } from './monsterDamage'
@@ -644,11 +645,25 @@ function applyTick(state: SimState, event: TickEvent): SimState {
   // not need to shrink. The happiness reducer below reads the
   // post-decrement disasters so an expiring earthquake's penalty
   // disappears on the same tick it would have removed.
-  const nextDisasters = applyDisasterTick(
+  const decrementedDisasters = applyDisasterTick(
     state.disasters,
     nextTick,
     monsterDamaged.services,
   )
+  // Fire auto-spawn (REQ-105 + REQ-100 follow-on). Probabilistic
+  // ignition at uncovered industrial cells. Runs AFTER disaster
+  // decrement / spread so a freshly-spawned fire burns its full
+  // duration on the next tick instead of immediately decrementing.
+  const autoSpawnedFires = computeFireAutoSpawn(
+    monsterDamaged.zones,
+    monsterDamaged.services,
+    decrementedDisasters,
+    nextTick,
+  )
+  const nextDisasters: typeof decrementedDisasters =
+    autoSpawnedFires.length === 0
+      ? decrementedDisasters
+      : { active: [...decrementedDisasters.active, ...autoSpawnedFires] }
   // Citizen happiness (REQ-076 multi-input). Reads waste, services
   // coverage, taxes, and disasters from the post-tick state so the
   // HUD reflects this tick's drain state, freshly-erased services
