@@ -16,6 +16,16 @@ Format for each slice:
 - Followups: any new `F-NNN` entries created. Link to them.
 ```
 
+## 2026-05-06, REQ-105 Slice 6: Earthquake Happiness Penalty
+
+- Branch: `feature/20260506-earthquake-damage`
+- PR: #N (when known)
+- Changed: New `EARTHQUAKE_HAPPINESS_PENALTY = 25`. `computeCityHappiness` and `applyHappinessTick` signatures gain a `disasters: DisastersBucket` parameter; the score subtracts the penalty per active earthquake. `applyTick` reorders so `applyDisasterTick` runs before `applyHappinessTick` so an expiring earthquake's penalty disappears on the same tick.
+- Verification: `npm run type-check` green. `npm test` 2098/2098 unit pass (2093 prior + 5 new earthquake cases). `npm run build` green. `npm run check:dashes` clean. `git diff --check` clean. `npx playwright test e2e/sim.spec.ts --project=chromium` 22/22 local.
+- Assumptions: Penalty is per-active-earthquake (cumulative); two earthquakes drop happiness by 50, five floor it at 0. Earthquake duration is short (20 ticks default) so the impact is visible-but-brief by design. The penalty is a flat 25 rather than scaled by city size because v1 keeps the math simple; tunable.
+- GDD coverage: REQ-105 stays `partial` (tornado / monster damage slice 7+ + drive visualization later). `docs/gdd/20-disasters.md` Status stays `partial`; gains a build log entry. Coverage row implementation refs unchanged (entities added to already-listed files).
+- Followups: F-NEW (deferred): tornado erases pieces along its path, monster destroys arbitrary infrastructure.
+
 ## 2026-05-06, REQ-105 Slice 5: Flood Damage Erodes Zone Density (Slower Rate)
 
 - Branch: `feature/20260506-flood-damage`

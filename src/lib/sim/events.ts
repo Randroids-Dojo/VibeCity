@@ -8,6 +8,7 @@ import {
   DEFAULT_SIM_SPEED,
   DEFAULT_TAX_RATES,
   COMMERCIAL_JOBS_BY_DENSITY,
+  EARTHQUAKE_HAPPINESS_PENALTY,
   EMPTY_ECONOMY_BUCKET,
   EMPTY_SIM_STATE,
   GROWTH_INTERVAL_TICKS,
@@ -589,21 +590,26 @@ function applyTick(state: SimState, event: TickEvent): SimState {
   // tick with no populated cells AND nothing to clean up keeps the
   // same water bucket reference.
   const nextWater = applyWasteTick(state.water, nextPopulation, nextZones)
-  // Citizen happiness (REQ-092 slice 5). Reads the freshly-updated
-  // waste accumulation so the HUD reflects this tick's drain state.
-  const nextPopulationWithHappiness = applyHappinessTick(
-    nextPopulation,
-    nextWater,
-  )
   // Disaster lifetime tick (REQ-105 substrate slice 1). Each active
   // disaster decrements its `ticksRemaining`; entries that hit 0 are
   // removed. Identity-on-no-change short-circuits when no disasters
   // are active and when the bucket's array of remaining counts does
-  // not need to shrink.
+  // not need to shrink. The happiness reducer below reads the
+  // post-decrement disasters so an expiring earthquake's penalty
+  // disappears on the same tick it would have removed.
   const nextDisasters = applyDisasterTick(
     state.disasters,
     nextTick,
     state.services,
+  )
+  // Citizen happiness (REQ-092 slice 5 + REQ-105 slice 6). Reads
+  // the freshly-updated waste accumulation AND the post-decrement
+  // disasters bucket so the HUD reflects this tick's drain state
+  // and any expiring earthquake's penalty drops off cleanly.
+  const nextPopulationWithHappiness = applyHappinessTick(
+    nextPopulation,
+    nextWater,
+    nextDisasters,
   )
   return {
     ...state,
@@ -703,42 +709,59 @@ export function applyEconomyTick(
  * allocating a new bucket reference per growth tick.
  */
 /**
- * Compute city happiness from current waste accumulation
- * (REQ-092 sewage slice 5). Returns a 0..100 score:
- *   - 100 when there are no populated cells (no one to be unhappy);
- *   - 100 - (avgWaste / WASTE_MAX_PER_CELL) * 100 when populated.
- * The score is rounded to one decimal place so HUD reads stay
- * stable under tiny per-tick deltas.
+ * Compute city happiness from current waste accumulation + active
+ * disasters (REQ-092 slice 5 + REQ-105 slice 6). Returns a 0..100
+ * score:
+ *   - 100 when there are no populated cells AND no active
+ *     earthquakes (no one to be unhappy);
+ *   - 100 - (avgWaste / WASTE_MAX_PER_CELL) * 100 when populated;
+ *   - minus `EARTHQUAKE_HAPPINESS_PENALTY` per active earthquake.
+ * The score is clamped to [0, 100] and rounded to one decimal so
+ * HUD reads stay stable under tiny per-tick deltas.
  */
 export function computeCityHappiness(
   water: WaterBucket,
   population: PopulationBucket,
+  disasters: DisastersBucket,
 ): number {
   const populatedKeys = Object.keys(population.cells).filter(
     (key) => population.cells[key].residents > 0,
   )
-  if (populatedKeys.length === 0) return 100
-  let total = 0
-  for (const key of populatedKeys) {
-    total += water.wasteAccumulation[key] ?? 0
+  let earthquakePenalty = 0
+  for (const disaster of disasters.active) {
+    if (disaster.kind === 'earthquake') {
+      earthquakePenalty += EARTHQUAKE_HAPPINESS_PENALTY
+    }
   }
-  const avg = total / populatedKeys.length
-  const score = 100 - (avg / WASTE_MAX_PER_CELL) * 100
+  let baseScore: number
+  if (populatedKeys.length === 0) {
+    baseScore = 100
+  } else {
+    let total = 0
+    for (const key of populatedKeys) {
+      total += water.wasteAccumulation[key] ?? 0
+    }
+    const avg = total / populatedKeys.length
+    baseScore = 100 - (avg / WASTE_MAX_PER_CELL) * 100
+  }
+  const score = baseScore - earthquakePenalty
   // Clamp + round to one decimal.
   const clamped = Math.max(0, Math.min(100, score))
   return Math.round(clamped * 10) / 10
 }
 
 /**
- * Per-tick happiness reducer (REQ-092 sewage slice 5). Recomputes
- * `cityHappiness` from the freshly-updated water bucket. Identity-on-
- * no-change short-circuits when the score is unchanged.
+ * Per-tick happiness reducer (REQ-092 sewage slice 5 + REQ-105
+ * slice 6). Recomputes `cityHappiness` from the freshly-updated
+ * water bucket and active disasters. Identity-on-no-change short-
+ * circuits when the score is unchanged.
  */
 export function applyHappinessTick(
   population: PopulationBucket,
   water: WaterBucket,
+  disasters: DisastersBucket,
 ): PopulationBucket {
-  const next = computeCityHappiness(water, population)
+  const next = computeCityHappiness(water, population, disasters)
   if (next === population.cityHappiness) return population
   return { ...population, cityHappiness: next }
 }
