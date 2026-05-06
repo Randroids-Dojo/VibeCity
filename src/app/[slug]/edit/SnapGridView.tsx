@@ -1,6 +1,7 @@
 import type { PointerEvent as ReactPointerEvent, WheelEvent as ReactWheelEvent } from 'react'
 import type { City } from '@/lib/schemas'
 import type { PowerBucket, ZonesBucket } from '@/lib/sim/state'
+import { solvePowerStatus, type CellPowerStatus } from '@/lib/sim/powerSolver'
 import {
   CELL_PIXELS,
   GRID_DIAMETER,
@@ -59,6 +60,26 @@ const POWER_PLANT_STROKE = {
 
 const POWER_LINE_FILL = '#e0a020'
 const POWER_LINE_STROKE = '#a07010'
+
+/**
+ * Per-status zone overlay stroke (REQ-087 slice 3 visible payoff).
+ * Zone overlays carry the per-kind fill from `ZONE_FILL`; the
+ * stroke communicates power status: green for powered, gray for
+ * brownout, dark for unpowered. The fill stays the zone's kind
+ * color so the player can still tell residential / commercial /
+ * industrial apart while reading power state at a glance.
+ */
+const POWER_STATUS_STROKE: Record<CellPowerStatus, string> = {
+  powered: '#3a8a3a',
+  brownout: '#8a8a3a',
+  unpowered: '#5a5a5a',
+}
+
+const POWER_STATUS_STROKE_WIDTH: Record<CellPowerStatus, number> = {
+  powered: 2,
+  brownout: 2,
+  unpowered: 1,
+}
 import {
   PREVIEW_FILL,
   PREVIEW_FILL_OPACITY,
@@ -380,32 +401,50 @@ export function SnapGrid({
         )
       })}
       {zones
-        ? Object.entries(zones.cells).map(([key, zone]) => {
-            const [rowStr, colStr] = key.split(',')
-            const row = Number(rowStr)
-            const col = Number(colStr)
-            if (!Number.isFinite(row) || !Number.isFinite(col)) return null
-            const { x, y } = cellToPixel({ row, col })
-            return (
-              <rect
-                key={`zone-${key}`}
-                data-testid="editor-zone-overlay"
-                data-zone-row={row}
-                data-zone-col={col}
-                data-zone-kind={zone.kind}
-                data-zone-density={zone.density}
-                x={x + 1}
-                y={y + 1}
-                width={CELL_PIXELS - 2}
-                height={CELL_PIXELS - 2}
-                fill={ZONE_FILL[zone.kind]}
-                fillOpacity={ZONE_DENSITY_OPACITY[zone.density]}
-                stroke={ZONE_STROKE[zone.kind]}
-                strokeWidth={1}
-                pointerEvents="none"
-              />
+        ? (() => {
+            // Compute power status once per render so the per-cell
+            // map drives both the stroke color and the data
+            // attribute. When `power` is null the solver runs against
+            // the empty bucket and every cell reads as 'unpowered',
+            // which is the right default for slugs without any
+            // power infrastructure placed.
+            const powerStatus = solvePowerStatus(
+              zones,
+              power ?? { plants: [], lines: {} },
             )
-          })
+            return Object.entries(zones.cells).map(([key, zone]) => {
+              const [rowStr, colStr] = key.split(',')
+              const row = Number(rowStr)
+              const col = Number(colStr)
+              if (!Number.isFinite(row) || !Number.isFinite(col)) return null
+              const { x, y } = cellToPixel({ row, col })
+              const status: CellPowerStatus = powerStatus[key] ?? 'unpowered'
+              return (
+                <rect
+                  key={`zone-${key}`}
+                  data-testid="editor-zone-overlay"
+                  data-zone-row={row}
+                  data-zone-col={col}
+                  data-zone-kind={zone.kind}
+                  data-zone-density={zone.density}
+                  data-zone-power-status={status}
+                  x={x + 1}
+                  y={y + 1}
+                  width={CELL_PIXELS - 2}
+                  height={CELL_PIXELS - 2}
+                  fill={ZONE_FILL[zone.kind]}
+                  fillOpacity={ZONE_DENSITY_OPACITY[zone.density]}
+                  stroke={
+                    status === 'unpowered'
+                      ? ZONE_STROKE[zone.kind]
+                      : POWER_STATUS_STROKE[status]
+                  }
+                  strokeWidth={POWER_STATUS_STROKE_WIDTH[status]}
+                  pointerEvents="none"
+                />
+              )
+            })
+          })()
         : null}
       {power
         ? Object.keys(power.lines).map((key) => {

@@ -261,6 +261,68 @@ test('editor: switch to coal plant and paint, then erase a power line', async ({
   await expect(lineOverlay).toHaveCount(0)
 })
 
+test('editor: place plant + line + adjacent zone -> zone shows powered status (REQ-087)', async ({
+  page,
+}) => {
+  await page.route('**/api/city/**', async (route, req) => {
+    if (req.method() === 'PUT') {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          slug: 'sim-power-status-spec',
+          versionHash: '0'.repeat(64),
+          updatedAt: 0,
+        }),
+      })
+    } else {
+      await route.fallback()
+    }
+  })
+
+  await page.goto('/sim-power-status-spec/edit')
+  await page.getByTestId('editor-sim-speed-0').click()
+
+  // Place a residential zone at (0, 2) first (no power yet -> unpowered).
+  await page.getByTestId('editor-palette-category-zone').click()
+  const zoneCell = page.locator(
+    '[data-testid="editor-snap-grid"] rect[data-cell-row="0"][data-cell-col="2"]',
+  )
+  await zoneCell.click()
+  // Read the overlay; status should be unpowered.
+  const zoneOverlay = page.locator(
+    '[data-testid="editor-zone-overlay"][data-zone-row="0"][data-zone-col="2"]',
+  )
+  await expect(zoneOverlay).toHaveAttribute(
+    'data-zone-power-status',
+    'unpowered',
+  )
+
+  // Switch to power, place a coal plant at (0, 0) and a line at (0, 1).
+  await page.getByTestId('editor-palette-category-power').click()
+  const palette = page.getByTestId('editor-palette')
+  await palette.locator('[data-power-tool="plant-coal"]').click()
+  await page
+    .locator(
+      '[data-testid="editor-snap-grid"] rect[data-cell-row="0"][data-cell-col="0"]',
+    )
+    .click()
+  await palette.locator('[data-power-tool="line"]').click()
+  await page
+    .locator(
+      '[data-testid="editor-snap-grid"] rect[data-cell-row="0"][data-cell-col="1"]',
+    )
+    .click()
+
+  // The zone overlay's power status should now read 'powered' since
+  // the zone at (0, 2) is 4-adjacent to the line at (0, 1) which is
+  // connected to the plant at (0, 0).
+  await expect(zoneOverlay).toHaveAttribute(
+    'data-zone-power-status',
+    'powered',
+  )
+})
+
 test('editor: zone tab switches kind and erase tool removes a zone', async ({
   page,
 }) => {
