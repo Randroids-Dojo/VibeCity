@@ -270,23 +270,28 @@ export function erasePiece(city: City, row: number, col: number): City {
 }
 
 /**
- * Editor palette category (REQ-028, REQ-029, REQ-080 unification, REQ-085 power UI).
+ * Editor palette category (REQ-028, REQ-029, REQ-080 unification, REQ-085 power UI, REQ-100 services UI).
  *
  * `street` selects pieces from `STREET_PALETTE`; `building` selects
  * buildings from `BUILDING_PALETTE`; `zone` selects R/C/I zones from
  * `ZONE_PALETTE` and routes click handlers through the sim event log
  * via `placeZone` / `eraseZone` (REQ-080); `power` selects power
  * plants / power lines from `POWER_PALETTE` and routes through
- * `placePowerPlant` / `runPowerLine` / `eraseLine` (REQ-085). The
- * category gates which array (or sim layer) a click mutates so a
- * placed zone never lands in the pieces array, a placed power line
- * never zones a cell, and so on. The erase tool (REQ-022, REQ-029)
- * follows the active category: in street / building modes it removes
- * a piece / building, in zone mode it dispatches `eraseZone`, in
- * power mode it dispatches `eraseLine` (or in a future slice when
- * `erasePowerPlant` ships, removes a plant when the click hits one).
+ * `placePowerPlant` / `runPowerLine` / `eraseLine` (REQ-085);
+ * `services` selects service buildings from `SERVICE_PALETTE` and
+ * routes through `placeServiceBuilding` / `eraseServiceBuilding`
+ * (REQ-100). The category gates which array (or sim layer) a click
+ * mutates. The erase tool follows the active category: in street /
+ * building modes it removes a piece / building, in zone mode
+ * `eraseZone`, in power mode `eraseLine`, in services mode
+ * `eraseServiceBuilding`.
  */
-export type PaletteCategory = 'street' | 'building' | 'zone' | 'power'
+export type PaletteCategory =
+  | 'street'
+  | 'building'
+  | 'zone'
+  | 'power'
+  | 'services'
 
 /**
  * Default palette category on first render (REQ-028).
@@ -390,6 +395,40 @@ export const POWER_PALETTE: readonly PowerPaletteEntry[] = [
  * type explicitly when they want to add capacity.
  */
 export const DEFAULT_POWER_TOOL: PowerPaletteToolType = 'line'
+
+/**
+ * v1 service palette (REQ-100 slice 2 UI).
+ *
+ * Five service kinds matching `ServiceKind` from `src/lib/sim/state.ts`.
+ * Click in services mode dispatches `placeServiceBuilding` via the
+ * sim event log; erase mode dispatches `eraseServiceBuilding`.
+ */
+export type ServicePaletteToolType =
+  | 'police-station'
+  | 'fire-station'
+  | 'hospital'
+  | 'school'
+  | 'garbage-depot'
+
+export interface ServicePaletteEntry {
+  type: ServicePaletteToolType
+  label: string
+}
+
+export const SERVICE_PALETTE: readonly ServicePaletteEntry[] = [
+  { type: 'police-station', label: 'Police' },
+  { type: 'fire-station', label: 'Fire' },
+  { type: 'hospital', label: 'Hospital' },
+  { type: 'school', label: 'School' },
+  { type: 'garbage-depot', label: 'Garbage' },
+]
+
+/**
+ * Default selected service tool on first render. Police is the
+ * SimCity-canonical "first service you place" because crime gets
+ * worst fastest in the absence of a station.
+ */
+export const DEFAULT_SERVICE_TOOL: ServicePaletteToolType = 'police-station'
 
 /**
  * Place a building on the grid (REQ-028, REQ-029).
