@@ -8,7 +8,7 @@ created-at: "2026-05-05T21:21:59.724035-05:00"
 
 ## Description
 
-When `CityMood.timeOfDay === 'night'`, the drive scene renders buildings with emissive window panels and intersection cells with street-lamp point lights. A pure visual layer with no simulation behavior: no power grid, no time-of-day cycling, no schedules. The mood field is already on the city schema (REQ-012) and excluded from the version hash (REQ-013) so adding this is non-breaking and stays inside the GDD fence ("track-mood / time-of-day / weather presets are reusable, but optional for v1" per `01-vision-and-pillars.md`).
+When `CityMood.timeOfDay === 'night'`, the drive scene renders buildings with emissive window panels and intersection cells with street-lamp point lights. After the Q-009 pivot (2026-05-05) this is the drive-mode visible signal for REQ-088 (power grid lit/dark windows). A powered residential cell at night has lit windows; a browned-out cell has dark windows. The lit-window render layer ships ahead of the power solver and uses a constant "all powered" assumption until the power layer (REQ-085) lands; the power solver then writes to a per-cell signal the lit-window layer reads.
 
 ## Context
 

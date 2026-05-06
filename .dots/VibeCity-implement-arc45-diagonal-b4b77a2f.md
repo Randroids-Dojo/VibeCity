@@ -1,7 +1,7 @@
 ---
 title: "implement: arc45 + diagonal sampled geometry + per-wheel contact (F-003, F-004)"
 status: open
-priority: 2
+priority: 4
 issue-type: task
 created-at: "2026-05-05T21:21:56.674489-05:00"
 ---

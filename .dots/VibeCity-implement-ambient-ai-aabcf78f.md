@@ -12,12 +12,13 @@ Spawn N ambient cars (default 3, capped at 6) on `path.segments[0]`. Each follow
 
 ## Context
 
-Highest-leverage "city is alive" feature that is purely visual and does NOT touch the city schema. Reuses the sampled-centerline geometry foundation. Per pillar 3, this still requires Q-009 resolution before landing because "ambient cars driving" is one step closer to traffic-AI than the GDD currently fences in.
+Q-009 resolved toward C on 2026-05-05; this dot is now the drive-mode render layer for REQ-077 (NPC vehicle traffic) under the citizens layer. Cars spawn at residential cells, follow placed streets toward commercial / industrial cells, and despawn on arrival, draining trip-demand counters from the population layer.
 
 ## Blocked By
 
-- `implement: sampled centerline geometry layer for trackPath` (this slice cannot start without `sampledPointsForPiece`)
-- Q-009 resolution (sim-mechanic scope). If Q-009 resolves toward "no sim mechanics until v1.1", this slice gets deferred to v1.1; if Q-009 resolves toward "ambient visual layers in scope", this slice unblocks immediately
+- `implement: REQ-070 sim engine substrate` (citizens layer reads the substrate's tick scheduler)
+- `implement: REQ-075 citizens layer (population + trip demand)` (this dot is the visible side of REQ-077; needs the demand counter source)
+- `implement: sampled centerline geometry layer for trackPath` (still needed for the per-segment follower path) OR a simpler cell-to-cell waypoint follower that avoids sampled centerlines for v1; pick one in the implementation slice
 
 ## Affected Files
 

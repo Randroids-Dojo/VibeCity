@@ -1,7 +1,7 @@
 ---
 title: "implement: port car.glb to drive scene (REQ-047 fidelity bump)"
 status: open
-priority: 1
+priority: 4
 issue-type: task
 created-at: "2026-05-05T21:21:49.098712-05:00"
 ---

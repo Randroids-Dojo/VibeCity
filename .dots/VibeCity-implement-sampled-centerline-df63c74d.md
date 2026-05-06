@@ -1,7 +1,7 @@
 ---
 title: "implement: sampled centerline geometry layer for trackPath"
 status: open
-priority: 2
+priority: 4
 issue-type: task
 created-at: "2026-05-05T21:21:54.350863-05:00"
 ---
