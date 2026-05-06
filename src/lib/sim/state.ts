@@ -688,6 +688,36 @@ export const FLOOD_DAMAGE_PROBABILITY_PER_TICK = 0.03
 export const EARTHQUAKE_HAPPINESS_PENALTY = 25
 
 /**
+ * Citizen happiness multi-input weights (REQ-076).
+ *
+ * Happiness reads four signals: waste accumulation, services
+ * coverage, tax rates, active earthquakes. Each contributes a
+ * subtractive penalty from a 100 baseline; the final score clamps
+ * to [0, 100] and rounds to one decimal.
+ *
+ *   - Waste penalty: `(avgWaste / WASTE_MAX_PER_CELL) * WASTE_HAPPINESS_WEIGHT`
+ *     (up to 50 points). Capping below 100 means waste alone cannot
+ *     bottom out happiness; the player needs other failures too.
+ *   - Coverage penalty: `(5 - avgCoverage) * COVERAGE_HAPPINESS_WEIGHT`
+ *     where `avgCoverage` averages the per-populated-cell coverage
+ *     count from `solveServicesCoverage` (range 0..5). Max 20 when
+ *     `avgCoverage === 0` (no service kind reaches any populated
+ *     cell, whether services are absent or just out of range); 0
+ *     when all five service kinds are within range of every
+ *     populated cell.
+ *   - Tax penalty: `max(0, residentialRate - TAX_NEUTRAL_RATE) * TAX_HAPPINESS_WEIGHT`.
+ *     7% residential rate is below neutral so the default starter
+ *     city has no tax penalty; rates above 10% drag happiness down
+ *     fast (each +1pp = 2 happiness lost).
+ *   - Earthquake penalty: `EARTHQUAKE_HAPPINESS_PENALTY` per active
+ *     earthquake (cumulative; existing).
+ */
+export const WASTE_HAPPINESS_WEIGHT = 50
+export const COVERAGE_HAPPINESS_WEIGHT = 4
+export const TAX_HAPPINESS_WEIGHT = 200
+export const TAX_NEUTRAL_RATE = 0.10
+
+/**
  * Per-tick tornado damage probability (REQ-105 slice 7). Higher
  * than fire / flood because tornados are short-lived (40-tick
  * default) and damage is visually dramatic: every infrastructure

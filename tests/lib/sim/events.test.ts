@@ -1407,19 +1407,34 @@ describe('applySimEvent', () => {
       expect(s.population.cityHappiness).toBeLessThan(100)
     })
 
-    it('stays at 100 when every populated cell is drained by sewage', () => {
+    it('drained-but-uncovered city sits at 80 (REQ-076 coverage penalty)', () => {
+      // Drained sewage = 0 waste penalty, but no services within
+      // coverage = full 20 service-coverage penalty.
       let s = applySimEvent(EMPTY_SIM_STATE, placeRes(0, 1))
       s = applySimEvent(s, placeTreatmentPlant(0, 0))
       s = tickN(20, s)
-      expect(s.population.cityHappiness).toBe(100)
+      expect(s.population.cityHappiness).toBe(80)
     })
 
-    it('reaches 0 when every populated cell sits at WASTE_MAX_PER_CELL', () => {
+    it('drops to 30 when every populated cell sits at WASTE_MAX_PER_CELL with no services (REQ-076 weights)', () => {
+      // waste penalty = WASTE_HAPPINESS_WEIGHT (50) + service penalty
+      // = 5 * COVERAGE_HAPPINESS_WEIGHT (20). 100 - 50 - 20 = 30.
       let s = applySimEvent(EMPTY_SIM_STATE, placeRes(0, 0))
-      // 20 ticks to grow + 200 ticks to fill the cap.
       s = tickN(220, s)
       expect(s.water.wasteAccumulation['0,0']).toBe(100)
-      expect(s.population.cityHappiness).toBe(0)
+      expect(s.population.cityHappiness).toBe(30)
+    })
+
+    it('residential tax above TAX_NEUTRAL_RATE drops happiness by (rate - neutral) * TAX_HAPPINESS_WEIGHT', () => {
+      // Drained sewage + treatment plant in coverage = 80 baseline (no
+      // tax penalty at default 7% since 7% < TAX_NEUTRAL_RATE 10%).
+      // Raising residential tax to 14% adds tax penalty
+      // = (0.14 - 0.10) * 200 = 8, so happiness drops to 72.
+      let s = applySimEvent(EMPTY_SIM_STATE, placeRes(0, 1))
+      s = applySimEvent(s, placeTreatmentPlant(0, 0))
+      s = applySimEvent(s, setTax('residential', 0.14))
+      s = tickN(20, s)
+      expect(s.population.cityHappiness).toBe(72)
     })
 
     it('two replays of the same event log derive identical happiness', () => {
