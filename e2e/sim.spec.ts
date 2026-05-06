@@ -148,6 +148,119 @@ test('editor: switching to Zones tab exposes the zone palette + paints a zone', 
   await expect(cell).toHaveAttribute('data-cell-zone-density', '0')
 })
 
+test('editor: Power tab exposes plant + line tools and paints a line', async ({
+  page,
+}) => {
+  await page.route('**/api/city/**', async (route, req) => {
+    if (req.method() === 'PUT') {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          slug: 'sim-power-spec',
+          versionHash: '0'.repeat(64),
+          updatedAt: 0,
+        }),
+      })
+    } else {
+      await route.fallback()
+    }
+  })
+
+  await page.goto('/sim-power-spec/edit')
+  await page.getByTestId('editor-sim-speed-0').click()
+
+  // Switch to Power tab.
+  const powerTab = page.getByTestId('editor-palette-category-power')
+  await expect(powerTab).toBeVisible()
+  await powerTab.click()
+  await expect(powerTab).toHaveAttribute('aria-selected', 'true')
+
+  const palette = page.getByTestId('editor-palette')
+  await expect(palette).toHaveAttribute('data-palette-category', 'power')
+
+  // All three power tools render.
+  for (const tool of ['plant-coal', 'plant-solar', 'line']) {
+    await expect(palette.locator(`[data-power-tool="${tool}"]`)).toBeVisible()
+  }
+  // Line is the default selected tool.
+  await expect(palette.locator('[data-power-tool="line"]')).toHaveAttribute(
+    'aria-pressed',
+    'true',
+  )
+
+  // Click the origin cell to paint a line.
+  const cell = page.locator(
+    '[data-testid="editor-snap-grid"] rect[data-cell-row="0"][data-cell-col="0"]',
+  )
+  await cell.click()
+  // The power-line overlay rect appears for that cell.
+  const lineOverlay = page.locator(
+    '[data-testid="editor-power-line"][data-power-line-row="0"][data-power-line-col="0"]',
+  )
+  await expect(lineOverlay).toBeVisible()
+})
+
+test('editor: switch to coal plant and paint, then erase a power line', async ({
+  page,
+}) => {
+  await page.route('**/api/city/**', async (route, req) => {
+    if (req.method() === 'PUT') {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          slug: 'sim-power-mix-spec',
+          versionHash: '0'.repeat(64),
+          updatedAt: 0,
+        }),
+      })
+    } else {
+      await route.fallback()
+    }
+  })
+
+  await page.goto('/sim-power-mix-spec/edit')
+  await page.getByTestId('editor-sim-speed-0').click()
+  await page.getByTestId('editor-palette-category-power').click()
+
+  // Select coal plant.
+  const palette = page.getByTestId('editor-palette')
+  await palette.locator('[data-power-tool="plant-coal"]').click()
+  await expect(palette.locator('[data-power-tool="plant-coal"]')).toHaveAttribute(
+    'aria-pressed',
+    'true',
+  )
+
+  // Click cell (1, 1) to place a coal plant.
+  const plantCell = page.locator(
+    '[data-testid="editor-snap-grid"] rect[data-cell-row="1"][data-cell-col="1"]',
+  )
+  await plantCell.click()
+  const plantOverlay = page.locator(
+    '[data-testid="editor-power-plant"][data-power-plant-row="1"][data-power-plant-col="1"]',
+  )
+  await expect(plantOverlay).toBeVisible()
+  await expect(plantOverlay).toHaveAttribute('data-power-plant-kind', 'coal')
+
+  // Switch to line, paint a line at (2, 2).
+  await palette.locator('[data-power-tool="line"]').click()
+  const lineCell = page.locator(
+    '[data-testid="editor-snap-grid"] rect[data-cell-row="2"][data-cell-col="2"]',
+  )
+  await lineCell.click()
+  const lineOverlay = page.locator(
+    '[data-testid="editor-power-line"][data-power-line-row="2"][data-power-line-col="2"]',
+  )
+  await expect(lineOverlay).toBeVisible()
+
+  // Erase mode + click the line cell removes it.
+  await page.keyboard.press('e')
+  await expect(palette).toHaveAttribute('data-tool-mode', 'erase')
+  await lineCell.click()
+  await expect(lineOverlay).toHaveCount(0)
+})
+
 test('editor: zone tab switches kind and erase tool removes a zone', async ({
   page,
 }) => {

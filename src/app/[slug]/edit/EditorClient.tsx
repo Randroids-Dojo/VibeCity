@@ -19,12 +19,15 @@ import {
   DEFAULT_BUILDING_TYPE,
   DEFAULT_PALETTE_CATEGORY,
   DEFAULT_PALETTE_TYPE,
+  DEFAULT_POWER_TOOL,
   DEFAULT_ROTATION,
   DEFAULT_TOOL_MODE,
   DEFAULT_ZONE_TYPE,
+  POWER_PALETTE,
   STREET_PALETTE,
   ZONE_PALETTE,
   type PaletteCategory,
+  type PowerPaletteToolType,
   type ToolMode,
   type ZonePaletteEntry,
   eraseBuilding,
@@ -35,8 +38,11 @@ import {
 } from './editorState'
 import { useSimEngine } from '@/lib/sim/useSimEngine'
 import type {
+  EraseLineEvent,
   EraseZoneEvent,
+  PlacePowerPlantEvent,
   PlaceZoneEvent,
+  RunPowerLineEvent,
 } from '@/lib/sim/events'
 import type { SimSpeed } from '@/lib/sim/state'
 import {
@@ -206,6 +212,9 @@ export function EditorClient({
   const [selectedZoneType, setSelectedZoneType] = useState<
     ZonePaletteEntry['type']
   >(DEFAULT_ZONE_TYPE)
+  const [selectedPowerTool, setSelectedPowerTool] = useState<
+    PowerPaletteToolType
+  >(DEFAULT_POWER_TOOL)
   const [rotation, setRotation] = useState<Rotation>(DEFAULT_ROTATION)
   const [toolMode, setToolMode] = useState<ToolMode>(DEFAULT_TOOL_MODE)
   const [autosaveStatus, setAutosaveStatus] =
@@ -486,6 +495,41 @@ export function EditorClient({
       const event: PlaceZoneEvent = {
         type: 'placeZone',
         payload: { kind: selectedZoneType, row, col },
+        clientCreatedAt: Date.now(),
+        authorBuilderId: builderId,
+      }
+      simEngine.enqueue(event)
+      return
+    }
+    // Power category (REQ-085 slice 2 UI). Dispatches plant or line
+    // events through the same engine.enqueue path. Erase mode in
+    // power category dispatches eraseLine for the clicked cell;
+    // plant erase ships with a future erasePowerPlant event.
+    if (paletteCategory === 'power') {
+      if (toolMode === 'erase') {
+        const event: EraseLineEvent = {
+          type: 'eraseLine',
+          payload: { row, col },
+          clientCreatedAt: Date.now(),
+          authorBuilderId: builderId,
+        }
+        simEngine.enqueue(event)
+        return
+      }
+      if (selectedPowerTool === 'line') {
+        const event: RunPowerLineEvent = {
+          type: 'runPowerLine',
+          payload: { row, col },
+          clientCreatedAt: Date.now(),
+          authorBuilderId: builderId,
+        }
+        simEngine.enqueue(event)
+        return
+      }
+      const kind = selectedPowerTool === 'plant-coal' ? 'coal' : 'solar'
+      const event: PlacePowerPlantEvent = {
+        type: 'placePowerPlant',
+        payload: { kind, row, col },
         clientCreatedAt: Date.now(),
         authorBuilderId: builderId,
       }
@@ -774,14 +818,16 @@ export function EditorClient({
           alignItems: 'center',
         }}
       >
-        {(['street', 'building', 'zone'] as const).map((category) => {
+        {(['street', 'building', 'zone', 'power'] as const).map((category) => {
           const isActive = category === paletteCategory
           const label =
             category === 'street'
               ? 'Streets'
               : category === 'building'
                 ? 'Buildings'
-                : 'Zones'
+                : category === 'zone'
+                  ? 'Zones'
+                  : 'Power'
           return (
             <button
               key={category}
@@ -940,39 +986,76 @@ export function EditorClient({
                   </button>
                 )
               })
-            : ZONE_PALETTE.map((entry) => {
-                const isSelected = entry.type === selectedZoneType
-                const bg =
-                  entry.type === 'residential'
-                    ? '#5fae5f'
-                    : entry.type === 'commercial'
-                      ? '#5f8aae'
-                      : '#ae8a5f'
-                return (
-                  <button
-                    key={entry.type}
-                    type="button"
-                    aria-pressed={isSelected}
-                    data-zone-type={entry.type}
-                    data-selected={isSelected ? 'true' : 'false'}
-                    onClick={() => {
-                      setSelectedZoneType(entry.type)
-                    }}
-                    style={{
-                      padding: '8px 14px',
-                      fontSize: 14,
-                      fontFamily: 'inherit',
-                      color: isSelected ? '#fff' : '#222',
-                      background: isSelected ? bg : '#fdfaf2',
-                      border: `1px solid ${isSelected ? bg : '#d6cfbf'}`,
-                      borderRadius: 4,
-                      cursor: 'pointer',
-                    }}
-                  >
-                    {entry.label}
-                  </button>
-                )
-              })}
+            : paletteCategory === 'zone'
+              ? ZONE_PALETTE.map((entry) => {
+                  const isSelected = entry.type === selectedZoneType
+                  const bg =
+                    entry.type === 'residential'
+                      ? '#5fae5f'
+                      : entry.type === 'commercial'
+                        ? '#5f8aae'
+                        : '#ae8a5f'
+                  return (
+                    <button
+                      key={entry.type}
+                      type="button"
+                      aria-pressed={isSelected}
+                      data-zone-type={entry.type}
+                      data-selected={isSelected ? 'true' : 'false'}
+                      onClick={() => {
+                        setSelectedZoneType(entry.type)
+                      }}
+                      style={{
+                        padding: '8px 14px',
+                        fontSize: 14,
+                        fontFamily: 'inherit',
+                        color: isSelected ? '#fff' : '#222',
+                        background: isSelected ? bg : '#fdfaf2',
+                        border: `1px solid ${isSelected ? bg : '#d6cfbf'}`,
+                        borderRadius: 4,
+                        cursor: 'pointer',
+                      }}
+                    >
+                      {entry.label}
+                    </button>
+                  )
+                })
+              : POWER_PALETTE.map((entry) => {
+                  const isSelected = entry.type === selectedPowerTool
+                  const bg =
+                    entry.type === 'plant-coal'
+                      ? '#4a3a2a'
+                      : entry.type === 'plant-solar'
+                        ? '#d4b85f'
+                        : '#e0a020'
+                  return (
+                    <button
+                      key={entry.type}
+                      type="button"
+                      aria-pressed={isSelected}
+                      data-power-tool={entry.type}
+                      data-selected={isSelected ? 'true' : 'false'}
+                      onClick={() => {
+                        setSelectedPowerTool(entry.type)
+                      }}
+                      style={{
+                        padding: '8px 14px',
+                        fontSize: 14,
+                        fontFamily: 'inherit',
+                        color:
+                          isSelected && entry.type === 'plant-coal'
+                            ? '#fff'
+                            : '#222',
+                        background: isSelected ? bg : '#fdfaf2',
+                        border: `1px solid ${isSelected ? bg : '#d6cfbf'}`,
+                        borderRadius: 4,
+                        cursor: 'pointer',
+                      }}
+                    >
+                      {entry.label}
+                    </button>
+                  )
+                })}
         <button
           type="button"
           data-testid="editor-rotate"
@@ -1247,6 +1330,7 @@ export function EditorClient({
         openEndArrows={openEndArrows}
         spawnMarker={spawnMarker}
         zones={simState.zones}
+        power={simState.power}
         onSurfaceWheel={handleSurfaceWheel}
         onSurfacePointerDown={handleSurfacePointerDown}
       />

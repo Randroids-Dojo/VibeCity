@@ -16,6 +16,16 @@ Format for each slice:
 - Followups: any new `F-NNN` entries created. Link to them.
 ```
 
+## 2026-05-06, REQ-085 Power Slice 2: Editor Power Tab + Plant/Line Tools
+
+- Branch: `feature/20260506-power-ui`
+- PR: #N (when known)
+- Changed: First user-visible power-layer feature on top of the slice 1 substrate. The editor's category switcher gains a fourth tab (Streets / Buildings / Zones / Power); the Power palette exposes Coal Plant / Solar Plant / Power Line. Cell click in power category dispatches `placePowerPlant` (with kind from the selected plant tool) or `runPowerLine` via the sim engine; erase mode dispatches `eraseLine`. SnapGridView accepts an optional `power` prop and renders each line as a 50%-cell-size yellow square plus each plant as a kind-tinted full-cell overlay. The connectivity solver (REQ-087) lands in slice 3; lit-windows drive signal (REQ-088) in slice 4. Slice 2 is the wiring tool.
+- Verification: `npm run type-check` green. `npm test` 1842/1842 pass (no new unit cases; UI exercised by e2e). `npm run build` green; editor route bundle barely grew because the power palette buttons reuse the existing tab-button shape. `npm run check:dashes` clean. `git diff --check` clean. `npx playwright test e2e/sim.spec.ts --project=chromium` 8/8 local (3 prior + 2 prior power-event tests + 3 prior zone tests + 2 new power UI tests).
+- Assumptions: Default selected power tool is `line` because most power-grid edits are running line cells; players pick a plant explicitly when adding capacity. Plant placement records anchor only (slice 1 contract); the 2x2 footprint validation defers to a follow-on. Erase mode in power category dispatches `eraseLine` only; plant erase ships with a future `erasePowerPlant` event when the player wants to remove the plant rather than the lines around it. Power-layer visuals render between the zone overlays and the connector glyphs so place / erase ghosts stay legible. Plant fill colors are kind-distinct: coal industrial brown, solar bright yellow; lines render in the same yellow as solar to read as "electricity" at a glance.
+- GDD coverage: REQ-085 stays `partial` (connectivity solver REQ-087 + drive signal REQ-088 + pollution REQ-089 still outstanding). `implementationRefs` extended with `src/app/[slug]/edit/editorState.ts`, `src/app/[slug]/edit/EditorClient.tsx`, `src/app/[slug]/edit/SnapGridView.tsx`; `testRefs` extended with `e2e/sim.spec.ts`. `docs/gdd/16-power-grid.md` Status stays `partial`; gains a build log entry.
+- Followups: none new. Next REQ-085 slices: connectivity solver (REQ-087, slice 3) makes the placed plants and lines actually power something. Per-cell power status + lit-windows drive signal (REQ-088, slice 4) provides the visible-from-the-car payoff. Pollution (REQ-089, slice 5) feeds into citizen happiness.
+
 ## 2026-05-06, REQ-085 Power Slice 1: Schema + Place/Erase Events + Reducer
 
 - Branch: `feature/20260506-power-events`
