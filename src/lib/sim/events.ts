@@ -3,6 +3,7 @@ import { BuilderIdSchema } from '@/lib/schemas'
 import { applyFireDamage } from './fireDamage'
 import { computeFireSpread } from './fireSpread'
 import { applyFloodDamage } from './floodDamage'
+import { applyMonsterDamage } from './monsterDamage'
 import { solveSewageStatus } from './sewageSolver'
 import { applyTornadoDamage } from './tornadoDamage'
 import {
@@ -575,6 +576,21 @@ function applyTick(state: SimState, event: TickEvent): SimState {
     state.disasters,
     nextTick,
   )
+  // Monster damage (REQ-105 slice 8). Combined density-drop +
+  // infrastructure-erase. Runs after tornado so a cell hosting both
+  // takes both checks (and the monster's density-drop reads the
+  // post-flood/fire-damaged zones bucket so a cell already dropped
+  // to 0 is a no-op for the monster).
+  const monsterDamaged = applyMonsterDamage(
+    {
+      zones: nextZones,
+      power: tornadoDamaged.power,
+      water: tornadoDamaged.water,
+      services: tornadoDamaged.services,
+    },
+    state.disasters,
+    nextTick,
+  )
   // Population follows zone density. The sync runs on every growth
   // tick so a place + grow + erase sequence cleans up the population
   // entry the next time the growth interval fires (within ~5s at
@@ -596,9 +612,9 @@ function applyTick(state: SimState, event: TickEvent): SimState {
   const nextEconomy = applyEconomyTick(
     state.economy,
     nextPopulation,
-    tornadoDamaged.power,
+    monsterDamaged.power,
     state.taxRates,
-    nextZones,
+    monsterDamaged.zones,
   )
   // Waste tick (REQ-092 slice 4). Populated cells accumulate waste
   // unless their sewage status is 'drained' (in which case the
@@ -606,9 +622,9 @@ function applyTick(state: SimState, event: TickEvent): SimState {
   // tick with no populated cells AND nothing to clean up keeps the
   // same water bucket reference.
   const nextWater = applyWasteTick(
-    tornadoDamaged.water,
+    monsterDamaged.water,
     nextPopulation,
-    nextZones,
+    monsterDamaged.zones,
   )
   // Disaster lifetime tick (REQ-105 substrate slice 1). Each active
   // disaster decrements its `ticksRemaining`; entries that hit 0 are
@@ -620,7 +636,7 @@ function applyTick(state: SimState, event: TickEvent): SimState {
   const nextDisasters = applyDisasterTick(
     state.disasters,
     nextTick,
-    tornadoDamaged.services,
+    monsterDamaged.services,
   )
   // Citizen happiness (REQ-092 slice 5 + REQ-105 slice 6). Reads
   // the freshly-updated waste accumulation AND the post-decrement
@@ -635,12 +651,12 @@ function applyTick(state: SimState, event: TickEvent): SimState {
     ...state,
     tick: nextTick,
     simTimeMs: state.simTimeMs + event.payload.deltaMs,
-    zones: nextZones,
+    zones: monsterDamaged.zones,
     population: nextPopulationWithHappiness,
     economy: nextEconomy,
-    power: tornadoDamaged.power,
+    power: monsterDamaged.power,
     water: nextWater,
-    services: tornadoDamaged.services,
+    services: monsterDamaged.services,
     disasters: nextDisasters,
   }
 }
