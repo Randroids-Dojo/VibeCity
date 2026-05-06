@@ -162,14 +162,94 @@ export function zoneCellKey(row: number, col: number): string {
   return `${row},${col}`
 }
 
-export const PowerBucketSchema = z.object({}).passthrough()
+/**
+ * Power plant kind (REQ-085 slice 1 of N).
+ *
+ * v1 ships two plant types: `coal` (cheap, dirty, 100 MW capacity)
+ * and `solar` (expensive, clean, 30 MW). Pollution effects (REQ-089)
+ * and per-cell capacity allocation (REQ-087 connectivity solver)
+ * land in slice 2 / 3 once the connectivity solver is in place.
+ */
+export const PowerPlantKindSchema = z.enum(['coal', 'solar'])
+export type PowerPlantKind = z.infer<typeof PowerPlantKindSchema>
+
+/**
+ * Per-plant capacity in megawatts (REQ-085 slice 1). The connectivity
+ * solver in slice 2 sums capacity across the connected component a
+ * cell sits in, then divides among demanding cells; the per-cell
+ * powered / browned-out / unpowered classification (REQ-087) reads
+ * these numbers.
+ *
+ * v1 numbers are SimCity-2000-shaped and can tune in playtest:
+ * coal at 100 MW serves a small grid, solar at 30 MW is the clean
+ * starter. A future slice can add wind / nuclear / hydro plant
+ * types.
+ */
+export const POWER_PLANT_CAPACITY_MW: Record<PowerPlantKind, number> = {
+  coal: 100,
+  solar: 30,
+}
+
+/**
+ * One power plant placed on the city grid (REQ-085 slice 1).
+ *
+ * Plants are 2x2 multi-cell footprints in the spec text (REQ-085).
+ * Slice 1 records the anchor cell only; the multi-cell footprint
+ * resolution lands with the UI slice (REQ-085 slice 3) which needs
+ * to know plant footprint when validating placement against existing
+ * pieces / buildings / lines / other plants.
+ */
+export const PowerPlantSchema = z
+  .object({
+    kind: PowerPlantKindSchema,
+    row: z.number().int(),
+    col: z.number().int(),
+  })
+  .strict()
+export type PowerPlant = z.infer<typeof PowerPlantSchema>
+
+/**
+ * Power grid bucket (REQ-085 slice 1).
+ *
+ * `plants` is an ordered array so placement order is preserved (the
+ * connectivity solver does not depend on order, but the array is
+ * the natural shape for "list of placed plants" iteration).
+ *
+ * `lines` is a `Record<"row,col", true>` so cell membership is O(1)
+ * and JSON-roundtrips cleanly. `true` is the only meaningful value
+ * (a cell is either a line or it is not); a future slice can extend
+ * the value to per-line metadata if voltage / damage / age becomes
+ * a felt gap.
+ */
+export const PowerBucketSchema = z
+  .object({
+    plants: z.array(PowerPlantSchema),
+    lines: z.record(z.string(), z.literal(true)),
+  })
+  .strict()
+export type PowerBucket = z.infer<typeof PowerBucketSchema>
+
+export const EMPTY_POWER_BUCKET: PowerBucket = Object.freeze({
+  plants: Object.freeze([] as PowerPlant[]) as PowerPlant[],
+  lines: Object.freeze({}) as Record<string, true>,
+}) as PowerBucket
+
+/**
+ * Compose a stable line key from a `(row, col)` coordinate. Mirrors
+ * `zoneCellKey` so the zoning layer and the power layer share the
+ * same convention; a future slice that checks "is this cell a zone
+ * AND a line" compares string keys directly.
+ */
+export function powerLineKey(row: number, col: number): string {
+  return `${row},${col}`
+}
+
 export const WaterBucketSchema = z.object({}).passthrough()
 export const EconomyBucketSchema = z.object({}).passthrough()
 export const ServicesBucketSchema = z.object({}).passthrough()
 export const DisastersBucketSchema = z.object({}).passthrough()
 
 export type PopulationBucket = z.infer<typeof PopulationBucketSchema>
-export type PowerBucket = z.infer<typeof PowerBucketSchema>
 export type WaterBucket = z.infer<typeof WaterBucketSchema>
 export type EconomyBucket = z.infer<typeof EconomyBucketSchema>
 export type ServicesBucket = z.infer<typeof ServicesBucketSchema>
@@ -215,7 +295,7 @@ export const EMPTY_SIM_STATE: SimState = Object.freeze({
   taxRates: DEFAULT_TAX_RATES,
   population: Object.freeze({}) as PopulationBucket,
   zones: EMPTY_ZONES_BUCKET,
-  power: Object.freeze({}) as PowerBucket,
+  power: EMPTY_POWER_BUCKET,
   water: Object.freeze({}) as WaterBucket,
   economy: Object.freeze({}) as EconomyBucket,
   services: Object.freeze({}) as ServicesBucket,
