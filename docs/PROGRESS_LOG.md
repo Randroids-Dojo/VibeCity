@@ -16,6 +16,16 @@ Format for each slice:
 - Followups: any new `F-NNN` entries created. Link to them.
 ```
 
+## 2026-05-06, REQ-093 Water Connectivity Solver + Visible Served/Unserved on Zones
+
+- Branch: `feature/20260506-water-solver`
+- PR: #N (when known)
+- Changed: Mirrors the REQ-087 power solver pattern. New `src/lib/sim/waterSolver.ts` ships pure helpers: `computeWaterComponents` runs BFS over (source anchors ∪ water-pipe cells) with 4-direction adjacency; sewage pipes are NOT in the supply graph (load-bearing distinction). `solveWaterStatus` per-cell classifier emits 'served' / 'brownout' / 'unserved' with capacity tracked per component for stable replay. `cellWaterStatusFor` single-cell convenience. SnapGridView calls the solver alongside the power and services solvers, mirrors result onto each zone overlay's `data-zone-water-status` attribute.
+- Verification: `npm run type-check` green. `npm test` 1969/1969 unit pass (1951 prior + 18 new waterSolver cases). `npm run build` green. `npm run check:dashes` clean. `git diff --check` clean. `npx playwright test e2e/sim.spec.ts --project=chromium` 16/16 local (15 prior + 1 new water-status-flip case).
+- Assumptions: Sewage pipes scope to their own future connectivity walk in REQ-092. Per-cell water demand is uniform 1 unit so capacity reads as "this source serves N cells"; future slices can scale demand by zone density alongside power demand. Capacity is consumed in alphabetical cell-key order so two clients replaying the same state agree on which cells brownout when demand exceeds capacity. Solver is recomputed once per render rather than cached on state because the grid is small; if profiling reveals it as hot, a memoized variant lands as a follow-on.
+- GDD coverage: REQ-090 stays `partial` (sewage waste REQ-092 + drive signals REQ-094 still outstanding). `implementationRefs` extended with `src/lib/sim/waterSolver.ts`; `testRefs` extended with `tests/lib/sim/waterSolver.test.ts`. `docs/gdd/17-water-and-sewage.md` Status stays `partial`; gains a build log entry.
+- Followups: none new. Next REQ-090 slices: sewage waste accumulation on populated cells (REQ-092) flows to treatment plants via sewage pipes; drive-visible water towers + sewage plants (REQ-094) reads from this same solver result.
+
 ## 2026-05-06, REQ-090 Water Slice 2: Editor Water Tab + 4 Tools
 
 - Branch: `feature/20260506-water-ui`

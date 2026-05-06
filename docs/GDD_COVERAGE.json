@@ -1325,6 +1325,7 @@
       "implementationRefs": [
         "src/lib/sim/state.ts",
         "src/lib/sim/events.ts",
+        "src/lib/sim/waterSolver.ts",
         "src/app/[slug]/edit/editorState.ts",
         "src/app/[slug]/edit/EditorClient.tsx",
         "src/app/[slug]/edit/SnapGridView.tsx"
@@ -1332,6 +1333,7 @@
       "testRefs": [
         "tests/lib/sim/state.test.ts",
         "tests/lib/sim/events.test.ts",
+        "tests/lib/sim/waterSolver.test.ts",
         "e2e/sim.spec.ts"
       ],
       "followupRefs": []

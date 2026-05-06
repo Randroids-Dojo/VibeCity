@@ -677,6 +677,67 @@ test('editor: Water tab exposes 4 tools and paints a water tower + pipe (REQ-090
   await expect(sewageOverlay).toHaveAttribute('data-water-pipe-kind', 'sewage')
 })
 
+test('editor: zone water status flips to served when wired to a water source (REQ-093)', async ({
+  page,
+}) => {
+  await page.route('**/api/city/**', async (route, req) => {
+    if (req.method() === 'PUT') {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          slug: 'sim-water-status-spec',
+          versionHash: '0'.repeat(64),
+          updatedAt: 0,
+        }),
+      })
+    } else {
+      await route.fallback()
+    }
+  })
+
+  await page.goto('/sim-water-status-spec/edit')
+  await page.getByTestId('editor-sim-speed-0').click()
+
+  // Paint residential at (0, 2).
+  await page.getByTestId('editor-palette-category-zone').click()
+  await page
+    .locator(
+      '[data-testid="editor-snap-grid"] rect[data-cell-row="0"][data-cell-col="2"]',
+    )
+    .click()
+  const zoneOverlay = page.locator(
+    '[data-testid="editor-zone-overlay"][data-zone-row="0"][data-zone-col="2"]',
+  )
+  await expect(zoneOverlay).toHaveAttribute(
+    'data-zone-water-status',
+    'unserved',
+  )
+
+  // Place a water tower at (0, 0) and a water pipe at (0, 1).
+  await page.getByTestId('editor-palette-category-water').click()
+  const palette = page.getByTestId('editor-palette')
+  await palette.locator('[data-water-tool="source-water-tower"]').click()
+  await page
+    .locator(
+      '[data-testid="editor-snap-grid"] rect[data-cell-row="0"][data-cell-col="0"]',
+    )
+    .click()
+  await palette.locator('[data-water-tool="pipe-water"]').click()
+  await page
+    .locator(
+      '[data-testid="editor-snap-grid"] rect[data-cell-row="0"][data-cell-col="1"]',
+    )
+    .click()
+
+  // Zone at (0, 2) is 4-adjacent to the pipe at (0, 1) connected to
+  // the tower at (0, 0); status flips to served.
+  await expect(zoneOverlay).toHaveAttribute(
+    'data-zone-water-status',
+    'served',
+  )
+})
+
 test('editor: zone tab switches kind and erase tool removes a zone', async ({
   page,
 }) => {
