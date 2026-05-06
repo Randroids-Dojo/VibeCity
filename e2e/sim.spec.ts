@@ -718,6 +718,65 @@ test('editor: Water palette includes a sewage-treatment tool that paints a plant
   await expect(plantOverlay).toBeVisible()
 })
 
+test('editor: zone sewage status flips to drained when wired to a treatment plant (REQ-092)', async ({
+  page,
+}) => {
+  await page.route('**/api/city/**', async (route, req) => {
+    if (req.method() === 'PUT') {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          slug: 'sim-sewage-status-spec',
+          versionHash: '0'.repeat(64),
+          updatedAt: 0,
+        }),
+      })
+    } else {
+      await route.fallback()
+    }
+  })
+
+  await page.goto('/sim-sewage-status-spec/edit')
+  await page.getByTestId('editor-sim-speed-0').click()
+
+  // Paint residential at (0, 2).
+  await page.getByTestId('editor-palette-category-zone').click()
+  await page
+    .locator(
+      '[data-testid="editor-snap-grid"] rect[data-cell-row="0"][data-cell-col="2"]',
+    )
+    .click()
+  const zoneOverlay = page.locator(
+    '[data-testid="editor-zone-overlay"][data-zone-row="0"][data-zone-col="2"]',
+  )
+  await expect(zoneOverlay).toHaveAttribute(
+    'data-zone-sewage-status',
+    'unmanaged',
+  )
+
+  // Place a sewage treatment plant at (0, 0) and a sewage pipe at (0, 1).
+  await page.getByTestId('editor-palette-category-water').click()
+  const palette = page.getByTestId('editor-palette')
+  await palette.locator('[data-water-tool="source-sewage-treatment"]').click()
+  await page
+    .locator(
+      '[data-testid="editor-snap-grid"] rect[data-cell-row="0"][data-cell-col="0"]',
+    )
+    .click()
+  await palette.locator('[data-water-tool="pipe-sewage"]').click()
+  await page
+    .locator(
+      '[data-testid="editor-snap-grid"] rect[data-cell-row="0"][data-cell-col="1"]',
+    )
+    .click()
+
+  await expect(zoneOverlay).toHaveAttribute(
+    'data-zone-sewage-status',
+    'drained',
+  )
+})
+
 test('editor: zone water status flips to served when wired to a water source (REQ-093)', async ({
   page,
 }) => {

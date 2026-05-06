@@ -13,6 +13,10 @@ import {
 } from '@/lib/sim/servicesSolver'
 import { solveWaterStatus, type CellWaterStatus } from '@/lib/sim/waterSolver'
 import {
+  solveSewageStatus,
+  type CellSewageStatus,
+} from '@/lib/sim/sewageSolver'
+import {
   CELL_PIXELS,
   GRID_DIAMETER,
   GRID_PIXEL_SIZE,
@@ -501,6 +505,10 @@ export function SnapGrid({
               zones,
               water ?? { sources: [], pipes: {}, treatmentPlants: [] },
             )
+            const sewageStatus = solveSewageStatus(
+              zones,
+              water ?? { sources: [], pipes: {}, treatmentPlants: [] },
+            )
             return Object.entries(zones.cells).map(([key, zone]) => {
               const [rowStr, colStr] = key.split(',')
               const row = Number(rowStr)
@@ -511,6 +519,8 @@ export function SnapGrid({
               const coverage = servicesCoverage[key]
               const cov = coverage ? coverageCount(coverage) : 0
               const wstatus: CellWaterStatus = waterStatus[key] ?? 'unserved'
+              const sstatus: CellSewageStatus =
+                sewageStatus[key] ?? 'unmanaged'
               return (
                 <rect
                   key={`zone-${key}`}
@@ -522,6 +532,7 @@ export function SnapGrid({
                   data-zone-power-status={status}
                   data-zone-coverage-count={cov}
                   data-zone-water-status={wstatus}
+                  data-zone-sewage-status={sstatus}
                   x={x + 1}
                   y={y + 1}
                   width={CELL_PIXELS - 2}
