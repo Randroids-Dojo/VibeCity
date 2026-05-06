@@ -1,10 +1,13 @@
 import type { Metadata } from 'next'
+import { cookies } from 'next/headers'
 import { notFound } from 'next/navigation'
 import { loadCity } from '@/lib/loadCity'
 import { readVersionParam } from '@/lib/cityVersion'
 import { parseSlugParam } from './slugRoute'
 import { DriveSceneClient } from './DriveSceneClient'
 import { driveDescription, driveTitle } from './slugMetadata'
+import { BUILDER_ID_COOKIE, isValidBuilderId } from '@/lib/builderId'
+import type { BuilderId } from '@/lib/schemas'
 
 /**
  * Drive-view route at `/<slug>` (REQ-006, REQ-044, REQ-045, REQ-046,
@@ -83,5 +86,17 @@ export default async function SlugDrivePage({
 
   const { city } = await loadCity(slug, pinned ?? undefined)
 
-  return <DriveSceneClient slug={slug} city={city} />
+  // Read the builder cookie so the drive scene can mount the sim
+  // engine and surface zones / power state from the event log
+  // (REQ-088). Middleware mints + propagates on first visit; if the
+  // cookie is somehow missing, fail closed with notFound() and let a
+  // refresh recover.
+  const jar = await cookies()
+  const builderIdRaw = jar.get(BUILDER_ID_COOKIE)?.value
+  if (!builderIdRaw || !isValidBuilderId(builderIdRaw)) {
+    notFound()
+  }
+  const builderId = builderIdRaw as BuilderId
+
+  return <DriveSceneClient slug={slug} city={city} builderId={builderId} />
 }

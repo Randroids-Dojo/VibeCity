@@ -3,7 +3,9 @@
 import Link from 'next/link'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import * as THREE from 'three'
-import type { City, Slug } from '@/lib/schemas'
+import type { BuilderId, City, Slug } from '@/lib/schemas'
+import { useSimEngine } from '@/lib/sim/useSimEngine'
+import { solvePowerStatus, type CellPowerStatus } from '@/lib/sim/powerSolver'
 import {
   AMBIENT_LIGHT_INTENSITY,
   CAMERA_DISTANCE,
@@ -234,10 +236,20 @@ function TouchJoystickRing({
 export function DriveSceneClient({
   slug,
   city,
+  builderId,
 }: {
   slug: Slug
   city: City
+  builderId: BuilderId
 }) {
+  // Sim engine for zones / power state (REQ-088 slice 1 of 2: drive
+  // visible signal). Mounting the engine in the drive view runs its
+  // own tick stream alongside any concurrent editor session; the
+  // server orders concurrent events by serverReceivedAt so both
+  // surfaces converge. Zone state is read from `simRuntime.state.zones`
+  // and rendered as flat colored ground quads in the scene.
+  const simEngine = useSimEngine(slug, builderId)
+  const simState = simEngine.runtime.state
   const canvasRef = useRef<HTMLCanvasElement | null>(null)
   const rootRef = useRef<HTMLDivElement | null>(null)
   // HUD refs (REQ-066). The integration loop writes the live speed
@@ -614,6 +626,68 @@ export function DriveSceneClient({
       orbitTarget.z + CAMERA_DISTANCE,
     )
     camera.lookAt(orbitTarget)
+
+    // Zones (REQ-088 slice 1 of 2 drive-visible signal). Flat colored
+    // quads sized to the cell, positioned slightly above the ground
+    // and slightly below the pieces so a road over a zoned cell still
+    // reads as a road. Per-kind color palette mirrors the editor's
+    // SnapGridView so the surface stays consistent across views;
+    // density-based opacity reads ungrown vs max-density at a glance.
+    // Power-aware tinting (lit windows when powered at night) lands
+    // in slice 2 of REQ-088 and reads from the same powerSolver helper
+    // that the editor already uses.
+    const zoneColors: Record<'residential' | 'commercial' | 'industrial', number> = {
+      residential: 0x5fae5f,
+      commercial: 0x5f8aae,
+      industrial: 0xae8a5f,
+    }
+    const zoneOpacity: Record<0 | 1 | 2 | 3, number> = {
+      0: 0.35,
+      1: 0.55,
+      2: 0.78,
+      3: 1.0,
+    }
+    const zonePowerStatus = solvePowerStatus(simState.zones, simState.power)
+    const zoneGeometry = new THREE.PlaneGeometry(CELL_SIZE, CELL_SIZE)
+    zoneGeometry.rotateX(-Math.PI / 2)
+    for (const [key, zone] of Object.entries(simState.zones.cells)) {
+      const [rowStr, colStr] = key.split(',')
+      const row = Number(rowStr)
+      const col = Number(colStr)
+      if (!Number.isFinite(row) || !Number.isFinite(col)) continue
+      const { x, z } = cellToWorld(row, col)
+      const status: CellPowerStatus = zonePowerStatus[key] ?? 'unpowered'
+      const material = new THREE.MeshLambertMaterial({
+        color: zoneColors[zone.kind],
+        transparent: true,
+        opacity: zoneOpacity[zone.density],
+        // Browned-out zones render slightly darker so a builder
+        // driving past a low-power district sees the warning state
+        // without needing the editor's stroke tint. Unpowered zones
+        // keep full color for slice 1; the night-mode lit-windows
+        // signal in slice 2 will provide the unpowered-vs-powered
+        // distinction at low light.
+        emissive:
+          status === 'powered'
+            ? new THREE.Color(0x000000)
+            : status === 'brownout'
+              ? new THREE.Color(0x222200)
+              : new THREE.Color(0x000000),
+      })
+      const mesh = new THREE.Mesh(zoneGeometry, material)
+      // Sit just above the ground (PIECE_GROUND_LIFT / 2) so a piece
+      // quad on the same cell renders on top.
+      mesh.position.set(x, PIECE_GROUND_LIFT / 2, z)
+      mesh.userData = {
+        type: 'zone',
+        row,
+        col,
+        kind: zone.kind,
+        density: zone.density,
+        powerStatus: status,
+      }
+      scene.add(mesh)
+    }
 
     // Street pieces (REQ-045). Flat colored quads at the cell center,
     // lifted slightly above the ground to avoid z-fighting. Multi-cell
@@ -1477,6 +1551,8 @@ export function DriveSceneClient({
     wheelLocalOffsets,
     minimapBounds,
     handleToggleEngineMute,
+    simState.zones,
+    simState.power,
   ])
 
   // The placeholder car (REQ-047) renders only when at least one piece
