@@ -6,9 +6,17 @@ import {
   EMPTY_SIM_STATE,
   DEFAULT_SIM_SPEED,
   DEFAULT_TAX_RATES,
+  ZoneKindSchema,
+  ZoneDensitySchema,
+  ZoneCellSchema,
+  ZonesBucketSchema,
+  EMPTY_ZONES_BUCKET,
+  zoneCellKey,
   type SimSpeed,
   type TaxRates,
   type SimState,
+  type ZonesBucket,
+  type ZoneCell,
 } from '@/lib/sim/state'
 
 describe('SimSpeedSchema', () => {
@@ -146,14 +154,17 @@ describe('EMPTY_SIM_STATE', () => {
     expect(EMPTY_SIM_STATE.taxRates).toEqual(DEFAULT_TAX_RATES)
   })
 
-  it('has every per-layer bucket as an empty object', () => {
+  it('has every passthrough per-layer bucket as an empty object', () => {
     expect(EMPTY_SIM_STATE.population).toEqual({})
-    expect(EMPTY_SIM_STATE.zones).toEqual({})
     expect(EMPTY_SIM_STATE.power).toEqual({})
     expect(EMPTY_SIM_STATE.water).toEqual({})
     expect(EMPTY_SIM_STATE.economy).toEqual({})
     expect(EMPTY_SIM_STATE.services).toEqual({})
     expect(EMPTY_SIM_STATE.disasters).toEqual({})
+  })
+
+  it('has zones bucket initialized to empty cells map (REQ-080 slice 1 strict shape)', () => {
+    expect(EMPTY_SIM_STATE.zones).toEqual({ cells: {} })
   })
 
   it('is frozen at the top level', () => {
@@ -166,5 +177,127 @@ describe('EMPTY_SIM_STATE', () => {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       ;(EMPTY_SIM_STATE as any).tick = 99
     }).toThrow()
+  })
+})
+
+describe('ZoneKindSchema (REQ-080 slice 1)', () => {
+  it('accepts the three v1 zone kinds', () => {
+    expect(ZoneKindSchema.safeParse('residential').success).toBe(true)
+    expect(ZoneKindSchema.safeParse('commercial').success).toBe(true)
+    expect(ZoneKindSchema.safeParse('industrial').success).toBe(true)
+  })
+
+  it('rejects an unknown zone kind', () => {
+    expect(ZoneKindSchema.safeParse('agricultural').success).toBe(false)
+  })
+})
+
+describe('ZoneDensitySchema (REQ-080 slice 1)', () => {
+  it('accepts 0 (empty zoned cell, ungrown)', () => {
+    expect(ZoneDensitySchema.safeParse(0).success).toBe(true)
+  })
+
+  it('accepts 1, 2, 3 (low / medium / high density)', () => {
+    expect(ZoneDensitySchema.safeParse(1).success).toBe(true)
+    expect(ZoneDensitySchema.safeParse(2).success).toBe(true)
+    expect(ZoneDensitySchema.safeParse(3).success).toBe(true)
+  })
+
+  it('rejects density 4 (above v1 cap)', () => {
+    expect(ZoneDensitySchema.safeParse(4).success).toBe(false)
+  })
+
+  it('rejects negative density', () => {
+    expect(ZoneDensitySchema.safeParse(-1).success).toBe(false)
+  })
+
+  it('rejects non-integer density', () => {
+    expect(ZoneDensitySchema.safeParse(1.5).success).toBe(false)
+  })
+})
+
+describe('ZoneCellSchema (REQ-080 slice 1)', () => {
+  it('accepts a residential cell at density 0', () => {
+    const cell: ZoneCell = { kind: 'residential', density: 0 }
+    expect(ZoneCellSchema.safeParse(cell).success).toBe(true)
+  })
+
+  it('rejects extra fields (strict)', () => {
+    const cell = { kind: 'residential', density: 0, color: '#fff' }
+    expect(ZoneCellSchema.safeParse(cell).success).toBe(false)
+  })
+
+  it('rejects missing kind', () => {
+    const cell = { density: 0 }
+    expect(ZoneCellSchema.safeParse(cell).success).toBe(false)
+  })
+
+  it('rejects missing density', () => {
+    const cell = { kind: 'residential' }
+    expect(ZoneCellSchema.safeParse(cell).success).toBe(false)
+  })
+})
+
+describe('ZonesBucketSchema (REQ-080 slice 1)', () => {
+  it('accepts the empty bucket', () => {
+    expect(ZonesBucketSchema.safeParse(EMPTY_ZONES_BUCKET).success).toBe(true)
+  })
+
+  it('accepts a populated bucket', () => {
+    const bucket: ZonesBucket = {
+      cells: {
+        '0,0': { kind: 'residential', density: 0 },
+        '1,2': { kind: 'commercial', density: 2 },
+      },
+    }
+    expect(ZonesBucketSchema.safeParse(bucket).success).toBe(true)
+  })
+
+  it('rejects extra top-level fields (strict)', () => {
+    const bucket = { cells: {}, totalCells: 0 }
+    expect(ZonesBucketSchema.safeParse(bucket).success).toBe(false)
+  })
+
+  it('rejects a cell with bad kind', () => {
+    const bucket = { cells: { '0,0': { kind: 'farmland', density: 0 } } }
+    expect(ZonesBucketSchema.safeParse(bucket).success).toBe(false)
+  })
+})
+
+describe('EMPTY_ZONES_BUCKET', () => {
+  it('is shaped { cells: {} }', () => {
+    expect(EMPTY_ZONES_BUCKET).toEqual({ cells: {} })
+  })
+
+  it('passes ZonesBucketSchema', () => {
+    expect(ZonesBucketSchema.safeParse(EMPTY_ZONES_BUCKET).success).toBe(true)
+  })
+
+  it('is frozen at the top level', () => {
+    expect(Object.isFrozen(EMPTY_ZONES_BUCKET)).toBe(true)
+  })
+})
+
+describe('zoneCellKey', () => {
+  it('composes "row,col"', () => {
+    expect(zoneCellKey(3, 4)).toBe('3,4')
+  })
+
+  it('handles zero', () => {
+    expect(zoneCellKey(0, 0)).toBe('0,0')
+  })
+
+  it('handles negative coordinates', () => {
+    expect(zoneCellKey(-2, 5)).toBe('-2,5')
+  })
+
+  it('matches the streetCellSet / buildingCellSet convention exactly', () => {
+    // The existing helpers use `${row},${col}`. zoneCellKey must
+    // match so future zone-vs-piece collision checks can compare
+    // string keys directly.
+    const row = 7
+    const col = 3
+    const inline = `${row},${col}`
+    expect(zoneCellKey(row, col)).toBe(inline)
   })
 })
