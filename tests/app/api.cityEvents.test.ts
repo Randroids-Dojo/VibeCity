@@ -532,6 +532,161 @@ describe('round trip POST -> GET', () => {
   })
 })
 
+describe('snapshot trigger (REQ-070..074 substrate slice 4)', () => {
+  beforeEach(async () => {
+    await clearSlug('snap-spec' as Slug)
+  })
+
+  it('does not write a snapshot below the threshold', async () => {
+    const { POST } = await import('@/app/api/city/[slug]/events/route')
+    const events: SimEvent[] = []
+    for (let i = 0; i < 100; i++) events.push(tickEvent(250, i))
+    const req = new NextRequest('http://test/api/city/snap-spec/events', {
+      method: 'POST',
+      headers: { cookie: cookieHeader(), 'content-type': 'application/json' },
+      body: JSON.stringify({ events }),
+    })
+    await POST(req, { params: Promise.resolve({ slug: 'snap-spec' }) })
+
+    const snap = await fake.get(kvKeys.citySnapshot('snap-spec' as Slug))
+    expect(snap).toBeNull()
+    const cursor = await fake.get(
+      kvKeys.cityEventsSnapshotCursor('snap-spec' as Slug),
+    )
+    expect(cursor).toBeNull()
+  })
+
+  it('writes a snapshot after exactly 1000 events arrive in one batch', async () => {
+    const { POST } = await import('@/app/api/city/[slug]/events/route')
+    // Send 4 batches of 250 (the per-batch cap is 256)
+    for (let batch = 0; batch < 4; batch++) {
+      const events: SimEvent[] = []
+      for (let i = 0; i < 250; i++) events.push(tickEvent(250, batch * 250 + i))
+      const req = new NextRequest('http://test/api/city/snap-spec/events', {
+        method: 'POST',
+        headers: { cookie: cookieHeader(), 'content-type': 'application/json' },
+        body: JSON.stringify({ events }),
+      })
+      await POST(req, { params: Promise.resolve({ slug: 'snap-spec' }) })
+    }
+
+    const snap = await fake.get<{ tick: number; simTimeMs: number }>(
+      kvKeys.citySnapshot('snap-spec' as Slug),
+    )
+    expect(snap).not.toBeNull()
+    if (!snap) return
+    expect(snap.tick).toBe(1000)
+    expect(snap.simTimeMs).toBe(250000)
+
+    const cursor = await fake.get(
+      kvKeys.cityEventsSnapshotCursor('snap-spec' as Slug),
+    )
+    expect(cursor).toBe(1000)
+  })
+
+  it('extends an existing snapshot on the next 1000-event boundary', async () => {
+    const { POST } = await import('@/app/api/city/[slug]/events/route')
+    // First 1000 events (4 batches of 250) -> snapshot at cursor 1000
+    for (let batch = 0; batch < 4; batch++) {
+      const events: SimEvent[] = []
+      for (let i = 0; i < 250; i++) events.push(tickEvent(250, batch * 250 + i))
+      await POST(
+        new NextRequest('http://test/api/city/snap-spec/events', {
+          method: 'POST',
+          headers: {
+            cookie: cookieHeader(),
+            'content-type': 'application/json',
+          },
+          body: JSON.stringify({ events }),
+        }),
+        { params: Promise.resolve({ slug: 'snap-spec' }) },
+      )
+    }
+
+    // Another 1000 events -> snapshot at cursor 2000
+    for (let batch = 0; batch < 4; batch++) {
+      const events: SimEvent[] = []
+      for (let i = 0; i < 250; i++)
+        events.push(tickEvent(250, 1000 + batch * 250 + i))
+      await POST(
+        new NextRequest('http://test/api/city/snap-spec/events', {
+          method: 'POST',
+          headers: {
+            cookie: cookieHeader(),
+            'content-type': 'application/json',
+          },
+          body: JSON.stringify({ events }),
+        }),
+        { params: Promise.resolve({ slug: 'snap-spec' }) },
+      )
+    }
+
+    const snap = await fake.get<{ tick: number; simTimeMs: number }>(
+      kvKeys.citySnapshot('snap-spec' as Slug),
+    )
+    expect(snap?.tick).toBe(2000)
+    expect(snap?.simTimeMs).toBe(500000)
+
+    const cursor = await fake.get(
+      kvKeys.cityEventsSnapshotCursor('snap-spec' as Slug),
+    )
+    expect(cursor).toBe(2000)
+  })
+
+  it('GET returns the snapshot after it is written', async () => {
+    const { POST, GET } = await import('@/app/api/city/[slug]/events/route')
+    // Write 1000 events to trigger a snapshot
+    for (let batch = 0; batch < 4; batch++) {
+      const events: SimEvent[] = []
+      for (let i = 0; i < 250; i++) events.push(tickEvent(250, batch * 250 + i))
+      await POST(
+        new NextRequest('http://test/api/city/snap-spec/events', {
+          method: 'POST',
+          headers: {
+            cookie: cookieHeader(),
+            'content-type': 'application/json',
+          },
+          body: JSON.stringify({ events }),
+        }),
+        { params: Promise.resolve({ slug: 'snap-spec' }) },
+      )
+    }
+
+    const res = await GET(
+      new NextRequest('http://test/api/city/snap-spec/events'),
+      { params: Promise.resolve({ slug: 'snap-spec' }) },
+    )
+    const body = (await res.json()) as {
+      snapshot: { tick: number; simTimeMs: number } | null
+      snapshotCursor: number
+      totalLen?: number
+    }
+    expect(body.snapshot?.tick).toBe(1000)
+    expect(body.snapshotCursor).toBe(1000)
+    expect(body.totalLen).toBe(1000)
+  })
+
+  it('snapshot write failure does not fail the POST (events still persist)', async () => {
+    const { POST } = await import('@/app/api/city/[slug]/events/route')
+    const events: SimEvent[] = []
+    for (let i = 0; i < 250; i++) events.push(tickEvent(250, i))
+
+    // Below threshold; no snapshot attempted. POST should succeed and
+    // return the new cursor.
+    const res = await POST(
+      new NextRequest('http://test/api/city/snap-spec/events', {
+        method: 'POST',
+        headers: { cookie: cookieHeader(), 'content-type': 'application/json' },
+        body: JSON.stringify({ events }),
+      }),
+      { params: Promise.resolve({ slug: 'snap-spec' }) },
+    )
+    expect(res.status).toBe(200)
+    const body = (await res.json()) as { nextCursor: number }
+    expect(body.nextCursor).toBe(250)
+  })
+})
+
 describe('kvKeys event log entries', () => {
   it('cityEvents key uses the slug namespace', () => {
     expect(kvKeys.cityEvents('foo' as Slug)).toBe('city:foo:events')

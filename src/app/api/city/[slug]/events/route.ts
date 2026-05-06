@@ -4,6 +4,12 @@ import { SlugSchema, type Slug } from '@/lib/schemas'
 import { getKv, hasKvConfigured, kvKeys } from '@/lib/kv'
 import { BUILDER_ID_COOKIE, isValidBuilderId } from '@/lib/builderId'
 import { SimEventSchema, type SimEvent } from '@/lib/sim/events'
+import {
+  buildSnapshot,
+  parseEventStrings,
+  shouldSnapshot,
+} from '@/lib/sim/snapshot'
+import { SimStateSchema, type SimState } from '@/lib/sim/state'
 
 export const runtime = 'nodejs'
 
@@ -103,6 +109,53 @@ export async function POST(
     return jsonError(503, 'storage unavailable', {
       reason: 'temporary storage failure',
     })
+  }
+
+  // Snapshot trigger (REQ-070..074 substrate slice 4 of 5, Q-013).
+  // Run inline after the append so cold-load reads are bounded by
+  // SNAPSHOT_EVERY_N_EVENTS regardless of session length. A failure
+  // here does NOT fail the POST: the events are already persisted,
+  // and the next POST will re-evaluate the trigger and try again.
+  // Snapshot writes are idempotent per cursor: writing the same
+  // snapshot twice produces the same state.
+  let snapshotCursor = 0
+  try {
+    const cursorStr = await kv.get<string>(
+      kvKeys.cityEventsSnapshotCursor(slug),
+    )
+    if (cursorStr !== null && cursorStr !== undefined) {
+      const parsed = Number.parseInt(String(cursorStr), 10)
+      if (Number.isFinite(parsed) && parsed >= 0) snapshotCursor = parsed
+    }
+
+    if (shouldSnapshot(nextCursor, snapshotCursor)) {
+      const tailRaws = await kv.lrange(
+        kvKeys.cityEvents(slug),
+        snapshotCursor,
+        nextCursor - 1,
+      )
+      const tailEvents = parseEventStrings(tailRaws)
+      const previousRaw = await kv.get<unknown>(kvKeys.citySnapshot(slug))
+      let previousSnapshot: SimState | null = null
+      if (previousRaw !== null && previousRaw !== undefined) {
+        const parsed = SimStateSchema.safeParse(previousRaw)
+        if (parsed.success) previousSnapshot = parsed.data
+      }
+      const newSnapshot = buildSnapshot(previousSnapshot, tailEvents)
+      await kv.set(
+        kvKeys.citySnapshot(slug),
+        JSON.stringify(newSnapshot),
+      )
+      await kv.set(
+        kvKeys.cityEventsSnapshotCursor(slug),
+        String(nextCursor),
+      )
+    }
+  } catch (e) {
+    // Snapshot failures are non-fatal. The events are persisted; cold
+    // load will replay from the previous (or zero) snapshot cursor
+    // until the next POST retries.
+    console.error('Snapshot write failed (non-fatal)', e)
   }
 
   return NextResponse.json({
