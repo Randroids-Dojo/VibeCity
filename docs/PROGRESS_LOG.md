@@ -16,6 +16,16 @@ Format for each slice:
 - Followups: any new `F-NNN` entries created. Link to them.
 ```
 
+## 2026-05-06, REQ-105 Slice 3: Deterministic Fire Spread Mechanic
+
+- Branch: `feature/20260506-fire-spread`
+- PR: #N (when known)
+- Changed: New `FIRE_SPREAD_PROBABILITY_PER_TICK = 0.05` constant. New `src/lib/sim/fireSpread.ts` module exports `fireSpreadHash` (32-bit deterministic mixing function) and `computeFireSpread` (per-tick walker that on hit picks a 4-cardinal neighbor and gates against existing fires + fire-station coverage). `applyDisasterTick` extended with `tick` + `services` params; calls `computeFireSpread` on survivors and appends spawned fires. `applyTick` threads `nextTick` and `state.services` through.
+- Verification: `npm run type-check` green. `npm test` 2060/2060 unit pass (2049 prior + 11 new fireSpread cases). `npm run build` green. `npm run check:dashes` clean. `git diff --check` clean. `npx playwright test e2e/sim.spec.ts --project=chromium` 21/21 local.
+- Assumptions: Fire spread is deterministic via a hash of `(tick, row, col)` with no external rng state; this preserves the event-log replay-determinism property that two clients with the same log derive identical sim state. Spread probability 5%/tick is a slow burn at default 4Hz (avg ~20 ticks = 5s before any one fire spreads), giving the player time to build fire stations. Fire-station coverage radius (6 Manhattan cells, from `SERVICE_COVERAGE_CELLS['fire-station']`) blocks NEW fires from landing on covered cells but does not extinguish existing fires; an "extinguish" mechanic could land in a future slice.
+- GDD coverage: REQ-105 stays `partial` (damage application slice 4 + drive visualization slice 5 still outstanding). `docs/gdd/20-disasters.md` Status stays `partial`; gains a build log entry. Coverage row implementationRefs gain `src/lib/sim/fireSpread.ts`; testRefs gain `tests/lib/sim/fireSpread.test.ts`.
+- Followups: F-NEW (deferred): per-disaster damage application (slice 4). Fire reduces population on populated cells, flood inundates zoned cells, tornado erases pieces, earthquake drops happiness, monster destroys.
+
 ## 2026-05-06, REQ-105 Slice 2: Editor Disasters Palette + Per-Cell Overlay
 
 - Branch: `feature/20260506-disasters-palette`
