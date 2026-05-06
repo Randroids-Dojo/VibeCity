@@ -669,6 +669,14 @@ export const FIRE_SPREAD_PROBABILITY_PER_TICK = 0.05
  */
 export const FIRE_DAMAGE_PROBABILITY_PER_TICK = 0.05
 
+/**
+ * Per-tick flood damage probability (REQ-105 slice 5). Lower than
+ * the fire rate because floods are wide-area slow drains rather
+ * than fast burns; the longer 120-tick default duration stretches
+ * the same expected damage budget across twice as many ticks.
+ */
+export const FLOOD_DAMAGE_PROBABILITY_PER_TICK = 0.03
+
 export const DisasterSchema = z
   .object({
     kind: DisasterKindSchema,
