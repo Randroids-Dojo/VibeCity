@@ -17,6 +17,7 @@ import {
   TAX_HAPPINESS_WEIGHT,
   TAX_NEUTRAL_RATE,
   WASTE_HAPPINESS_WEIGHT,
+  DECLINE_HAPPINESS_THRESHOLD,
   EMPTY_SIM_STATE,
   GROWTH_HAPPINESS_THRESHOLD,
   GROWTH_INTERVAL_TICKS,
@@ -945,21 +946,27 @@ export function syncPopulationToZones(
 }
 
 /**
- * Per-tick zone growth (REQ-081). Returns the input bucket
- * unchanged when any of the short-circuit conditions hold:
- *   - this tick is not a growth tick (`tick % GROWTH_INTERVAL_TICKS !== 0`),
- *   - city-wide `cityHappiness` sits at or below
- *     `GROWTH_HAPPINESS_THRESHOLD` (REQ-076 follow-on gate; an
- *     unhappy city stagnates at its current density mix until the
- *     player addresses the underlying penalties),
- *   - every zoned cell is already at max density.
- * Otherwise returns a fresh bucket with every density-<3 cell
- * advanced by 1.
+ * Per-tick zone growth and decline (REQ-081 + REQ-079 follow-on).
+ * Three-tier feedback loop driven by `cityHappiness`:
+ *
+ *   - happy band (`> GROWTH_HAPPINESS_THRESHOLD`): every density-<3
+ *     cell advances by 1 (unchanged from slice 1 / 2).
+ *   - stagnant band (`(DECLINE_HAPPINESS_THRESHOLD, GROWTH_HAPPINESS_THRESHOLD]`):
+ *     density holds; the city neither grows nor decays.
+ *   - miserable band (`<= DECLINE_HAPPINESS_THRESHOLD`): every
+ *     zoned cell with density > 0 steps DOWN by 1 regardless of
+ *     kind (commercial / industrial occupants leave too, not only
+ *     residential). The cell stays zoned at density 0 so the player
+ *     can recover the city without re-painting.
+ *
+ * Returns the input bucket unchanged when this tick is not a growth
+ * tick or the band's transformation is a no-op (happy + everything
+ * already at max, or miserable + everything already at 0).
  *
  * Deterministic: replay over the same event log produces the same
- * growth at the same ticks. Per-cell supply / demand gating from
- * power (REQ-085), water (REQ-090), and services (REQ-100) layers
- * stays a follow-on slice.
+ * growth / decline at the same ticks. Per-cell supply / demand
+ * gating from power (REQ-085), water (REQ-090), and services
+ * (REQ-100) layers stays a follow-on slice.
  */
 export function maybeGrowZones(
   zones: ZonesBucket,
@@ -967,13 +974,26 @@ export function maybeGrowZones(
   cityHappiness: number,
 ): ZonesBucket {
   if (tick <= 0 || tick % GROWTH_INTERVAL_TICKS !== 0) return zones
-  if (cityHappiness <= GROWTH_HAPPINESS_THRESHOLD) return zones
   const cellKeys = Object.keys(zones.cells)
   if (cellKeys.length === 0) return zones
+  const decline = cityHappiness <= DECLINE_HAPPINESS_THRESHOLD
+  const grow =
+    !decline && cityHappiness > GROWTH_HAPPINESS_THRESHOLD
+  if (!decline && !grow) return zones
   let changed = false
   const nextCells: Record<string, ZoneCell> = {}
   for (const key of cellKeys) {
     const cell = zones.cells[key]
+    if (decline) {
+      if (cell.density <= 0) {
+        nextCells[key] = cell
+        continue
+      }
+      changed = true
+      const dropped: ZoneDensity = (cell.density - 1) as ZoneDensity
+      nextCells[key] = { kind: cell.kind, density: dropped }
+      continue
+    }
     if (cell.density >= 3) {
       nextCells[key] = cell
       continue

@@ -735,6 +735,19 @@ export const TAX_NEUTRAL_RATE = 0.10
 export const GROWTH_HAPPINESS_THRESHOLD = 50
 
 /**
+ * Density-decline threshold (REQ-079 + REQ-081 follow-on).
+ *
+ * `maybeGrowZones` steps every density-greater-than-0 cell DOWN by
+ * 1 (toward 0, never below) on a growth tick whenever `cityHappiness`
+ * is at or below this threshold. Sits below `GROWTH_HAPPINESS_THRESHOLD`
+ * so the player has a stagnant middle band (25..50) where the city
+ * neither grows nor decays before the bottom drops out. Matches the
+ * SimCity feedback loop: miserable neighborhoods empty out, not just
+ * stop growing.
+ */
+export const DECLINE_HAPPINESS_THRESHOLD = 25
+
+/**
  * Per-tick tornado damage probability (REQ-105 slice 7). Higher
  * than fire / flood because tornados are short-lived (40-tick
  * default) and damage is visually dramatic: every infrastructure
