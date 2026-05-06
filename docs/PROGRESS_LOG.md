@@ -16,6 +16,16 @@ Format for each slice:
 - Followups: any new `F-NNN` entries created. Link to them.
 ```
 
+## 2026-05-06, REQ-092 Sewage Slice 5: Citizen Happiness from Waste + HUD Readout
+
+- Branch: `feature/20260506-citizen-happiness`
+- PR: #N (when known)
+- Changed: `PopulationBucketSchema` extended with `cityHappiness: z.number().min(0).max(100)`; `EMPTY_POPULATION_BUCKET` seeds 100. New `computeCityHappiness(water, population)` returns 0..100 from average waste across populated cells (clamped + rounded to 1 decimal). New `applyHappinessTick(population, water)` short-circuits identity when score unchanged; wired into `applyTick` after `applyWasteTick`. `syncPopulationToZones` carries `cityHappiness` through its bucket reset to keep the score stable across growth ticks. EditorClient HUD adds an `editor-sim-happiness` readout (shows "happy N", red when <50).
+- Verification: `npm run type-check` green. `npm test` 2004/2004 unit pass (1999 prior + 5 new happiness cases + updated bucket shape assertion). `npm run build` green. `npm run check:dashes` clean. `git diff --check` clean. `npx playwright test e2e/sim.spec.ts --project=chromium` 19/19 local (18 prior + 1 new happiness-drop HUD case).
+- Assumptions: Happiness rounds to 1 decimal so HUD reads stay stable under tiny per-tick deltas while still preserving fine-grained state (e.g., 99.5 vs 99.6). Score derived from average waste rather than max waste so a few overloaded cells in a large city do not tank the entire city's mood. Growth-gating on happiness deferred to a future slice once REQ-076 lands its other inputs (services, taxes, jobs); the current slice is the first step in that broader citizen-happiness reducer.
+- GDD coverage: REQ-090 stays `partial` (drive-visible REQ-094 still outstanding; growth-gating part of REQ-076 follow-on). Coverage row implementation/test refs unchanged (entities added to already-listed files).
+- Followups: none new. Next REQ-092 slices: drive-visible water towers + sewage plants (REQ-094) in slice 6 (water tower as tall cylinder, sewage plant as low rectangular building, both visible from the car). Citizen-happiness growth-gating tracks under the REQ-076 follow-on, not this requirement.
+
 ## 2026-05-06, REQ-092 Sewage Slice 4: Per-Tick Waste Accumulation Reducer
 
 - Branch: `feature/20260506-waste-accumulation`

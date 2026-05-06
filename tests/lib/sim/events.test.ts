@@ -1211,6 +1211,82 @@ describe('applySimEvent', () => {
     })
   })
 
+  describe('per-tick city happiness (REQ-092 sewage slice 5)', () => {
+    function tickN(times: number, start: SimState): SimState {
+      let s = start
+      for (let i = 0; i < times; i++) {
+        s = applySimEvent(s, {
+          type: 'tick',
+          payload: { deltaMs: 250 },
+          clientCreatedAt: i,
+          authorBuilderId: A_BUILDER,
+        })
+      }
+      return s
+    }
+
+    function placeRes(row: number, col: number): SimEvent {
+      return {
+        type: 'placeZone',
+        payload: { kind: 'residential', row, col },
+        clientCreatedAt: 0,
+        authorBuilderId: A_BUILDER,
+      }
+    }
+
+    function placeTreatmentPlant(row: number, col: number): SimEvent {
+      return {
+        type: 'placeSewageTreatmentPlant',
+        payload: { row, col },
+        clientCreatedAt: 0,
+        authorBuilderId: A_BUILDER,
+      }
+    }
+
+    it('starts at 100 with no populated cells', () => {
+      const s = tickN(20, EMPTY_SIM_STATE)
+      expect(s.population.cityHappiness).toBe(100)
+    })
+
+    it('drops below 100 when an unmanaged populated cell accumulates waste', () => {
+      let s = applySimEvent(EMPTY_SIM_STATE, placeRes(0, 0))
+      s = tickN(20, s) // grows + 1 waste tick
+      expect(s.population.cityHappiness).toBeLessThan(100)
+    })
+
+    it('stays at 100 when every populated cell is drained by sewage', () => {
+      let s = applySimEvent(EMPTY_SIM_STATE, placeRes(0, 1))
+      s = applySimEvent(s, placeTreatmentPlant(0, 0))
+      s = tickN(20, s)
+      expect(s.population.cityHappiness).toBe(100)
+    })
+
+    it('reaches 0 when every populated cell sits at WASTE_MAX_PER_CELL', () => {
+      let s = applySimEvent(EMPTY_SIM_STATE, placeRes(0, 0))
+      // 20 ticks to grow + 200 ticks to fill the cap.
+      s = tickN(220, s)
+      expect(s.water.wasteAccumulation['0,0']).toBe(100)
+      expect(s.population.cityHappiness).toBe(0)
+    })
+
+    it('two replays of the same event log derive identical happiness', () => {
+      const events: SimEvent[] = [
+        placeRes(0, 0),
+        placeRes(0, 1),
+        placeTreatmentPlant(0, 2),
+        ...Array.from({ length: 30 }, (_, i) => ({
+          type: 'tick' as const,
+          payload: { deltaMs: 250 },
+          clientCreatedAt: i,
+          authorBuilderId: A_BUILDER,
+        })),
+      ]
+      const a = applyMany(EMPTY_SIM_STATE, events)
+      const b = applyMany(EMPTY_SIM_STATE, events)
+      expect(a.population.cityHappiness).toBe(b.population.cityHappiness)
+    })
+  })
+
   describe('reduceSimEvents over the full zoning vocabulary', () => {
     it('replays place + erase deterministically', () => {
       const events: SimEvent[] = [

@@ -124,6 +124,7 @@ export const PopulationBucketSchema = z
     cells: z.record(z.string(), PopulationCellSchema),
     totalPopulation: z.number().int().min(0),
     totalTripDemand: z.number().int().min(0),
+    cityHappiness: z.number().min(0).max(100),
   })
   .strict()
 
@@ -351,6 +352,19 @@ export const WASTE_INCREMENT_PER_TICK = 1
 export const WASTE_MAX_PER_CELL = 100
 
 /**
+ * City happiness defaults (REQ-092 sewage slice 5 / REQ-076 follow-on).
+ *
+ * Citizen happiness is a 0..100 city-wide score driven by the average
+ * waste accumulation across populated cells. With 0 populated cells
+ * happiness reads as `DEFAULT_CITY_HAPPINESS = 100` (no one to be
+ * unhappy). Once cells exist, every populated cell contributes its
+ * `wasteAccumulation` to the average; the average normalizes against
+ * `WASTE_MAX_PER_CELL` so 100 average waste means 0 happiness, 0
+ * average waste means 100 happiness.
+ */
+export const DEFAULT_CITY_HAPPINESS = 100
+
+/**
  * One placed sewage treatment plant (REQ-092 slice 1). Single-cell
  * anchor. v1 has no per-plant tier; capacity is the uniform
  * `SEWAGE_TREATMENT_CAPACITY` constant. Treatment plants pair with
@@ -520,6 +534,7 @@ export const EMPTY_POPULATION_BUCKET: PopulationBucket = Object.freeze({
   cells: Object.freeze({}) as Record<string, PopulationCell>,
   totalPopulation: 0,
   totalTripDemand: 0,
+  cityHappiness: DEFAULT_CITY_HAPPINESS,
 }) as PopulationBucket
 export type WaterBucket = z.infer<typeof WaterBucketSchema>
 
