@@ -65,6 +65,7 @@ import type {
 } from '@/lib/sim/events'
 import { BANKRUPTCY_THRESHOLD_TICKS, type SimSpeed } from '@/lib/sim/state'
 import { TICK_INTERVAL_MS_BASE } from '@/lib/sim/engine'
+import { computeRciDemand } from '@/lib/sim/rciDemand'
 import {
   AUTOSAVE_STATUS_LABEL,
   DEFAULT_AUTOSAVE_DEBOUNCE_MS,
@@ -1055,6 +1056,36 @@ export function EditorClient({
         >
           {`pop ${simState.population.totalPopulation}`}
         </span>
+        {(() => {
+          const demand = computeRciDemand(simState.zones, simState.population)
+          return (['residential', 'commercial', 'industrial'] as const).map(
+            (kind) => {
+              const value = demand[kind]
+              const label =
+                kind === 'residential' ? 'R' : kind === 'commercial' ? 'C' : 'I'
+              return (
+                <span
+                  key={`demand-${kind}`}
+                  data-testid={`editor-sim-demand-${kind}`}
+                  data-sim-demand={value}
+                  style={{
+                    marginLeft: 6,
+                    fontFamily: 'ui-monospace, Menlo, monospace',
+                    fontSize: 12,
+                    color:
+                      value > 0
+                        ? '#3a8a3a'
+                        : value < 0
+                          ? '#a3372a'
+                          : undefined,
+                  }}
+                >
+                  {`${label} ${value > 0 ? '+' : ''}${value}`}
+                </span>
+              )
+            },
+          )
+        })()}
         <span
           data-testid="editor-sim-treasury"
           data-sim-treasury={Math.round(simState.economy.treasury)}

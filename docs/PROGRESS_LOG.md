@@ -76,6 +76,16 @@ Format for each slice:
 - GDD coverage: REQ-095 stays `partial` (REQ-083 was its main blocker; remaining gaps are demand bars REQ-082). REQ-083 row gets a build log entry in `docs/gdd/15-zoning-and-business.md`.
 - Followups: F-NEW (deferred): REQ-082 R/C/I demand bars; jobs-need-residents gate.
 
+## 2026-05-06, REQ-082 R/C/I Demand HUD Readouts
+
+- Branch: `feature/20260506-rci-demand`
+- PR: #N (when known)
+- Changed: New `src/lib/sim/rciDemand.ts` module exports `computeRciDemand(zones, population)` returning signed integer deltas: `residential = jobs - residents`, `commercial = residents - commercialJobs`, `industrial = residents - industrialJobs`. EditorClient HUD row gains 3 readouts next to population: R/C/I + signed delta with red/green coloring; mirrors `data-sim-demand` per-kind.
+- Verification: `npm run type-check` green. `npm test` 2131/2131 unit (2123 prior + 8 new rciDemand cases). `npm run build` green. `npm run check:dashes` clean. `git diff --check` clean. `npx playwright test e2e/sim.spec.ts --project=chromium` 24/24 local (23 prior + 1 new demand readout case).
+- Assumptions: v1 demand metric is raw signed integer delta (positive = need more of this kind, negative = oversupplied). Future polish: visual bar widgets clamped -1..+1, dampening to avoid noise on a tiny sample, residents-need-jobs match-making logic.
+- GDD coverage: REQ-082 row could flip to `partial` (numeric readout shipped; visual bars deferred). `docs/gdd/15-zoning-and-business.md` gains a build log entry.
+- Followups: F-NEW (deferred): visual demand bar widgets (clamped, animated); residents-need-jobs match-making for income calculation.
+
 ## 2026-05-06, REQ-095 Slice 5: Tax-Rate HUD Sliders
 
 - Branch: `feature/20260506-tax-sliders`
