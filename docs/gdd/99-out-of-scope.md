@@ -31,9 +31,12 @@ VibeCity reuses VibeRacer's vehicle and driving systems but is explicitly not a 
 
 ## Multiplayer
 
-- **Concurrent drivers at one slug.** Only one player drives at a time per browser session. Out: multiplayer state sync is a multi-week project on its own.
-- **Coop building.** Two people editing the same city simultaneously. Out: same reason.
-- **Visiting other players' avatars.** Out: same reason.
+Q-012 resolved 2026-05-05 toward event sourcing: concurrent state edits at one slug are now in scope (two browsers can edit the same slug; the server reconciles via an append-only event log). The remaining items below stay out per the same dev override.
+
+- **Concurrent drivers at one slug, visible to each other.** Only one player drives a car at a time per browser; if two browsers are open, each sees their own player car only. The other client's edits flow into the city via the event log, but the other client's player car does not render. Out: multi-cursor / multi-avatar real-time presence is a multi-week project on its own.
+- **Coop building UI.** Two people editing the same city simultaneously is supported under the hood (Q-012 event sourcing). What stays out: cursor-of-other-user awareness, "X is editing this cell right now", presence chips in the toolbar. The dev experience is "your view eventually syncs with the other tab"; it is NOT "I can see Bob's mouse moving".
+- **Visiting other players' avatars.** Out: same reason. Driver avatars in drive mode stay one-per-browser.
+- **Voice / text chat between concurrent slug visitors.** Out: real-time communication is a separate product surface.
 
 ## Auth and identity
 
@@ -57,6 +60,7 @@ VibeCity reuses VibeRacer's vehicle and driving systems but is explicitly not a 
 
 ### Build log
 
+- 2026-05-05: Q-012 resolved toward event sourcing. Multiplayer fence partially lifted: concurrent state edits at one slug are now in scope under an append-only event log model; presence, cursors, avatars in drive mode, and voice / text chat stay out. The Multiplayer section header gained a one-paragraph note explaining the carveout, and the four bullets were rewritten to name what stays out under the new model rather than fence concurrent editing wholesale. Files: `docs/gdd/99-out-of-scope.md`. PR #N.
 - 2026-05-05: Q-009 resolved toward C (full sim pivot). Moved seven sim layers OUT of the fence with `Resolved:` lines pointing to new GDD section files: power grid (16-power-grid.md), water and sewage (17-water-and-sewage.md), zoning (15-zoning-and-business.md), citizens (14-citizens.md), economy (18-economy.md), disasters (20-disasters.md), services (19-services.md). Custom-vehicle-model line softened (citizens use the same car asset with material variations). Tutorial anti-feature line gained a note about the on-ramp bar rising under the sim pivot. Racing layers, multiplayer, account wall, native mobile builds, and the save-button anti-feature stay out per the same dev override. Files: `docs/gdd/99-out-of-scope.md`. PR #N.
 - 2026-05-05: Open-edit clarified in the Auth and identity fence. The "Slug ownership transfer" line was a v1-with-owner formulation; rewrote it to "Slug ownership" with the open-edit framing so the doc names the design tenet directly instead of describing a transfer flow that does not apply. Files: `docs/gdd/99-out-of-scope.md`. PR #N.
 - 2026-05-03: Out-of-scope fence drafted. Files: `docs/gdd/99-out-of-scope.md`. PR #N/A (scaffold seed).

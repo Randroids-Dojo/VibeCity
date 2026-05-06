@@ -8,11 +8,11 @@ The sim engine is the tick-driven simulation kernel that owns the city's mutable
 
 This file is the canonical spec for the sim engine substrate (REQ-070 through REQ-074).
 
-- **REQ-070** Tick scheduler. The sim advances at a fixed rate (default 4 Hz, sim time != wall time so a paused tab does not lose state). Each tick: collect all pending intents, run layer steps in declared order, emit changed-set, persist if the changed-set is non-empty.
-- **REQ-071** Sim time and speed. Wall-clock decoupled. UI exposes `Pause / 1x / 2x / 4x` (SimCity standard), persisted as `city.sim.speed` and applied to the next tick. Pause is a first-class state, not "speed 0".
-- **REQ-072** SimState schema. Adds `city.sim` carrying tick count, current speed, last-tick timestamp, and per-layer state buckets (`sim.population`, `sim.zones`, `sim.power`, etc.). Buckets are `.strict()` zod schemas so a layer cannot smuggle in fields the loader does not understand.
-- **REQ-073** Persisted sim state. Each tick that mutates state writes a delta to KV; the full city payload remains the canonical artifact. The version hash extends to include `city.sim` because the sim state IS the city, not metadata.
-- **REQ-074** Layer registration and run order. Layers register against the engine in a fixed order: power -> water -> zoning -> citizens -> economy -> services -> disasters. Each layer's `step(state, dt)` is pure (input state -> output state); the engine threads results through the chain.
+- **REQ-070** Tick scheduler. The sim advances at a fixed rate (default 4 Hz, sim time != wall time so a paused tab does not lose state). Each tick: collect all pending intents, run layer steps in declared order, emit a `tick` event into the event log (Q-014 default A), persist the event flush on idle / save (Q-013).
+- **REQ-071** Sim time and speed. Wall-clock decoupled. UI exposes `Pause / 1x / 2x / 4x` (SimCity standard, Q-011 recommended default), persisted as a `setSpeed` event. Pause is a first-class state, not "speed 0".
+- **REQ-072** Event log and command vocabulary. Every state mutation (user action OR sim tick) is recorded as an event in an append-only log. v1 event vocabulary: `placeZone`, `eraseZone`, `runPowerLine`, `eraseLine`, `placePowerPlant`, `placeServiceBuilding`, `setSpeed`, `tick`, `setTaxRate`, `respawnDriver`, plus the placement / drive events that already exist (REQ-014 PUT). Each event carries `{ type, payload, simTime, authorBuilderId, clientReceivedAt }`. The reducer is pure: `reduce(state, event) -> state`. State is `events.reduce(reducer, EMPTY_CITY)`.
+- **REQ-073** Persisted event log + snapshots (Q-012 event sourcing, Q-013 snapshotting). Server stores `city:${slug}:events` (sorted set keyed by `{serverReceivedAt}-{authorBuilderId}` for stable ordering) and `city:${slug}:snapshot:${eventCursor}` (a derived state at a specific event index). Snapshot policy per Q-013 default A: every 1000 events OR every 30 minutes of sim time, whichever comes first. Pruning: events older than the most recent snapshot move to a long-term archive key (debug only); the live log holds events from the most recent snapshot forward. Cold load: fetch most recent snapshot + tail events since.
+- **REQ-074** Concurrent edit reconciliation (Q-012). Two clients on the same slug: each batches events locally on `setInterval` (default 2s) and on idle / save (Q-012 dev override 2026-05-05); on flush, POST batch to `/api/city/<slug>/events`. Server appends to the sorted set; orders concurrent events by `clientReceivedAt` with `authorBuilderId` tiebreak; broadcasts the resulting tail back to other clients via SSE OR (cheaper v1) the next client's poll-on-save returns the merged tail. Other clients fold the new events into their local state via the same reducer. The merge is silent; no conflict UI surfaces in v1.
 
 ## Out of scope for this section
 
@@ -22,8 +22,11 @@ This file is the canonical spec for the sim engine substrate (REQ-070 through RE
 
 ## Open questions
 
-- Q-010 (to file): client-side vs server-side sim authority. A client-side sim is simpler to ship and offline-friendly; a server-side sim survives tab close and lets future cron-based long-game scenarios work. Recommended default: client-side, with the server route accepting full-state PUTs only (no per-tick deltas server-side).
-- Q-011 (to file): sim speed maximum. SimCity 3000 used 1x / 2x / 3x; SimCity 4 used Pause / Turtle / Llama / Cheetah. Recommended default: Pause / 1x / 2x / 4x to keep the UI tight and avoid the "the sim runs faster than I can think" failure mode.
+- Q-010 resolved 2026-05-05: client-side sim authority with server-side event log. See `docs/OPEN_QUESTIONS.md`.
+- Q-011 (open): sim speed maximum. Recommended default: Pause / 1x / 2x / 4x.
+- Q-012 resolved 2026-05-05: event sourcing for concurrent slug editors. See `docs/OPEN_QUESTIONS.md`.
+- Q-013 (open): snapshotting strategy. Recommended default: every 1000 events or 30 minutes of sim time, whichever comes first.
+- Q-014 (open): are sim ticks themselves events. Recommended default: yes (deterministic replay).
 
 ### Build log
 

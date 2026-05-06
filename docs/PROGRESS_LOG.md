@@ -16,6 +16,16 @@ Format for each slice:
 - Followups: any new `F-NNN` entries created. Link to them.
 ```
 
+## 2026-05-05, Q-010 / Q-012 Resolved: Event-Sourced Sim with Concurrent Reconciliation
+
+- Branch: `research/20260505-fun-factor-and-asset-bumps`
+- PR: #N (when known)
+- Changed: Q-010 resolved toward A modified (client-side sim authority with server-side event log). Q-012 resolved toward D (event sourcing for concurrent slug editors). Two new open questions filed with Recommended defaults: Q-013 (snapshotting strategy: every 1000 events or 30 minutes of sim time) and Q-014 (sim ticks are themselves events for deterministic replay). Q-011 (sim speed maximum) filed with the Pause / 1x / 2x / 4x recommended default. The REQ-070 substrate dot was rewritten to absorb REQ-070 through REQ-074 into a single foundation slice (event log + reducer + scheduler + snapshot + reconcile) because shipping piecemeal would force every sim layer slice to redefine the substrate. The OOS multiplayer fence in `docs/gdd/99-out-of-scope.md` partially lifts: concurrent state edits via event reconciliation move IN; presence, cursors, avatars in drive mode, and voice / text chat stay OUT. The `docs/gdd/13-sim-engine.md` substrate spec was rewritten to describe REQ-072 (event log + command vocabulary), REQ-073 (persisted event log + snapshots), and REQ-074 (concurrent edit reconciliation) explicitly; the previous REQ-072 (SimState schema only) and REQ-073 (delta persistence) framings are replaced.
+- Verification: This entry is research-shaped, not implementation-shaped. No code changed this session. Em-dash scan returned clean across every modified file.
+- Assumptions: `clientReceivedAt` ordering is server-stamped, not client-stamped, to prevent ordering-by-late-clock attacks. Snapshotting runs server-side on a Vercel Function triggered when the event count crosses 1000 since the last snapshot. The flush trigger runs on three conditions: visibilitychange to hidden, idle 5s with non-empty buffer, or explicit save action. v1 ships poll-on-save server broadcast (cheaper); SSE / WebSocket is a v1.1 concern only if "two tabs feel out of sync" surfaces as a felt gap. Migration window: pre-pivot cities load via the legacy state-blob path; post-pivot cities load via snapshot + tail.
+- GDD coverage: Updated the spec text of REQ-070 in the substrate section file; the row in `GDD_COVERAGE.json` stays `not_started` because no code shipped. The substrate dot now spans REQ-070..074 instead of just REQ-070.
+- Followups: none new this session; the existing dots cover the next slices.
+
 ## 2026-05-05, Q-009 Scope Pivot: Sim Becomes Primary Loop (REQ-070..114)
 
 - Branch: `research/20260505-fun-factor-and-asset-bumps`
