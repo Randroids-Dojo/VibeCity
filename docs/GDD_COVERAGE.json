@@ -1383,7 +1383,7 @@
       "id": "REQ-105",
       "requirement": "Disasters: five v1 disaster types (fire, flood, tornado, earthquake, monster) with per-tick spawn probabilities (fire scales with industrial density and missing fire coverage; flood seasonal; others low base rate with fair-weather-mode toggle), per-disaster damage footprint and recovery via service responses, drive-visible disaster effects (flame particles, water level, debris column).",
       "gddRef": "docs/gdd/20-disasters.md",
-      "status": "partial",
+      "status": "done",
       "implementationRefs": [
         "src/lib/sim/state.ts",
         "src/lib/sim/events.ts",
@@ -1394,7 +1394,8 @@
         "src/lib/sim/monsterDamage.ts",
         "src/app/[slug]/edit/editorState.ts",
         "src/app/[slug]/edit/EditorClient.tsx",
-        "src/app/[slug]/edit/SnapGridView.tsx"
+        "src/app/[slug]/edit/SnapGridView.tsx",
+        "src/app/[slug]/DriveSceneClient.tsx"
       ],
       "testRefs": [
         "tests/lib/sim/state.test.ts",

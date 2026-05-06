@@ -930,6 +930,133 @@ export function DriveSceneClient({
       scene.add(buildingMesh)
     }
 
+    // Active disasters (REQ-105 slice 9). Each active disaster
+    // renders as a kind-distinct primitive mesh at its anchor cell
+    // so the player can see disasters from inside their car. v1
+    // ships static meshes; future polish: tornado spin animation,
+    // flood water-level rise, fire flame flicker.
+    for (const disaster of simState.disasters.active) {
+      const { x, z } = cellToWorld(disaster.row, disaster.col)
+      if (disaster.kind === 'fire') {
+        const flameGeometry = new THREE.ConeGeometry(
+          CELL_SIZE * 0.3,
+          CELL_SIZE * 1.2,
+          12,
+        )
+        const flameMaterial = new THREE.MeshLambertMaterial({
+          color: 0xff5a20,
+          emissive: new THREE.Color(0xff8030),
+          emissiveIntensity: 1.4,
+        })
+        const flameMesh = new THREE.Mesh(flameGeometry, flameMaterial)
+        flameMesh.position.set(x, CELL_SIZE * 0.6, z)
+        flameMesh.userData = {
+          type: 'disaster-fire',
+          row: disaster.row,
+          col: disaster.col,
+        }
+        scene.add(flameMesh)
+      } else if (disaster.kind === 'flood') {
+        const waterGeometry = new THREE.PlaneGeometry(
+          CELL_SIZE * 0.95,
+          CELL_SIZE * 0.95,
+        )
+        waterGeometry.rotateX(-Math.PI / 2)
+        const waterMaterial = new THREE.MeshLambertMaterial({
+          color: 0x3a78a8,
+          transparent: true,
+          opacity: 0.55,
+          emissive: new THREE.Color(0x4a98c8),
+          emissiveIntensity: 0.4,
+        })
+        const waterMesh = new THREE.Mesh(waterGeometry, waterMaterial)
+        waterMesh.position.set(x, CELL_SIZE * 0.04, z)
+        waterMesh.userData = {
+          type: 'disaster-flood',
+          row: disaster.row,
+          col: disaster.col,
+        }
+        scene.add(waterMesh)
+      } else if (disaster.kind === 'tornado') {
+        const funnelGeometry = new THREE.CylinderGeometry(
+          CELL_SIZE * 0.45,
+          CELL_SIZE * 0.12,
+          CELL_SIZE * 2.2,
+          16,
+        )
+        const funnelMaterial = new THREE.MeshLambertMaterial({
+          color: 0x4a4540,
+          transparent: true,
+          opacity: 0.78,
+        })
+        const funnelMesh = new THREE.Mesh(funnelGeometry, funnelMaterial)
+        funnelMesh.position.set(x, CELL_SIZE * 1.1, z)
+        funnelMesh.userData = {
+          type: 'disaster-tornado',
+          row: disaster.row,
+          col: disaster.col,
+        }
+        scene.add(funnelMesh)
+      } else if (disaster.kind === 'earthquake') {
+        const dustGeometry = new THREE.SphereGeometry(
+          CELL_SIZE * 0.55,
+          12,
+          8,
+          0,
+          Math.PI * 2,
+          0,
+          Math.PI / 2,
+        )
+        const dustMaterial = new THREE.MeshLambertMaterial({
+          color: 0x8a6a3a,
+          transparent: true,
+          opacity: 0.55,
+        })
+        const dustMesh = new THREE.Mesh(dustGeometry, dustMaterial)
+        dustMesh.position.set(x, 0, z)
+        dustMesh.userData = {
+          type: 'disaster-earthquake',
+          row: disaster.row,
+          col: disaster.col,
+        }
+        scene.add(dustMesh)
+      } else if (disaster.kind === 'monster') {
+        const monsterGroup = new THREE.Group()
+        monsterGroup.name = 'disaster-monster'
+        monsterGroup.position.set(x, 0, z)
+        const bodyGeometry = new THREE.BoxGeometry(
+          CELL_SIZE * 0.4,
+          CELL_SIZE * 0.9,
+          CELL_SIZE * 0.4,
+        )
+        const bodyMaterial = new THREE.MeshLambertMaterial({
+          color: 0x5a2a4a,
+        })
+        const bodyMesh = new THREE.Mesh(bodyGeometry, bodyMaterial)
+        bodyMesh.position.set(0, CELL_SIZE * 0.45, 0)
+        monsterGroup.add(bodyMesh)
+        const headGeometry = new THREE.SphereGeometry(
+          CELL_SIZE * 0.25,
+          12,
+          8,
+        )
+        const headMaterial = new THREE.MeshLambertMaterial({
+          color: 0x7a3a6a,
+          emissive: new THREE.Color(0x402030),
+          emissiveIntensity: 0.6,
+        })
+        const headMesh = new THREE.Mesh(headGeometry, headMaterial)
+        headMesh.position.set(0, CELL_SIZE * 1.05, 0)
+        monsterGroup.add(headMesh)
+        monsterGroup.userData = {
+          type: 'disaster-monster',
+          row: disaster.row,
+          col: disaster.col,
+        }
+        scene.add(monsterGroup)
+      }
+    }
+
     // Ambient AI traffic (drive-mode visual fun). N small NPC cars
     // pick random street cells + cardinal directions and drive in
     // straight lines at constant speed. When one leaves the grid
@@ -1813,6 +1940,7 @@ export function DriveSceneClient({
     simState.zones,
     simState.power,
     simState.water,
+    simState.disasters,
   ])
 
   // The placeholder car (REQ-047) renders only when at least one piece
