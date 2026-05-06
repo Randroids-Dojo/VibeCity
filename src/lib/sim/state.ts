@@ -677,6 +677,16 @@ export const FIRE_DAMAGE_PROBABILITY_PER_TICK = 0.05
  */
 export const FLOOD_DAMAGE_PROBABILITY_PER_TICK = 0.03
 
+/**
+ * Per-active-earthquake happiness penalty (REQ-105 slice 6). Each
+ * earthquake currently active drops `cityHappiness` by this many
+ * points while it's running. Earthquakes have a short 20-tick
+ * default duration so the penalty is brief by design; cumulative
+ * earthquake damage stacks (two simultaneous earthquakes drop
+ * happiness by twice the penalty).
+ */
+export const EARTHQUAKE_HAPPINESS_PENALTY = 25
+
 export const DisasterSchema = z
   .object({
     kind: DisasterKindSchema,

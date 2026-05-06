@@ -1293,6 +1293,77 @@ describe('applySimEvent', () => {
     })
   })
 
+  describe('earthquake happiness penalty (REQ-105 slice 6)', () => {
+    function spawnEarthquake(row: number, col: number): SimEvent {
+      return {
+        type: 'spawnDisaster',
+        payload: { kind: 'earthquake', row, col },
+        clientCreatedAt: 0,
+        authorBuilderId: A_BUILDER,
+      }
+    }
+
+    function tickN(times: number, start: SimState): SimState {
+      let s = start
+      for (let i = 0; i < times; i++) {
+        s = applySimEvent(s, {
+          type: 'tick',
+          payload: { deltaMs: 250 },
+          clientCreatedAt: i,
+          authorBuilderId: A_BUILDER,
+        })
+      }
+      return s
+    }
+
+    it('a single active earthquake drops happiness by EARTHQUAKE_HAPPINESS_PENALTY', () => {
+      let s = applySimEvent(EMPTY_SIM_STATE, spawnEarthquake(0, 0))
+      // Tick once so the happiness reducer fires.
+      s = tickN(1, s)
+      expect(s.population.cityHappiness).toBe(75) // 100 - 25
+    })
+
+    it('two simultaneous earthquakes stack their penalties', () => {
+      let s = applySimEvent(EMPTY_SIM_STATE, spawnEarthquake(0, 0))
+      s = applySimEvent(s, spawnEarthquake(1, 1))
+      s = tickN(1, s)
+      expect(s.population.cityHappiness).toBe(50) // 100 - 50
+    })
+
+    it('happiness rebounds when the earthquake expires', () => {
+      let s = applySimEvent(EMPTY_SIM_STATE, spawnEarthquake(0, 0))
+      // Earthquake default duration = 20 ticks.
+      s = tickN(20, s)
+      expect(s.disasters.active).toHaveLength(0)
+      expect(s.population.cityHappiness).toBe(100)
+    })
+
+    it('floors at 0 when penalties exceed the base score', () => {
+      // Five earthquakes = 125 penalty; floors at 0.
+      let s: SimState = EMPTY_SIM_STATE
+      for (let i = 0; i < 5; i++) {
+        s = applySimEvent(s, spawnEarthquake(i, 0))
+      }
+      s = tickN(1, s)
+      expect(s.population.cityHappiness).toBe(0)
+    })
+
+    it('two replays of an earthquake event log produce identical happiness', () => {
+      const events: SimEvent[] = [
+        spawnEarthquake(0, 0),
+        ...Array.from({ length: 10 }, (_, i) => ({
+          type: 'tick' as const,
+          payload: { deltaMs: 250 },
+          clientCreatedAt: i,
+          authorBuilderId: A_BUILDER,
+        })),
+      ]
+      const a = applyMany(EMPTY_SIM_STATE, events)
+      const b = applyMany(EMPTY_SIM_STATE, events)
+      expect(a.population.cityHappiness).toBe(b.population.cityHappiness)
+    })
+  })
+
   describe('per-tick city happiness (REQ-092 sewage slice 5)', () => {
     function tickN(times: number, start: SimState): SimState {
       let s = start
