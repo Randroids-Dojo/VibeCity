@@ -23,15 +23,18 @@ import {
   DEFAULT_ROTATION,
   DEFAULT_SERVICE_TOOL,
   DEFAULT_TOOL_MODE,
+  DEFAULT_WATER_TOOL,
   DEFAULT_ZONE_TYPE,
   POWER_PALETTE,
   SERVICE_PALETTE,
   STREET_PALETTE,
+  WATER_PALETTE,
   ZONE_PALETTE,
   type PaletteCategory,
   type PowerPaletteToolType,
   type ServicePaletteToolType,
   type ToolMode,
+  type WaterPaletteToolType,
   type ZonePaletteEntry,
   eraseBuilding,
   erasePiece,
@@ -43,11 +46,14 @@ import { useSimEngine } from '@/lib/sim/useSimEngine'
 import type {
   EraseLineEvent,
   EraseServiceBuildingEvent,
+  EraseWaterPipeEvent,
   EraseZoneEvent,
   PlacePowerPlantEvent,
   PlaceServiceBuildingEvent,
+  PlaceWaterSourceEvent,
   PlaceZoneEvent,
   RunPowerLineEvent,
+  RunWaterPipeEvent,
 } from '@/lib/sim/events'
 import type { SimSpeed } from '@/lib/sim/state'
 import {
@@ -223,6 +229,9 @@ export function EditorClient({
   const [selectedServiceTool, setSelectedServiceTool] = useState<
     ServicePaletteToolType
   >(DEFAULT_SERVICE_TOOL)
+  const [selectedWaterTool, setSelectedWaterTool] = useState<
+    WaterPaletteToolType
+  >(DEFAULT_WATER_TOOL)
   const [rotation, setRotation] = useState<Rotation>(DEFAULT_ROTATION)
   const [toolMode, setToolMode] = useState<ToolMode>(DEFAULT_TOOL_MODE)
   const [autosaveStatus, setAutosaveStatus] =
@@ -567,6 +576,48 @@ export function EditorClient({
       simEngine.enqueue(event)
       return
     }
+    // Water category (REQ-090 slice 2 UI). Dispatches placeWaterSource
+    // (for source tools) or runWaterPipe (for pipe tools); erase mode
+    // dispatches eraseWaterPipe.
+    if (paletteCategory === 'water') {
+      if (toolMode === 'erase') {
+        const event: EraseWaterPipeEvent = {
+          type: 'eraseWaterPipe',
+          payload: { row, col },
+          clientCreatedAt: Date.now(),
+          authorBuilderId: builderId,
+        }
+        simEngine.enqueue(event)
+        return
+      }
+      if (
+        selectedWaterTool === 'source-water-tower' ||
+        selectedWaterTool === 'source-pump-station'
+      ) {
+        const kind =
+          selectedWaterTool === 'source-water-tower'
+            ? 'water-tower'
+            : 'pump-station'
+        const event: PlaceWaterSourceEvent = {
+          type: 'placeWaterSource',
+          payload: { kind, row, col },
+          clientCreatedAt: Date.now(),
+          authorBuilderId: builderId,
+        }
+        simEngine.enqueue(event)
+        return
+      }
+      const pipeKind =
+        selectedWaterTool === 'pipe-water' ? 'water' : 'sewage'
+      const event: RunWaterPipeEvent = {
+        type: 'runWaterPipe',
+        payload: { kind: pipeKind, row, col },
+        clientCreatedAt: Date.now(),
+        authorBuilderId: builderId,
+      }
+      simEngine.enqueue(event)
+      return
+    }
     if (toolMode === 'erase') {
       setCityWithHistory((current) => {
         const next =
@@ -850,7 +901,14 @@ export function EditorClient({
         }}
       >
         {(
-          ['street', 'building', 'zone', 'power', 'services'] as const
+          [
+            'street',
+            'building',
+            'zone',
+            'power',
+            'services',
+            'water',
+          ] as const
         ).map((category) => {
           const isActive = category === paletteCategory
           const label =
@@ -862,7 +920,9 @@ export function EditorClient({
                   ? 'Zones'
                   : category === 'power'
                     ? 'Power'
-                    : 'Services'
+                    : category === 'services'
+                      ? 'Services'
+                      : 'Water'
           return (
             <button
               key={category}
@@ -1162,43 +1222,79 @@ export function EditorClient({
                       </button>
                     )
                   })
-                : SERVICE_PALETTE.map((entry) => {
-                    const isSelected = entry.type === selectedServiceTool
-                    const bg =
-                      entry.type === 'police-station'
-                        ? '#3a4a7a'
-                        : entry.type === 'fire-station'
-                          ? '#a3372a'
-                          : entry.type === 'hospital'
-                            ? '#cc4f4f'
-                            : entry.type === 'school'
-                              ? '#7a5fae'
-                              : '#5a5a3a'
-                    return (
-                      <button
-                        key={entry.type}
-                        type="button"
-                        aria-pressed={isSelected}
-                        data-service-tool={entry.type}
-                        data-selected={isSelected ? 'true' : 'false'}
-                        onClick={() => {
-                          setSelectedServiceTool(entry.type)
-                        }}
-                        style={{
-                          padding: '8px 14px',
-                          fontSize: 14,
-                          fontFamily: 'inherit',
-                          color: isSelected ? '#fff' : '#222',
-                          background: isSelected ? bg : '#fdfaf2',
-                          border: `1px solid ${isSelected ? bg : '#d6cfbf'}`,
-                          borderRadius: 4,
-                          cursor: 'pointer',
-                        }}
-                      >
-                        {entry.label}
-                      </button>
-                    )
-                  })}
+                : paletteCategory === 'services'
+                  ? SERVICE_PALETTE.map((entry) => {
+                      const isSelected = entry.type === selectedServiceTool
+                      const bg =
+                        entry.type === 'police-station'
+                          ? '#3a4a7a'
+                          : entry.type === 'fire-station'
+                            ? '#a3372a'
+                            : entry.type === 'hospital'
+                              ? '#cc4f4f'
+                              : entry.type === 'school'
+                                ? '#7a5fae'
+                                : '#5a5a3a'
+                      return (
+                        <button
+                          key={entry.type}
+                          type="button"
+                          aria-pressed={isSelected}
+                          data-service-tool={entry.type}
+                          data-selected={isSelected ? 'true' : 'false'}
+                          onClick={() => {
+                            setSelectedServiceTool(entry.type)
+                          }}
+                          style={{
+                            padding: '8px 14px',
+                            fontSize: 14,
+                            fontFamily: 'inherit',
+                            color: isSelected ? '#fff' : '#222',
+                            background: isSelected ? bg : '#fdfaf2',
+                            border: `1px solid ${isSelected ? bg : '#d6cfbf'}`,
+                            borderRadius: 4,
+                            cursor: 'pointer',
+                          }}
+                        >
+                          {entry.label}
+                        </button>
+                      )
+                    })
+                  : WATER_PALETTE.map((entry) => {
+                      const isSelected = entry.type === selectedWaterTool
+                      const bg =
+                        entry.type === 'source-water-tower'
+                          ? '#5a8aae'
+                          : entry.type === 'source-pump-station'
+                            ? '#3a6a8a'
+                            : entry.type === 'pipe-water'
+                              ? '#5fb0d0'
+                              : '#7a5a3a'
+                      return (
+                        <button
+                          key={entry.type}
+                          type="button"
+                          aria-pressed={isSelected}
+                          data-water-tool={entry.type}
+                          data-selected={isSelected ? 'true' : 'false'}
+                          onClick={() => {
+                            setSelectedWaterTool(entry.type)
+                          }}
+                          style={{
+                            padding: '8px 14px',
+                            fontSize: 14,
+                            fontFamily: 'inherit',
+                            color: isSelected ? '#fff' : '#222',
+                            background: isSelected ? bg : '#fdfaf2',
+                            border: `1px solid ${isSelected ? bg : '#d6cfbf'}`,
+                            borderRadius: 4,
+                            cursor: 'pointer',
+                          }}
+                        >
+                          {entry.label}
+                        </button>
+                      )
+                    })}
         <button
           type="button"
           data-testid="editor-rotate"
@@ -1475,6 +1571,7 @@ export function EditorClient({
         zones={simState.zones}
         power={simState.power}
         services={simState.services}
+        water={simState.water}
         onSurfaceWheel={handleSurfaceWheel}
         onSurfacePointerDown={handleSurfacePointerDown}
       />

@@ -588,6 +588,95 @@ test('editor: Services tab exposes 5 tools and paints a hospital (REQ-100)', asy
   await expect(hospitalOverlay).toHaveAttribute('data-service-kind', 'hospital')
 })
 
+test('editor: Water tab exposes 4 tools and paints a water tower + pipe (REQ-090)', async ({
+  page,
+}) => {
+  await page.route('**/api/city/**', async (route, req) => {
+    if (req.method() === 'PUT') {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          slug: 'sim-water-spec',
+          versionHash: '0'.repeat(64),
+          updatedAt: 0,
+        }),
+      })
+    } else {
+      await route.fallback()
+    }
+  })
+
+  await page.goto('/sim-water-spec/edit')
+  await page.getByTestId('editor-sim-speed-0').click()
+
+  // Switch to Water.
+  const waterTab = page.getByTestId('editor-palette-category-water')
+  await expect(waterTab).toBeVisible()
+  await waterTab.click()
+  await expect(waterTab).toHaveAttribute('aria-selected', 'true')
+
+  const palette = page.getByTestId('editor-palette')
+  await expect(palette).toHaveAttribute('data-palette-category', 'water')
+
+  // All 4 water tools render.
+  for (const tool of [
+    'source-water-tower',
+    'source-pump-station',
+    'pipe-water',
+    'pipe-sewage',
+  ]) {
+    await expect(palette.locator(`[data-water-tool="${tool}"]`)).toBeVisible()
+  }
+  // Water pipe is the default.
+  await expect(palette.locator('[data-water-tool="pipe-water"]')).toHaveAttribute(
+    'aria-pressed',
+    'true',
+  )
+
+  // Switch to water tower, paint at (0, 0).
+  await palette.locator('[data-water-tool="source-water-tower"]').click()
+  await page
+    .locator(
+      '[data-testid="editor-snap-grid"] rect[data-cell-row="0"][data-cell-col="0"]',
+    )
+    .click()
+  const sourceOverlay = page.locator(
+    '[data-testid="editor-water-source"][data-water-source-row="0"][data-water-source-col="0"]',
+  )
+  await expect(sourceOverlay).toBeVisible()
+  await expect(sourceOverlay).toHaveAttribute(
+    'data-water-source-kind',
+    'water-tower',
+  )
+
+  // Switch to water pipe, paint at (0, 1).
+  await palette.locator('[data-water-tool="pipe-water"]').click()
+  await page
+    .locator(
+      '[data-testid="editor-snap-grid"] rect[data-cell-row="0"][data-cell-col="1"]',
+    )
+    .click()
+  const pipeOverlay = page.locator(
+    '[data-testid="editor-water-pipe"][data-water-pipe-row="0"][data-water-pipe-col="1"]',
+  )
+  await expect(pipeOverlay).toBeVisible()
+  await expect(pipeOverlay).toHaveAttribute('data-water-pipe-kind', 'water')
+
+  // Switch to sewage pipe, paint at (1, 0).
+  await palette.locator('[data-water-tool="pipe-sewage"]').click()
+  await page
+    .locator(
+      '[data-testid="editor-snap-grid"] rect[data-cell-row="1"][data-cell-col="0"]',
+    )
+    .click()
+  const sewageOverlay = page.locator(
+    '[data-testid="editor-water-pipe"][data-water-pipe-row="1"][data-water-pipe-col="0"]',
+  )
+  await expect(sewageOverlay).toBeVisible()
+  await expect(sewageOverlay).toHaveAttribute('data-water-pipe-kind', 'sewage')
+})
+
 test('editor: zone tab switches kind and erase tool removes a zone', async ({
   page,
 }) => {
