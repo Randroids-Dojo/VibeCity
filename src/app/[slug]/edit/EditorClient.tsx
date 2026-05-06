@@ -28,8 +28,11 @@ import {
   POWER_PALETTE,
   SERVICE_PALETTE,
   STREET_PALETTE,
+  DEFAULT_DISASTER_TOOL,
+  DISASTER_PALETTE,
   WATER_PALETTE,
   ZONE_PALETTE,
+  type DisasterPaletteToolType,
   type PaletteCategory,
   type PowerPaletteToolType,
   type ServicePaletteToolType,
@@ -55,6 +58,7 @@ import type {
   PlaceZoneEvent,
   RunPowerLineEvent,
   RunWaterPipeEvent,
+  SpawnDisasterEvent,
 } from '@/lib/sim/events'
 import { BANKRUPTCY_THRESHOLD_TICKS, type SimSpeed } from '@/lib/sim/state'
 import { TICK_INTERVAL_MS_BASE } from '@/lib/sim/engine'
@@ -234,6 +238,9 @@ export function EditorClient({
   const [selectedWaterTool, setSelectedWaterTool] = useState<
     WaterPaletteToolType
   >(DEFAULT_WATER_TOOL)
+  const [selectedDisasterTool, setSelectedDisasterTool] = useState<
+    DisasterPaletteToolType
+  >(DEFAULT_DISASTER_TOOL)
   const [rotation, setRotation] = useState<Rotation>(DEFAULT_ROTATION)
   const [toolMode, setToolMode] = useState<ToolMode>(DEFAULT_TOOL_MODE)
   const [autosaveStatus, setAutosaveStatus] =
@@ -630,6 +637,20 @@ export function EditorClient({
       simEngine.enqueue(event)
       return
     }
+    // Disaster category (REQ-105 slice 2). Click spawns the selected
+    // kind at (row, col); erase is a no-op since disasters self-expire
+    // via `applyDisasterTick`.
+    if (paletteCategory === 'disaster') {
+      if (toolMode === 'erase') return
+      const event: SpawnDisasterEvent = {
+        type: 'spawnDisaster',
+        payload: { kind: selectedDisasterTool, row, col },
+        clientCreatedAt: Date.now(),
+        authorBuilderId: builderId,
+      }
+      simEngine.enqueue(event)
+      return
+    }
     if (toolMode === 'erase') {
       setCityWithHistory((current) => {
         const next =
@@ -920,6 +941,7 @@ export function EditorClient({
             'power',
             'services',
             'water',
+            'disaster',
           ] as const
         ).map((category) => {
           const isActive = category === paletteCategory
@@ -934,7 +956,9 @@ export function EditorClient({
                     ? 'Power'
                     : category === 'services'
                       ? 'Services'
-                      : 'Water'
+                      : category === 'water'
+                        ? 'Water'
+                        : 'Disasters'
           return (
             <button
               key={category}
@@ -1307,43 +1331,81 @@ export function EditorClient({
                         </button>
                       )
                     })
-                  : WATER_PALETTE.map((entry) => {
-                      const isSelected = entry.type === selectedWaterTool
-                      const bg =
-                        entry.type === 'source-water-tower'
-                          ? '#5a8aae'
-                          : entry.type === 'source-pump-station'
-                            ? '#3a6a8a'
-                            : entry.type === 'pipe-water'
-                              ? '#5fb0d0'
-                              : entry.type === 'pipe-sewage'
-                                ? '#7a5a3a'
-                                : '#4a3522'
-                      return (
-                        <button
-                          key={entry.type}
-                          type="button"
-                          aria-pressed={isSelected}
-                          data-water-tool={entry.type}
-                          data-selected={isSelected ? 'true' : 'false'}
-                          onClick={() => {
-                            setSelectedWaterTool(entry.type)
-                          }}
-                          style={{
-                            padding: '8px 14px',
-                            fontSize: 14,
-                            fontFamily: 'inherit',
-                            color: isSelected ? '#fff' : '#222',
-                            background: isSelected ? bg : '#fdfaf2',
-                            border: `1px solid ${isSelected ? bg : '#d6cfbf'}`,
-                            borderRadius: 4,
-                            cursor: 'pointer',
-                          }}
-                        >
-                          {entry.label}
-                        </button>
-                      )
-                    })}
+                  : paletteCategory === 'water'
+                    ? WATER_PALETTE.map((entry) => {
+                        const isSelected = entry.type === selectedWaterTool
+                        const bg =
+                          entry.type === 'source-water-tower'
+                            ? '#5a8aae'
+                            : entry.type === 'source-pump-station'
+                              ? '#3a6a8a'
+                              : entry.type === 'pipe-water'
+                                ? '#5fb0d0'
+                                : entry.type === 'pipe-sewage'
+                                  ? '#7a5a3a'
+                                  : '#4a3522'
+                        return (
+                          <button
+                            key={entry.type}
+                            type="button"
+                            aria-pressed={isSelected}
+                            data-water-tool={entry.type}
+                            data-selected={isSelected ? 'true' : 'false'}
+                            onClick={() => {
+                              setSelectedWaterTool(entry.type)
+                            }}
+                            style={{
+                              padding: '8px 14px',
+                              fontSize: 14,
+                              fontFamily: 'inherit',
+                              color: isSelected ? '#fff' : '#222',
+                              background: isSelected ? bg : '#fdfaf2',
+                              border: `1px solid ${isSelected ? bg : '#d6cfbf'}`,
+                              borderRadius: 4,
+                              cursor: 'pointer',
+                            }}
+                          >
+                            {entry.label}
+                          </button>
+                        )
+                      })
+                    : DISASTER_PALETTE.map((entry) => {
+                        const isSelected = entry.type === selectedDisasterTool
+                        const bg =
+                          entry.type === 'fire'
+                            ? '#c44d2a'
+                            : entry.type === 'flood'
+                              ? '#3a78a8'
+                              : entry.type === 'tornado'
+                                ? '#6a5a4a'
+                                : entry.type === 'earthquake'
+                                  ? '#8a6a3a'
+                                  : '#5a2a4a'
+                        return (
+                          <button
+                            key={entry.type}
+                            type="button"
+                            aria-pressed={isSelected}
+                            data-disaster-tool={entry.type}
+                            data-selected={isSelected ? 'true' : 'false'}
+                            onClick={() => {
+                              setSelectedDisasterTool(entry.type)
+                            }}
+                            style={{
+                              padding: '8px 14px',
+                              fontSize: 14,
+                              fontFamily: 'inherit',
+                              color: isSelected ? '#fff' : '#222',
+                              background: isSelected ? bg : '#fdfaf2',
+                              border: `1px solid ${isSelected ? bg : '#d6cfbf'}`,
+                              borderRadius: 4,
+                              cursor: 'pointer',
+                            }}
+                          >
+                            {entry.label}
+                          </button>
+                        )
+                      })}
         <button
           type="button"
           data-testid="editor-rotate"
@@ -1621,6 +1683,7 @@ export function EditorClient({
         power={simState.power}
         services={simState.services}
         water={simState.water}
+        disasters={simState.disasters}
         onSurfaceWheel={handleSurfaceWheel}
         onSurfacePointerDown={handleSurfacePointerDown}
       />

@@ -716,6 +716,57 @@ test('editor: Water palette includes a sewage-treatment tool that paints a plant
   await expect(plantOverlay).toBeVisible()
 })
 
+test('editor: Disasters tab spawns a fire and renders an overlay (REQ-105)', async ({
+  page,
+}) => {
+  await page.route('**/api/city/**', async (route, req) => {
+    if (req.method() === 'PUT') {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          slug: 'sim-disasters-spec',
+          versionHash: '0'.repeat(64),
+          updatedAt: 0,
+        }),
+      })
+    } else {
+      await route.fallback()
+    }
+  })
+
+  await page.goto('/sim-disasters-spec/edit')
+  await page.getByTestId('editor-sim-speed-0').click()
+
+  const tab = page.getByTestId('editor-palette-category-disaster')
+  await expect(tab).toBeVisible()
+  await tab.click()
+
+  const palette = page.getByTestId('editor-palette')
+  await expect(palette).toHaveAttribute('data-palette-category', 'disaster')
+
+  for (const tool of ['fire', 'flood', 'tornado', 'earthquake', 'monster']) {
+    await expect(
+      palette.locator(`[data-disaster-tool="${tool}"]`),
+    ).toBeVisible()
+  }
+  await expect(
+    palette.locator('[data-disaster-tool="fire"]'),
+  ).toHaveAttribute('aria-pressed', 'true')
+
+  await page
+    .locator(
+      '[data-testid="editor-snap-grid"] rect[data-cell-row="1"][data-cell-col="2"]',
+    )
+    .click()
+
+  const overlay = page.locator(
+    '[data-testid="editor-disaster-overlay"][data-disaster-row="1"][data-disaster-col="2"]',
+  )
+  await expect(overlay).toBeVisible()
+  await expect(overlay).toHaveAttribute('data-disaster-kind', 'fire')
+})
+
 test('editor: bankruptcy warning fires once treasury drops below 0 (REQ-095)', async ({
   page,
 }) => {

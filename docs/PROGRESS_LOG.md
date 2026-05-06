@@ -16,6 +16,16 @@ Format for each slice:
 - Followups: any new `F-NNN` entries created. Link to them.
 ```
 
+## 2026-05-06, REQ-105 Slice 2: Editor Disasters Palette + Per-Cell Overlay
+
+- Branch: `feature/20260506-disasters-palette`
+- PR: #N (when known)
+- Changed: `editorState.ts` extends `PaletteCategory` with `'disaster'`; new `DisasterPaletteToolType` 5-entry union, `DISASTER_PALETTE` constant, `DEFAULT_DISASTER_TOOL = 'fire'`. `EditorClient.tsx` adds `selectedDisasterTool` state, a 7th palette tab ("Disasters"), per-category palette branch rendering 5 kind-distinct color buttons, `handleCellClick` branch that dispatches `SpawnDisasterEvent` (erase mode is a no-op since disasters self-expire). `SnapGridView.tsx` new optional `disasters?: DisastersBucket | null` prop; renders each active disaster as a 4px-inset overlay rect with kind-distinct fill, testid `editor-disaster-overlay`, plus `data-disaster-kind` / `data-disaster-row` / `data-disaster-col` / `data-disaster-ticks-remaining` data attributes.
+- Verification: `npm run type-check` green. `npm test` 2049/2049 unit (no new unit cases; slice is pure UI wiring). `npm run build` green. `npm run check:dashes` clean. `git diff --check` clean. `npx playwright test e2e/sim.spec.ts --project=chromium` 21/21 local (20 prior + 1 new disasters-spawn case).
+- Assumptions: Disaster overlay renders above the water/sewage layer but below connector glyphs so the place / erase ghosts stay legible. Erase mode for disaster category is a no-op (disasters self-expire); a future slice could add explicit "extinguish fire" via service-building proximity. Color choices read kind-distinct against the editor's beige background; no contrast accessibility audit yet.
+- GDD coverage: REQ-105 stays `partial` (damage application + drive visualization slice 3+). `docs/gdd/20-disasters.md` Status stays `partial`; gains a build log entry. Coverage row implementation/test refs unchanged (entities added to already-listed files).
+- Followups: F-NEW (deferred): per-disaster damage application (slice 3); drive-mode disaster visualization (slice 4).
+
 ## 2026-05-06, REQ-105 Disasters Substrate: Schema + spawnDisaster + Per-Tick Lifetime
 
 - Branch: `feature/20260506-disasters-substrate`
