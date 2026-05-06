@@ -70,9 +70,4 @@ export const kvKeys = {
   cityVersions: (slug: Slug) => `city:${slug}:versions`,
   /** Sorted set of `(updatedAtMs, slug)` for the home page list (REQ-011, REQ-050). */
   cityIndex: () => 'city:index',
-  /**
-   * Owner builder id for a slug (REQ-014). First PUT to a slug claims
-   * ownership; subsequent PUTs must present a matching builder id cookie.
-   */
-  cityOwner: (slug: Slug) => `city:${slug}:owner`,
 } as const

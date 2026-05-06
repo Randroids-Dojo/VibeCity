@@ -9,8 +9,9 @@ import {
 
 /**
  * REQ-009 + REQ-025: middleware issues the anonymous builder id cookie
- * on first visit so the autosave PUT path has a valid identity to gate
- * ownership against (REQ-014).
+ * on first visit so the autosave PUT path has a stable identity for
+ * activity attribution. The cookie is identity-only; VibeCity is
+ * open-edit so the PUT path does not gate writes per cookie (REQ-014).
  */
 
 const validId = '11111111-1111-4111-8111-111111111111'

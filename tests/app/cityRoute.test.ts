@@ -37,7 +37,6 @@ async function clearSlug(slug: Slug) {
   await fake.del(
     kvKeys.cityLatest(slug),
     kvKeys.cityVersions(slug),
-    kvKeys.cityOwner(slug),
     kvKeys.cityIndex(),
   )
 }
@@ -113,7 +112,7 @@ describe('PUT /api/city/[slug]', () => {
     expect(body.error).toBe('invalid city')
   })
 
-  it('saves a valid city, claims ownership, and returns the canonical hash', async () => {
+  it('saves a valid city and returns the canonical hash', async () => {
     const { PUT } = await import('@/app/api/city/[slug]/route')
     const slug = 'my-city' as Slug
     const req = new NextRequest('http://test/api/city/my-city', {
@@ -132,14 +131,13 @@ describe('PUT /api/city/[slug]', () => {
       kvKeys.cityVersion(slug, body.versionHash as never),
     )
     expect(stored).toEqual(sampleCity)
-    expect(await fake.get<string>(kvKeys.cityOwner(slug))).toBe(builderIdA)
     expect(await fake.zscore(kvKeys.cityIndex(), slug)).toBe(body.updatedAt)
   })
 
-  it('rejects a write from a different builder once a slug is owned', async () => {
+  it('lets any builder overwrite an existing city (open-edit)', async () => {
     const { PUT } = await import('@/app/api/city/[slug]/route')
     const slug = 'owned-by-a' as Slug
-    // First write claims ownership for builder A.
+    // Builder A writes first.
     await PUT(
       new NextRequest('http://test/api/city/owned-by-a', {
         method: 'PUT',
@@ -148,9 +146,11 @@ describe('PUT /api/city/[slug]', () => {
       }),
       { params: Promise.resolve({ slug: 'owned-by-a' }) },
     )
-    expect(await fake.get<string>(kvKeys.cityOwner(slug))).toBe(builderIdA)
+    expect(await fake.get<string>(kvKeys.cityLatest(slug))).toBe(
+      hashCity(EMPTY_CITY),
+    )
 
-    // Builder B tries to overwrite.
+    // Builder B overwrites: open-edit means the second writer succeeds.
     const res = await PUT(
       new NextRequest('http://test/api/city/owned-by-a', {
         method: 'PUT',
@@ -159,13 +159,11 @@ describe('PUT /api/city/[slug]', () => {
       }),
       { params: Promise.resolve({ slug: 'owned-by-a' }) },
     )
-    expect(res.status).toBe(403)
-    const body = (await res.json()) as { error: string }
-    expect(body.error).toBe('not owner')
-    // The owner is unchanged; the latest pointer is still empty city's hash.
-    expect(await fake.get<string>(kvKeys.cityOwner(slug))).toBe(builderIdA)
+    expect(res.status).toBe(200)
+    const body = (await res.json()) as { versionHash: string }
+    expect(body.versionHash).toBe(hashCity(sampleCity))
     expect(await fake.get<string>(kvKeys.cityLatest(slug))).toBe(
-      hashCity(EMPTY_CITY),
+      hashCity(sampleCity),
     )
   })
 
@@ -173,7 +171,7 @@ describe('PUT /api/city/[slug]', () => {
     const { PUT } = await import('@/app/api/city/[slug]/route')
     const slug = 'history-write' as Slug
     await fake.del(kvKeys.cityVersions(slug))
-    await fake.del(kvKeys.cityLatest(slug), kvKeys.cityOwner(slug))
+    await fake.del(kvKeys.cityLatest(slug))
 
     // First save: empty city.
     await PUT(
@@ -213,7 +211,7 @@ describe('PUT /api/city/[slug]', () => {
     const { PUT } = await import('@/app/api/city/[slug]/route')
     const slug = 'history-trim' as Slug
     await fake.del(kvKeys.cityVersions(slug))
-    await fake.del(kvKeys.cityLatest(slug), kvKeys.cityOwner(slug))
+    await fake.del(kvKeys.cityLatest(slug))
 
     // Synthesize MAX_CITY_VERSIONS oldest entries that are NOT real
     // PUT-written versions; the trim is rank-based so any pre-existing
@@ -272,7 +270,7 @@ describe('PUT /api/city/[slug]', () => {
     const { PUT } = await import('@/app/api/city/[slug]/route')
     const slug = 'history-payload' as Slug
     await fake.del(kvKeys.cityVersions(slug))
-    await fake.del(kvKeys.cityLatest(slug), kvKeys.cityOwner(slug))
+    await fake.del(kvKeys.cityLatest(slug))
 
     // Pre-seed the oldest entry's payload alongside its history member;
     // confirm the payload survives the trim. The trim policy intentionally
@@ -313,7 +311,7 @@ describe('PUT /api/city/[slug]', () => {
     ).toEqual(EMPTY_CITY)
   })
 
-  it('lets the owner overwrite their own city', async () => {
+  it('lets the same builder overwrite their own city', async () => {
     const { PUT } = await import('@/app/api/city/[slug]/route')
     const slug = 'idempotent' as Slug
     const first = await PUT(
@@ -340,7 +338,6 @@ describe('PUT /api/city/[slug]', () => {
     expect(await fake.get<string>(kvKeys.cityLatest(slug))).toBe(
       body.versionHash,
     )
-    expect(await fake.get<string>(kvKeys.cityOwner(slug))).toBe(builderIdA)
   })
 })
 
