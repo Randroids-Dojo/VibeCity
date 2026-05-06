@@ -16,6 +16,16 @@ Format for each slice:
 - Followups: any new `F-NNN` entries created. Link to them.
 ```
 
+## 2026-05-06, REQ-081 Per-Tick Zone Growth (Slice 1 of 2: Unconditional)
+
+- Branch: `feature/20260506-zone-growth`
+- PR: #N (when known)
+- Changed: First sim-loop feature where the city visibly advances on its own. Without this, zones placed via REQ-080 sit at density 0 forever. New `GROWTH_INTERVAL_TICKS = 20` constant in `src/lib/sim/state.ts` (5 seconds of wall time per density step at the 4Hz default; a fresh zone reaches max density 3 in ~15 seconds; sim-speed multipliers compress wall-clock pace proportionally because every tick is processed identically). `src/lib/sim/events.ts` extended `applyTick` to compute the next tick first, then call new exported pure helper `maybeGrowZones(zones, nextTick)` which returns the bucket unchanged when the tick is not a growth tick OR every cell is already at max density, and a fresh bucket with every density-<3 cell advanced by 1 otherwise. The helper preserves identity-on-no-change so the engine's downstream consumers (the React hook, the snapshot writer) see no spurious state changes when nothing actually grew.
+- Verification: `npm run type-check` green. `npm test` 1811/1811 pass (1802 prior + 9 new growth cases). `npm run build` green. `npm run check:dashes` clean. `git diff --check` clean.
+- Assumptions: Slice 1 ships unconditional growth (every density-<3 cell advances every Nth tick) because the alternative (waiting for citizens / power / water / services demand modeling to land before any growth happens) would block the visible payoff for a long time. The dev's "find the fun" framing favors the loop being visibly alive sooner; demand-gated growth lands as slice 2 of REQ-081 once those layers exist. The 20-tick interval is a tuning constant; a faster interval would feel arcade-y, slower would feel SimCity 2000-grindy. The mod-tick-equals-zero growth check is the simplest deterministic trigger; future demand-gated growth will check supply per-cell, but the timing keeps the same shape (every Nth tick is the growth pass). Replay determinism is preserved because growth is a function of `(state, event)` only, not wall-clock; two clients replaying the same event log derive the same density progression.
+- GDD coverage: REQ-081 added as a new row in `docs/GDD_COVERAGE.json` with status `partial` (unconditional growth lands; demand-gated growth still missing). `implementationRefs` populated with `src/lib/sim/state.ts` and `src/lib/sim/events.ts`; `testRefs` populated with `tests/lib/sim/events.test.ts`. `docs/gdd/15-zoning-and-business.md` gains a build log entry.
+- Followups: none new. Slice 2 of REQ-081 (demand-gated growth) lands when REQ-075 citizens, REQ-085 power, REQ-090 water, REQ-100 services ship.
+
 ## 2026-05-06, REQ-080 Zoning Slice 2: Clickable Grid + Zone Palette in Sim View
 
 - Branch: `feature/20260506-zone-painting-ui`

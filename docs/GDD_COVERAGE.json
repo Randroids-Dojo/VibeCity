@@ -1270,6 +1270,20 @@
       "followupRefs": []
     },
     {
+      "id": "REQ-081",
+      "requirement": "Per-tick zone growth: every Nth tick (GROWTH_INTERVAL_TICKS = 20, ~5s at 4Hz default) every zoned cell with density < 3 advances by 1. Density step gating on per-cell supply / demand from citizens (REQ-075), power (REQ-085), water (REQ-090), and services (REQ-100) lands as the follow-on; v1 ships unconditional growth so the player sees the system advance immediately.",
+      "gddRef": "docs/gdd/15-zoning-and-business.md",
+      "status": "partial",
+      "implementationRefs": [
+        "src/lib/sim/state.ts",
+        "src/lib/sim/events.ts"
+      ],
+      "testRefs": [
+        "tests/lib/sim/events.test.ts"
+      ],
+      "followupRefs": []
+    },
+    {
       "id": "REQ-085",
       "requirement": "Power grid: two v1 plant types (coal 100MW, solar 30MW) with 2x2 footprints, single-cell power-line pieces forming connected components, per-tick connectivity solver assigning powered / brownout / unpowered to each demanding cell, drive-mode visible signal (lit windows at night for powered residential, dark for browned out), per-cell pollution from coal plants feeding into citizen happiness.",
       "gddRef": "docs/gdd/16-power-grid.md",

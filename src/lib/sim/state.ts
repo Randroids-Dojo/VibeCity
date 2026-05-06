@@ -135,6 +135,24 @@ export const EMPTY_ZONES_BUCKET: ZonesBucket = Object.freeze({
 }) as ZonesBucket
 
 /**
+ * Tick interval for per-tick zone growth (REQ-081). Every GROWTH_INTERVAL_TICKS
+ * ticks, every zoned cell with density < 3 advances by 1.
+ *
+ * 20 ticks at the 4Hz default speed = 5 seconds of wall time per
+ * density step at 1x; a fresh zone reaches max density 3 in ~15 seconds.
+ * 2x and 4x speeds compress proportionally because each tick advances
+ * the engine identically; the speed setting changes the wall-clock
+ * pace, not the per-tick math.
+ *
+ * Slice 1 of REQ-081: deterministic growth (every Nth tick advances
+ * every <3-density cell). The follow-on slice gates growth on
+ * supply / demand (citizens REQ-075, power REQ-085, water REQ-090,
+ * services REQ-100 coverage); v1 ships unconditional growth so the
+ * player sees the system advance immediately.
+ */
+export const GROWTH_INTERVAL_TICKS = 20
+
+/**
  * Compose a stable cell key from a `(row, col)` coordinate. Mirrors
  * the existing `"row,col"` convention used by `streetCellSet` and
  * `buildingCellSet` so the zoning layer integrates cleanly with the
