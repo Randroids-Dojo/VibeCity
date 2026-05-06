@@ -4,6 +4,7 @@ import { applyFireDamage } from './fireDamage'
 import { computeFireSpread } from './fireSpread'
 import { applyFloodDamage } from './floodDamage'
 import { solveSewageStatus } from './sewageSolver'
+import { applyTornadoDamage } from './tornadoDamage'
 import {
   DEFAULT_SIM_SPEED,
   DEFAULT_TAX_RATES,
@@ -559,6 +560,21 @@ function applyTick(state: SimState, event: TickEvent): SimState {
     nextTick,
   )
   const nextZones = maybeGrowZones(floodDamagedZones, nextTick)
+  // Tornado damage (REQ-105 slice 7). Erases sim-state infrastructure
+  // (power line / plant, water source / pipe / treatment plant,
+  // service building) at every active tornado's anchor cell on a hit.
+  // Runs BEFORE the economy reducer so the post-erase line / plant /
+  // service counts feed the maintenance and income calc on the same
+  // tick the erase happens.
+  const tornadoDamaged = applyTornadoDamage(
+    {
+      power: state.power,
+      water: state.water,
+      services: state.services,
+    },
+    state.disasters,
+    nextTick,
+  )
   // Population follows zone density. The sync runs on every growth
   // tick so a place + grow + erase sequence cleans up the population
   // entry the next time the growth interval fires (within ~5s at
@@ -580,7 +596,7 @@ function applyTick(state: SimState, event: TickEvent): SimState {
   const nextEconomy = applyEconomyTick(
     state.economy,
     nextPopulation,
-    state.power,
+    tornadoDamaged.power,
     state.taxRates,
     nextZones,
   )
@@ -589,7 +605,11 @@ function applyTick(state: SimState, event: TickEvent): SimState {
   // counter resets to 0). The reducer is identity-on-no-change so a
   // tick with no populated cells AND nothing to clean up keeps the
   // same water bucket reference.
-  const nextWater = applyWasteTick(state.water, nextPopulation, nextZones)
+  const nextWater = applyWasteTick(
+    tornadoDamaged.water,
+    nextPopulation,
+    nextZones,
+  )
   // Disaster lifetime tick (REQ-105 substrate slice 1). Each active
   // disaster decrements its `ticksRemaining`; entries that hit 0 are
   // removed. Identity-on-no-change short-circuits when no disasters
@@ -600,7 +620,7 @@ function applyTick(state: SimState, event: TickEvent): SimState {
   const nextDisasters = applyDisasterTick(
     state.disasters,
     nextTick,
-    state.services,
+    tornadoDamaged.services,
   )
   // Citizen happiness (REQ-092 slice 5 + REQ-105 slice 6). Reads
   // the freshly-updated waste accumulation AND the post-decrement
@@ -618,7 +638,9 @@ function applyTick(state: SimState, event: TickEvent): SimState {
     zones: nextZones,
     population: nextPopulationWithHappiness,
     economy: nextEconomy,
+    power: tornadoDamaged.power,
     water: nextWater,
+    services: tornadoDamaged.services,
     disasters: nextDisasters,
   }
 }

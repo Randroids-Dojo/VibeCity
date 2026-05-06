@@ -1390,6 +1390,7 @@
         "src/lib/sim/fireSpread.ts",
         "src/lib/sim/fireDamage.ts",
         "src/lib/sim/floodDamage.ts",
+        "src/lib/sim/tornadoDamage.ts",
         "src/app/[slug]/edit/editorState.ts",
         "src/app/[slug]/edit/EditorClient.tsx",
         "src/app/[slug]/edit/SnapGridView.tsx"
@@ -1400,6 +1401,7 @@
         "tests/lib/sim/fireSpread.test.ts",
         "tests/lib/sim/fireDamage.test.ts",
         "tests/lib/sim/floodDamage.test.ts",
+        "tests/lib/sim/tornadoDamage.test.ts",
         "e2e/sim.spec.ts"
       ],
       "followupRefs": []

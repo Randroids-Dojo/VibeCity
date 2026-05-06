@@ -687,6 +687,15 @@ export const FLOOD_DAMAGE_PROBABILITY_PER_TICK = 0.03
  */
 export const EARTHQUAKE_HAPPINESS_PENALTY = 25
 
+/**
+ * Per-tick tornado damage probability (REQ-105 slice 7). Higher
+ * than fire / flood because tornados are short-lived (40-tick
+ * default) and damage is visually dramatic: every infrastructure
+ * cell at the tornado's anchor (power line / plant, water source /
+ * pipe / treatment plant, service building) on a hit gets erased.
+ */
+export const TORNADO_DAMAGE_PROBABILITY_PER_TICK = 0.1
+
 export const DisasterSchema = z
   .object({
     kind: DisasterKindSchema,
