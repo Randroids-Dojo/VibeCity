@@ -767,6 +767,41 @@ test('editor: Disasters tab spawns a fire and renders an overlay (REQ-105)', asy
   await expect(overlay).toHaveAttribute('data-disaster-kind', 'fire')
 })
 
+test('editor: residential tax HUD slider adjusts the per-tick income (REQ-095)', async ({
+  page,
+}) => {
+  await page.route('**/api/city/**', async (route, req) => {
+    if (req.method() === 'PUT') {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          slug: 'sim-tax-spec',
+          versionHash: '0'.repeat(64),
+          updatedAt: 0,
+        }),
+      })
+    } else {
+      await route.fallback()
+    }
+  })
+
+  await page.goto('/sim-tax-spec/edit')
+  await page.getByTestId('editor-sim-speed-0').click()
+
+  const residentialReadout = page.getByTestId('editor-sim-tax-residential')
+  await expect(residentialReadout).toHaveAttribute('data-sim-tax-rate', '0.07')
+
+  // Bump residential tax rate up by 1pp.
+  await page.getByTestId('editor-sim-tax-residential-up').click()
+  await expect(residentialReadout).toHaveAttribute('data-sim-tax-rate', '0.08')
+
+  // Bump back down 2pp; clamped at 0.06.
+  await page.getByTestId('editor-sim-tax-residential-down').click()
+  await page.getByTestId('editor-sim-tax-residential-down').click()
+  await expect(residentialReadout).toHaveAttribute('data-sim-tax-rate', '0.06')
+})
+
 test('editor: bankruptcy reset-budget button restores treasury to 20000 (REQ-095)', async ({
   page,
 }) => {
