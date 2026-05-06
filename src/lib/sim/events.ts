@@ -945,19 +945,21 @@ export function syncPopulationToZones(
 }
 
 /**
- * Per-tick zone growth (REQ-081 slice 1). Returns the input bucket
- * unchanged when this tick is not a growth tick OR every zoned cell
- * is already at max density. Otherwise returns a fresh bucket with
- * every density-<3 cell advanced by 1.
+ * Per-tick zone growth (REQ-081). Returns the input bucket
+ * unchanged when any of the short-circuit conditions hold:
+ *   - this tick is not a growth tick (`tick % GROWTH_INTERVAL_TICKS !== 0`),
+ *   - city-wide `cityHappiness` sits at or below
+ *     `GROWTH_HAPPINESS_THRESHOLD` (REQ-076 follow-on gate; an
+ *     unhappy city stagnates at its current density mix until the
+ *     player addresses the underlying penalties),
+ *   - every zoned cell is already at max density.
+ * Otherwise returns a fresh bucket with every density-<3 cell
+ * advanced by 1.
  *
  * Deterministic: replay over the same event log produces the same
- * growth at the same ticks. Growth is gated on city-wide
- * `cityHappiness`: when happiness sits at or below
- * `GROWTH_HAPPINESS_THRESHOLD` the function returns the input
- * bucket unchanged so unhappy cities stagnate at their current
- * density mix until the player addresses the underlying penalties.
- * Per-cell supply / demand gating from power (REQ-085), water
- * (REQ-090), and services (REQ-100) layers stays a follow-on slice.
+ * growth at the same ticks. Per-cell supply / demand gating from
+ * power (REQ-085), water (REQ-090), and services (REQ-100) layers
+ * stays a follow-on slice.
  */
 export function maybeGrowZones(
   zones: ZonesBucket,
