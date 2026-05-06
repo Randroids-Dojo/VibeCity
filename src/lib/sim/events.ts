@@ -747,6 +747,18 @@ export function applyEconomyTick(
           BANKRUPTCY_THRESHOLD_TICKS,
         )
       : 0
+  // Auto-bankruptcy bailout (REQ-095 slice 4 follow-on). When the
+  // counter reaches `BANKRUPTCY_THRESHOLD_TICKS` the economy
+  // auto-resets to the same shape as a player-fired `resetBudget`:
+  // treasury restored to `INITIAL_TREASURY`, counter zeroed,
+  // last-tick readouts zeroed. Other layers stay untouched so the
+  // player keeps their infrastructure. Closes the bankruptcy loop
+  // end-to-end without requiring a manual click; the reset still
+  // surfaces a one-tick `bankruptcyTickCounter === 0` flip the HUD
+  // can read to acknowledge the bailout if it wants.
+  if (nextBankruptcyCounter === BANKRUPTCY_THRESHOLD_TICKS) {
+    return EMPTY_ECONOMY_BUCKET
+  }
   if (
     economy.lastTickIncome === income &&
     economy.lastTickMaintenance === maintenance &&

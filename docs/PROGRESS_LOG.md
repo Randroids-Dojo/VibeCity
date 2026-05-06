@@ -16,6 +16,16 @@ Format for each slice:
 - Followups: any new `F-NNN` entries created. Link to them.
 ```
 
+## 2026-05-06, REQ-095 Slice 4 Follow-on: Auto-Bankruptcy Treasury Reset
+
+- Branch: `feature/20260506-auto-bankruptcy-reset`
+- PR: #N (when known)
+- Changed: `applyEconomyTick` (in `src/lib/sim/events.ts`) now branches when `nextBankruptcyCounter === BANKRUPTCY_THRESHOLD_TICKS` and returns `EMPTY_ECONOMY_BUCKET` (treasury restored to `INITIAL_TREASURY = 20000`, counter zeroed, last-tick income / maintenance zeroed). Closes the bankruptcy loop end-to-end without requiring a manual `resetBudget` click; the existing player-fired `resetBudget` button still works for early bailouts. Other layers (zones, power, water, services, disasters) are untouched, mirroring the manual reset semantics.
+- Verification: `npm test` 2144/2144 unit (2 reworked bankruptcy cases: the prior "counter saturates" + "saturated short-circuit identity" pair replaced by "counter auto-resets to 0 once it would have reached threshold" + "treasury restores to INITIAL_TREASURY at the auto-reset tick"). `npm run build` green. `npm run check:dashes` clean. `git diff --check` clean. `npx playwright test e2e/sim.spec.ts --project=chromium --grep bankruptcy` 2/2 local; full sim suite expected unchanged.
+- Assumptions: Auto-reset preserves all built infrastructure (same as manual reset). The counter never observably reaches the threshold value any more; tests now assert it stays strictly below. Player flow: bankruptcy warning HUD shows the counter climbing; if the player ignores it and the counter hits the threshold, the bailout fires invisibly (treasury back to 20000, counter back to 0) and the warning disappears. A future polish slice could surface a one-tick "auto-bailout fired" toast in the HUD.
+- GDD coverage: `docs/gdd/18-economy.md` REQ-095 build log gains an auto-reset entry; `docs/GDD_COVERAGE.json` REQ-095 row stays `partial` until other economy follow-ons (e.g., maintenance scaling, per-zone tax effects on demand) land.
+- Followups: F-NEW (deferred): one-tick HUD acknowledgement of auto-bailout; option to make auto-bailout penalize happiness or treasury below 20000 so it isn't a free reset.
+
 ## 2026-05-06, REQ-105 + REQ-100 Follow-on: Automatic Fire Ignition at Uncovered Industrial
 
 - Branch: `feature/20260506-fire-autospawn`
