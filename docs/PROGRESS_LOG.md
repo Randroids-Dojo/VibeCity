@@ -76,6 +76,16 @@ Format for each slice:
 - GDD coverage: REQ-095 stays `partial` (REQ-083 was its main blocker; remaining gaps are demand bars REQ-082). REQ-083 row gets a build log entry in `docs/gdd/15-zoning-and-business.md`.
 - Followups: F-NEW (deferred): REQ-082 R/C/I demand bars; jobs-need-residents gate.
 
+## 2026-05-06, REQ-095 Slice 5: Tax-Rate HUD Sliders
+
+- Branch: `feature/20260506-tax-sliders`
+- PR: #N (when known)
+- Changed: HUD row gains 3 slider widgets (R/C/I) next to the treasury readout. Each widget is minus + percent + plus; click dispatches `setTaxRate` (1pp increments, clamped 0..100%). Mirrors `data-sim-tax-rate` per-kind for e2e.
+- Verification: `npm run type-check` green. `npm test` 2123/2123 unit (pure UI; no new cases). `npm run build` green. `npm run check:dashes` clean. `git diff --check` clean. `npx playwright test e2e/sim.spec.ts --project=chromium` 23/23 local (22 prior + 1 new tax HUD case).
+- Assumptions: 1pp increments are coarse; a future slice could swap to a fine-grained `<input type="range">` if playtest reveals players want finer control. Minus button uses Unicode "minus sign" (U+2212) which is distinct from the U+2013 / U+2014 dashes blocked by the dash-check script.
+- GDD coverage: REQ-095 stays `partial` (REQ-082 demand bars + auto-bankruptcy resetCity still outstanding). `docs/gdd/18-economy.md` Status stays `partial`; gains a build log entry.
+- Followups: F-NEW (deferred): REQ-082 R/C/I demand bars; per-tick net-income forecast readout.
+
 ## 2026-05-06, REQ-095 Slice 4: resetBudget + resetCity Events + HUD Buttons
 
 - Branch: `feature/20260506-bankruptcy-reset`

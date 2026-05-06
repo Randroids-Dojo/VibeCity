@@ -60,6 +60,7 @@ import type {
   ResetCityEvent,
   RunPowerLineEvent,
   RunWaterPipeEvent,
+  SetTaxRateEvent,
   SpawnDisasterEvent,
 } from '@/lib/sim/events'
 import { BANKRUPTCY_THRESHOLD_TICKS, type SimSpeed } from '@/lib/sim/state'
@@ -1066,6 +1067,75 @@ export function EditorClient({
         >
           {`$${Math.round(simState.economy.treasury).toLocaleString('en-US')}`}
         </span>
+        {(['residential', 'commercial', 'industrial'] as const).map((kind) => {
+          const rate = simState.taxRates[kind]
+          const enqueueRate = (next: number) => {
+            const event: SetTaxRateEvent = {
+              type: 'setTaxRate',
+              payload: { kind, rate: next },
+              clientCreatedAt: Date.now(),
+              authorBuilderId: builderId,
+            }
+            simEngine.enqueue(event)
+          }
+          const label = kind === 'residential' ? 'R' : kind === 'commercial' ? 'C' : 'I'
+          return (
+            <span
+              key={`tax-${kind}`}
+              data-testid={`editor-sim-tax-${kind}`}
+              data-sim-tax-rate={rate}
+              style={{
+                marginLeft: 6,
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 2,
+                fontFamily: 'ui-monospace, Menlo, monospace',
+                fontSize: 12,
+              }}
+            >
+              <span style={{ opacity: 0.7 }}>{label}</span>
+              <button
+                type="button"
+                data-testid={`editor-sim-tax-${kind}-down`}
+                aria-label={`decrease ${kind} tax rate`}
+                onClick={() => {
+                  const next = Math.max(0, Math.round((rate - 0.01) * 100) / 100)
+                  if (next !== rate) enqueueRate(next)
+                }}
+                style={{
+                  width: 18,
+                  height: 18,
+                  fontSize: 10,
+                  padding: 0,
+                  cursor: 'pointer',
+                }}
+              >
+                {'−'}
+              </button>
+              <span style={{ minWidth: 28, textAlign: 'right' }}>
+                {`${Math.round(rate * 100)}%`}
+              </span>
+              <button
+                type="button"
+                data-testid={`editor-sim-tax-${kind}-up`}
+                aria-label={`increase ${kind} tax rate`}
+                onClick={() => {
+                  const next = Math.min(1, Math.round((rate + 0.01) * 100) / 100)
+                  if (next !== rate) enqueueRate(next)
+                }}
+                style={{
+                  width: 18,
+                  height: 18,
+                  fontSize: 10,
+                  padding: 0,
+                  cursor: 'pointer',
+                }}
+              >
+                {'+'}
+              </button>
+            </span>
+          )
+        })}
         <span
           data-testid="editor-sim-happiness"
           data-sim-happiness={simState.population.cityHappiness}
