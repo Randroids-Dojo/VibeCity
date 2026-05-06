@@ -56,20 +56,94 @@ export const DEFAULT_TAX_RATES: TaxRates = {
 
 /**
  * Per-layer state buckets. Each bucket is the canonical home for one
- * sim layer's mutable state. Slice 1 ships every bucket as an empty
- * object so the layer slices can grow into them without changing the
- * top-level `SimState` shape.
+ * sim layer's mutable state. The substrate ships every bucket the
+ * layer slices can grow into without changing the top-level
+ * `SimState` shape.
  *
- * Each bucket schema is `.passthrough()` (NOT `.strict()`) so an
- * in-flight layer can write to its bucket without the substrate
- * having to ship the layer's schema first. When a layer slice lands,
- * it replaces its bucket schema with a `.strict()` version; the
- * substrate's `applySimEvent` reducer dispatches on event type, so
- * a layer that has not landed yet means its events fall through to
- * a no-op return-state-unchanged.
+ * Layers that have not landed yet keep their bucket as
+ * `.passthrough()` so a substrate-only client can carry forward
+ * forward-compat data without enforcing a shape. When a layer slice
+ * lands, it tightens its bucket to `.strict()` here; the substrate's
+ * `applySimEvent` reducer dispatches on event type, so a layer that
+ * has not landed yet means its events fall through to a no-op
+ * return-state-unchanged.
  */
 export const PopulationBucketSchema = z.object({}).passthrough()
-export const ZonesBucketSchema = z.object({}).passthrough()
+
+/**
+ * Zone cell state (REQ-080 zoning slice 1 of N).
+ *
+ * `kind` selects the zone category. `density` tracks SimCity-style
+ * organic growth: 0 is an empty zoned cell that has not grown yet,
+ * 1..3 are the low/medium/high density steps that the per-tick
+ * growth reducer (REQ-081, follow-on slice) advances toward as
+ * citizen / power / water / services demand allows.
+ *
+ * The spec text in `docs/gdd/15-zoning-and-business.md` REQ-084
+ * originally placed zones on the existing `city.buildings` array as
+ * a discriminated union. After Q-012 (event sourcing) resolved, the
+ * cleaner home is `city.sim.zones.cells` because the reducer is
+ * scoped to mutate sim state only; the legacy `city.buildings`
+ * array stays untouched for v1 placeholder buildings (small-house
+ * etc.) and a future migration slice can lift those into the zone
+ * system when the visual divergence becomes a felt gap.
+ */
+export const ZoneKindSchema = z.enum([
+  'residential',
+  'commercial',
+  'industrial',
+])
+export type ZoneKind = z.infer<typeof ZoneKindSchema>
+
+/**
+ * Density step from 0 (empty zoned cell) to 3 (max). Growth is
+ * organic and gated by the per-tick growth reducer (REQ-081, follow-on
+ * slice); slice 1 ships the field on the cell so place / erase events
+ * can record the state at the time of placement.
+ */
+export const ZoneDensitySchema = z.union([
+  z.literal(0),
+  z.literal(1),
+  z.literal(2),
+  z.literal(3),
+])
+export type ZoneDensity = z.infer<typeof ZoneDensitySchema>
+
+export const ZoneCellSchema = z
+  .object({
+    kind: ZoneKindSchema,
+    density: ZoneDensitySchema,
+  })
+  .strict()
+export type ZoneCell = z.infer<typeof ZoneCellSchema>
+
+/**
+ * Zones bucket (REQ-080 slice 1). Cells keyed by `"row,col"` so
+ * lookup is O(1) and JSON serialization preserves the cell map.
+ * Strict on the bucket and on each cell so an unknown field at
+ * either level fails validation.
+ */
+export const ZonesBucketSchema = z
+  .object({
+    cells: z.record(z.string(), ZoneCellSchema),
+  })
+  .strict()
+export type ZonesBucket = z.infer<typeof ZonesBucketSchema>
+
+export const EMPTY_ZONES_BUCKET: ZonesBucket = Object.freeze({
+  cells: Object.freeze({}) as Record<string, ZoneCell>,
+}) as ZonesBucket
+
+/**
+ * Compose a stable cell key from a `(row, col)` coordinate. Mirrors
+ * the existing `"row,col"` convention used by `streetCellSet` and
+ * `buildingCellSet` so the zoning layer integrates cleanly with the
+ * existing cell-based collision and lookup helpers.
+ */
+export function zoneCellKey(row: number, col: number): string {
+  return `${row},${col}`
+}
+
 export const PowerBucketSchema = z.object({}).passthrough()
 export const WaterBucketSchema = z.object({}).passthrough()
 export const EconomyBucketSchema = z.object({}).passthrough()
@@ -77,7 +151,6 @@ export const ServicesBucketSchema = z.object({}).passthrough()
 export const DisastersBucketSchema = z.object({}).passthrough()
 
 export type PopulationBucket = z.infer<typeof PopulationBucketSchema>
-export type ZonesBucket = z.infer<typeof ZonesBucketSchema>
 export type PowerBucket = z.infer<typeof PowerBucketSchema>
 export type WaterBucket = z.infer<typeof WaterBucketSchema>
 export type EconomyBucket = z.infer<typeof EconomyBucketSchema>
@@ -123,7 +196,7 @@ export const EMPTY_SIM_STATE: SimState = Object.freeze({
   speed: DEFAULT_SIM_SPEED,
   taxRates: DEFAULT_TAX_RATES,
   population: Object.freeze({}) as PopulationBucket,
-  zones: Object.freeze({}) as ZonesBucket,
+  zones: EMPTY_ZONES_BUCKET,
   power: Object.freeze({}) as PowerBucket,
   water: Object.freeze({}) as WaterBucket,
   economy: Object.freeze({}) as EconomyBucket,

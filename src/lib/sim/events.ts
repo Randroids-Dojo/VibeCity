@@ -6,7 +6,10 @@ import {
   EMPTY_SIM_STATE,
   SimSpeedSchema,
   TaxRatesSchema,
+  ZoneKindSchema,
+  zoneCellKey,
   type SimState,
+  type ZoneCell,
 } from './state'
 
 /**
@@ -96,7 +99,47 @@ export const SetTaxRateEventSchema = EventMetaSchema.extend({
 export type SetTaxRateEvent = z.infer<typeof SetTaxRateEventSchema>
 
 /**
- * Layer-specific event schemas (REQ-075 through REQ-105).
+ * `placeZone` event (REQ-080 zoning slice 1 of N). Zones a single
+ * cell. The cell starts at density 0; the per-tick growth reducer
+ * (REQ-081, follow-on slice) will advance it as demand allows. A
+ * `placeZone` on a cell that is already zoned overwrites the kind
+ * but keeps the existing density (the player paints over an
+ * existing zone to retype it without resetting growth; if the player
+ * wants to wipe and start over, they `eraseZone` first then
+ * `placeZone`).
+ */
+export const PlaceZoneEventSchema = EventMetaSchema.extend({
+  type: z.literal('placeZone'),
+  payload: z
+    .object({
+      kind: ZoneKindSchema,
+      row: z.number().int(),
+      col: z.number().int(),
+    })
+    .strict(),
+}).strict()
+export type PlaceZoneEvent = z.infer<typeof PlaceZoneEventSchema>
+
+/**
+ * `eraseZone` event (REQ-080 slice 1 of N). Removes a zoned cell.
+ * No-op if the cell is not zoned (the reducer returns identity); the
+ * client may dispatch `eraseZone` for any clicked cell without
+ * checking the local map first.
+ */
+export const EraseZoneEventSchema = EventMetaSchema.extend({
+  type: z.literal('eraseZone'),
+  payload: z
+    .object({
+      row: z.number().int(),
+      col: z.number().int(),
+    })
+    .strict(),
+}).strict()
+export type EraseZoneEvent = z.infer<typeof EraseZoneEventSchema>
+
+/**
+ * Layer-specific event schemas reserved for forward-compat (REQ-085
+ * through REQ-105).
  *
  * Reserved in the union for forward-compat so a city built on a newer
  * sim layer can be loaded by a substrate-only client without a parse
@@ -104,11 +147,13 @@ export type SetTaxRateEvent = z.infer<typeof SetTaxRateEventSchema>
  * implemented event types fall through to no-op return-state-unchanged
  * (see `applySimEvent` below). Each layer slice replaces its placeholder
  * schema with a strict spec when it lands.
+ *
+ * `placeZone` and `eraseZone` are NOT in this list because REQ-080
+ * slice 1 ships their strict schemas; the discriminated union below
+ * routes them to their typed variants.
  */
 const PlaceholderLayerEventSchema = EventMetaSchema.extend({
   type: z.enum([
-    'placeZone',
-    'eraseZone',
     'runPowerLine',
     'eraseLine',
     'placePowerPlant',
@@ -127,6 +172,8 @@ export const SimEventSchema = z.discriminatedUnion('type', [
   TickEventSchema,
   SetSpeedEventSchema,
   SetTaxRateEventSchema,
+  PlaceZoneEventSchema,
+  EraseZoneEventSchema,
   PlaceholderLayerEventSchema,
 ])
 export type SimEvent = z.infer<typeof SimEventSchema>
@@ -151,6 +198,10 @@ export function applySimEvent(state: SimState, event: SimEvent): SimState {
       return applySetSpeed(state, event)
     case 'setTaxRate':
       return applySetTaxRate(state, event)
+    case 'placeZone':
+      return applyPlaceZone(state, event)
+    case 'eraseZone':
+      return applyEraseZone(state, event)
     default:
       // Layer-specific events fall through to no-op until their slice
       // lands and extends the dispatch.
@@ -207,6 +258,46 @@ function applySetTaxRate(
       ...state.taxRates,
       [kind]: rate,
     },
+  }
+}
+
+function applyPlaceZone(state: SimState, event: PlaceZoneEvent): SimState {
+  const { kind, row, col } = event.payload
+  const key = zoneCellKey(row, col)
+  const existing = state.zones.cells[key]
+  // Painting the same kind on the same cell is a no-op (player
+  // clicked twice on the same already-zoned cell). The reducer
+  // returns identity so the engine sees the event was processed
+  // without a state change.
+  if (existing && existing.kind === kind) return state
+  // Preserve existing density when retyping a zoned cell so the
+  // player can paint over without resetting growth. A first-time
+  // zoning lands at density 0 and the per-tick growth reducer
+  // advances it (REQ-081, follow-on slice).
+  const next: ZoneCell = {
+    kind,
+    density: existing?.density ?? 0,
+  }
+  return {
+    ...state,
+    zones: {
+      cells: {
+        ...state.zones.cells,
+        [key]: next,
+      },
+    },
+  }
+}
+
+function applyEraseZone(state: SimState, event: EraseZoneEvent): SimState {
+  const { row, col } = event.payload
+  const key = zoneCellKey(row, col)
+  if (state.zones.cells[key] === undefined) return state
+  const nextCells = { ...state.zones.cells }
+  delete nextCells[key]
+  return {
+    ...state,
+    zones: { cells: nextCells },
   }
 }
 

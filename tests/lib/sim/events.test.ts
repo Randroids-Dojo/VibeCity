@@ -203,17 +203,6 @@ describe('applySimEvent', () => {
   })
 
   describe('layer-specific events (forward-compat)', () => {
-    it('returns state unchanged for placeZone (REQ-080 not landed yet)', () => {
-      const event: SimEvent = {
-        type: 'placeZone',
-        payload: { kind: 'residential', row: 0, col: 0 },
-        clientCreatedAt: 0,
-        authorBuilderId: A_BUILDER,
-      }
-      const next = applySimEvent(EMPTY_SIM_STATE, event)
-      expect(next).toBe(EMPTY_SIM_STATE)
-    })
-
     it('returns state unchanged for placePowerPlant (REQ-085 not landed yet)', () => {
       const event: SimEvent = {
         type: 'placePowerPlant',
@@ -225,7 +214,195 @@ describe('applySimEvent', () => {
       expect(next).toBe(EMPTY_SIM_STATE)
     })
   })
+
+  describe('placeZone (REQ-080 slice 1)', () => {
+    function placeZone(
+      kind: 'residential' | 'commercial' | 'industrial',
+      row: number,
+      col: number,
+    ): SimEvent {
+      return {
+        type: 'placeZone',
+        payload: { kind, row, col },
+        clientCreatedAt: 0,
+        authorBuilderId: A_BUILDER,
+      }
+    }
+
+    it('adds a new zoned cell at density 0', () => {
+      const next = applySimEvent(EMPTY_SIM_STATE, placeZone('residential', 3, 4))
+      expect(next.zones.cells['3,4']).toEqual({
+        kind: 'residential',
+        density: 0,
+      })
+    })
+
+    it('returns identity when painting the same kind on the same cell', () => {
+      const after = applySimEvent(EMPTY_SIM_STATE, placeZone('residential', 0, 0))
+      const again = applySimEvent(after, placeZone('residential', 0, 0))
+      expect(again).toBe(after)
+    })
+
+    it('overwrites the kind on an existing zoned cell', () => {
+      const after = applySimEvent(EMPTY_SIM_STATE, placeZone('residential', 1, 1))
+      const retyped = applySimEvent(after, placeZone('commercial', 1, 1))
+      expect(retyped.zones.cells['1,1']?.kind).toBe('commercial')
+    })
+
+    it('preserves density when retyping a zoned cell', () => {
+      // Land a cell, then forge a density bump to simulate the per-tick
+      // growth reducer's effect (REQ-081, follow-on slice). Then retype
+      // and confirm density survives.
+      let s = applySimEvent(EMPTY_SIM_STATE, placeZone('residential', 0, 0))
+      s = {
+        ...s,
+        zones: {
+          cells: {
+            ...s.zones.cells,
+            '0,0': { kind: 'residential', density: 2 },
+          },
+        },
+      }
+      const retyped = applySimEvent(s, placeZone('commercial', 0, 0))
+      expect(retyped.zones.cells['0,0']).toEqual({
+        kind: 'commercial',
+        density: 2,
+      })
+    })
+
+    it('does not mutate the input state', () => {
+      const before = JSON.parse(JSON.stringify(EMPTY_SIM_STATE))
+      applySimEvent(EMPTY_SIM_STATE, placeZone('residential', 0, 0))
+      expect(EMPTY_SIM_STATE).toEqual(before)
+    })
+
+    it('places multiple cells in independent positions', () => {
+      let s = applySimEvent(EMPTY_SIM_STATE, placeZone('residential', 0, 0))
+      s = applySimEvent(s, placeZone('commercial', 0, 1))
+      s = applySimEvent(s, placeZone('industrial', 1, 0))
+      expect(Object.keys(s.zones.cells)).toHaveLength(3)
+      expect(s.zones.cells['0,0']?.kind).toBe('residential')
+      expect(s.zones.cells['0,1']?.kind).toBe('commercial')
+      expect(s.zones.cells['1,0']?.kind).toBe('industrial')
+    })
+
+    it('handles negative coordinates', () => {
+      const next = applySimEvent(
+        EMPTY_SIM_STATE,
+        placeZone('residential', -3, -5),
+      )
+      expect(next.zones.cells['-3,-5']?.kind).toBe('residential')
+    })
+  })
+
+  describe('eraseZone (REQ-080 slice 1)', () => {
+    function eraseZone(row: number, col: number): SimEvent {
+      return {
+        type: 'eraseZone',
+        payload: { row, col },
+        clientCreatedAt: 0,
+        authorBuilderId: A_BUILDER,
+      }
+    }
+
+    function placeZone(
+      kind: 'residential' | 'commercial' | 'industrial',
+      row: number,
+      col: number,
+    ): SimEvent {
+      return {
+        type: 'placeZone',
+        payload: { kind, row, col },
+        clientCreatedAt: 0,
+        authorBuilderId: A_BUILDER,
+      }
+    }
+
+    it('returns identity on a fresh slug (no cell to erase)', () => {
+      const next = applySimEvent(EMPTY_SIM_STATE, eraseZone(0, 0))
+      expect(next).toBe(EMPTY_SIM_STATE)
+    })
+
+    it('removes a zoned cell', () => {
+      const after = applySimEvent(EMPTY_SIM_STATE, placeZone('residential', 2, 3))
+      const erased = applySimEvent(after, eraseZone(2, 3))
+      expect(erased.zones.cells['2,3']).toBeUndefined()
+    })
+
+    it('only removes the targeted cell (other cells survive)', () => {
+      let s = applySimEvent(EMPTY_SIM_STATE, placeZone('residential', 0, 0))
+      s = applySimEvent(s, placeZone('commercial', 0, 1))
+      const erased = applySimEvent(s, eraseZone(0, 0))
+      expect(erased.zones.cells['0,0']).toBeUndefined()
+      expect(erased.zones.cells['0,1']?.kind).toBe('commercial')
+    })
+
+    it('returns identity when erasing a cell that does not exist', () => {
+      const after = applySimEvent(EMPTY_SIM_STATE, placeZone('residential', 0, 0))
+      const erased = applySimEvent(after, eraseZone(99, 99))
+      expect(erased).toBe(after)
+    })
+  })
+
+  describe('reduceSimEvents over the full zoning vocabulary', () => {
+    it('replays place + erase deterministically', () => {
+      const events: SimEvent[] = [
+        {
+          type: 'placeZone',
+          payload: { kind: 'residential', row: 0, col: 0 },
+          clientCreatedAt: 0,
+          authorBuilderId: A_BUILDER,
+        },
+        {
+          type: 'placeZone',
+          payload: { kind: 'commercial', row: 0, col: 1 },
+          clientCreatedAt: 1,
+          authorBuilderId: A_BUILDER,
+        },
+        {
+          type: 'eraseZone',
+          payload: { row: 0, col: 0 },
+          clientCreatedAt: 2,
+          authorBuilderId: A_BUILDER,
+        },
+      ]
+      const final = applyMany(EMPTY_SIM_STATE, events)
+      expect(final.zones.cells['0,0']).toBeUndefined()
+      expect(final.zones.cells['0,1']?.kind).toBe('commercial')
+    })
+
+    it('two replays of the same event log produce identical zoning state', () => {
+      const events: SimEvent[] = [
+        {
+          type: 'placeZone',
+          payload: { kind: 'residential', row: 0, col: 0 },
+          clientCreatedAt: 0,
+          authorBuilderId: A_BUILDER,
+        },
+        {
+          type: 'placeZone',
+          payload: { kind: 'industrial', row: 5, col: 5 },
+          clientCreatedAt: 1,
+          authorBuilderId: B_BUILDER,
+        },
+      ]
+      const a = applyMany(EMPTY_SIM_STATE, events)
+      const b = applyMany(EMPTY_SIM_STATE, events)
+      expect(a).toEqual(b)
+    })
+  })
 })
+
+function applyMany(
+  start: import('@/lib/sim/state').SimState,
+  events: SimEvent[],
+): import('@/lib/sim/state').SimState {
+  let s = start
+  for (const event of events) {
+    s = applySimEvent(s, event)
+  }
+  return s
+}
 
 describe('reduceSimEvents', () => {
   it('returns the empty state for an empty event list', () => {

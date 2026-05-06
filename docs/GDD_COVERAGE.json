@@ -1253,11 +1253,17 @@
     },
     {
       "id": "REQ-080",
-      "requirement": "Zoning and business: three zone types (residential / commercial / industrial) painted on cells without street pieces, zone-to-building organic growth in density steps (low to high), R/C/I demand bars in sim view, job slots per commercial / industrial density step, schema migration that keeps existing v1 placeholder building types loadable.",
+      "requirement": "Zoning and business: three zone types (residential / commercial / industrial) painted on cells without street pieces, zone-to-building organic growth in density steps (low to high), R/C/I demand bars in sim view, job slots per commercial / industrial density step. Zones live on city.sim.zones.cells (not city.buildings) per the Q-012 event-sourcing pivot; legacy city.buildings stays untouched for v1 placeholder buildings.",
       "gddRef": "docs/gdd/15-zoning-and-business.md",
-      "status": "not_started",
-      "implementationRefs": [],
-      "testRefs": [],
+      "status": "partial",
+      "implementationRefs": [
+        "src/lib/sim/state.ts",
+        "src/lib/sim/events.ts"
+      ],
+      "testRefs": [
+        "tests/lib/sim/state.test.ts",
+        "tests/lib/sim/events.test.ts"
+      ],
       "followupRefs": []
     },
     {
