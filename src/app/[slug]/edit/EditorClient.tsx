@@ -50,6 +50,7 @@ import type {
   EraseZoneEvent,
   PlacePowerPlantEvent,
   PlaceServiceBuildingEvent,
+  PlaceSewageTreatmentPlantEvent,
   PlaceWaterSourceEvent,
   PlaceZoneEvent,
   RunPowerLineEvent,
@@ -601,6 +602,16 @@ export function EditorClient({
         const event: PlaceWaterSourceEvent = {
           type: 'placeWaterSource',
           payload: { kind, row, col },
+          clientCreatedAt: Date.now(),
+          authorBuilderId: builderId,
+        }
+        simEngine.enqueue(event)
+        return
+      }
+      if (selectedWaterTool === 'source-sewage-treatment') {
+        const event: PlaceSewageTreatmentPlantEvent = {
+          type: 'placeSewageTreatmentPlant',
+          payload: { row, col },
           clientCreatedAt: Date.now(),
           authorBuilderId: builderId,
         }
@@ -1269,7 +1280,9 @@ export function EditorClient({
                             ? '#3a6a8a'
                             : entry.type === 'pipe-water'
                               ? '#5fb0d0'
-                              : '#7a5a3a'
+                              : entry.type === 'pipe-sewage'
+                                ? '#7a5a3a'
+                                : '#4a3522'
                       return (
                         <button
                           key={entry.type}

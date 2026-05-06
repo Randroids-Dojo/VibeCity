@@ -444,6 +444,7 @@ export type WaterPaletteToolType =
   | 'source-pump-station'
   | 'pipe-water'
   | 'pipe-sewage'
+  | 'source-sewage-treatment'
 
 export interface WaterPaletteEntry {
   type: WaterPaletteToolType
@@ -455,6 +456,7 @@ export const WATER_PALETTE: readonly WaterPaletteEntry[] = [
   { type: 'source-pump-station', label: 'Pump Station' },
   { type: 'pipe-water', label: 'Water Pipe' },
   { type: 'pipe-sewage', label: 'Sewage Pipe' },
+  { type: 'source-sewage-treatment', label: 'Sewage Plant' },
 ]
 
 /**

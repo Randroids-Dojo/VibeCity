@@ -120,6 +120,14 @@ const WATER_PIPE_STROKE = {
 } as const
 
 /**
+ * Sewage treatment plant render constants (REQ-092 sewage slice 2 UI).
+ * Plants render in a deeper sewage brown so they read as the drain-side
+ * counterpart to a water tower at a glance.
+ */
+const SEWAGE_TREATMENT_FILL = '#4a3522'
+const SEWAGE_TREATMENT_STROKE = '#2a1c10'
+
+/**
  * Per-status zone overlay stroke (REQ-087 slice 3 visible payoff).
  * Zone overlays carry the per-kind fill from `ZONE_FILL`; the
  * stroke communicates power status: green for powered, gray for
@@ -621,6 +629,27 @@ export function SnapGrid({
                 height={CELL_PIXELS - 4}
                 fill={WATER_SOURCE_FILL[source.kind]}
                 stroke={WATER_SOURCE_STROKE[source.kind]}
+                strokeWidth={2}
+                pointerEvents="none"
+              />
+            )
+          })
+        : null}
+      {water
+        ? water.treatmentPlants.map((plant, index) => {
+            const { x, y } = cellToPixel({ row: plant.row, col: plant.col })
+            return (
+              <rect
+                key={`sewage-plant-${plant.row}-${plant.col}-${index}`}
+                data-testid="editor-sewage-treatment-plant"
+                data-sewage-plant-row={plant.row}
+                data-sewage-plant-col={plant.col}
+                x={x + 2}
+                y={y + 2}
+                width={CELL_PIXELS - 4}
+                height={CELL_PIXELS - 4}
+                fill={SEWAGE_TREATMENT_FILL}
+                stroke={SEWAGE_TREATMENT_STROKE}
                 strokeWidth={2}
                 pointerEvents="none"
               />
