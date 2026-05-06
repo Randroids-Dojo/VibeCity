@@ -184,6 +184,7 @@ describe('EMPTY_SIM_STATE', () => {
     expect(EMPTY_SIM_STATE.economy.treasury).toBe(20000)
     expect(EMPTY_SIM_STATE.economy.lastTickIncome).toBe(0)
     expect(EMPTY_SIM_STATE.economy.lastTickMaintenance).toBe(0)
+    expect(EMPTY_SIM_STATE.economy.bankruptcyTickCounter).toBe(0)
   })
 
   it('has population bucket initialized to empty cells + zero totals + 100 happiness (REQ-092 sewage slice 5 strict shape)', () => {

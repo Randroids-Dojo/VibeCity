@@ -56,7 +56,8 @@ import type {
   RunPowerLineEvent,
   RunWaterPipeEvent,
 } from '@/lib/sim/events'
-import type { SimSpeed } from '@/lib/sim/state'
+import { BANKRUPTCY_THRESHOLD_TICKS, type SimSpeed } from '@/lib/sim/state'
+import { TICK_INTERVAL_MS_BASE } from '@/lib/sim/engine'
 import {
   AUTOSAVE_STATUS_LABEL,
   DEFAULT_AUTOSAVE_DEBOUNCE_MS,
@@ -1051,6 +1052,29 @@ export function EditorClient({
         >
           {`happy ${Math.round(simState.population.cityHappiness)}`}
         </span>
+        {simState.economy.bankruptcyTickCounter > 0 ? (
+          <span
+            data-testid="editor-sim-bankruptcy-warning"
+            data-sim-bankruptcy-counter={simState.economy.bankruptcyTickCounter}
+            style={{
+              marginLeft: 6,
+              fontFamily: 'ui-monospace, Menlo, monospace',
+              color: '#a3372a',
+              fontWeight: 600,
+            }}
+          >
+            {`bankrupt in ${Math.max(
+              0,
+              Math.ceil(
+                ((BANKRUPTCY_THRESHOLD_TICKS -
+                  simState.economy.bankruptcyTickCounter) *
+                  TICK_INTERVAL_MS_BASE) /
+                  (1000 *
+                    (simState.speed === 0 ? 1 : simState.speed)),
+              ),
+            )}s`}
+          </span>
+        ) : null}
         <span
           style={{
             marginLeft: 12,
