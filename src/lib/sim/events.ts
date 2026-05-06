@@ -27,6 +27,7 @@ import {
   type ServiceKind,
   type SimState,
   type TaxRates,
+  type SewageTreatmentPlant,
   type WaterPipeKind,
   type WaterSource,
   type ZoneCell,
@@ -309,6 +310,41 @@ export const EraseWaterPipeEventSchema = EventMetaSchema.extend({
 export type EraseWaterPipeEvent = z.infer<typeof EraseWaterPipeEventSchema>
 
 /**
+ * `placeSewageTreatmentPlant` event (REQ-092 sewage slice 1). Adds a
+ * sewage treatment plant at `(row, col)`. Idempotent on duplicate
+ * anchor.
+ */
+export const PlaceSewageTreatmentPlantEventSchema = EventMetaSchema.extend({
+  type: z.literal('placeSewageTreatmentPlant'),
+  payload: z
+    .object({
+      row: z.number().int(),
+      col: z.number().int(),
+    })
+    .strict(),
+}).strict()
+export type PlaceSewageTreatmentPlantEvent = z.infer<
+  typeof PlaceSewageTreatmentPlantEventSchema
+>
+
+/**
+ * `eraseSewageTreatmentPlant` event (REQ-092 sewage slice 1). Removes
+ * the plant anchored at the cell. Identity on missing.
+ */
+export const EraseSewageTreatmentPlantEventSchema = EventMetaSchema.extend({
+  type: z.literal('eraseSewageTreatmentPlant'),
+  payload: z
+    .object({
+      row: z.number().int(),
+      col: z.number().int(),
+    })
+    .strict(),
+}).strict()
+export type EraseSewageTreatmentPlantEvent = z.infer<
+  typeof EraseSewageTreatmentPlantEventSchema
+>
+
+/**
  * Layer-specific event schemas reserved for forward-compat (REQ-105
  * disasters).
  *
@@ -348,6 +384,8 @@ export const SimEventSchema = z.discriminatedUnion('type', [
   PlaceWaterSourceEventSchema,
   RunWaterPipeEventSchema,
   EraseWaterPipeEventSchema,
+  PlaceSewageTreatmentPlantEventSchema,
+  EraseSewageTreatmentPlantEventSchema,
   PlaceholderLayerEventSchema,
 ])
 export type SimEvent = z.infer<typeof SimEventSchema>
@@ -392,6 +430,10 @@ export function applySimEvent(state: SimState, event: SimEvent): SimState {
       return applyRunWaterPipe(state, event)
     case 'eraseWaterPipe':
       return applyEraseWaterPipe(state, event)
+    case 'placeSewageTreatmentPlant':
+      return applyPlaceSewageTreatmentPlant(state, event)
+    case 'eraseSewageTreatmentPlant':
+      return applyEraseSewageTreatmentPlant(state, event)
     default:
       // Layer-specific events fall through to no-op until their slice
       // lands and extends the dispatch.
@@ -806,6 +848,43 @@ function applyEraseWaterPipe(
     water: {
       ...state.water,
       pipes: nextPipes,
+    },
+  }
+}
+
+function applyPlaceSewageTreatmentPlant(
+  state: SimState,
+  event: PlaceSewageTreatmentPlantEvent,
+): SimState {
+  const { row, col } = event.payload
+  const existing = state.water.treatmentPlants.find(
+    (p) => p.row === row && p.col === col,
+  )
+  if (existing) return state
+  const plant: SewageTreatmentPlant = { row, col }
+  return {
+    ...state,
+    water: {
+      ...state.water,
+      treatmentPlants: [...state.water.treatmentPlants, plant],
+    },
+  }
+}
+
+function applyEraseSewageTreatmentPlant(
+  state: SimState,
+  event: EraseSewageTreatmentPlantEvent,
+): SimState {
+  const { row, col } = event.payload
+  const next = state.water.treatmentPlants.filter(
+    (p) => !(p.row === row && p.col === col),
+  )
+  if (next.length === state.water.treatmentPlants.length) return state
+  return {
+    ...state,
+    water: {
+      ...state.water,
+      treatmentPlants: next,
     },
   }
 }

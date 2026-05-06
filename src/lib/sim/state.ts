@@ -328,6 +328,33 @@ export const WaterPipeKindSchema = z.enum(['water', 'sewage'])
 export type WaterPipeKind = z.infer<typeof WaterPipeKindSchema>
 
 /**
+ * Sewage treatment plant capacity in waste-units drained per tick
+ * (REQ-092 sewage slice 1 of N). One plant drains up to 100 cells'
+ * worth of accumulated waste each tick when its sewage-pipe network
+ * connects to populated cells. The constant lives here so future
+ * slices (waste accumulation, happiness penalty) can reference the
+ * single source of truth.
+ */
+export const SEWAGE_TREATMENT_CAPACITY = 100
+export const SEWAGE_TREATMENT_MAINTENANCE_PER_TICK = 0.6
+
+/**
+ * One placed sewage treatment plant (REQ-092 slice 1). Single-cell
+ * anchor. v1 has no per-plant tier; capacity is the uniform
+ * `SEWAGE_TREATMENT_CAPACITY` constant. Treatment plants pair with
+ * sewage pipes (already in the `pipes` map keyed by `"row,col"`); the
+ * future slice 2 sewage solver walks (plants + sewage pipes) the same
+ * way the water solver walks (sources + water pipes).
+ */
+export const SewageTreatmentPlantSchema = z
+  .object({
+    row: z.number().int(),
+    col: z.number().int(),
+  })
+  .strict()
+export type SewageTreatmentPlant = z.infer<typeof SewageTreatmentPlantSchema>
+
+/**
  * One placed water source (REQ-090 slice 1). Single-cell anchor +
  * kind. v1 has no per-source tier; capacity is uniform per kind.
  */
@@ -341,18 +368,20 @@ export const WaterSourceSchema = z
 export type WaterSource = z.infer<typeof WaterSourceSchema>
 
 /**
- * Water bucket (REQ-090 slice 1). `sources` array preserves
- * placement order; the slice 2 connectivity solver walks it. `pipes`
- * is keyed by `"row,col"` with the kind discriminator so a single
- * cell holds either a water pipe OR a sewage pipe (one cell, one
- * kind; an attempt to overlay water + sewage at the same cell
- * overwrites in slice 1, the UI slice will validate against
- * existing entries).
+ * Water bucket (REQ-090 slice 1, extended in REQ-092 slice 1).
+ * `sources` array preserves placement order; the connectivity solver
+ * walks it. `pipes` is keyed by `"row,col"` with the kind
+ * discriminator so a single cell holds either a water pipe OR a
+ * sewage pipe (one cell, one kind; an attempt to overlay water +
+ * sewage at the same cell overwrites). `treatmentPlants` carries the
+ * REQ-092 sewage plant anchors; the slice 2 sewage solver walks
+ * (treatmentPlants + sewage pipes) for the drain-side connectivity.
  */
 export const WaterBucketSchema = z
   .object({
     sources: z.array(WaterSourceSchema),
     pipes: z.record(z.string(), WaterPipeKindSchema),
+    treatmentPlants: z.array(SewageTreatmentPlantSchema),
   })
   .strict()
 
@@ -484,6 +513,9 @@ export type WaterBucket = z.infer<typeof WaterBucketSchema>
 export const EMPTY_WATER_BUCKET: WaterBucket = Object.freeze({
   sources: Object.freeze([] as WaterSource[]) as WaterSource[],
   pipes: Object.freeze({}) as Record<string, WaterPipeKind>,
+  treatmentPlants: Object.freeze(
+    [] as SewageTreatmentPlant[],
+  ) as SewageTreatmentPlant[],
 }) as WaterBucket
 
 /** Compose a stable pipe key matching `zoneCellKey` / `powerLineKey`. */
