@@ -63,7 +63,11 @@ import type {
   SetTaxRateEvent,
   SpawnDisasterEvent,
 } from '@/lib/sim/events'
-import { BANKRUPTCY_THRESHOLD_TICKS, type SimSpeed } from '@/lib/sim/state'
+import {
+  BANKRUPTCY_THRESHOLD_TICKS,
+  GROWTH_HAPPINESS_THRESHOLD,
+  type SimSpeed,
+} from '@/lib/sim/state'
 import { TICK_INTERVAL_MS_BASE } from '@/lib/sim/engine'
 import { computeRciDemand } from '@/lib/sim/rciDemand'
 import {
@@ -1174,11 +1178,26 @@ export function EditorClient({
             marginLeft: 6,
             fontFamily: 'ui-monospace, Menlo, monospace',
             color:
-              simState.population.cityHappiness < 50 ? '#a3372a' : undefined,
+              simState.population.cityHappiness <= GROWTH_HAPPINESS_THRESHOLD
+                ? '#a3372a'
+                : undefined,
           }}
         >
           {`happy ${Math.round(simState.population.cityHappiness)}`}
         </span>
+        {simState.population.cityHappiness <= GROWTH_HAPPINESS_THRESHOLD ? (
+          <span
+            data-testid="editor-sim-growth-stalled"
+            data-sim-growth-stalled="true"
+            style={{
+              marginLeft: 6,
+              fontFamily: 'ui-monospace, Menlo, monospace',
+              color: '#a3372a',
+            }}
+          >
+            {'growth stalled'}
+          </span>
+        ) : null}
         {simState.economy.bankruptcyTickCounter > 0 ? (
           <>
             <span
