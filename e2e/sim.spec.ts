@@ -718,6 +718,55 @@ test('editor: Water palette includes a sewage-treatment tool that paints a plant
   await expect(plantOverlay).toBeVisible()
 })
 
+test('editor: city happiness HUD drops below 100 when populated cells go unmanaged (REQ-092)', async ({
+  page,
+}) => {
+  await page.route('**/api/city/**', async (route, req) => {
+    if (req.method() === 'PUT') {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          slug: 'sim-happiness-spec',
+          versionHash: '0'.repeat(64),
+          updatedAt: 0,
+        }),
+      })
+    } else {
+      await route.fallback()
+    }
+  })
+
+  await page.goto('/sim-happiness-spec/edit')
+
+  const happiness = page.getByTestId('editor-sim-happiness')
+  await expect(happiness).toBeVisible()
+  await expect(happiness).toHaveAttribute('data-sim-happiness', '100')
+
+  // Pause for deterministic placement, then paint a residential zone.
+  await page.getByTestId('editor-sim-speed-0').click()
+  await page.getByTestId('editor-palette-category-zone').click()
+  await page
+    .locator(
+      '[data-testid="editor-snap-grid"] rect[data-cell-row="0"][data-cell-col="0"]',
+    )
+    .click()
+
+  // Resume at 4x so the first growth tick fires fast.
+  await page.getByTestId('editor-sim-speed-4').click()
+  // Wait for happiness to drop below 100 (residents accumulate waste
+  // because no treatment plant exists).
+  await expect
+    .poll(
+      async () =>
+        Number(
+          (await happiness.getAttribute('data-sim-happiness')) ?? '100',
+        ),
+      { timeout: 10000 },
+    )
+    .toBeLessThan(100)
+})
+
 test('editor: zone sewage status flips to drained when wired to a treatment plant (REQ-092)', async ({
   page,
 }) => {

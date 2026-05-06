@@ -1040,6 +1040,18 @@ export function EditorClient({
           {`$${Math.round(simState.economy.treasury).toLocaleString('en-US')}`}
         </span>
         <span
+          data-testid="editor-sim-happiness"
+          data-sim-happiness={simState.population.cityHappiness}
+          style={{
+            marginLeft: 6,
+            fontFamily: 'ui-monospace, Menlo, monospace',
+            color:
+              simState.population.cityHappiness < 50 ? '#a3372a' : undefined,
+          }}
+        >
+          {`happy ${Math.round(simState.population.cityHappiness)}`}
+        </span>
+        <span
           style={{
             marginLeft: 12,
             letterSpacing: 0.5,

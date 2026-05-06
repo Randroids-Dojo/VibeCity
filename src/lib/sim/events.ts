@@ -499,12 +499,18 @@ function applyTick(state: SimState, event: TickEvent): SimState {
   // tick with no populated cells AND nothing to clean up keeps the
   // same water bucket reference.
   const nextWater = applyWasteTick(state.water, nextPopulation, nextZones)
+  // Citizen happiness (REQ-092 slice 5). Reads the freshly-updated
+  // waste accumulation so the HUD reflects this tick's drain state.
+  const nextPopulationWithHappiness = applyHappinessTick(
+    nextPopulation,
+    nextWater,
+  )
   return {
     ...state,
     tick: nextTick,
     simTimeMs: state.simTimeMs + event.payload.deltaMs,
     zones: nextZones,
-    population: nextPopulation,
+    population: nextPopulationWithHappiness,
     economy: nextEconomy,
     water: nextWater,
   }
@@ -566,6 +572,47 @@ export function applyEconomyTick(
  * `applyTick` reducer relies on identity-on-no-change to avoid
  * allocating a new bucket reference per growth tick.
  */
+/**
+ * Compute city happiness from current waste accumulation
+ * (REQ-092 sewage slice 5). Returns a 0..100 score:
+ *   - 100 when there are no populated cells (no one to be unhappy);
+ *   - 100 - (avgWaste / WASTE_MAX_PER_CELL) * 100 when populated.
+ * The score is rounded to one decimal place so HUD reads stay
+ * stable under tiny per-tick deltas.
+ */
+export function computeCityHappiness(
+  water: WaterBucket,
+  population: PopulationBucket,
+): number {
+  const populatedKeys = Object.keys(population.cells).filter(
+    (key) => population.cells[key].residents > 0,
+  )
+  if (populatedKeys.length === 0) return 100
+  let total = 0
+  for (const key of populatedKeys) {
+    total += water.wasteAccumulation[key] ?? 0
+  }
+  const avg = total / populatedKeys.length
+  const score = 100 - (avg / WASTE_MAX_PER_CELL) * 100
+  // Clamp + round to one decimal.
+  const clamped = Math.max(0, Math.min(100, score))
+  return Math.round(clamped * 10) / 10
+}
+
+/**
+ * Per-tick happiness reducer (REQ-092 sewage slice 5). Recomputes
+ * `cityHappiness` from the freshly-updated water bucket. Identity-on-
+ * no-change short-circuits when the score is unchanged.
+ */
+export function applyHappinessTick(
+  population: PopulationBucket,
+  water: WaterBucket,
+): PopulationBucket {
+  const next = computeCityHappiness(water, population)
+  if (next === population.cityHappiness) return population
+  return { ...population, cityHappiness: next }
+}
+
 /**
  * Per-tick waste reducer (REQ-092 sewage slice 4).
  *
@@ -657,6 +704,7 @@ export function syncPopulationToZones(
     cells: nextCells,
     totalPopulation,
     totalTripDemand,
+    cityHappiness: population.cityHappiness,
   }
 }
 

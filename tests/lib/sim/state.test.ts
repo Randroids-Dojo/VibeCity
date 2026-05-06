@@ -186,11 +186,12 @@ describe('EMPTY_SIM_STATE', () => {
     expect(EMPTY_SIM_STATE.economy.lastTickMaintenance).toBe(0)
   })
 
-  it('has population bucket initialized to empty cells + zero totals (REQ-075 slice 1 strict shape)', () => {
+  it('has population bucket initialized to empty cells + zero totals + 100 happiness (REQ-092 sewage slice 5 strict shape)', () => {
     expect(EMPTY_SIM_STATE.population).toEqual({
       cells: {},
       totalPopulation: 0,
       totalTripDemand: 0,
+      cityHappiness: 100,
     })
   })
 
