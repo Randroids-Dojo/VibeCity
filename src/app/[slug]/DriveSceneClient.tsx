@@ -58,6 +58,15 @@ import {
   spawnAnchor,
 } from './driveScene'
 import {
+  AMBIENT_CAR_COUNT,
+  dirToHeadingY,
+  spawnAmbientFleet,
+  stepAmbientCar,
+  streetCellWorldCenters,
+  type AmbientCar,
+} from './ambientTraffic'
+import { pieceFootprintCells } from './edit/snapGrid'
+import {
   applyDriveStep,
   createVehicleState,
   inputFromPressedKeys,
@@ -921,6 +930,72 @@ export function DriveSceneClient({
       scene.add(buildingMesh)
     }
 
+    // Ambient AI traffic (drive-mode visual fun). N small NPC cars
+    // pick random street cells + cardinal directions and drive in
+    // straight lines at constant speed. When one leaves the grid
+    // bounds it respawns elsewhere. The pure step / spawn logic
+    // lives in `ambientTraffic.ts` so the math is unit-testable
+    // without three.js. v1 keeps each car as a flat 4-wheeled box;
+    // future polish: turning at intersections, collision, slowing
+    // for the player.
+    let ambientCars: AmbientCar[] = []
+    const ambientCarMeshes: THREE.Group[] = []
+    if (city.pieces.length > 0 && bounds) {
+      const ambientStreetCells = streetCellWorldCenters(
+        city.pieces,
+        pieceFootprintCells,
+        cellToWorld,
+      )
+      ambientCars = spawnAmbientFleet(
+        ambientStreetCells,
+        AMBIENT_CAR_COUNT,
+        Math.random,
+      )
+      const ambientBodyGeometry = new THREE.BoxGeometry(
+        CELL_SIZE * 0.18,
+        CELL_SIZE * 0.1,
+        CELL_SIZE * 0.36,
+      )
+      const ambientWheelGeometry = new THREE.CylinderGeometry(
+        CELL_SIZE * 0.04,
+        CELL_SIZE * 0.04,
+        CELL_SIZE * 0.04,
+        10,
+      )
+      ambientWheelGeometry.rotateZ(Math.PI / 2)
+      const ambientWheelMaterial = new THREE.MeshLambertMaterial({
+        color: 0x222222,
+      })
+      for (const ambient of ambientCars) {
+        const group = new THREE.Group()
+        group.name = 'ambient-car'
+        group.position.set(ambient.x, CELL_SIZE * 0.05, ambient.z)
+        group.rotation.y = dirToHeadingY(ambient.dir)
+        const bodyMaterial = new THREE.MeshLambertMaterial({
+          color: ambient.colorHex,
+        })
+        const bodyMesh = new THREE.Mesh(ambientBodyGeometry, bodyMaterial)
+        bodyMesh.position.set(0, CELL_SIZE * 0.05, 0)
+        group.add(bodyMesh)
+        for (const wheelOffset of [
+          { x: -CELL_SIZE * 0.07, z: -CELL_SIZE * 0.12 },
+          { x: CELL_SIZE * 0.07, z: -CELL_SIZE * 0.12 },
+          { x: -CELL_SIZE * 0.07, z: CELL_SIZE * 0.12 },
+          { x: CELL_SIZE * 0.07, z: CELL_SIZE * 0.12 },
+        ]) {
+          const wheel = new THREE.Mesh(
+            ambientWheelGeometry,
+            ambientWheelMaterial,
+          )
+          wheel.position.set(wheelOffset.x, CELL_SIZE * 0.02, wheelOffset.z)
+          group.add(wheel)
+        }
+        group.userData = { type: 'ambient-car' }
+        ambientCarMeshes.push(group)
+        scene.add(group)
+      }
+    }
+
     // Placeholder player vehicle (REQ-047). A primitive-composed car
     // (body + cabin + four wheels) sits at the deterministic spawn
     // anchor (REQ-036). The keyboard input slice (REQ-034) drives the
@@ -1634,6 +1709,31 @@ export function DriveSceneClient({
         )
         applyChaseCamera()
         updateCameraAttrs()
+      }
+      // Ambient traffic step. Mirrors the per-frame integration; the
+      // pure helper handles bounds + respawn so the loop here just
+      // forwards each car through `stepAmbientCar` and copies the
+      // result onto the matching mesh.
+      if (ambientCars.length > 0 && bounds) {
+        const ambientStreetCells = streetCellWorldCenters(
+          city.pieces,
+          pieceFootprintCells,
+          cellToWorld,
+        )
+        for (let i = 0; i < ambientCars.length; i++) {
+          const next = stepAmbientCar(
+            ambientCars[i],
+            dt,
+            bounds,
+            ambientStreetCells,
+            Math.random,
+          )
+          ambientCars[i] = next
+          const mesh = ambientCarMeshes[i]
+          mesh.position.x = next.x
+          mesh.position.z = next.z
+          mesh.rotation.y = dirToHeadingY(next.dir)
+        }
       }
       renderer.render(scene, camera)
     }
