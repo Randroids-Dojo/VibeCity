@@ -9,6 +9,7 @@ import {
   PLANT_MAINTENANCE_PER_TICK,
   PowerPlantKindSchema,
   RESIDENTIAL_CAPACITY_BY_DENSITY,
+  ServiceKindSchema,
   SimSpeedSchema,
   TaxRatesSchema,
   ZoneKindSchema,
@@ -19,6 +20,8 @@ import {
   type PopulationCell,
   type PowerBucket,
   type PowerPlant,
+  type ServiceBuilding,
+  type ServiceKind,
   type SimState,
   type TaxRates,
   type ZoneCell,
@@ -209,8 +212,47 @@ export const EraseLineEventSchema = EventMetaSchema.extend({
 export type EraseLineEvent = z.infer<typeof EraseLineEventSchema>
 
 /**
+ * `placeServiceBuilding` event (REQ-100 slice 1 of N). Adds a
+ * service building of the given kind at `(row, col)`. v1 records
+ * the anchor cell only; the (currently single-cell) footprint
+ * resolution lands with the UI slice when placement validation
+ * against pieces / buildings / lines / plants is needed.
+ * Idempotent on duplicate anchor + kind clicks.
+ */
+export const PlaceServiceBuildingEventSchema = EventMetaSchema.extend({
+  type: z.literal('placeServiceBuilding'),
+  payload: z
+    .object({
+      kind: ServiceKindSchema,
+      row: z.number().int(),
+      col: z.number().int(),
+    })
+    .strict(),
+}).strict()
+export type PlaceServiceBuildingEvent = z.infer<
+  typeof PlaceServiceBuildingEventSchema
+>
+
+/**
+ * `eraseServiceBuilding` event (REQ-100 slice 1 of N). Removes any
+ * service building anchored at `(row, col)`. Identity on no-op.
+ */
+export const EraseServiceBuildingEventSchema = EventMetaSchema.extend({
+  type: z.literal('eraseServiceBuilding'),
+  payload: z
+    .object({
+      row: z.number().int(),
+      col: z.number().int(),
+    })
+    .strict(),
+}).strict()
+export type EraseServiceBuildingEvent = z.infer<
+  typeof EraseServiceBuildingEventSchema
+>
+
+/**
  * Layer-specific event schemas reserved for forward-compat (REQ-090
- * through REQ-105).
+ * water and REQ-105 disasters).
  *
  * Reserved in the union for forward-compat so a city built on a newer
  * sim layer can be loaded by a substrate-only client without a parse
@@ -219,17 +261,13 @@ export type EraseLineEvent = z.infer<typeof EraseLineEventSchema>
  * (see `applySimEvent` below). Each layer slice replaces its placeholder
  * schema with a strict spec when it lands.
  *
- * `placeZone` / `eraseZone` (REQ-080) and `placePowerPlant` /
- * `runPowerLine` / `eraseLine` (REQ-085) are NOT in this list because
- * their owning slices ship strict schemas; the discriminated union
- * below routes them to their typed variants.
+ * `placeZone` / `eraseZone` (REQ-080), `placePowerPlant` /
+ * `runPowerLine` / `eraseLine` (REQ-085), and `placeServiceBuilding` /
+ * `eraseServiceBuilding` (REQ-100) all have strict schemas and are
+ * routed in the union below.
  */
 const PlaceholderLayerEventSchema = EventMetaSchema.extend({
-  type: z.enum([
-    'placeWaterSource',
-    'placeServiceBuilding',
-    'spawnDisaster',
-  ]),
+  type: z.enum(['placeWaterSource', 'spawnDisaster']),
   payload: z.unknown(),
 }).strict()
 export type PlaceholderLayerEvent = z.infer<typeof PlaceholderLayerEventSchema>
@@ -246,6 +284,8 @@ export const SimEventSchema = z.discriminatedUnion('type', [
   PlacePowerPlantEventSchema,
   RunPowerLineEventSchema,
   EraseLineEventSchema,
+  PlaceServiceBuildingEventSchema,
+  EraseServiceBuildingEventSchema,
   PlaceholderLayerEventSchema,
 ])
 export type SimEvent = z.infer<typeof SimEventSchema>
@@ -280,6 +320,10 @@ export function applySimEvent(state: SimState, event: SimEvent): SimState {
       return applyRunPowerLine(state, event)
     case 'eraseLine':
       return applyEraseLine(state, event)
+    case 'placeServiceBuilding':
+      return applyPlaceServiceBuilding(state, event)
+    case 'eraseServiceBuilding':
+      return applyEraseServiceBuilding(state, event)
     default:
       // Layer-specific events fall through to no-op until their slice
       // lands and extends the dispatch.
@@ -597,6 +641,47 @@ function applyEraseLine(state: SimState, event: EraseLineEvent): SimState {
     power: {
       ...state.power,
       lines: nextLines,
+    },
+  }
+}
+
+function applyPlaceServiceBuilding(
+  state: SimState,
+  event: PlaceServiceBuildingEvent,
+): SimState {
+  const { kind, row, col } = event.payload
+  // Idempotent on the same anchor + kind: a player clicking twice
+  // on the same anchor with the same service kind selected gets
+  // one building, not two. Different kinds at the same anchor
+  // stack for v1 (the UI slice will add overlap validation).
+  const existing = state.services.buildings.find(
+    (b) => b.row === row && b.col === col && b.kind === kind,
+  )
+  if (existing) return state
+  const building: ServiceBuilding = { kind, row, col }
+  return {
+    ...state,
+    services: {
+      ...state.services,
+      buildings: [...state.services.buildings, building],
+    },
+  }
+}
+
+function applyEraseServiceBuilding(
+  state: SimState,
+  event: EraseServiceBuildingEvent,
+): SimState {
+  const { row, col } = event.payload
+  const filtered = state.services.buildings.filter(
+    (b) => !(b.row === row && b.col === col),
+  )
+  if (filtered.length === state.services.buildings.length) return state
+  return {
+    ...state,
+    services: {
+      ...state.services,
+      buildings: filtered,
     },
   }
 }

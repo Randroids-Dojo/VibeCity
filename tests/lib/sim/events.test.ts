@@ -203,10 +203,10 @@ describe('applySimEvent', () => {
   })
 
   describe('layer-specific events (forward-compat)', () => {
-    it('returns state unchanged for placeServiceBuilding (REQ-100 not landed yet)', () => {
+    it('returns state unchanged for spawnDisaster (REQ-105 not landed yet)', () => {
       const event: SimEvent = {
-        type: 'placeServiceBuilding',
-        payload: { kind: 'police', row: 0, col: 0 },
+        type: 'spawnDisaster',
+        payload: { kind: 'fire', row: 0, col: 0 },
         clientCreatedAt: 0,
         authorBuilderId: A_BUILDER,
       }
@@ -597,6 +597,112 @@ describe('applySimEvent', () => {
       const a = applyMany(EMPTY_SIM_STATE, events)
       const b = applyMany(EMPTY_SIM_STATE, events)
       expect(a.population).toEqual(b.population)
+    })
+  })
+
+  describe('placeServiceBuilding + eraseServiceBuilding (REQ-100 slice 1)', () => {
+    function placeService(
+      kind:
+        | 'police-station'
+        | 'fire-station'
+        | 'hospital'
+        | 'school'
+        | 'garbage-depot',
+      row: number,
+      col: number,
+    ): SimEvent {
+      return {
+        type: 'placeServiceBuilding',
+        payload: { kind, row, col },
+        clientCreatedAt: 0,
+        authorBuilderId: A_BUILDER,
+      }
+    }
+
+    function eraseService(row: number, col: number): SimEvent {
+      return {
+        type: 'eraseServiceBuilding',
+        payload: { row, col },
+        clientCreatedAt: 0,
+        authorBuilderId: A_BUILDER,
+      }
+    }
+
+    it('appends a single police station', () => {
+      const next = applySimEvent(
+        EMPTY_SIM_STATE,
+        placeService('police-station', 0, 0),
+      )
+      expect(next.services.buildings).toHaveLength(1)
+      expect(next.services.buildings[0]).toEqual({
+        kind: 'police-station',
+        row: 0,
+        col: 0,
+      })
+    })
+
+    it('returns identity on duplicate anchor + kind', () => {
+      const after = applySimEvent(
+        EMPTY_SIM_STATE,
+        placeService('police-station', 0, 0),
+      )
+      const again = applySimEvent(after, placeService('police-station', 0, 0))
+      expect(again).toBe(after)
+    })
+
+    it('allows different service kinds at the same anchor', () => {
+      let s = applySimEvent(
+        EMPTY_SIM_STATE,
+        placeService('police-station', 0, 0),
+      )
+      s = applySimEvent(s, placeService('fire-station', 0, 0))
+      expect(s.services.buildings).toHaveLength(2)
+    })
+
+    it('appends multiple buildings at distinct anchors', () => {
+      let s = applySimEvent(
+        EMPTY_SIM_STATE,
+        placeService('police-station', 0, 0),
+      )
+      s = applySimEvent(s, placeService('fire-station', 5, 5))
+      s = applySimEvent(s, placeService('hospital', 2, 7))
+      s = applySimEvent(s, placeService('school', -3, 1))
+      s = applySimEvent(s, placeService('garbage-depot', 4, -2))
+      expect(s.services.buildings).toHaveLength(5)
+    })
+
+    it('eraseServiceBuilding removes a placed service', () => {
+      let s = applySimEvent(EMPTY_SIM_STATE, placeService('hospital', 2, 3))
+      s = applySimEvent(s, eraseService(2, 3))
+      expect(s.services.buildings).toHaveLength(0)
+    })
+
+    it('eraseServiceBuilding returns identity when no service at the cell', () => {
+      const next = applySimEvent(EMPTY_SIM_STATE, eraseService(0, 0))
+      expect(next).toBe(EMPTY_SIM_STATE)
+    })
+
+    it('eraseServiceBuilding with multiple-kinds-at-same-anchor removes all of them', () => {
+      let s = applySimEvent(
+        EMPTY_SIM_STATE,
+        placeService('police-station', 0, 0),
+      )
+      s = applySimEvent(s, placeService('fire-station', 0, 0))
+      expect(s.services.buildings).toHaveLength(2)
+      s = applySimEvent(s, eraseService(0, 0))
+      expect(s.services.buildings).toHaveLength(0)
+    })
+
+    it('two replays of the same event log derive identical services state', () => {
+      const events: SimEvent[] = [
+        placeService('police-station', 0, 0),
+        placeService('hospital', 5, 5),
+        placeService('school', -2, 3),
+        eraseService(0, 0),
+      ]
+      const a = applyMany(EMPTY_SIM_STATE, events)
+      const b = applyMany(EMPTY_SIM_STATE, events)
+      expect(a.services).toEqual(b.services)
     })
   })
 

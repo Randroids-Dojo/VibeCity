@@ -1347,9 +1347,15 @@
       "id": "REQ-100",
       "requirement": "Services: five v1 service buildings (police-station, fire-station, hospital, school, garbage-depot) each with fixed coverage radius and per-tick maintenance cost, per-tick coverage solver per service-type for every populated cell, citizen happiness penalty per missing service-type, service-specific behaviors (police lower crime, fire lower fire-disaster spawn, hospital lower sickness, school raise property value, garbage prevent garbage accumulation), drive-visible service buildings with active-event signals.",
       "gddRef": "docs/gdd/19-services.md",
-      "status": "not_started",
-      "implementationRefs": [],
-      "testRefs": [],
+      "status": "partial",
+      "implementationRefs": [
+        "src/lib/sim/state.ts",
+        "src/lib/sim/events.ts"
+      ],
+      "testRefs": [
+        "tests/lib/sim/state.test.ts",
+        "tests/lib/sim/events.test.ts"
+      ],
       "followupRefs": []
     },
     {
