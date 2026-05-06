@@ -3,6 +3,7 @@ import type { City } from '@/lib/schemas'
 import type {
   PowerBucket,
   ServicesBucket,
+  WaterBucket,
   ZonesBucket,
 } from '@/lib/sim/state'
 import { solvePowerStatus, type CellPowerStatus } from '@/lib/sim/powerSolver'
@@ -88,6 +89,33 @@ const SERVICE_STROKE = {
   hospital: '#8a2f2f',
   school: '#5a3f8a',
   'garbage-depot': '#3a3a20',
+} as const
+
+/**
+ * Per-water-source render constants (REQ-090 slice 2 UI).
+ */
+const WATER_SOURCE_FILL = {
+  'water-tower': '#5a8aae',
+  'pump-station': '#3a6a8a',
+} as const
+
+const WATER_SOURCE_STROKE = {
+  'water-tower': '#3a5f7a',
+  'pump-station': '#1f4a60',
+} as const
+
+/**
+ * Per-pipe-kind render constants. Water pipes render in light blue
+ * (fresh water); sewage pipes render in dark brown (waste line).
+ */
+const WATER_PIPE_FILL = {
+  water: '#5fb0d0',
+  sewage: '#7a5a3a',
+} as const
+
+const WATER_PIPE_STROKE = {
+  water: '#3a8aa0',
+  sewage: '#4a3a20',
 } as const
 
 /**
@@ -251,6 +279,7 @@ export function SnapGrid({
   zones,
   power,
   services,
+  water,
   onSurfaceWheel,
   onSurfacePointerDown,
 }: {
@@ -292,6 +321,13 @@ export function SnapGrid({
    * open-end warnings stay legible.
    */
   services?: ServicesBucket | null
+  /**
+   * Optional sim water layer (REQ-090 slice 2 UI). When supplied,
+   * each pipe cell renders as a small kind-tinted square overlay
+   * and each source as a kind-distinct anchor square. Pipes / sources
+   * render after the services layer but before the connector glyphs.
+   */
+  water?: WaterBucket | null
   onSurfaceWheel?: (event: ReactWheelEvent<SVGSVGElement>) => void
   onSurfacePointerDown?: (event: ReactPointerEvent<SVGSVGElement>) => void
 }) {
@@ -530,6 +566,54 @@ export function SnapGrid({
                 height={CELL_PIXELS - 8}
                 fill={SERVICE_FILL[building.kind]}
                 stroke={SERVICE_STROKE[building.kind]}
+                strokeWidth={2}
+                pointerEvents="none"
+              />
+            )
+          })
+        : null}
+      {water
+        ? Object.entries(water.pipes).map(([key, kind]) => {
+            const [rowStr, colStr] = key.split(',')
+            const row = Number(rowStr)
+            const col = Number(colStr)
+            if (!Number.isFinite(row) || !Number.isFinite(col)) return null
+            const { x, y } = cellToPixel({ row, col })
+            return (
+              <rect
+                key={`water-pipe-${key}`}
+                data-testid="editor-water-pipe"
+                data-water-pipe-row={row}
+                data-water-pipe-col={col}
+                data-water-pipe-kind={kind}
+                x={x + CELL_PIXELS / 4}
+                y={y + CELL_PIXELS / 4}
+                width={CELL_PIXELS / 2}
+                height={CELL_PIXELS / 2}
+                fill={WATER_PIPE_FILL[kind]}
+                stroke={WATER_PIPE_STROKE[kind]}
+                strokeWidth={1}
+                pointerEvents="none"
+              />
+            )
+          })
+        : null}
+      {water
+        ? water.sources.map((source, index) => {
+            const { x, y } = cellToPixel({ row: source.row, col: source.col })
+            return (
+              <rect
+                key={`water-source-${source.kind}-${source.row}-${source.col}-${index}`}
+                data-testid="editor-water-source"
+                data-water-source-kind={source.kind}
+                data-water-source-row={source.row}
+                data-water-source-col={source.col}
+                x={x + 2}
+                y={y + 2}
+                width={CELL_PIXELS - 4}
+                height={CELL_PIXELS - 4}
+                fill={WATER_SOURCE_FILL[source.kind]}
+                stroke={WATER_SOURCE_STROKE[source.kind]}
                 strokeWidth={2}
                 pointerEvents="none"
               />

@@ -16,6 +16,16 @@ Format for each slice:
 - Followups: any new `F-NNN` entries created. Link to them.
 ```
 
+## 2026-05-06, REQ-090 Water Slice 2: Editor Water Tab + 4 Tools
+
+- Branch: `feature/20260506-water-ui`
+- PR: #N (when known)
+- Changed: First user-visible water-layer feature on top of slice 1. Editor's category switcher gains a sixth tab (Streets / Buildings / Zones / Power / Services / Water); the Water palette exposes Water Tower / Pump Station / Water Pipe / Sewage Pipe buttons. Cell click branches: source tools dispatch `placeWaterSource`, pipe tools dispatch `runWaterPipe` with kind, erase mode dispatches `eraseWaterPipe`. SnapGridView accepts an optional `water` prop and renders each pipe as a kind-tinted half-cell overlay (water bright blue, sewage brown) and each source as a kind-tinted full-cell overlay.
+- Verification: `npm run type-check` green. `npm test` 1951/1951 unit pass (no new unit cases; UI exercised by e2e). `npm run build` green. `npm run check:dashes` clean. `git diff --check` clean. `npx playwright test e2e/sim.spec.ts --project=chromium` 15/15 local (14 prior + 1 new water-tab case).
+- Assumptions: Default selected water tool is the water pipe because most water-grid edits are running pipe cells (mirrors the power-line precedent). The editor renders sewage pipes in brown rather than blue to read as "waste line" at a glance; the visual distinction matters for connectivity-solver work in slice 3 where water pipes feed zones and sewage pipes drain to treatment plants. The `data-water-pipe-kind` attribute (water | sewage) is the e2e assertion surface; the connectivity solver in slice 3 reads from the same `simState.water.pipes` Record.
+- GDD coverage: REQ-090 stays `partial` (connectivity solver REQ-093, sewage waste REQ-092, drive signals REQ-094 still outstanding). `implementationRefs` extended with the editor files. `testRefs` extended with `e2e/sim.spec.ts`. `docs/gdd/17-water-and-sewage.md` Status stays `partial`; gains a build log entry.
+- Followups: none new. Next REQ-090 slices: connectivity solver mirroring `powerSolver.ts` pattern (REQ-093, slice 3), sewage waste accumulation on populated cells (REQ-092), drive-visible water towers + sewage treatment plants (REQ-094).
+
 ## 2026-05-06, REQ-090 Water Slice 1: Schema + Place/Erase Events + Reducer
 
 - Branch: `feature/20260506-water-events`

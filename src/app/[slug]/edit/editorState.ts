@@ -292,6 +292,7 @@ export type PaletteCategory =
   | 'zone'
   | 'power'
   | 'services'
+  | 'water'
 
 /**
  * Default palette category on first render (REQ-028).
@@ -429,6 +430,39 @@ export const SERVICE_PALETTE: readonly ServicePaletteEntry[] = [
  * worst fastest in the absence of a station.
  */
 export const DEFAULT_SERVICE_TOOL: ServicePaletteToolType = 'police-station'
+
+/**
+ * v1 water palette (REQ-090 slice 2 UI).
+ *
+ * Four tools: water-tower / pump-station sources, plus water pipe /
+ * sewage pipe variants. Click in water mode dispatches
+ * `placeWaterSource` (for sources) or `runWaterPipe` with the kind
+ * discriminator (for pipes). Erase mode dispatches `eraseWaterPipe`.
+ */
+export type WaterPaletteToolType =
+  | 'source-water-tower'
+  | 'source-pump-station'
+  | 'pipe-water'
+  | 'pipe-sewage'
+
+export interface WaterPaletteEntry {
+  type: WaterPaletteToolType
+  label: string
+}
+
+export const WATER_PALETTE: readonly WaterPaletteEntry[] = [
+  { type: 'source-water-tower', label: 'Water Tower' },
+  { type: 'source-pump-station', label: 'Pump Station' },
+  { type: 'pipe-water', label: 'Water Pipe' },
+  { type: 'pipe-sewage', label: 'Sewage Pipe' },
+]
+
+/**
+ * Default selected water tool on first render. Water pipe is the
+ * lowest-friction default because most water-grid edits are running
+ * pipe cells.
+ */
+export const DEFAULT_WATER_TOOL: WaterPaletteToolType = 'pipe-water'
 
 /**
  * Place a building on the grid (REQ-028, REQ-029).
