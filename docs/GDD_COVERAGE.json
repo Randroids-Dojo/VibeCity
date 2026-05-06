@@ -1244,11 +1244,19 @@
     },
     {
       "id": "REQ-075",
-      "requirement": "Citizens layer: per-cell residential population integer (capacity by building type), pedestrian sprite render proxies on sidewalk-adjacent cells, NPC vehicle traffic per trip-demand event, trip demand counter per residential cell flowing toward nearest commercial / industrial cell, growth and decline gated by services + employment + power.",
+      "requirement": "Citizens layer: per-cell residential population integer (capacity by zone density: 0=0, 1=4, 2=12, 3=40 mirroring SimCity 2000 organic-growth taxonomy), pedestrian sprite render proxies on sidewalk-adjacent cells, NPC vehicle traffic per trip-demand event, trip demand counter per residential cell flowing toward nearest commercial / industrial cell, growth and decline gated by services + employment + power.",
       "gddRef": "docs/gdd/14-citizens.md",
-      "status": "not_started",
-      "implementationRefs": [],
-      "testRefs": [],
+      "status": "partial",
+      "implementationRefs": [
+        "src/lib/sim/state.ts",
+        "src/lib/sim/events.ts",
+        "src/app/[slug]/edit/EditorClient.tsx"
+      ],
+      "testRefs": [
+        "tests/lib/sim/state.test.ts",
+        "tests/lib/sim/events.test.ts",
+        "e2e/sim.spec.ts"
+      ],
       "followupRefs": []
     },
     {

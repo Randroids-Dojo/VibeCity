@@ -6,11 +6,14 @@ import {
   EMPTY_SIM_STATE,
   GROWTH_INTERVAL_TICKS,
   PowerPlantKindSchema,
+  RESIDENTIAL_CAPACITY_BY_DENSITY,
   SimSpeedSchema,
   TaxRatesSchema,
   ZoneKindSchema,
   powerLineKey,
   zoneCellKey,
+  type PopulationBucket,
+  type PopulationCell,
   type PowerPlant,
   type SimState,
   type ZoneCell,
@@ -303,11 +306,81 @@ function applyTick(state: SimState, event: TickEvent): SimState {
   if (state.speed === 0) return state
   const nextTick = state.tick + 1
   const nextZones = maybeGrowZones(state.zones, nextTick)
+  // Population follows zone density. The sync runs on every growth
+  // tick so a place + grow + erase sequence cleans up the population
+  // entry the next time the growth interval fires (within ~5s at
+  // 1x). The helper is identity-on-no-change so a growth tick that
+  // did not advance any cell AND has nothing to clean up returns
+  // the same bucket reference; non-growth ticks skip the sync
+  // entirely so the per-tick cost stays bounded.
+  const isGrowthTick =
+    nextTick > 0 && nextTick % GROWTH_INTERVAL_TICKS === 0
+  const nextPopulation = isGrowthTick
+    ? syncPopulationToZones(state.population, nextZones)
+    : state.population
   return {
     ...state,
     tick: nextTick,
     simTimeMs: state.simTimeMs + event.payload.deltaMs,
     zones: nextZones,
+    population: nextPopulation,
+  }
+}
+
+/**
+ * Sync population residents to the current zone densities (REQ-075
+ * slice 1). For each residential zone cell, set residents =
+ * `RESIDENTIAL_CAPACITY_BY_DENSITY[cell.density]`. Cells that drop
+ * out of the zones map (eraseZone) are removed from the population
+ * cells map. Commercial and industrial zones do not contribute to
+ * residents in slice 1; they will contribute to job slots and trip
+ * demand in a follow-on slice (REQ-083).
+ *
+ * Returns the input bucket unchanged when nothing changed; the
+ * `applyTick` reducer relies on identity-on-no-change to avoid
+ * allocating a new bucket reference per growth tick.
+ */
+export function syncPopulationToZones(
+  population: PopulationBucket,
+  zones: ZonesBucket,
+): PopulationBucket {
+  const nextCells: Record<string, PopulationCell> = {}
+  let totalPopulation = 0
+  let totalTripDemand = 0
+  let changed = false
+  // Walk every zoned cell. Residential zones contribute residents.
+  for (const [key, zone] of Object.entries(zones.cells)) {
+    if (zone.kind !== 'residential') continue
+    const targetResidents = RESIDENTIAL_CAPACITY_BY_DENSITY[zone.density]
+    const existing = population.cells[key]
+    const tripDemand = existing?.tripDemand ?? 0
+    const residents = targetResidents
+    if (
+      !existing ||
+      existing.residents !== residents ||
+      existing.tripDemand !== tripDemand
+    ) {
+      changed = true
+    }
+    nextCells[key] = { residents, tripDemand }
+    totalPopulation += residents
+    totalTripDemand += tripDemand
+  }
+  // Detect cells that fell out of the zones map (e.g. an eraseZone or
+  // a retype to commercial / industrial would remove the residential
+  // entry from population).
+  for (const key of Object.keys(population.cells)) {
+    if (!nextCells[key]) {
+      changed = true
+    }
+  }
+  if (!changed && Object.keys(nextCells).length === Object.keys(population.cells).length) {
+    return population
+  }
+  return {
+    cells: nextCells,
+    totalPopulation,
+    totalTripDemand,
   }
 }
 

@@ -915,6 +915,13 @@ export function EditorClient({
           {`tick ${simState.tick}`}
         </span>
         <span
+          data-testid="editor-sim-population"
+          data-sim-population={simState.population.totalPopulation}
+          style={{ marginLeft: 6, fontFamily: 'ui-monospace, Menlo, monospace' }}
+        >
+          {`pop ${simState.population.totalPopulation}`}
+        </span>
+        <span
           style={{
             marginLeft: 12,
             letterSpacing: 0.5,
