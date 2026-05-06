@@ -335,7 +335,7 @@ test('editor: treasury starts at 20000 and decreases as power infrastructure is 
   const treasury = page.getByTestId('editor-sim-treasury')
   await expect(treasury).toHaveAttribute('data-sim-treasury', '20000')
 
-  // Place a coal plant (no maintenance applied while paused).
+  // Place a coal plant (one-time build cost = 4000 deducted on placement).
   await page.getByTestId('editor-palette-category-power').click()
   const palette = page.getByTestId('editor-palette')
   await palette.locator('[data-power-tool="plant-coal"]').click()
@@ -345,24 +345,22 @@ test('editor: treasury starts at 20000 and decreases as power infrastructure is 
     )
     .click()
 
-  // Treasury still 20000 because no tick has fired (sim is paused).
-  await expect(treasury).toHaveAttribute('data-sim-treasury', '20000')
+  // Build cost (REQ-095 slice 2): 20000 - 4000 = 16000.
+  await expect(treasury).toHaveAttribute('data-sim-treasury', '16000')
 
-  // Unpause to 4x; one tick at 4x = 62.5ms; plant maintenance is
-  // 0.5/tick. After several ticks the treasury should drop visibly.
+  // Unpause to 4x; per-tick plant maintenance is 0.5. After several
+  // ticks the treasury should drop visibly below the 16000 build-cost
+  // baseline.
   await page.getByTestId('editor-sim-speed-4').click()
-  // Wait long enough for at least 5 ticks to fire (~315ms at 4x).
-  // After 10 ticks the treasury would be 20000 - 5 = 19995 (rounds
-  // to 19995); using inequality is more flake-tolerant than equality.
   await expect
     .poll(
       async () => {
         const value = await treasury.getAttribute('data-sim-treasury')
-        return Number.parseInt(value ?? '20000', 10)
+        return Number.parseInt(value ?? '16000', 10)
       },
       { timeout: 4000 },
     )
-    .toBeLessThan(20000)
+    .toBeLessThan(16000)
 })
 
 test('editor: residential zone growth bumps population readout (REQ-075)', async ({

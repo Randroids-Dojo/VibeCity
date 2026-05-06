@@ -918,9 +918,11 @@ describe('applySimEvent', () => {
         authorBuilderId: A_BUILDER,
       })
       const next = tickN(1, s)
-      // 1 line * 0.05 = 0.05 maintenance per tick
+      // 1 line * 0.05 = 0.05 maintenance per tick. Treasury already
+      // dropped by POWER_LINE_BUILD_COST = 5 on the placement (REQ-095
+      // slice 2): 20000 - 5 - 0.05 = 19994.95.
       expect(next.economy.lastTickMaintenance).toBeCloseTo(0.05, 5)
-      expect(next.economy.treasury).toBeCloseTo(19999.95, 5)
+      expect(next.economy.treasury).toBeCloseTo(19994.95, 5)
     })
 
     it('a coal plant drains plant maintenance per tick', () => {
@@ -931,9 +933,11 @@ describe('applySimEvent', () => {
         authorBuilderId: A_BUILDER,
       })
       const next = tickN(1, s)
-      // 1 plant * 0.5 = 0.5 maintenance per tick
+      // 1 plant * 0.5 = 0.5 maintenance per tick. Treasury already
+      // dropped by POWER_PLANT_BUILD_COST.coal = 4000 on the
+      // placement (REQ-095 slice 2): 20000 - 4000 - 0.5 = 15999.5.
       expect(next.economy.lastTickMaintenance).toBeCloseTo(0.5, 5)
-      expect(next.economy.treasury).toBeCloseTo(19999.5, 5)
+      expect(next.economy.treasury).toBeCloseTo(15999.5, 5)
     })
 
     it('residents generate income per tick at the residential tax rate', () => {
@@ -1284,6 +1288,91 @@ describe('applySimEvent', () => {
       const a = applyMany(EMPTY_SIM_STATE, events)
       const b = applyMany(EMPTY_SIM_STATE, events)
       expect(a.population.cityHappiness).toBe(b.population.cityHappiness)
+    })
+  })
+
+  describe('build cost on placement (REQ-095 slice 2)', () => {
+    it('placing a residential zone deducts ZONE_BUILD_COST.residential', () => {
+      const s = applySimEvent(EMPTY_SIM_STATE, {
+        type: 'placeZone',
+        payload: { kind: 'residential', row: 0, col: 0 },
+        clientCreatedAt: 0,
+        authorBuilderId: A_BUILDER,
+      })
+      expect(s.economy.treasury).toBe(19950)
+    })
+
+    it('placing a coal plant deducts POWER_PLANT_BUILD_COST.coal', () => {
+      const s = applySimEvent(EMPTY_SIM_STATE, {
+        type: 'placePowerPlant',
+        payload: { kind: 'coal', row: 0, col: 0 },
+        clientCreatedAt: 0,
+        authorBuilderId: A_BUILDER,
+      })
+      expect(s.economy.treasury).toBe(16000)
+    })
+
+    it('running a power line deducts POWER_LINE_BUILD_COST', () => {
+      const s = applySimEvent(EMPTY_SIM_STATE, {
+        type: 'runPowerLine',
+        payload: { row: 0, col: 0 },
+        clientCreatedAt: 0,
+        authorBuilderId: A_BUILDER,
+      })
+      expect(s.economy.treasury).toBe(19995)
+    })
+
+    it('placing a hospital deducts SERVICE_BUILD_COST.hospital', () => {
+      const s = applySimEvent(EMPTY_SIM_STATE, {
+        type: 'placeServiceBuilding',
+        payload: { kind: 'hospital', row: 0, col: 0 },
+        clientCreatedAt: 0,
+        authorBuilderId: A_BUILDER,
+      })
+      expect(s.economy.treasury).toBe(18500)
+    })
+
+    it('placing a sewage treatment plant deducts SEWAGE_TREATMENT_BUILD_COST', () => {
+      const s = applySimEvent(EMPTY_SIM_STATE, {
+        type: 'placeSewageTreatmentPlant',
+        payload: { row: 0, col: 0 },
+        clientCreatedAt: 0,
+        authorBuilderId: A_BUILDER,
+      })
+      expect(s.economy.treasury).toBe(17500)
+    })
+
+    it('does NOT charge again on a duplicate place (idempotent path)', () => {
+      let s = applySimEvent(EMPTY_SIM_STATE, {
+        type: 'placePowerPlant',
+        payload: { kind: 'coal', row: 0, col: 0 },
+        clientCreatedAt: 0,
+        authorBuilderId: A_BUILDER,
+      })
+      const after = s
+      s = applySimEvent(s, {
+        type: 'placePowerPlant',
+        payload: { kind: 'coal', row: 0, col: 0 },
+        clientCreatedAt: 1,
+        authorBuilderId: A_BUILDER,
+      })
+      expect(s).toBe(after) // identity on duplicate
+      expect(s.economy.treasury).toBe(16000)
+    })
+
+    it('treasury is allowed to go negative when build cost exceeds balance', () => {
+      // Five coal plants = 20000 spent, sixth pushes treasury negative.
+      let s: SimState = EMPTY_SIM_STATE
+      for (let i = 0; i < 6; i++) {
+        s = applySimEvent(s, {
+          type: 'placePowerPlant',
+          payload: { kind: 'coal', row: i, col: 0 },
+          clientCreatedAt: i,
+          authorBuilderId: A_BUILDER,
+        })
+      }
+      expect(s.economy.treasury).toBe(20000 - 6 * 4000)
+      expect(s.economy.treasury).toBeLessThan(0)
     })
   })
 
