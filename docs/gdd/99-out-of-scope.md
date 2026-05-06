@@ -57,5 +57,5 @@ VibeCity reuses VibeRacer's vehicle and driving systems but is explicitly not a 
 
 ### Build log
 
-- 2026-05-05: Open-edit clarified in the Auth and identity fence. The "Slug ownership transfer" line was a v1-with-owner formulation; rewrote it to "Slug ownership" with the open-edit framing so the doc names the design tenant directly instead of describing a transfer flow that does not apply. Files: `docs/gdd/99-out-of-scope.md`. PR #N.
+- 2026-05-05: Open-edit clarified in the Auth and identity fence. The "Slug ownership transfer" line was a v1-with-owner formulation; rewrote it to "Slug ownership" with the open-edit framing so the doc names the design tenet directly instead of describing a transfer flow that does not apply. Files: `docs/gdd/99-out-of-scope.md`. PR #N.
 - 2026-05-03: Out-of-scope fence drafted. Files: `docs/gdd/99-out-of-scope.md`. PR #N/A (scaffold seed).

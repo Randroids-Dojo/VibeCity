@@ -2,11 +2,13 @@
 
 **Status:** partial
 
-VibeCity has no sign-up. Identity is a per-browser anonymous id used to
-attribute saves to a builder for activity tracking and future "cities I
-made" surfaces. VibeCity is open-edit: any visitor can overwrite any
-slug, so the builder id is identity-only, not a write gate. There is no
-profile, no email, no password.
+VibeCity has no sign-up. Identity is a per-browser anonymous id minted
+on first visit and shape-validated on every save. VibeCity is
+open-edit: any visitor can overwrite any slug, so the builder id is
+identity-only and is not a write gate. The id is available for future
+activity attribution surfaces ("cities I edited from this browser",
+moderation tools), but v1 does not persist it alongside the saved city.
+There is no profile, no email, no password.
 
 ## What it is
 
@@ -19,12 +21,13 @@ profile, no email, no password.
 
 ## What it does
 
-- Tags every save with the builder's id (carried in the request cookie) so
-  a future activity surface can show "cities recently edited from this
-  browser" without an account flow.
+- Carries the builder id on every save request via the cookie. v1 does
+  NOT store the id alongside the saved city; the id is available to a
+  future activity surface that wants to show "cities recently edited
+  from this browser" once a write path persists it.
 - Gives the persistence layer (REQ-014) a stable identity for the PUT
   path; the route validates the cookie shape but does not gate writes
-  per cookie. Open-edit is a core tenant of VibeCity.
+  per cookie. Open-edit is a core tenet of VibeCity.
 - Gives the home page (REQ-050) the option to filter "cities I made"
   client-side without any account flow.
 

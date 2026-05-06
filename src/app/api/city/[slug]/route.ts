@@ -57,7 +57,9 @@ export async function GET(
  *
  * Open-edit by design: any visitor with a valid builder id cookie can
  * write to any slug. There is no per-slug owner; the builder id stays
- * minted (middleware) for activity attribution but is not a write gate.
+ * minted (middleware) and shape-validated here, available for future
+ * activity attribution, but is not persisted with the save and is not a
+ * write gate.
  *
  * Validates body against `CitySchema`, validates the builder id cookie,
  * computes `hash = hashCity(body)`, and writes:
