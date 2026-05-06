@@ -922,6 +922,18 @@ export function EditorClient({
           {`pop ${simState.population.totalPopulation}`}
         </span>
         <span
+          data-testid="editor-sim-treasury"
+          data-sim-treasury={Math.round(simState.economy.treasury)}
+          style={{
+            marginLeft: 6,
+            fontFamily: 'ui-monospace, Menlo, monospace',
+            color:
+              simState.economy.treasury < 0 ? '#a3372a' : undefined,
+          }}
+        >
+          {`$${Math.round(simState.economy.treasury).toLocaleString('en-US')}`}
+        </span>
+        <span
           style={{
             marginLeft: 12,
             letterSpacing: 0.5,

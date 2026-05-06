@@ -302,7 +302,46 @@ export function powerLineKey(row: number, col: number): string {
 }
 
 export const WaterBucketSchema = z.object({}).passthrough()
-export const EconomyBucketSchema = z.object({}).passthrough()
+
+/**
+ * Economy layer constants (REQ-095 slice 1 of N).
+ *
+ * Treasury starts at `INITIAL_TREASURY = 20000` (SimCity 2000 small-
+ * map default scaled to the v1 grid). Per-tick income from a
+ * residential cell is `residents * stateTaxRates.residential` (default
+ * 7%); maintenance per line cell is `LINE_MAINTENANCE_PER_TICK`,
+ * per plant `PLANT_MAINTENANCE_PER_TICK`. Numbers are tunable; the
+ * goal in slice 1 is "treasury moves visibly within the first 30
+ * seconds of placing a residential zone with power" so a player
+ * sees the loop tick over.
+ */
+export const INITIAL_TREASURY = 20000
+export const LINE_MAINTENANCE_PER_TICK = 0.05
+export const PLANT_MAINTENANCE_PER_TICK = 0.5
+
+/**
+ * Economy bucket (REQ-095 slice 1).
+ *
+ * `treasury` is the running cash balance. `lastTickIncome` and
+ * `lastTickMaintenance` are surfaced for HUD readouts so the player
+ * can see what tax revenue and infra cost were on the most recent
+ * tick without recomputing them. Slice 2 lands the build-cost
+ * deduction on placement and the bankruptcy countdown.
+ */
+export const EconomyBucketSchema = z
+  .object({
+    treasury: z.number(),
+    lastTickIncome: z.number().min(0),
+    lastTickMaintenance: z.number().min(0),
+  })
+  .strict()
+export type EconomyBucket = z.infer<typeof EconomyBucketSchema>
+
+export const EMPTY_ECONOMY_BUCKET: EconomyBucket = Object.freeze({
+  treasury: INITIAL_TREASURY,
+  lastTickIncome: 0,
+  lastTickMaintenance: 0,
+}) as EconomyBucket
 export const ServicesBucketSchema = z.object({}).passthrough()
 export const DisastersBucketSchema = z.object({}).passthrough()
 
@@ -314,7 +353,6 @@ export const EMPTY_POPULATION_BUCKET: PopulationBucket = Object.freeze({
   totalTripDemand: 0,
 }) as PopulationBucket
 export type WaterBucket = z.infer<typeof WaterBucketSchema>
-export type EconomyBucket = z.infer<typeof EconomyBucketSchema>
 export type ServicesBucket = z.infer<typeof ServicesBucketSchema>
 export type DisastersBucket = z.infer<typeof DisastersBucketSchema>
 
@@ -360,7 +398,7 @@ export const EMPTY_SIM_STATE: SimState = Object.freeze({
   zones: EMPTY_ZONES_BUCKET,
   power: EMPTY_POWER_BUCKET,
   water: Object.freeze({}) as WaterBucket,
-  economy: Object.freeze({}) as EconomyBucket,
+  economy: EMPTY_ECONOMY_BUCKET,
   services: Object.freeze({}) as ServicesBucket,
   disasters: Object.freeze({}) as DisastersBucket,
 }) as SimState

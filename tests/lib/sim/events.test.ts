@@ -600,6 +600,130 @@ describe('applySimEvent', () => {
     })
   })
 
+  describe('per-tick economy (REQ-095 slice 1)', () => {
+    function tickN(times: number, start: SimState): SimState {
+      let s = start
+      for (let i = 0; i < times; i++) {
+        s = applySimEvent(s, {
+          type: 'tick',
+          payload: { deltaMs: 250 },
+          clientCreatedAt: i,
+          authorBuilderId: A_BUILDER,
+        })
+      }
+      return s
+    }
+
+    function placeZone(
+      kind: 'residential' | 'commercial' | 'industrial',
+      row: number,
+      col: number,
+    ): SimEvent {
+      return {
+        type: 'placeZone',
+        payload: { kind, row, col },
+        clientCreatedAt: 0,
+        authorBuilderId: A_BUILDER,
+      }
+    }
+
+    it('treasury starts at INITIAL_TREASURY (20000)', () => {
+      expect(EMPTY_SIM_STATE.economy.treasury).toBe(20000)
+    })
+
+    it('treasury stays at initial when paused (no ticks fire)', () => {
+      const paused = applySimEvent(EMPTY_SIM_STATE, {
+        type: 'setSpeed',
+        payload: { speed: 0 },
+        clientCreatedAt: 0,
+        authorBuilderId: A_BUILDER,
+      })
+      const next = tickN(10, paused)
+      expect(next.economy.treasury).toBe(20000)
+    })
+
+    it('a tick with no infrastructure produces no income and no maintenance', () => {
+      const next = tickN(1, EMPTY_SIM_STATE)
+      expect(next.economy.treasury).toBe(20000)
+      expect(next.economy.lastTickIncome).toBe(0)
+      expect(next.economy.lastTickMaintenance).toBe(0)
+    })
+
+    it('a single power line drains maintenance per tick', () => {
+      const s = applySimEvent(EMPTY_SIM_STATE, {
+        type: 'runPowerLine',
+        payload: { row: 0, col: 0 },
+        clientCreatedAt: 0,
+        authorBuilderId: A_BUILDER,
+      })
+      const next = tickN(1, s)
+      // 1 line * 0.05 = 0.05 maintenance per tick
+      expect(next.economy.lastTickMaintenance).toBeCloseTo(0.05, 5)
+      expect(next.economy.treasury).toBeCloseTo(19999.95, 5)
+    })
+
+    it('a coal plant drains plant maintenance per tick', () => {
+      const s = applySimEvent(EMPTY_SIM_STATE, {
+        type: 'placePowerPlant',
+        payload: { kind: 'coal', row: 0, col: 0 },
+        clientCreatedAt: 0,
+        authorBuilderId: A_BUILDER,
+      })
+      const next = tickN(1, s)
+      // 1 plant * 0.5 = 0.5 maintenance per tick
+      expect(next.economy.lastTickMaintenance).toBeCloseTo(0.5, 5)
+      expect(next.economy.treasury).toBeCloseTo(19999.5, 5)
+    })
+
+    it('residents generate income per tick at the residential tax rate', () => {
+      // Place residential, advance to density 1 (4 residents), one
+      // more tick to see income accumulate against the new pop.
+      let s = applySimEvent(EMPTY_SIM_STATE, placeZone('residential', 0, 0))
+      s = tickN(20, s) // grows to density 1, residents = 4
+      const beforeTreasury = s.economy.treasury
+      s = tickN(1, s)
+      // 4 residents * 0.07 = 0.28 income, no maintenance
+      expect(s.economy.lastTickIncome).toBeCloseTo(0.28, 5)
+      expect(s.economy.treasury - beforeTreasury).toBeCloseTo(0.28, 5)
+    })
+
+    it('two replays of the same event log produce identical economy state', () => {
+      const events: SimEvent[] = [
+        placeZone('residential', 0, 0),
+        {
+          type: 'placePowerPlant',
+          payload: { kind: 'coal', row: 5, col: 5 },
+          clientCreatedAt: 0,
+          authorBuilderId: A_BUILDER,
+        },
+        ...Array.from({ length: 30 }, (_, i) => ({
+          type: 'tick' as const,
+          payload: { deltaMs: 250 },
+          clientCreatedAt: i,
+          authorBuilderId: A_BUILDER,
+        })),
+      ]
+      const a = applyMany(EMPTY_SIM_STATE, events)
+      const b = applyMany(EMPTY_SIM_STATE, events)
+      expect(a.economy).toEqual(b.economy)
+    })
+
+    it('a setTaxRate event changes the residential rate and per-tick income reflects it on the next tick', () => {
+      let s = applySimEvent(EMPTY_SIM_STATE, placeZone('residential', 0, 0))
+      s = tickN(20, s) // 4 residents
+      // Bump residential rate from 7% to 14%
+      s = applySimEvent(s, {
+        type: 'setTaxRate',
+        payload: { kind: 'residential', rate: 0.14 },
+        clientCreatedAt: 0,
+        authorBuilderId: A_BUILDER,
+      })
+      s = tickN(1, s)
+      // 4 * 0.14 = 0.56
+      expect(s.economy.lastTickIncome).toBeCloseTo(0.56, 5)
+    })
+  })
+
   describe('per-tick zone growth (REQ-081 slice 1)', () => {
     function tickN(times: number, start: SimState): SimState {
       let s = start
