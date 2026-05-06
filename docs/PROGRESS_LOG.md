@@ -16,6 +16,16 @@ Format for each slice:
 - Followups: any new `F-NNN` entries created. Link to them.
 ```
 
+## 2026-05-06, REQ-095 Economy Slice 2: Build Cost on Placement
+
+- Branch: `feature/20260506-build-costs`
+- PR: #N (when known)
+- Changed: New build-cost constants spanning the seven placement vocabularies: power plants (coal 4000, solar 2500), power lines (5), zones (residential 50, commercial 75, industrial 100), water sources (tower 400, pump station 1500), water/sewage pipes (5), sewage treatment plants (2500), services (police/fire 500, hospital 1500, school 750, garbage 400). New `chargeBuild(state, cost)` helper deducts from `economy.treasury` (allowed to go negative; bankruptcy slice 3 will read the balance). Wired into all seven placement reducers; existing identity-on-no-change branches skip the charge so a duplicate click does not double-bill. Two existing maintenance-tick assertions updated for the new build-cost-aware starting balance.
+- Verification: `npm run type-check` green. `npm test` 2011/2011 unit pass (2004 prior + 7 new build-cost cases; 2 existing assertions updated). `npm run build` green. `npm run check:dashes` clean. `git diff --check` clean. `npx playwright test e2e/sim.spec.ts --project=chromium` 19/19 local (the existing treasury-decreases e2e was retargeted: now asserts treasury drops to 16000 immediately on coal-plant placement, then drops below 16000 as maintenance ticks fire).
+- Assumptions: Treasury allowed to go negative on placement (mirrors SimCity 2000 leniency; the bankruptcy countdown in slice 3 will be the consequence). Numbers tuned so the v1 starter $20,000 buys a small starter loop (coal plant 4000 + a hospital 1500 + a sewage plant 2500 + a water tower 400 + ~50 line cells + a dozen zone cells) without immediately bankrupting the player. Retype-to-different-kind charges as a fresh placement (the player committed treasury); retype-to-same-kind is identity (no charge).
+- GDD coverage: REQ-095 stays `partial` (bankruptcy countdown REQ-095 slice 3 + commercial/industrial revenue REQ-083 still outstanding). `docs/gdd/18-economy.md` Status stays `partial`; gains a build log entry.
+- Followups: none new. Next REQ-095 slice: bankruptcy countdown reads `economy.treasury < 0` over N consecutive ticks and surfaces a "Bankruptcy in N seconds" HUD warning that offers reset budget / reset city.
+
 ## 2026-05-06, REQ-094 Drive-Visible Water Towers + Sewage Treatment Plants (Section Done)
 
 - Branch: `feature/20260506-drive-water-sewage`

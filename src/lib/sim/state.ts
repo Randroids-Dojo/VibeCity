@@ -429,6 +429,32 @@ export const LINE_MAINTENANCE_PER_TICK = 0.05
 export const PLANT_MAINTENANCE_PER_TICK = 0.5
 
 /**
+ * Build costs deducted from `economy.treasury` on placement
+ * (REQ-095 slice 2). Numbers are SimCity-2000 shaped so the v1
+ * starter treasury (`INITIAL_TREASURY = 20000`) can buy a small
+ * starter loop (coal plant, half a dozen residential zones, a few
+ * line cells) without immediately bankrupting the player. Treasury
+ * is allowed to go negative on a placement that exceeds the balance;
+ * the bankruptcy countdown (REQ-095 slice 3) is the consequence.
+ */
+export const POWER_PLANT_BUILD_COST: Record<PowerPlantKind, number> = {
+  coal: 4000,
+  solar: 2500,
+}
+export const POWER_LINE_BUILD_COST = 5
+export const ZONE_BUILD_COST: Record<'residential' | 'commercial' | 'industrial', number> = {
+  residential: 50,
+  commercial: 75,
+  industrial: 100,
+}
+export const WATER_SOURCE_BUILD_COST: Record<WaterSourceKind, number> = {
+  'water-tower': 400,
+  'pump-station': 1500,
+}
+export const WATER_PIPE_BUILD_COST = 5
+export const SEWAGE_TREATMENT_BUILD_COST = 2500
+
+/**
  * Economy bucket (REQ-095 slice 1).
  *
  * `treasury` is the running cash balance. `lastTickIncome` and
@@ -498,6 +524,20 @@ export const SERVICE_MAINTENANCE_PER_TICK: Record<ServiceKind, number> = {
   hospital: 1.5,
   school: 0.8,
   'garbage-depot': 0.6,
+}
+
+/**
+ * Per-kind service build cost (REQ-095 slice 2). The hospital is the
+ * largest investment; the garbage depot is the cheapest. Treasury
+ * is allowed to go negative on placement; the bankruptcy countdown
+ * (REQ-095 slice 3) handles the consequence.
+ */
+export const SERVICE_BUILD_COST: Record<ServiceKind, number> = {
+  'police-station': 500,
+  'fire-station': 500,
+  hospital: 1500,
+  school: 750,
+  'garbage-depot': 400,
 }
 
 /**

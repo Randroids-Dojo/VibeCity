@@ -8,15 +8,22 @@ import {
   GROWTH_INTERVAL_TICKS,
   LINE_MAINTENANCE_PER_TICK,
   PLANT_MAINTENANCE_PER_TICK,
+  POWER_LINE_BUILD_COST,
+  POWER_PLANT_BUILD_COST,
   PowerPlantKindSchema,
   RESIDENTIAL_CAPACITY_BY_DENSITY,
+  SERVICE_BUILD_COST,
+  SEWAGE_TREATMENT_BUILD_COST,
   ServiceKindSchema,
   SimSpeedSchema,
   TaxRatesSchema,
   WASTE_INCREMENT_PER_TICK,
   WASTE_MAX_PER_CELL,
+  WATER_PIPE_BUILD_COST,
+  WATER_SOURCE_BUILD_COST,
   WaterPipeKindSchema,
   WaterSourceKindSchema,
+  ZONE_BUILD_COST,
   ZoneKindSchema,
   powerLineKey,
   waterPipeKey,
@@ -766,6 +773,22 @@ function applySetTaxRate(
   }
 }
 
+/**
+ * Deduct a build cost from `state.economy.treasury` (REQ-095 slice 2).
+ * Treasury is allowed to go negative; the bankruptcy countdown
+ * (REQ-095 slice 3) reads the running balance to fire its consequence.
+ */
+function chargeBuild(state: SimState, cost: number): SimState {
+  if (cost === 0) return state
+  return {
+    ...state,
+    economy: {
+      ...state.economy,
+      treasury: state.economy.treasury - cost,
+    },
+  }
+}
+
 function applyPlaceZone(state: SimState, event: PlaceZoneEvent): SimState {
   const { kind, row, col } = event.payload
   const key = zoneCellKey(row, col)
@@ -783,11 +806,15 @@ function applyPlaceZone(state: SimState, event: PlaceZoneEvent): SimState {
     kind,
     density: existing?.density ?? 0,
   }
+  // Build cost (REQ-095 slice 2): charged on a fresh zoning AND on a
+  // retype to a different kind, since the player committed treasury
+  // either way. No charge on the identity-on-no-change branch above.
+  const charged = chargeBuild(state, ZONE_BUILD_COST[kind])
   return {
-    ...state,
+    ...charged,
     zones: {
       cells: {
-        ...state.zones.cells,
+        ...charged.zones.cells,
         [key]: next,
       },
     },
@@ -821,11 +848,12 @@ function applyPlacePowerPlant(
   )
   if (existing) return state
   const plant: PowerPlant = { kind, row, col }
+  const charged = chargeBuild(state, POWER_PLANT_BUILD_COST[kind])
   return {
-    ...state,
+    ...charged,
     power: {
-      ...state.power,
-      plants: [...state.power.plants, plant],
+      ...charged.power,
+      plants: [...charged.power.plants, plant],
     },
   }
 }
@@ -837,12 +865,13 @@ function applyRunPowerLine(
   const { row, col } = event.payload
   const key = powerLineKey(row, col)
   if (state.power.lines[key] === true) return state
+  const charged = chargeBuild(state, POWER_LINE_BUILD_COST)
   return {
-    ...state,
+    ...charged,
     power: {
-      ...state.power,
+      ...charged.power,
       lines: {
-        ...state.power.lines,
+        ...charged.power.lines,
         [key]: true,
       },
     },
@@ -878,11 +907,12 @@ function applyPlaceServiceBuilding(
   )
   if (existing) return state
   const building: ServiceBuilding = { kind, row, col }
+  const charged = chargeBuild(state, SERVICE_BUILD_COST[kind])
   return {
-    ...state,
+    ...charged,
     services: {
-      ...state.services,
-      buildings: [...state.services.buildings, building],
+      ...charged.services,
+      buildings: [...charged.services.buildings, building],
     },
   }
 }
@@ -915,11 +945,12 @@ function applyPlaceWaterSource(
   )
   if (existing) return state
   const source: WaterSource = { kind, row, col }
+  const charged = chargeBuild(state, WATER_SOURCE_BUILD_COST[kind])
   return {
-    ...state,
+    ...charged,
     water: {
-      ...state.water,
-      sources: [...state.water.sources, source],
+      ...charged.water,
+      sources: [...charged.water.sources, source],
     },
   }
 }
@@ -931,12 +962,13 @@ function applyRunWaterPipe(
   const { kind, row, col } = event.payload
   const key = waterPipeKey(row, col)
   if (state.water.pipes[key] === kind) return state
+  const charged = chargeBuild(state, WATER_PIPE_BUILD_COST)
   return {
-    ...state,
+    ...charged,
     water: {
-      ...state.water,
+      ...charged.water,
       pipes: {
-        ...state.water.pipes,
+        ...charged.water.pipes,
         [key]: kind,
       },
     },
@@ -971,11 +1003,12 @@ function applyPlaceSewageTreatmentPlant(
   )
   if (existing) return state
   const plant: SewageTreatmentPlant = { row, col }
+  const charged = chargeBuild(state, SEWAGE_TREATMENT_BUILD_COST)
   return {
-    ...state,
+    ...charged,
     water: {
-      ...state.water,
-      treatmentPlants: [...state.water.treatmentPlants, plant],
+      ...charged.water,
+      treatmentPlants: [...charged.water.treatmentPlants, plant],
     },
   }
 }
