@@ -16,6 +16,16 @@ Format for each slice:
 - Followups: any new `F-NNN` entries created. Link to them.
 ```
 
+## 2026-05-06, REQ-092 Sewage Slice 1: Sewage Treatment Plant Substrate
+
+- Branch: `feature/20260506-sewage-treatment-substrate`
+- PR: #N (when known)
+- Changed: New `SEWAGE_TREATMENT_CAPACITY = 100` waste-units drained per tick per plant and `SEWAGE_TREATMENT_MAINTENANCE_PER_TICK = 0.6`. New `SewageTreatmentPlantSchema` (single-cell anchor, no per-plant tier in v1). `WaterBucketSchema` extended with `treatmentPlants: SewageTreatmentPlant[]`; `EMPTY_WATER_BUCKET` seeds it empty. Two new strict event schemas: `placeSewageTreatmentPlant` and `eraseSewageTreatmentPlant`, both routed in the discriminated union. Reducers `applyPlaceSewageTreatmentPlant` (idempotent on duplicate anchor) and `applyEraseSewageTreatmentPlant` (identity on missing). Type-check fallout from tightening the bucket: SnapGridView water-fallback + waterSolver.test bucketWith helper both seed `treatmentPlants: []`.
+- Verification: `npm run type-check` green. `npm test` 1974/1974 unit pass (1969 prior + 5 new sewage plant cases). `npm run build` green. `npm run check:dashes` clean. `git diff --check` clean.
+- Assumptions: One uniform plant tier. v1 ships sewage treatment as a substrate-only entity; UI tool, sewage solver, waste accumulation, and happiness penalty are all explicit follow-on slices. No per-plant capacity field on the entity (the constant is the source of truth) so two clients placing plants at the same anchor converge to one plant deterministically. Plants live in the `water` bucket alongside sources + pipes because they share the (sources + water pipes / plants + sewage pipes) connectivity-graph dual. If sewage grows beyond a plant + pipes scope, splitting to a `sim.sewage` bucket is a one-line move.
+- GDD coverage: REQ-090 stays `partial`. `docs/gdd/17-water-and-sewage.md` Status stays `partial`; gains a build log entry. Coverage row implementation/test refs unchanged (entities added to already-listed files).
+- Followups: none new. Next REQ-092 slices: editor Water palette adds a `sewage-treatment` source-tool (slice 2), sewage connectivity solver mirroring `waterSolver.ts` (slice 3), per-tick waste accumulation on populated cells with drain-when-connected (slice 4), happiness penalty wiring (slice 5).
+
 ## 2026-05-06, REQ-093 Water Connectivity Solver + Visible Served/Unserved on Zones
 
 - Branch: `feature/20260506-water-solver`

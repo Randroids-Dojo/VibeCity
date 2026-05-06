@@ -699,6 +699,62 @@ describe('applySimEvent', () => {
     })
   })
 
+  describe('sewage treatment plant events (REQ-092 sewage slice 1)', () => {
+    function placePlant(row: number, col: number): SimEvent {
+      return {
+        type: 'placeSewageTreatmentPlant',
+        payload: { row, col },
+        clientCreatedAt: 0,
+        authorBuilderId: A_BUILDER,
+      }
+    }
+
+    function erasePlant(row: number, col: number): SimEvent {
+      return {
+        type: 'eraseSewageTreatmentPlant',
+        payload: { row, col },
+        clientCreatedAt: 0,
+        authorBuilderId: A_BUILDER,
+      }
+    }
+
+    it('appends a single sewage treatment plant', () => {
+      const next = applySimEvent(EMPTY_SIM_STATE, placePlant(2, 3))
+      expect(next.water.treatmentPlants).toHaveLength(1)
+      expect(next.water.treatmentPlants[0]).toEqual({ row: 2, col: 3 })
+    })
+
+    it('returns identity on duplicate plant anchor', () => {
+      const after = applySimEvent(EMPTY_SIM_STATE, placePlant(0, 0))
+      const again = applySimEvent(after, placePlant(0, 0))
+      expect(again).toBe(after)
+    })
+
+    it('eraseSewageTreatmentPlant removes a placed plant', () => {
+      let s = applySimEvent(EMPTY_SIM_STATE, placePlant(0, 0))
+      s = applySimEvent(s, erasePlant(0, 0))
+      expect(s.water.treatmentPlants).toEqual([])
+    })
+
+    it('eraseSewageTreatmentPlant is identity when no plant at the cell', () => {
+      const next = applySimEvent(EMPTY_SIM_STATE, erasePlant(7, 7))
+      expect(next).toBe(EMPTY_SIM_STATE)
+    })
+
+    it('two replays of a mixed sewage plant event log derive identical state', () => {
+      const events: SimEvent[] = [
+        placePlant(0, 0),
+        placePlant(5, 5),
+        placePlant(0, 0),
+        erasePlant(5, 5),
+      ]
+      const a = applyMany(EMPTY_SIM_STATE, events)
+      const b = applyMany(EMPTY_SIM_STATE, events)
+      expect(a.water).toEqual(b.water)
+      expect(a.water.treatmentPlants).toEqual([{ row: 0, col: 0 }])
+    })
+  })
+
   describe('placeServiceBuilding + eraseServiceBuilding (REQ-100 slice 1)', () => {
     function placeService(
       kind:

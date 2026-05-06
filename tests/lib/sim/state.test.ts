@@ -167,8 +167,12 @@ describe('EMPTY_SIM_STATE', () => {
     expect(EMPTY_SIM_STATE.disasters).toEqual({})
   })
 
-  it('has water bucket initialized to empty sources + pipes (REQ-090 slice 1 strict shape)', () => {
-    expect(EMPTY_SIM_STATE.water).toEqual({ sources: [], pipes: {} })
+  it('has water bucket initialized to empty sources + pipes + treatmentPlants (REQ-092 sewage slice 1 strict shape)', () => {
+    expect(EMPTY_SIM_STATE.water).toEqual({
+      sources: [],
+      pipes: {},
+      treatmentPlants: [],
+    })
   })
 
   it('has services bucket initialized to empty buildings array (REQ-100 slice 1 strict shape)', () => {
