@@ -1,9 +1,11 @@
 ---
 title: "implement: REQ-070..074 sim engine substrate (tick scheduler + event sourcing + reconcile)"
-status: active
+status: closed
 priority: 1
 issue-type: task
-created-at: "\"2026-05-05T22:36:02.353723-05:00\""
+created-at: "\"\\\"2026-05-05T22:36:02.353723-05:00\\\"\""
+closed-at: "2026-05-05T23:54:51.175154-05:00"
+close-reason: "REQ-070..074 substrate complete. All 5 slices shipped (PRs #83 #84 #85 #86 + this). Layer slices can plug in directly."
 ---
 
 ## Description

@@ -1214,17 +1214,21 @@
     },
     {
       "id": "REQ-070",
-      "requirement": "Sim engine substrate: tick scheduler at fixed rate (4 Hz default), SimState schema (city.sim with per-layer buckets), event log + pure reducer (Q-012 event sourcing), persisted sim state in city payload via /api/city/[slug]/events POST/GET (Q-010 client-side authority + server event log), layer registration with fixed run order (power -> water -> zoning -> citizens -> economy -> services -> disasters), pure applySimEvent(state, event) contract, snapshotting per Q-013 (every 1000 events or 30 minutes of sim time).",
+      "requirement": "Sim engine substrate: tick scheduler at fixed rate (4 Hz default), SimState schema (city.sim with per-layer buckets), event log + pure reducer (Q-012 event sourcing), persisted sim state in city payload via /api/city/[slug]/events POST/GET (Q-010 client-side authority + server event log), layer registration with fixed run order (power -> water -> zoning -> citizens -> economy -> services -> disasters), pure applySimEvent(state, event) contract, snapshotting per Q-013 (every 1000 events or 30 minutes of sim time), React hook owning the runtime + tick loop + flush + poll lifecycle, sim view scaffold at /<slug>/sim with speed controls.",
       "gddRef": "docs/gdd/13-sim-engine.md",
-      "status": "partial",
+      "status": "done",
       "implementationRefs": [
         "src/lib/sim/state.ts",
         "src/lib/sim/events.ts",
         "src/lib/sim/engine.ts",
         "src/lib/sim/snapshot.ts",
+        "src/lib/sim/useSimEngine.ts",
         "src/lib/schemas.ts",
         "src/lib/kv.ts",
-        "src/app/api/city/[slug]/events/route.ts"
+        "src/app/api/city/[slug]/events/route.ts",
+        "src/app/[slug]/sim/page.tsx",
+        "src/app/[slug]/sim/SimViewClient.tsx",
+        "src/middleware.ts"
       ],
       "testRefs": [
         "tests/lib/sim/state.test.ts",
@@ -1232,7 +1236,9 @@
         "tests/lib/sim/engine.test.ts",
         "tests/lib/sim/snapshot.test.ts",
         "tests/lib/schemas.test.ts",
-        "tests/app/api.cityEvents.test.ts"
+        "tests/app/api.cityEvents.test.ts",
+        "tests/app/middleware.test.ts",
+        "e2e/sim.spec.ts"
       ],
       "followupRefs": []
     },
