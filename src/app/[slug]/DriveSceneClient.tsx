@@ -784,6 +784,83 @@ export function DriveSceneClient({
       scene.add(roofMesh)
     }
 
+    // Water towers + sewage treatment plants (REQ-094). Underground
+    // pipes are placement-only signals so they are NOT visible in
+    // drive mode; only the source / plant primitives render. Water
+    // towers read as a tall cylindrical silhouette (a stout column
+    // with a wider tank cap on top) so the player can see them from
+    // a few blocks away. Pump stations read as a low boxy structure.
+    // Sewage treatment plants read as a low rectangular building
+    // larger than a single residence so the silhouette is unmistakable
+    // at street level.
+    for (const source of simState.water.sources) {
+      const { x, z } = cellToWorld(source.row, source.col)
+      if (source.kind === 'water-tower') {
+        const columnGeometry = new THREE.CylinderGeometry(
+          CELL_SIZE * 0.18,
+          CELL_SIZE * 0.18,
+          CELL_SIZE * 1.6,
+          12,
+        )
+        const columnMaterial = new THREE.MeshLambertMaterial({ color: 0xa9b5c0 })
+        const columnMesh = new THREE.Mesh(columnGeometry, columnMaterial)
+        columnMesh.position.set(x, CELL_SIZE * 0.8, z)
+        columnMesh.userData = {
+          type: 'water-tower-column',
+          row: source.row,
+          col: source.col,
+        }
+        scene.add(columnMesh)
+        const tankGeometry = new THREE.CylinderGeometry(
+          CELL_SIZE * 0.4,
+          CELL_SIZE * 0.4,
+          CELL_SIZE * 0.5,
+          16,
+        )
+        const tankMaterial = new THREE.MeshLambertMaterial({ color: 0x5a8aae })
+        const tankMesh = new THREE.Mesh(tankGeometry, tankMaterial)
+        tankMesh.position.set(x, CELL_SIZE * 1.85, z)
+        tankMesh.userData = {
+          type: 'water-tower-tank',
+          row: source.row,
+          col: source.col,
+        }
+        scene.add(tankMesh)
+      } else {
+        const stationGeometry = new THREE.BoxGeometry(
+          CELL_SIZE * 0.7,
+          CELL_SIZE * 0.5,
+          CELL_SIZE * 0.7,
+        )
+        const stationMaterial = new THREE.MeshLambertMaterial({ color: 0x3a6a8a })
+        const stationMesh = new THREE.Mesh(stationGeometry, stationMaterial)
+        stationMesh.position.set(x, CELL_SIZE * 0.25, z)
+        stationMesh.userData = {
+          type: 'pump-station',
+          row: source.row,
+          col: source.col,
+        }
+        scene.add(stationMesh)
+      }
+    }
+    for (const plant of simState.water.treatmentPlants) {
+      const { x, z } = cellToWorld(plant.row, plant.col)
+      const buildingGeometry = new THREE.BoxGeometry(
+        CELL_SIZE * 0.85,
+        CELL_SIZE * 0.4,
+        CELL_SIZE * 0.85,
+      )
+      const buildingMaterial = new THREE.MeshLambertMaterial({ color: 0x4a3522 })
+      const buildingMesh = new THREE.Mesh(buildingGeometry, buildingMaterial)
+      buildingMesh.position.set(x, CELL_SIZE * 0.2, z)
+      buildingMesh.userData = {
+        type: 'sewage-treatment-plant',
+        row: plant.row,
+        col: plant.col,
+      }
+      scene.add(buildingMesh)
+    }
+
     // Placeholder player vehicle (REQ-047). A primitive-composed car
     // (body + cabin + four wheels) sits at the deterministic spawn
     // anchor (REQ-036). The keyboard input slice (REQ-034) drives the
@@ -1575,6 +1652,7 @@ export function DriveSceneClient({
     handleToggleEngineMute,
     simState.zones,
     simState.power,
+    simState.water,
   ])
 
   // The placeholder car (REQ-047) renders only when at least one piece
