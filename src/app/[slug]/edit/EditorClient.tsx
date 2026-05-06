@@ -914,6 +914,57 @@ export function EditorClient({
         >
           {`tick ${simState.tick}`}
         </span>
+        <span
+          style={{
+            marginLeft: 12,
+            letterSpacing: 0.5,
+            textTransform: 'uppercase',
+            opacity: 0.65,
+          }}
+        >
+          Mood
+        </span>
+        {(['day', 'night'] as const).map((mode) => {
+          const current =
+            city.mood?.timeOfDay === 'night' ? 'night' : 'day'
+          const active = current === mode
+          return (
+            <button
+              key={mode}
+              type="button"
+              data-testid={`editor-mood-${mode}`}
+              data-mood-button={mode}
+              data-mood-active={active ? 'true' : 'false'}
+              aria-pressed={active}
+              onClick={() => {
+                setCityWithHistory((prev) => {
+                  if ((prev.mood?.timeOfDay ?? 'day') === mode) return prev
+                  setAutosaveStatus('pending')
+                  return {
+                    ...prev,
+                    mood: { ...prev.mood, timeOfDay: mode },
+                  }
+                })
+              }}
+              style={{
+                padding: '4px 10px',
+                fontSize: 12,
+                fontFamily: 'inherit',
+                color: active ? '#f7f4ee' : '#222',
+                background: active
+                  ? mode === 'night'
+                    ? '#0e1a2c'
+                    : '#bfd9e8'
+                  : '#fdfaf2',
+                border: '1px solid #d6cfbf',
+                borderRadius: 4,
+                cursor: 'pointer',
+              }}
+            >
+              {mode === 'day' ? 'Day' : 'Night'}
+            </button>
+          )
+        })}
       </div>
       <div
         role="toolbar"

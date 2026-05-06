@@ -261,6 +261,54 @@ test('editor: switch to coal plant and paint, then erase a power line', async ({
   await expect(lineOverlay).toHaveCount(0)
 })
 
+test('editor: day/night mood toggle flips active state and triggers autosave (REQ-088 follow-on)', async ({
+  page,
+}) => {
+  await page.route('**/api/city/**', async (route, req) => {
+    if (req.method() === 'PUT') {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          slug: 'sim-mood-toggle-spec',
+          versionHash: '0'.repeat(64),
+          updatedAt: 0,
+        }),
+      })
+    } else {
+      await route.fallback()
+    }
+  })
+
+  await page.goto('/sim-mood-toggle-spec/edit')
+
+  // Day is the default active mood.
+  const dayBtn = page.getByTestId('editor-mood-day')
+  const nightBtn = page.getByTestId('editor-mood-night')
+  await expect(dayBtn).toHaveAttribute('data-mood-active', 'true')
+  await expect(nightBtn).toHaveAttribute('data-mood-active', 'false')
+
+  // Click Night, autosave indicator flips to pending then to saved.
+  await nightBtn.click()
+  await expect(nightBtn).toHaveAttribute('data-mood-active', 'true')
+  await expect(dayBtn).toHaveAttribute('data-mood-active', 'false')
+  // Autosave status indicator settles to a saved state after the
+  // debounce + PUT round-trip lands; the toggle event triggered an
+  // autosave because city.mood changed reference.
+  const status = page.getByTestId('editor-autosave-status')
+  await expect(status).toHaveAttribute('data-autosave-status', 'saved', {
+    timeout: 5000,
+  })
+
+  // Click Day, status flips back to pending then saved.
+  await dayBtn.click()
+  await expect(dayBtn).toHaveAttribute('data-mood-active', 'true')
+  await expect(nightBtn).toHaveAttribute('data-mood-active', 'false')
+  await expect(status).toHaveAttribute('data-autosave-status', 'saved', {
+    timeout: 5000,
+  })
+})
+
 test('editor: place plant + line + adjacent zone -> zone shows powered status (REQ-087)', async ({
   page,
 }) => {

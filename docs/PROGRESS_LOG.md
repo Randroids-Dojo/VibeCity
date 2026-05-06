@@ -16,6 +16,16 @@ Format for each slice:
 - Followups: any new `F-NNN` entries created. Link to them.
 ```
 
+## 2026-05-06, Editor Day/Night Mood Toggle (REQ-088 follow-on)
+
+- Branch: `feature/20260506-day-night-toggle`
+- PR: #N (when known)
+- Changed: Players can now flip a slug between day and night from the editor without API access, completing the REQ-088 visible-payoff loop. `src/app/[slug]/edit/EditorClient.tsx` adds a Day / Night button pair in the sim-speed toolbar after the tick readout. Clicking dispatches a `setCityWithHistory` callback that mutates `city.mood.timeOfDay` and flags autosave pending; identity guard short-circuits a duplicate click. `src/app/[slug]/edit/autosaveStatus.ts` extends `isCityContentEqual` to compare `mood`. The prior implementation excluded mood to mirror REQ-013 hash semantics, but that meant mood-only edits silently dropped through the autosave skip-on-equal path. The change is scoped to the autosave trigger; `hashCity` (REQ-013) still excludes mood so the version hash stays stable across mood changes.
+- Verification: `npm run type-check` green. `npm test` 1894/1894 unit pass (1891 prior + 3 new mood-equality cases). `npm run build` green. `npm run check:dashes` clean. `git diff --check` clean. `npx playwright test e2e/sim.spec.ts e2e/editor.spec.ts --project=chromium` 38/38 local (28 prior editor cases + 9 prior sim cases + 1 new mood-toggle case).
+- Assumptions: Mood lives on the legacy `City` schema (NOT `city.sim`) so the day/night toggle goes through the existing autosave PUT path rather than the event-log POST path. This matches the existing `mood` field shape and avoids inventing a new event type for what is essentially a single-field setter. The version hash (REQ-013) stays stable across mood changes because `hashCity` independently excludes mood; the autosave equality check is independent of the hash function. The Day / Night buttons are styled with mood-distinct backgrounds (light blue for Day, deep navy for Night) so a player visually parses which mode is active without reading the label twice. The toggle button group lives in the sim-speed toolbar because it is a "what mode am I in" control alongside the speed buttons. The e2e test asserts the toggle flips active state and triggers autosave (visible via the autosave-status indicator settling to 'saved'); a more rigorous test that introspects the PUT body proved flaky on timing and was dropped in favor of the deterministic UI assertion.
+- GDD coverage: REQ-085 stays `partial` (pollution REQ-089 still outstanding; the editor day/night toggle was the last visible-payoff slice for REQ-088). `docs/gdd/16-power-grid.md` Status stays `partial`; gains a build log entry recording the editor toggle landing.
+- Followups: none new. The next REQ-085 slice can land pollution from coal plants (REQ-089) feeding the citizen happiness layer once the citizen layer ships, OR the layer can move to a fresh requirement (REQ-095 economy / REQ-100 services / REQ-075 citizens) as parallel work.
+
 ## 2026-05-06, REQ-088 Slice 2: Lit-Windows-at-Night for Powered Zones
 
 - Branch: `feature/20260506-night-mode`
