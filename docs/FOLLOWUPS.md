@@ -115,12 +115,12 @@ Keep `F-NNN` IDs monotonically increasing. When a followup ships, leave the entr
 - Blocker: best landed AFTER the real car model dot (so the brake light has a stable rear face to attach to).
 - Unblock condition: `implement: port car.glb to drive scene (REQ-047 fidelity bump)` lands.
 
-### F-012: First-session onboarding hint in the editor
+### F-012: First-session on-ramp polish (NOT a tutorial)
 
 - Priority: nice-to-have
-- Context: Surfaced in the 2026-05-05 fun-factor audit. The editor currently presents a snap-grid SVG and a palette with no first-session hint. A brand-new player with no city-builder vocabulary may not realize the palette tile must be selected before the cell click. Smallest slice: a one-time pulsing outline on the first palette tile and the first empty cell on a fresh slug, dismissed after the first successful piece placement and never shown again for that slug (cookie or localStorage flag).
+- Context: Surfaced in the 2026-05-05 fun-factor audit. The editor currently presents a snap-grid SVG and a palette with no first-session hint. A brand-new player with no city-builder vocabulary may not realize the palette tile must be selected before the cell click. The OOS fence (`docs/gdd/99-out-of-scope.md`) explicitly forbids tutorials ("any tutorial that needs more than the on-ramp implies the on-ramp is broken; fix the on-ramp instead"). This followup is framed as on-ramp polish, not tutorial: a one-time pulsing outline on the first palette tile and the first empty cell when a slug has zero pieces, dismissed after the first successful piece placement. No multi-step walkthrough, no skip button, no instruction text beyond what the existing CTA copy already says.
 - Blocker: none.
-- Unblock condition: pick a dismissal storage mechanism (cookie keyed by slug, localStorage flag) and ship.
+- Unblock condition: pick a dismissal storage mechanism (the absence-of-pieces in the city payload is the natural gate; no cookie or flag needed because the hint disappears the moment the first piece lands).
 
 ### F-011: Home page recent-card thumbnail (city preview SVG)
 
