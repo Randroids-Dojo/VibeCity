@@ -6,6 +6,7 @@ import { solveSewageStatus } from './sewageSolver'
 import {
   DEFAULT_SIM_SPEED,
   DEFAULT_TAX_RATES,
+  EMPTY_ECONOMY_BUCKET,
   EMPTY_SIM_STATE,
   GROWTH_INTERVAL_TICKS,
   LINE_MAINTENANCE_PER_TICK,
@@ -404,6 +405,35 @@ export const SpawnDisasterEventSchema = EventMetaSchema.extend({
 export type SpawnDisasterEvent = z.infer<typeof SpawnDisasterEventSchema>
 
 /**
+ * `resetBudget` event (REQ-095 slice 4). Restores treasury to
+ * `INITIAL_TREASURY`, zeros `bankruptcyTickCounter`, and clears the
+ * last-tick income / maintenance readouts. Player-fired when the
+ * bankruptcy countdown is active and they want to bail out without
+ * losing their city. Empty payload because the event has no
+ * parameters.
+ */
+export const ResetBudgetEventSchema = EventMetaSchema.extend({
+  type: z.literal('resetBudget'),
+  payload: z.object({}).strict(),
+}).strict()
+export type ResetBudgetEvent = z.infer<typeof ResetBudgetEventSchema>
+
+/**
+ * `resetCity` event (REQ-095 slice 4). Resets the entire sim state
+ * back to `EMPTY_SIM_STATE`. Player-fired when they want to start
+ * over from scratch; the city's persisted street pieces and
+ * buildings (in `City.pieces` / `City.buildings`) are NOT touched
+ * by this event because they live outside the sim engine. The event
+ * log is also untouched: replay still produces the post-reset state
+ * because the reducer maps to `EMPTY_SIM_STATE`.
+ */
+export const ResetCityEventSchema = EventMetaSchema.extend({
+  type: z.literal('resetCity'),
+  payload: z.object({}).strict(),
+}).strict()
+export type ResetCityEvent = z.infer<typeof ResetCityEventSchema>
+
+/**
  * The sim event union. Discriminated on `type`.
  */
 export const SimEventSchema = z.discriminatedUnion('type', [
@@ -423,6 +453,8 @@ export const SimEventSchema = z.discriminatedUnion('type', [
   PlaceSewageTreatmentPlantEventSchema,
   EraseSewageTreatmentPlantEventSchema,
   SpawnDisasterEventSchema,
+  ResetBudgetEventSchema,
+  ResetCityEventSchema,
 ])
 export type SimEvent = z.infer<typeof SimEventSchema>
 
@@ -472,6 +504,10 @@ export function applySimEvent(state: SimState, event: SimEvent): SimState {
       return applyEraseSewageTreatmentPlant(state, event)
     case 'spawnDisaster':
       return applySpawnDisaster(state, event)
+    case 'resetBudget':
+      return applyResetBudget(state)
+    case 'resetCity':
+      return EMPTY_SIM_STATE
     default:
       // Layer-specific events fall through to no-op until their slice
       // lands and extends the dispatch.
@@ -1086,6 +1122,16 @@ function applyEraseSewageTreatmentPlant(
       ...state.water,
       treatmentPlants: next,
     },
+  }
+}
+
+function applyResetBudget(state: SimState): SimState {
+  // Restore the economy bucket to its empty / fresh-treasury shape.
+  // Other layers (zones, power, water, services, disasters) are
+  // untouched so the player keeps their built infrastructure.
+  return {
+    ...state,
+    economy: EMPTY_ECONOMY_BUCKET,
   }
 }
 

@@ -16,6 +16,16 @@ Format for each slice:
 - Followups: any new `F-NNN` entries created. Link to them.
 ```
 
+## 2026-05-06, REQ-095 Slice 4: resetBudget + resetCity Events + HUD Buttons
+
+- Branch: `feature/20260506-bankruptcy-reset`
+- PR: #N (when known)
+- Changed: New strict `ResetBudgetEventSchema` and `ResetCityEventSchema` (empty payloads) routed in the discriminated union. `applyResetBudget` restores economy to `EMPTY_ECONOMY_BUCKET`; `resetCity` dispatch maps to `EMPTY_SIM_STATE`. EditorClient HUD: when bankruptcy warning shows, two new buttons mount alongside it: `editor-sim-reset-budget` (green, restores treasury) and `editor-sim-reset-city` (red, full sim reset).
+- Verification: `npm run type-check` green. `npm test` 2077/2077 unit pass (2072 prior + 5 new reset cases). `npm run build` green. `npm run check:dashes` clean. `git diff --check` clean. `npx playwright test e2e/sim.spec.ts --project=chromium` 22/22 local (21 prior + 1 new reset-budget HUD case).
+- Assumptions: resetBudget keeps placed infrastructure (zones, plants, lines, services, water, disasters) intact so the player keeps the city they built and only the financial slate is cleared. resetCity is destructive in the sim engine but does NOT touch `City.pieces` / `City.buildings` since those live outside the sim. Pre-pivot streets and buildings stay; the sim's zones / power / water / etc all reset. The replay determinism property holds: replaying the event log including a resetCity gives the same final state.
+- GDD coverage: REQ-095 stays `partial` (commercial/industrial revenue REQ-083 dependency still outstanding). `docs/gdd/18-economy.md` Status stays `partial`; gains a build log entry.
+- Followups: F-NEW (deferred): automatic `resetCity` event triggered when the bankruptcy counter hits the threshold (currently the sim runs past indefinitely; the player must click).
+
 ## 2026-05-06, REQ-105 Slice 4: Deterministic Fire Damage Erodes Zone Density
 
 - Branch: `feature/20260506-fire-damage`

@@ -767,6 +767,55 @@ test('editor: Disasters tab spawns a fire and renders an overlay (REQ-105)', asy
   await expect(overlay).toHaveAttribute('data-disaster-kind', 'fire')
 })
 
+test('editor: bankruptcy reset-budget button restores treasury to 20000 (REQ-095)', async ({
+  page,
+}) => {
+  await page.route('**/api/city/**', async (route, req) => {
+    if (req.method() === 'PUT') {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          slug: 'sim-reset-budget-spec',
+          versionHash: '0'.repeat(64),
+          updatedAt: 0,
+        }),
+      })
+    } else {
+      await route.fallback()
+    }
+  })
+
+  await page.goto('/sim-reset-budget-spec/edit')
+  await page.getByTestId('editor-sim-speed-0').click()
+
+  // Six coal plants drives treasury to -4000 immediately.
+  await page.getByTestId('editor-palette-category-power').click()
+  const palette = page.getByTestId('editor-palette')
+  await palette.locator('[data-power-tool="plant-coal"]').click()
+  for (let row = 0; row < 6; row++) {
+    await page
+      .locator(
+        `[data-testid="editor-snap-grid"] rect[data-cell-row="${row}"][data-cell-col="0"]`,
+      )
+      .click()
+  }
+
+  // Tick once to set the bankruptcy counter so the warning span +
+  // reset buttons mount.
+  await page.getByTestId('editor-sim-speed-4').click()
+  const warning = page.getByTestId('editor-sim-bankruptcy-warning')
+  await expect(warning).toBeVisible({ timeout: 4000 })
+
+  await page.getByTestId('editor-sim-speed-0').click()
+
+  await page.getByTestId('editor-sim-reset-budget').click()
+  const treasury = page.getByTestId('editor-sim-treasury')
+  await expect(treasury).toHaveAttribute('data-sim-treasury', '20000')
+  // Warning span unmounts because counter is back at 0.
+  await expect(warning).not.toBeVisible()
+})
+
 test('editor: bankruptcy warning fires once treasury drops below 0 (REQ-095)', async ({
   page,
 }) => {

@@ -56,6 +56,8 @@ import type {
   PlaceSewageTreatmentPlantEvent,
   PlaceWaterSourceEvent,
   PlaceZoneEvent,
+  ResetBudgetEvent,
+  ResetCityEvent,
   RunPowerLineEvent,
   RunWaterPipeEvent,
   SpawnDisasterEvent,
@@ -1077,27 +1079,81 @@ export function EditorClient({
           {`happy ${Math.round(simState.population.cityHappiness)}`}
         </span>
         {simState.economy.bankruptcyTickCounter > 0 ? (
-          <span
-            data-testid="editor-sim-bankruptcy-warning"
-            data-sim-bankruptcy-counter={simState.economy.bankruptcyTickCounter}
-            style={{
-              marginLeft: 6,
-              fontFamily: 'ui-monospace, Menlo, monospace',
-              color: '#a3372a',
-              fontWeight: 600,
-            }}
-          >
-            {`bankrupt in ${Math.max(
-              0,
-              Math.ceil(
-                ((BANKRUPTCY_THRESHOLD_TICKS -
-                  simState.economy.bankruptcyTickCounter) *
-                  TICK_INTERVAL_MS_BASE) /
-                  (1000 *
-                    (simState.speed === 0 ? 1 : simState.speed)),
-              ),
-            )}s`}
-          </span>
+          <>
+            <span
+              data-testid="editor-sim-bankruptcy-warning"
+              data-sim-bankruptcy-counter={simState.economy.bankruptcyTickCounter}
+              style={{
+                marginLeft: 6,
+                fontFamily: 'ui-monospace, Menlo, monospace',
+                color: '#a3372a',
+                fontWeight: 600,
+              }}
+            >
+              {`bankrupt in ${Math.max(
+                0,
+                Math.ceil(
+                  ((BANKRUPTCY_THRESHOLD_TICKS -
+                    simState.economy.bankruptcyTickCounter) *
+                    TICK_INTERVAL_MS_BASE) /
+                    (1000 *
+                      (simState.speed === 0 ? 1 : simState.speed)),
+                ),
+              )}s`}
+            </span>
+            <button
+              type="button"
+              data-testid="editor-sim-reset-budget"
+              onClick={() => {
+                const event: ResetBudgetEvent = {
+                  type: 'resetBudget',
+                  payload: {},
+                  clientCreatedAt: Date.now(),
+                  authorBuilderId: builderId,
+                }
+                simEngine.enqueue(event)
+              }}
+              style={{
+                marginLeft: 6,
+                padding: '4px 10px',
+                fontSize: 12,
+                fontFamily: 'inherit',
+                color: '#fff',
+                background: '#3a4a3a',
+                border: '1px solid #2a3a2a',
+                borderRadius: 4,
+                cursor: 'pointer',
+              }}
+            >
+              Reset Budget
+            </button>
+            <button
+              type="button"
+              data-testid="editor-sim-reset-city"
+              onClick={() => {
+                const event: ResetCityEvent = {
+                  type: 'resetCity',
+                  payload: {},
+                  clientCreatedAt: Date.now(),
+                  authorBuilderId: builderId,
+                }
+                simEngine.enqueue(event)
+              }}
+              style={{
+                marginLeft: 6,
+                padding: '4px 10px',
+                fontSize: 12,
+                fontFamily: 'inherit',
+                color: '#fff',
+                background: '#7a3a2a',
+                border: '1px solid #5a2a20',
+                borderRadius: 4,
+                cursor: 'pointer',
+              }}
+            >
+              Reset City
+            </button>
+          </>
         ) : null}
         <span
           style={{
