@@ -93,6 +93,17 @@ test('editor: 1x speed advances the tick counter', async ({ page }) => {
   expect(value).toBeLessThan(20)
 })
 
+test('editor: city-age Day counter reads Day 1 at session start (mass-appeal slice 5)', async ({
+  page,
+}) => {
+  await page.goto('/sim-day-counter-spec/edit')
+  await page.getByTestId('editor-sim-speed-0').click()
+  const dayReadout = page.getByTestId('editor-sim-day')
+  await expect(dayReadout).toBeVisible()
+  await expect(dayReadout).toHaveAttribute('data-sim-day', '1')
+  await expect(dayReadout).toHaveText('Day 1')
+})
+
 test('editor: switching to Zones tab exposes the zone palette + paints a zone', async ({
   page,
 }) => {

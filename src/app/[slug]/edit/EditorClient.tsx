@@ -120,6 +120,7 @@ import {
   validateConnections,
 } from '@/lib/trackPath'
 import { spawnAnchorMarker, spawnAnchorReadout } from './spawnMarker'
+import { cityDayNumber } from '../timeOfDay'
 import { SceneTransitionCurtain } from '../SceneTransitionCurtain'
 import {
   buildEditUrl,
@@ -1082,6 +1083,13 @@ export function EditorClient({
           style={{ marginLeft: 6, fontFamily: 'ui-monospace, Menlo, monospace' }}
         >
           {`pop ${simState.population.totalPopulation}`}
+        </span>
+        <span
+          data-testid="editor-sim-day"
+          data-sim-day={cityDayNumber(simState.tick)}
+          style={{ marginLeft: 6, fontFamily: 'ui-monospace, Menlo, monospace' }}
+        >
+          {`Day ${cityDayNumber(simState.tick)}`}
         </span>
         {(() => {
           const demand = computeRciDemand(simState.zones, simState.population)
