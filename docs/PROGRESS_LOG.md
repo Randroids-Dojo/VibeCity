@@ -16,6 +16,16 @@ Format for each slice:
 - Followups: any new `F-NNN` entries created. Link to them.
 ```
 
+## 2026-05-06, REQ-079 Calibration: Abandoned Penalty Boundary Tests
+
+- Branch: `feature/20260506-abandoned-calibration`
+- PR: #N (when known)
+- Changed: New direct-call unit case in `tests/lib/sim/events.test.ts` that locks in the per-abandoned-cell happiness penalty contract from PR #147 by exercising the boundaries: 0 cells -> 100, 1 cell -> 94, 5 cells -> 70, 10 cells -> 40 (cap), 11 / 20 cells -> 40 (cap held). The fixture builds a synthetic state with N residential-density-0 cells + matching population entries (residents=0) so `computeCityHappiness` exercises the penalty path in isolation.
+- Verification: `npm test` 2170/2170 unit (1 new case). `npm run build` green. `npm run check:dashes` clean. `git diff --check` clean.
+- Assumptions: The fixture's 100 -> 94 step reflects waste / coverage / tax all reading 0 because populatedKeys is empty (residents=0 across the board); the only non-zero penalty is the abandoned cell count. Locks in the cap behavior so future refactors of the cap math break the test rather than silently changing the calibration.
+- GDD coverage: No build log changes (defensive test for an existing behavior).
+- Followups: F-NEW (deferred): an e2e that drives the full grow / decline / abandon / damp cycle so the visible HUD progression is observable end-to-end (the 43-click tax-up dance is already in `e2e/sim.spec.ts:1100`; an extended version could keep running and assert the abandoned readout count climbs).
+
 ## 2026-05-06, REQ-079 Damping: Per-Abandoned-Cell Happiness Penalty
 
 - Branch: `feature/20260506-abandoned-penalty`
