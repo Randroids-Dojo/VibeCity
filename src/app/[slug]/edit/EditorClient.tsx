@@ -1253,6 +1253,9 @@ export function EditorClient({
           <span
             data-testid="editor-sim-milestone"
             data-sim-milestone={simState.population.highestMilestoneReached}
+            role="status"
+            aria-live="polite"
+            aria-atomic="true"
             style={{
               marginLeft: 6,
               fontFamily: 'ui-monospace, Menlo, monospace',

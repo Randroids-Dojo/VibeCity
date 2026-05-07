@@ -616,7 +616,7 @@ function applyTick(state: SimState, event: TickEvent): SimState {
   const isGrowthTick =
     nextTick > 0 && nextTick % GROWTH_INTERVAL_TICKS === 0
   const nextPopulation = isGrowthTick
-    ? syncPopulationToZones(state.population, nextZones, nextTick)
+    ? syncPopulationToZones(state.population, monsterDamaged.zones, nextTick)
     : state.population
   // Economy ticks every frame (REQ-095 slice 1). Income from
   // residents * tax rate, maintenance from infrastructure cell counts.
