@@ -70,6 +70,7 @@ import {
 } from '@/lib/sim/state'
 import { TICK_INTERVAL_MS_BASE } from '@/lib/sim/engine'
 import { computeRciDemand } from '@/lib/sim/rciDemand'
+import { countUncoveredIndustrial } from '@/lib/sim/fireAutoSpawn'
 import {
   AUTOSAVE_STATUS_LABEL,
   DEFAULT_AUTOSAVE_DEBOUNCE_MS,
@@ -1198,6 +1199,26 @@ export function EditorClient({
             {'growth stalled'}
           </span>
         ) : null}
+        {(() => {
+          const uncovered = countUncoveredIndustrial(
+            simState.zones,
+            simState.services,
+          )
+          if (uncovered <= 0) return null
+          return (
+            <span
+              data-testid="editor-sim-fire-risk"
+              data-sim-fire-risk={uncovered}
+              style={{
+                marginLeft: 6,
+                fontFamily: 'ui-monospace, Menlo, monospace',
+                color: '#a3372a',
+              }}
+            >
+              {`fire risk: ${uncovered}`}
+            </span>
+          )
+        })()}
         {simState.economy.bankruptcyTickCounter > 0 ? (
           <>
             <span

@@ -60,6 +60,31 @@ function isCoveredByFireStation(
   return false
 }
 
+/**
+ * Count industrial zone cells with density > 0 that are NOT
+ * covered by a fire-station. Used by the editor HUD to surface
+ * the fire-risk readout: a cell that is part of this count is one
+ * the auto-spawn gate could ignite this tick.
+ */
+export function countUncoveredIndustrial(
+  zones: ZonesBucket,
+  services: ServicesBucket,
+): number {
+  let count = 0
+  for (const key of Object.keys(zones.cells)) {
+    const cell = zones.cells[key]
+    if (cell.kind !== 'industrial') continue
+    if (cell.density <= 0) continue
+    const [rowStr, colStr] = key.split(',')
+    const row = Number(rowStr)
+    const col = Number(colStr)
+    if (!Number.isFinite(row) || !Number.isFinite(col)) continue
+    if (isCoveredByFireStation(row, col, services)) continue
+    count += 1
+  }
+  return count
+}
+
 export function computeFireAutoSpawn(
   zones: ZonesBucket,
   services: ServicesBucket,

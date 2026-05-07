@@ -16,6 +16,16 @@ Format for each slice:
 - Followups: any new `F-NNN` entries created. Link to them.
 ```
 
+## 2026-05-06, REQ-105 + REQ-100 HUD: Fire-Risk Readout
+
+- Branch: `feature/20260506-fire-risk-hud`
+- PR: #N (when known)
+- Changed: New `countUncoveredIndustrial(zones, services)` helper in `src/lib/sim/fireAutoSpawn.ts` walks `zones.cells`, returns the count of industrial-and-density-greater-than-0 cells not within fire-station Manhattan radius. The editor HUD (in `src/app/[slug]/edit/EditorClient.tsx`) now mounts a "fire risk: N" span next to the existing growth-stalled indicator whenever the count is greater than 0; the span carries `data-testid="editor-sim-fire-risk"` and `data-sim-fire-risk={count}` for e2e selection. Surfaces the auto-spawn gameplay lever directly: the player sees the count drop the moment they place a fire-station within range. Closes the visibility gap from PR #134 / PR #137: auto-spawn is no longer a hidden mechanic the player has to infer from disaster spawns.
+- Verification: `npm test` 2148/2148 unit (3 new cases under `countUncoveredIndustrial`: counts uncovered density-greater-than-0 industrial cells while excluding density-0, residential, commercial, and covered cells; returns 0 when there are no industrial zones; returns 0 when every industrial cell is covered). `npm run build` green. `npm run check:dashes` clean. `git diff --check` clean. `npx playwright test e2e/sim.spec.ts --project=chromium` 26/26 local (1 new case: indicator absent on empty city, paints an industrial zone + runs at 4x to grow density, asserts the readout becomes visible with `data-sim-fire-risk="1"`, places a fire-station within range, asserts the readout unmounts).
+- Assumptions: Inline IIFE recompute on every render is cheap because `countUncoveredIndustrial` is O(|zones|) and zones change rarely. The readout text "fire risk: N" matches the existing low-happiness red color so visual language stays consistent.
+- GDD coverage: `docs/gdd/20-disasters.md` build log gains a HUD-readout entry. `docs/GDD_COVERAGE.json` REQ-105 row stays `done`.
+- Followups: F-NEW (deferred): per-cell fire-risk highlight on the snap grid (outline industrial cells that count as uncovered); fire-risk readout for residential / commercial when those follow-on auto-spawn paths land.
+
 ## 2026-05-06, REQ-105 + REQ-100 Follow-on: Density-Modulated Fire Auto-Spawn
 
 - Branch: `feature/20260506-fire-density-mod`
