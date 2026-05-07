@@ -554,13 +554,15 @@ export const BRAKE_LIGHT_COLOR_ACTIVE = 0xff3030
  * frame so a moving car reads as physically rolling over the road
  * texture rather than gliding flat. At rest the bob is zero (no offset).
  *
- * `BOB_FREQUENCY_HZ = 8` is the per-second oscillation rate at full
- * speed (a roughly two-bumps-per-second cadence at the integrator's
- * default tick rate). `BOB_AMPLITUDE_MAX` is the max y-offset in world
- * units; chosen small so the bob reads as subtle texture rather than a
- * pogo-stick.
+ * `BOB_FREQUENCY_HZ = 2` is the per-second oscillation rate at full
+ * speed (two full sine cycles per second, four "bumps" if you count
+ * each peak and trough). The phase derives from accumulated unpaused
+ * `timeSeconds` (the integration loop's per-frame `dt` accumulator),
+ * not wall-clock time, so pause / resume does not snap the car height.
+ * `BOB_AMPLITUDE_MAX` is the max y-offset in world units; chosen small
+ * so the bob reads as subtle road texture rather than a pogo-stick.
  */
-export const BOB_FREQUENCY_HZ = 8
+export const BOB_FREQUENCY_HZ = 2
 export const BOB_AMPLITUDE_MAX = CELL_SIZE * 0.012
 
 /**

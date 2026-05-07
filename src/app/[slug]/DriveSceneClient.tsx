@@ -1184,6 +1184,11 @@ export function DriveSceneClient({
     // wrong.
     const pedestrianMeshes: { mesh: THREE.Mesh; phase: number }[] = []
     let pedestrianElapsed = 0
+    // F-013 slice 4: accumulated unpaused time for the suspension bob
+    // phase. Mirrors the pedestrian-bob pattern so pause / resume does
+    // not advance the bob phase across the pause window (a wall-clock
+    // `performance.now()` source would snap the car height on resume).
+    let bobElapsed = 0
     if (city.pieces.length > 0 && simState.population.totalPopulation > 0) {
       const anchors = pedestrianAnchors(simState.population, cellToWorld)
       const pedGeometry = new THREE.BoxGeometry(
@@ -1969,11 +1974,15 @@ export function DriveSceneClient({
         car.position.x = vehicle.x
         car.position.z = vehicle.z
         // F-013 slice 4: speed-proportional suspension bob. Phase
-        // advances with wall-clock seconds; amplitude scales with
-        // |vehicle.speed| / MAX_SPEED so a stopped car reads as flat.
+        // advances with the integration loop's `dt` so pause / resume
+        // does not snap the car height (a wall-clock source would
+        // advance during pause and produce a jump on the first resumed
+        // frame). Amplitude scales with |vehicle.speed| / MAX_SPEED so
+        // a stopped car reads as flat.
+        bobElapsed += dt
         car.position.y = suspensionBobOffset(
           vehicle.speed,
-          performance.now() / 1000,
+          bobElapsed,
           MAX_SPEED,
         )
         car.rotation.y = vehicle.heading
