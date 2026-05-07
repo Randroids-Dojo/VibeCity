@@ -1232,6 +1232,19 @@ export function EditorClient({
             {`fire risk: ${fireRiskCount}`}
           </span>
         ) : null}
+        {abandonedCellKeys.size > 0 ? (
+          <span
+            data-testid="editor-sim-abandoned"
+            data-sim-abandoned={abandonedCellKeys.size}
+            style={{
+              marginLeft: 6,
+              fontFamily: 'ui-monospace, Menlo, monospace',
+              color: '#8a8a8a',
+            }}
+          >
+            {`abandoned: ${abandonedCellKeys.size}`}
+          </span>
+        ) : null}
         {simState.economy.bankruptcyTickCounter > 0 ? (
           <>
             <span

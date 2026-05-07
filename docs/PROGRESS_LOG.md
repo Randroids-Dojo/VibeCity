@@ -16,6 +16,16 @@ Format for each slice:
 - Followups: any new `F-NNN` entries created. Link to them.
 ```
 
+## 2026-05-06, REQ-079 HUD: Abandoned-Cells Readout
+
+- Branch: `feature/20260506-abandoned-hud`
+- PR: #N (when known)
+- Changed: New "abandoned: N" inline span next to the existing growth-stalled / fire-risk indicators in the editor HUD. Mounts only when `abandonedCellKeys.size > 0`, surfaces the count via `data-testid="editor-sim-abandoned"` and `data-sim-abandoned={count}`, color matches the gray dashed stroke from PR #144 (`#8a8a8a`). Reuses the existing `abandonedCellKeys` `useMemo` from PR #144 so the per-render cost stays bounded.
+- Verification: `npm test` 2167/2167 unit. `npm run build` green. `npm run check:dashes` clean. `git diff --check` clean. `npx playwright test e2e/sim.spec.ts --project=chromium` 28/28 local (1 new case: paint residential, click the residential-tax-up button 43 times to drive happiness deep into the miserable band, run at 4x, assert the abandoned readout becomes visible with `data-sim-abandoned="1"`).
+- Assumptions: The abandoned readout pairs visually with the gray dashed per-cell overlay from PR #144 so the player reads "the count and which cells contribute" the same way the fire-risk count pairs with the red per-cell overlay (#138 + #142). Color contrast is intentionally lower than fire-risk red so the abandoned cue reads as "informational" rather than "urgent" (the cell is recoverable on the next growth interval if the player addresses the underlying happiness problem).
+- GDD coverage: `docs/gdd/14-citizens.md` REQ-079 build log gains a HUD-readout entry.
+- Followups: F-NEW (deferred): damp the post-decline oscillation by tracking abandoned-cell-count as a happiness penalty so re-growth doesn't immediately fire; legend / tooltip explaining the gray dashed stroke + abandoned count.
+
 ## 2026-05-06, REQ-079 Visualization: Abandoned-Cell Cue
 
 - Branch: `feature/20260506-abandoned-cell-cue`

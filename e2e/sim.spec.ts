@@ -1097,6 +1097,62 @@ test('editor: fire-risk readout surfaces uncovered industrial cells and clears w
   await expect(page.getByTestId('editor-sim-fire-risk')).toHaveCount(0)
 })
 
+test('editor: abandoned-cells HUD readout surfaces freshly-declined residential cells (REQ-079 visualization)', async ({
+  page,
+}) => {
+  await page.route('**/api/city/**', async (route, req) => {
+    if (req.method() === 'PUT') {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          slug: 'sim-abandoned-hud-spec',
+          versionHash: '0'.repeat(64),
+          updatedAt: 0,
+        }),
+      })
+    } else {
+      await route.fallback()
+    }
+  })
+
+  await page.goto('/sim-abandoned-hud-spec/edit')
+
+  // Indicator absent on a fresh city.
+  await expect(page.getByTestId('editor-sim-abandoned')).toHaveCount(0)
+
+  // Pause, paint a residential cell, drive residential tax up to
+  // 50% so post-growth happiness lands deep in the miserable band
+  // (100 - 0 waste - 20 coverage - 80 tax = 0). The first growth
+  // tick brings the cell to density 1 + residents=4, and the
+  // following growth tick reads the now-miserable happiness and
+  // declines the cell back to density 0; the population entry
+  // persists at residents=0 so the abandoned-cells readout mounts.
+  await page.getByTestId('editor-sim-speed-0').click()
+  await page.getByTestId('editor-palette-category-zone').click()
+  await page
+    .locator(
+      '[data-testid="editor-snap-grid"] rect[data-cell-row="0"][data-cell-col="0"]',
+    )
+    .click()
+  // Drive tax up by 43 clicks (0.07 -> 0.50 at 0.01/click).
+  const taxUp = page.getByTestId('editor-sim-tax-residential-up')
+  for (let i = 0; i < 43; i++) await taxUp.click()
+  await expect(page.getByTestId('editor-sim-tax-residential')).toHaveAttribute(
+    'data-sim-tax-rate',
+    '0.5',
+  )
+  await page.getByTestId('editor-sim-speed-4').click()
+
+  await expect(page.getByTestId('editor-sim-abandoned')).toBeVisible({
+    timeout: 12000,
+  })
+  await expect(page.getByTestId('editor-sim-abandoned')).toHaveAttribute(
+    'data-sim-abandoned',
+    '1',
+  )
+})
+
 test('editor: industrial cell carries data-zone-fire-risk="true" when uncovered, "false" once a fire-station is in range (REQ-105 + REQ-100 follow-on)', async ({
   page,
 }) => {
