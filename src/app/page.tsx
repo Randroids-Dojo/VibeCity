@@ -46,8 +46,16 @@ export default async function HomePage() {
   // parallel fan-out stays small.
   const thumbnailDots = await Promise.all(
     cities.map(async ({ slug }) => {
-      const { city } = await loadCity(slug)
-      return cityThumbnailDots(city)
+      try {
+        const { city } = await loadCity(slug)
+        return cityThumbnailDots(city)
+      } catch (err) {
+        console.warn(
+          `home: thumbnail loadCity failed for slug=${slug}:`,
+          err,
+        )
+        return []
+      }
     }),
   )
   // Snapshot the clock once per request so every entry's relative cue
