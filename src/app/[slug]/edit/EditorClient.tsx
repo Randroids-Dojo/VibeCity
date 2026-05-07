@@ -1,7 +1,7 @@
 'use client'
 
 import Link from 'next/link'
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type {
   PointerEvent as ReactPointerEvent,
   WheelEvent as ReactWheelEvent,
@@ -70,6 +70,7 @@ import {
 } from '@/lib/sim/state'
 import { TICK_INTERVAL_MS_BASE } from '@/lib/sim/engine'
 import { computeRciDemand } from '@/lib/sim/rciDemand'
+import { countUncoveredIndustrial } from '@/lib/sim/fireAutoSpawn'
 import {
   AUTOSAVE_STATUS_LABEL,
   DEFAULT_AUTOSAVE_DEBOUNCE_MS,
@@ -213,6 +214,10 @@ export function EditorClient({
   const simEngine = useSimEngine(slug, builderId)
   const simRuntime = simEngine.runtime
   const simState = simRuntime.state
+  const fireRiskCount = useMemo(
+    () => countUncoveredIndustrial(simState.zones, simState.services),
+    [simState.zones, simState.services],
+  )
   const [history, setHistory] = useState<EditorHistory<City>>(() =>
     createHistory(initialCity),
   )
@@ -1196,6 +1201,19 @@ export function EditorClient({
             }}
           >
             {'growth stalled'}
+          </span>
+        ) : null}
+        {fireRiskCount > 0 ? (
+          <span
+            data-testid="editor-sim-fire-risk"
+            data-sim-fire-risk={fireRiskCount}
+            style={{
+              marginLeft: 6,
+              fontFamily: 'ui-monospace, Menlo, monospace',
+              color: '#a3372a',
+            }}
+          >
+            {`fire risk: ${fireRiskCount}`}
           </span>
         ) : null}
         {simState.economy.bankruptcyTickCounter > 0 ? (

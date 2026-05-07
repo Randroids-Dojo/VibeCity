@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import {
   computeFireAutoSpawn,
+  countUncoveredIndustrial,
   fireAutoSpawnHash,
 } from '@/lib/sim/fireAutoSpawn'
 import {
@@ -171,6 +172,51 @@ describe('computeFireAutoSpawn', () => {
     )
     expect(dense).toHaveLength(1)
     expect(light).toHaveLength(0)
+  })
+
+  describe('countUncoveredIndustrial', () => {
+    it('counts industrial cells with density > 0 not covered by a fire-station', () => {
+      const zones: ZonesBucket = {
+        cells: {
+          '0,0': { kind: 'industrial', density: 1 },
+          '0,1': { kind: 'industrial', density: 0 },
+          '5,5': { kind: 'industrial', density: 3 },
+          '6,6': { kind: 'residential', density: 1 },
+          '7,7': { kind: 'commercial', density: 1 },
+        },
+      }
+      const services: ServicesBucket = {
+        buildings: [{ kind: 'fire-station', row: 5, col: 5 }],
+      }
+      // 0,0 industrial density 1 uncovered = 1
+      // 0,1 industrial density 0 = excluded
+      // 5,5 industrial density 3 BUT covered by fire-station = excluded
+      // 6,6 residential = excluded
+      // 7,7 commercial = excluded
+      expect(countUncoveredIndustrial(zones, services)).toBe(1)
+    })
+
+    it('returns 0 when there are no industrial zones', () => {
+      const zones: ZonesBucket = {
+        cells: {
+          '0,0': { kind: 'residential', density: 3 },
+        },
+      }
+      expect(countUncoveredIndustrial(zones, EMPTY_SERVICES)).toBe(0)
+    })
+
+    it('returns 0 when every industrial cell is covered by a fire-station', () => {
+      const zones: ZonesBucket = {
+        cells: {
+          '0,0': { kind: 'industrial', density: 1 },
+          '0,1': { kind: 'industrial', density: 1 },
+        },
+      }
+      const services: ServicesBucket = {
+        buildings: [{ kind: 'fire-station', row: 0, col: 0 }],
+      }
+      expect(countUncoveredIndustrial(zones, services)).toBe(0)
+    })
   })
 
   it('two replays at the same tick spawn the same fires (determinism)', () => {

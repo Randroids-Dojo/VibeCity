@@ -1040,6 +1040,63 @@ test('editor: growth-stalled indicator appears once happiness drops to GROWTH_HA
   })
 })
 
+test('editor: fire-risk readout surfaces uncovered industrial cells and clears when a fire-station is placed (REQ-105 + REQ-100 follow-on)', async ({
+  page,
+}) => {
+  await page.route('**/api/city/**', async (route, req) => {
+    if (req.method() === 'PUT') {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          slug: 'sim-fire-risk-spec',
+          versionHash: '0'.repeat(64),
+          updatedAt: 0,
+        }),
+      })
+    } else {
+      await route.fallback()
+    }
+  })
+
+  await page.goto('/sim-fire-risk-spec/edit')
+
+  // Indicator absent when there is no industrial zone.
+  await expect(page.getByTestId('editor-sim-fire-risk')).toHaveCount(0)
+
+  // Pause + paint an industrial zone at (0, 0).
+  await page.getByTestId('editor-sim-speed-0').click()
+  await page.getByTestId('editor-palette-category-zone').click()
+  await page.locator('[data-zone-type="industrial"]').click()
+  await page
+    .locator(
+      '[data-testid="editor-snap-grid"] rect[data-cell-row="0"][data-cell-col="0"]',
+    )
+    .click()
+
+  // Run at 4x so the first growth tick fires fast (industrial
+  // density 0 -> 1 means it counts as uncovered industrial).
+  await page.getByTestId('editor-sim-speed-4').click()
+
+  const fireRisk = page.getByTestId('editor-sim-fire-risk')
+  await expect(fireRisk).toBeVisible({ timeout: 8000 })
+  await expect(fireRisk).toHaveAttribute('data-sim-fire-risk', '1')
+
+  // Pause, place a fire-station within coverage radius.
+  await page.getByTestId('editor-sim-speed-0').click()
+  await page.getByTestId('editor-palette-category-services').click()
+  await page.locator('[data-service-tool="fire-station"]').click()
+  await page
+    .locator(
+      '[data-testid="editor-snap-grid"] rect[data-cell-row="0"][data-cell-col="1"]',
+    )
+    .click()
+
+  // Indicator should disappear (the only industrial cell is now
+  // covered).
+  await expect(page.getByTestId('editor-sim-fire-risk')).toHaveCount(0)
+})
+
 test('editor: zone sewage status flips to drained when wired to a treatment plant (REQ-092)', async ({
   page,
 }) => {
