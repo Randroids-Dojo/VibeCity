@@ -1097,6 +1097,58 @@ test('editor: fire-risk readout surfaces uncovered industrial cells and clears w
   await expect(page.getByTestId('editor-sim-fire-risk')).toHaveCount(0)
 })
 
+test('editor: industrial cell carries data-zone-fire-risk="true" when uncovered, "false" once a fire-station is in range (REQ-105 + REQ-100 follow-on)', async ({
+  page,
+}) => {
+  await page.route('**/api/city/**', async (route, req) => {
+    if (req.method() === 'PUT') {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          slug: 'sim-fire-risk-overlay-spec',
+          versionHash: '0'.repeat(64),
+          updatedAt: 0,
+        }),
+      })
+    } else {
+      await route.fallback()
+    }
+  })
+
+  await page.goto('/sim-fire-risk-overlay-spec/edit')
+  await page.getByTestId('editor-sim-speed-0').click()
+
+  await page.getByTestId('editor-palette-category-zone').click()
+  await page.locator('[data-zone-type="industrial"]').click()
+  await page
+    .locator(
+      '[data-testid="editor-snap-grid"] rect[data-cell-row="0"][data-cell-col="0"]',
+    )
+    .click()
+  await page.getByTestId('editor-sim-speed-4').click()
+
+  // Wait for the first growth tick (density 0 -> 1, the cell becomes
+  // fire-risk-eligible) and assert the overlay flag flips to true.
+  const overlay = page.locator(
+    '[data-testid="editor-zone-overlay"][data-zone-row="0"][data-zone-col="0"]',
+  )
+  await expect(overlay).toHaveAttribute('data-zone-fire-risk', 'true', {
+    timeout: 8000,
+  })
+
+  // Place a fire-station within radius and assert the flag flips.
+  await page.getByTestId('editor-sim-speed-0').click()
+  await page.getByTestId('editor-palette-category-services').click()
+  await page.locator('[data-service-tool="fire-station"]').click()
+  await page
+    .locator(
+      '[data-testid="editor-snap-grid"] rect[data-cell-row="0"][data-cell-col="1"]',
+    )
+    .click()
+  await expect(overlay).toHaveAttribute('data-zone-fire-risk', 'false')
+})
+
 test('editor: zone sewage status flips to drained when wired to a treatment plant (REQ-092)', async ({
   page,
 }) => {
