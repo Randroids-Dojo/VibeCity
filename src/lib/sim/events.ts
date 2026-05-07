@@ -6,7 +6,7 @@ import { computeFireSpread } from './fireSpread'
 import { applyFloodDamage } from './floodDamage'
 import { applyMonsterDamage } from './monsterDamage'
 import { solveSewageStatus } from './sewageSolver'
-import { coverageCount, solveServicesCoverage } from './servicesSolver'
+import { cellCoverage, coverageCount } from './servicesSolver'
 import { applyTornadoDamage } from './tornadoDamage'
 import {
   DEFAULT_SIM_SPEED,
@@ -674,7 +674,6 @@ function applyTick(state: SimState, event: TickEvent): SimState {
     nextWater,
     nextDisasters,
     monsterDamaged.services,
-    monsterDamaged.zones,
     state.taxRates,
   )
   return {
@@ -814,7 +813,6 @@ export function computeCityHappiness(
   population: PopulationBucket,
   disasters: DisastersBucket,
   services: ServicesBucket,
-  zones: ZonesBucket,
   taxRates: TaxRates,
 ): number {
   const populatedKeys = Object.keys(population.cells).filter(
@@ -836,11 +834,18 @@ export function computeCityHappiness(
     }
     const avgWaste = totalWaste / populatedKeys.length
     wastePenalty = (avgWaste / WASTE_MAX_PER_CELL) * WASTE_HAPPINESS_WEIGHT
-    const coverageMap = solveServicesCoverage(zones, services)
+    // Coverage scoped to populated cells only (F-017): cellCoverage
+    // walks the services list per cell, avoiding the full-zones
+    // sort + per-zone-cell solve in solveServicesCoverage. For a
+    // city with R residents and S services, the cost drops from
+    // O(|zones| log |zones| + |zones| * S) to O(R * S).
     let totalCoverage = 0
     for (const key of populatedKeys) {
-      const c = coverageMap[key]
-      totalCoverage += c ? coverageCount(c) : 0
+      const [rowStr, colStr] = key.split(',')
+      const row = Number(rowStr)
+      const col = Number(colStr)
+      if (!Number.isFinite(row) || !Number.isFinite(col)) continue
+      totalCoverage += coverageCount(cellCoverage(row, col, services))
     }
     const avgCoverage = totalCoverage / populatedKeys.length
     coveragePenalty = (5 - avgCoverage) * COVERAGE_HAPPINESS_WEIGHT
@@ -856,7 +861,7 @@ export function computeCityHappiness(
 /**
  * Per-tick happiness reducer (REQ-076 multi-input). Recomputes
  * `cityHappiness` from the freshly-updated water bucket, active
- * disasters, services coverage, zones, and tax rates. Identity-on-
+ * disasters, services coverage, and tax rates. Identity-on-
  * no-change short-circuits when the score is unchanged.
  */
 export function applyHappinessTick(
@@ -864,7 +869,6 @@ export function applyHappinessTick(
   water: WaterBucket,
   disasters: DisastersBucket,
   services: ServicesBucket,
-  zones: ZonesBucket,
   taxRates: TaxRates,
 ): PopulationBucket {
   const next = computeCityHappiness(
@@ -872,7 +876,6 @@ export function applyHappinessTick(
     population,
     disasters,
     services,
-    zones,
     taxRates,
   )
   if (next === population.cityHappiness) return population
