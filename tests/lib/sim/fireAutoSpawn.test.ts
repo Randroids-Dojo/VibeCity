@@ -134,6 +134,45 @@ describe('computeFireAutoSpawn', () => {
     expect(spawned.map((d) => `${d.row},${d.col}`)).toEqual(['5,5'])
   })
 
+  it('density-3 ignites at a tick where density-1 would not (density modulation)', () => {
+    // Find a tick whose hash at (10, 10) falls in the band
+    // [P, 3*P): density 1 cell does NOT ignite (threshold P),
+    // density 3 cell DOES (threshold 3*P).
+    let bandTick = -1
+    for (let t = 1; t < 200000; t++) {
+      const h = fireAutoSpawnHash(t, 10, 10)
+      if (
+        h >= FIRE_AUTO_SPAWN_PROBABILITY_PER_TICK &&
+        h < FIRE_AUTO_SPAWN_PROBABILITY_PER_TICK * 3
+      ) {
+        bandTick = t
+        break
+      }
+    }
+    expect(bandTick).toBeGreaterThan(-1)
+
+    const denseZones: ZonesBucket = {
+      cells: { '10,10': { kind: 'industrial', density: 3 } },
+    }
+    const lightZones: ZonesBucket = {
+      cells: { '10,10': { kind: 'industrial', density: 1 } },
+    }
+    const dense = computeFireAutoSpawn(
+      denseZones,
+      EMPTY_SERVICES,
+      EMPTY_DISASTERS,
+      bandTick,
+    )
+    const light = computeFireAutoSpawn(
+      lightZones,
+      EMPTY_SERVICES,
+      EMPTY_DISASTERS,
+      bandTick,
+    )
+    expect(dense).toHaveLength(1)
+    expect(light).toHaveLength(0)
+  })
+
   it('two replays at the same tick spawn the same fires (determinism)', () => {
     const zones: ZonesBucket = {
       cells: { '7,3': { kind: 'industrial', density: 2 } },

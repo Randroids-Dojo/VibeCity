@@ -16,6 +16,16 @@ Format for each slice:
 - Followups: any new `F-NNN` entries created. Link to them.
 ```
 
+## 2026-05-06, REQ-105 + REQ-100 Follow-on: Density-Modulated Fire Auto-Spawn
+
+- Branch: `feature/20260506-fire-density-mod`
+- PR: #N (when known)
+- Changed: `computeFireAutoSpawn` (in `src/lib/sim/fireAutoSpawn.ts`) now multiplies the per-tick probability by `cell.density` so density-3 industrial is 3x more fire-prone than density-1, density-2 is 2x. Density-0 cells stay skipped (existing density check). Calibration for the most-vulnerable case (density 3, base 0.004): expected ~250/3 ≈ 83 ticks (~21 wall-seconds at 1x) for a single uncovered density-3 industrial cell to catch fire. The gameplay lever scales linearly with the threat: dense industrial sprawl that goes uncovered is meaningfully riskier than light industrial.
+- Verification: `npm test` 2145/2145 unit (1 new case under `tests/lib/sim/fireAutoSpawn.test.ts` finds a tick whose hash falls in the band `[P, 3*P)` and asserts that a density-3 cell ignites while a density-1 cell at the same tick does not). Existing 8 cases unchanged because they all use density-1 cells where the density-modulated threshold equals the base. `npm run build` green. `npm run check:dashes` clean. `git diff --check` clean. `npx playwright test e2e/sim.spec.ts --project=chromium` 25/25 local.
+- Assumptions: Linear density scaling matches the player's mental model (twice as dense = twice as risky). Density 0 cells stay fire-safe; the existing skip is preserved. The base probability stays at 0.004 so a density-1 starter city's calibration is unchanged.
+- GDD coverage: `docs/gdd/20-disasters.md` build log gains a density-modulation entry. `docs/GDD_COVERAGE.json` REQ-105 row stays `done`.
+- Followups: F-NEW (deferred): per-zone-kind risk modulation (industrial = base, residential = lower base, commercial = mid); seasonal / weather modifiers (drought multiplies fire risk).
+
 ## 2026-05-06, F-017: Scope Happiness Coverage to Populated Cells
 
 - Branch: `feature/20260506-happiness-coverage-perf`

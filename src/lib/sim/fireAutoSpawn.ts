@@ -15,9 +15,11 @@ import {
  * covered by a fire-station rolls a deterministic hash of
  * `(tick, row, col)` (with mixing constants distinct from fire spread
  * + fire damage so the rolls are independent) into a `[0, 1)` value.
- * A roll below `FIRE_AUTO_SPAWN_PROBABILITY_PER_TICK` spawns a fresh
- * fire at that cell. Cells with an existing fire at the same anchor
- * are skipped so two fires never stack via auto-spawn.
+ * A roll below `FIRE_AUTO_SPAWN_PROBABILITY_PER_TICK * cell.density`
+ * spawns a fresh fire at that cell, so density-3 industrial is 3x
+ * more fire-prone than density-1. Cells with an existing fire at
+ * the same anchor are skipped so two fires never stack via
+ * auto-spawn.
  *
  * Determinism: the hash has no external state. Two clients replaying
  * the same event log compute the same `(tick, row, col)` for every
@@ -83,8 +85,15 @@ export function computeFireAutoSpawn(
     if (!Number.isFinite(row) || !Number.isFinite(col)) continue
     if (existingFireKeys.has(key)) continue
     if (isCoveredByFireStation(row, col, services)) continue
+    // Density-modulated probability: density-3 industrial is 3x
+    // more fire-prone than density-1, density-2 sits at 2x. Dense
+    // industrial sprawl (factories stacked on top of factories)
+    // carries proportional risk; the player's gameplay lever
+    // (place fire stations) scales with the threat.
+    const cellProbability =
+      FIRE_AUTO_SPAWN_PROBABILITY_PER_TICK * cell.density
     const roll = fireAutoSpawnHash(tick, row, col)
-    if (roll >= FIRE_AUTO_SPAWN_PROBABILITY_PER_TICK) continue
+    if (roll >= cellProbability) continue
     existingFireKeys.add(key)
     spawned.push({
       kind: 'fire',
