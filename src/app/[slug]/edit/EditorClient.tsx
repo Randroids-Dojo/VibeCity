@@ -218,6 +218,22 @@ export function EditorClient({
     () => countUncoveredIndustrial(simState.zones, simState.services),
     [simState.zones, simState.services],
   )
+  // Abandoned-cell highlight (REQ-079 visualization). A cell is
+  // "freshly abandoned" when its zone density dropped to 0 via
+  // happiness-driven decline: the population.cells entry exists
+  // (residents synced to 0) but no entry would exist for a
+  // never-grown cell. Recomputed only when zones / population
+  // change so the per-render cost stays bounded.
+  const abandonedCellKeys = useMemo(() => {
+    const keys = new Set<string>()
+    for (const key of Object.keys(simState.zones.cells)) {
+      const zone = simState.zones.cells[key]
+      if (zone.density !== 0) continue
+      const popCell = simState.population.cells[key]
+      if (popCell !== undefined) keys.add(key)
+    }
+    return keys
+  }, [simState.zones, simState.population])
   const [history, setHistory] = useState<EditorHistory<City>>(() =>
     createHistory(initialCity),
   )
@@ -1878,6 +1894,7 @@ export function EditorClient({
         services={simState.services}
         water={simState.water}
         disasters={simState.disasters}
+        abandonedCellKeys={abandonedCellKeys}
         onSurfaceWheel={handleSurfaceWheel}
         onSurfacePointerDown={handleSurfacePointerDown}
       />

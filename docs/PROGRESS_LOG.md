@@ -16,6 +16,16 @@ Format for each slice:
 - Followups: any new `F-NNN` entries created. Link to them.
 ```
 
+## 2026-05-06, REQ-079 Visualization: Abandoned-Cell Cue
+
+- Branch: `feature/20260506-abandoned-cell-cue`
+- PR: #N (when known)
+- Changed: `SnapGridView` gains an optional `abandonedCellKeys: ReadonlySet<string>` prop. The zone-overlay loop carries `data-zone-abandoned={true|false}` and overrides stroke + dasharray when the flag is true (gray `#8a8a8a`, width 2, dasharray `4 3`). `EditorClient` derives the set with `useMemo` keyed on `simState.zones` and `simState.population`: a cell is abandoned when `zone.density === 0 && population.cells[key] !== undefined` (the population entry survives decline-to-0 because `syncPopulationToZones` sets residents=0 rather than removing the entry). Surfaces the difference between never-grown and freshly-declined cells so the player can see WHICH cells emptied out.
+- Verification: `npm test` 2167/2167 unit (no test changes; the new prop is optional and the existing tests render with `abandonedCellKeys === undefined`). `npm run build` green. `npm run check:dashes` clean. `git diff --check` clean. `npx playwright test e2e/sim.spec.ts --project=chromium` 27/27 local.
+- Assumptions: A never-grown residential cell at density 0 has no `population.cells` entry (only growth ticks create entries). After decline to 0, the population entry persists with residents=0 until the cell either re-grows (density > 0 brings residents back via `RESIDENTIAL_CAPACITY_BY_DENSITY`) or is `eraseZone`'d (sync removes the entry). The visual cue is brief because the post-decline oscillation re-grows the cell on the next growth interval; a future slice can damp the oscillation by tracking abandoned-cell-count as a happiness penalty.
+- GDD coverage: `docs/gdd/14-citizens.md` REQ-079 build log gains a visualization entry.
+- Followups: F-NEW (deferred): persist an `abandonedAtTick` timestamp so the cue stays visible longer than one growth interval; legend / tooltip explaining the gray dashed stroke; abandoned-cell happiness penalty to damp the post-decline oscillation.
+
 ## 2026-05-06, F-014 Follow-on: Density-Tiered Pedestrian Count
 
 - Branch: `feature/20260506-pedestrians-density`
