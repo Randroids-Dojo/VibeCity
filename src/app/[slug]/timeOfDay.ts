@@ -43,6 +43,29 @@ export function cityDayNumber(tick: number): number {
 }
 
 /**
+ * How long (in sim ticks) the day-rollover flash stays active after a
+ * day boundary. At the default 4Hz tick rate this is ~3 wall-seconds,
+ * long enough for a player to notice but short enough that the flash
+ * never lingers into the next day.
+ */
+export const DAY_ROLLOVER_FLASH_TICKS = 12
+
+/**
+ * Returns true while the city is inside the post-rollover flash
+ * window: the first `DAY_ROLLOVER_FLASH_TICKS` ticks of every day
+ * EXCEPT Day 1 (we do not flash on the initial mount because the city
+ * has not "rolled over" yet, it has just started). Pure event-sourced
+ * predicate so two replays of the same tick render identical flash
+ * state.
+ */
+export function dayRolloverFlashing(tick: number): boolean {
+  if (!Number.isFinite(tick) || tick <= 0) return false
+  if (tick < DAY_NIGHT_CYCLE_TICKS) return false
+  const phase = tick % DAY_NIGHT_CYCLE_TICKS
+  return phase < DAY_ROLLOVER_FLASH_TICKS
+}
+
+/**
  * Resolve `city.mood?.timeOfDay` into a known mode.
  *
  *   - `undefined` / unknown: defaults to 'day' (v1 baseline).

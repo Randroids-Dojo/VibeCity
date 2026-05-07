@@ -16,6 +16,16 @@ Format for each slice:
 - Followups: any new `F-NNN` entries created. Link to them.
 ```
 
+## 2026-05-07, Day-Rollover Flash (mass-appeal slice 5 follow-on)
+
+- Branch: `feature/20260507-day-rollover-flash`
+- PR: #158
+- Changed: `src/app/[slug]/timeOfDay.ts` adds `DAY_ROLLOVER_FLASH_TICKS = 12` and `dayRolloverFlashing(tick)` (a pure event-sourced predicate that returns `true` for the first 12 ticks of every day except Day 1, so two replays of the same tick render identical flash state). The editor toolbar `editor-sim-day` span and the drive HUD `drive-hud-day` span both read the predicate and apply a green tint plus bold weight when the flash is active. `data-day-flash` mirrors the live state for tests. Closes the deferred F-NEW from PR #154 (animated tick-over flash when the day rolls over) and from PR #155 (drive HUD parity).
+- Verification: `npm test` 2220/2220 unit (8 new cases under `dayRolloverFlashing (mass-appeal slice 5 follow-on)`). `npm run type-check` green. `npm run check:dashes` clean. `git diff --check` clean.
+- Assumptions: The flash is purely tick-driven so a paused city does NOT flash (the tick stays put). A fast-forward player at 4x speed sees the flash for the same 12 ticks, which is ~750 wall-ms; this stays inside the human reaction window and never lingers into the next day. Color choice (green `#1f7a1f` editor / `#9be0a3` drive) matches the milestone toast palette so the celebratory cue reads as one channel across the surfaces.
+- GDD coverage: no row in `docs/GDD_COVERAGE.json` flips because day-counter polish has no canonical REQ-NNN ID; the `docs/gdd/07-editor.md` build log gains a flash entry under the existing Day-counter slice.
+- Followups: F-NEW (deferred): persistent "longest-running city" leaderboard surface that reads `simState.tick` from the persisted city; CSS `@keyframes` pulse animation on the flash span (currently the green tint flips on / off without a fade transition).
+
 ## 2026-05-07, Drive Feel: Brake HUD Indicator (F-013 slice 1)
 
 - Branch: `feature/20260507-brake-hud-indicator`
