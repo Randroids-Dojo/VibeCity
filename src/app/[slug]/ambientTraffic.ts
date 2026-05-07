@@ -27,6 +27,31 @@ export interface AmbientCar {
 
 export const AMBIENT_CAR_SPEED = 6
 export const AMBIENT_CAR_COUNT = 12
+
+/**
+ * Per-resident divisor for population-scaled ambient car spawning
+ * (REQ-077 follow-on). Each `RESIDENTS_PER_AMBIENT_CAR` residents
+ * unlocks one ambient car, capped at `AMBIENT_CAR_COUNT`. With the
+ * residential density ladder (1=4, 2=12, 3=40), this maps:
+ *   - 1 small house (4 residents) -> 1 ambient car
+ *   - 1 mid house  (12 residents) -> 2 ambient cars
+ *   - 1 apartment  (40 residents) -> 5 ambient cars
+ *   - ~96 residents -> capped at 12 (full fleet)
+ *
+ * Empty cities get 0 ambient cars; the player's vehicle is a
+ * separate group and is not affected.
+ */
+export const RESIDENTS_PER_AMBIENT_CAR = 8
+
+export function ambientCarCountForPopulation(
+  totalPopulation: number,
+): number {
+  if (totalPopulation <= 0) return 0
+  return Math.min(
+    AMBIENT_CAR_COUNT,
+    Math.ceil(totalPopulation / RESIDENTS_PER_AMBIENT_CAR),
+  )
+}
 export const AMBIENT_CAR_COLORS = [
   0xc44d56, 0x4d8bc4, 0x4dc476, 0xd4b34d, 0x9d4dc4, 0xd47e4d, 0x4dc4c4,
 ] as const

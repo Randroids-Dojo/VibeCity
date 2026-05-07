@@ -16,6 +16,16 @@ Format for each slice:
 - Followups: any new `F-NNN` entries created. Link to them.
 ```
 
+## 2026-05-06, REQ-077 Lite: Population-Scaled Ambient Car Count
+
+- Branch: `feature/20260506-traffic-population-scaled`
+- PR: #N (when known)
+- Changed: New `ambientCarCountForPopulation(totalPopulation)` helper + `RESIDENTS_PER_AMBIENT_CAR = 8` constant in `src/app/[slug]/ambientTraffic.ts`. Returns 0 for empty cities, otherwise `min(AMBIENT_CAR_COUNT = 12, ceil(totalPopulation / 8))`. `DriveSceneClient` now passes the population-scaled count into `spawnAmbientFleet` instead of the hard-coded `AMBIENT_CAR_COUNT`. Effect: empty city = 0 ambient cars, 1 small house (4 residents) = 1 car, 1 mid house (12 residents) = 2 cars, 1 apartment (40 residents) = 5 cars, ~96 residents = capped at 12. Closes the long-standing "the city has cars regardless of population" disconnect; the visible traffic now responds to the player's residential growth.
+- Verification: `npm test` 2162/2162 unit (6 new cases under `ambientCarCountForPopulation`: empty / negative / ceil semantics / cap / small-house / apartment). `npm run build` green. `npm run check:dashes` clean. `git diff --check` clean.
+- Assumptions: Player vehicle is a separate group, untouched by the count change. Ceil semantics mean a single resident already pulls 1 ambient car onto the streets so the player sees life immediately. AMBIENT_CAR_COUNT = 12 still defines the cap. The denominator (8 residents per car) was tuned so the residential density ladder produces a satisfying progression: dropping a single small house (4 residents) immediately lights up 1 ambient car, growing the same cell to apartment-density (40) brings the fleet up to 5.
+- GDD coverage: `docs/gdd/14-citizens.md` REQ-077 build log gains a "lite" entry. `docs/GDD_COVERAGE.json` REQ-075 row stays `partial` (full NPC traffic from individual trip-demand events still pending; this slice scales the existing random-roam fleet to population).
+- Followups: F-NEW (deferred): per-trip-demand vehicle spawn (REQ-078); commercial / industrial cells contributing to the count; pedestrian count similarly scaled to population.
+
 ## 2026-05-06, F-014: Ambient Pedestrians at Populated Zone Cells
 
 - Branch: `feature/20260506-ambient-pedestrians`
