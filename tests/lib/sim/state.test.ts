@@ -199,6 +199,8 @@ describe('EMPTY_SIM_STATE', () => {
       totalPopulation: 0,
       totalTripDemand: 0,
       cityHappiness: 100,
+      highestMilestoneReached: 0,
+      lastMilestoneTick: 0,
     })
   })
 

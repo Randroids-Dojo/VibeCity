@@ -10,6 +10,7 @@ import { cellCoverage, coverageCount } from './servicesSolver'
 import { applyTornadoDamage } from './tornadoDamage'
 import {
   ABANDONED_CELL_HAPPINESS_WEIGHT,
+  POPULATION_MILESTONES,
   DEFAULT_SIM_SPEED,
   DEFAULT_TAX_RATES,
   COMMERCIAL_JOBS_BY_DENSITY,
@@ -615,7 +616,7 @@ function applyTick(state: SimState, event: TickEvent): SimState {
   const isGrowthTick =
     nextTick > 0 && nextTick % GROWTH_INTERVAL_TICKS === 0
   const nextPopulation = isGrowthTick
-    ? syncPopulationToZones(state.population, nextZones)
+    ? syncPopulationToZones(state.population, nextZones, nextTick)
     : state.population
   // Economy ticks every frame (REQ-095 slice 1). Income from
   // residents * tax rate, maintenance from infrastructure cell counts.
@@ -985,6 +986,7 @@ export function applyWasteTick(
 export function syncPopulationToZones(
   population: PopulationBucket,
   zones: ZonesBucket,
+  tick: number = 0,
 ): PopulationBucket {
   const nextCells: Record<string, PopulationCell> = {}
   let totalPopulation = 0
@@ -1016,7 +1018,29 @@ export function syncPopulationToZones(
       changed = true
     }
   }
-  if (!changed && Object.keys(nextCells).length === Object.keys(population.cells).length) {
+  // Population milestone crossing (mass-appeal slice). Find the
+  // highest threshold the city's NEW totalPopulation cleared that
+  // sits above the previous highest. Only the FIRST crossing of
+  // each threshold fires; subsequent visits at the same population
+  // do not retrigger. Decline that drops totalPopulation back below
+  // a previously-cleared threshold does NOT clear the milestone
+  // record (the player keeps the achievement).
+  let highestMilestoneReached = population.highestMilestoneReached
+  let lastMilestoneTick = population.lastMilestoneTick
+  for (const threshold of POPULATION_MILESTONES) {
+    if (totalPopulation >= threshold && threshold > highestMilestoneReached) {
+      highestMilestoneReached = threshold
+      lastMilestoneTick = tick
+    }
+  }
+  const milestoneChanged =
+    highestMilestoneReached !== population.highestMilestoneReached ||
+    lastMilestoneTick !== population.lastMilestoneTick
+  if (
+    !changed &&
+    !milestoneChanged &&
+    Object.keys(nextCells).length === Object.keys(population.cells).length
+  ) {
     return population
   }
   return {
@@ -1024,6 +1048,8 @@ export function syncPopulationToZones(
     totalPopulation,
     totalTripDemand,
     cityHappiness: population.cityHappiness,
+    highestMilestoneReached,
+    lastMilestoneTick,
   }
 }
 

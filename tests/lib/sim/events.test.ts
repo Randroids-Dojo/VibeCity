@@ -1552,6 +1552,66 @@ describe('applySimEvent', () => {
       expect(a.population.cityHappiness).toBe(b.population.cityHappiness)
     })
 
+    it('crossing a population milestone for the first time records highestMilestoneReached + lastMilestoneTick (mass-appeal slice)', () => {
+      // First small house tips totalPopulation from 0 -> 4, which
+      // crosses the 4-resident milestone at tick 20. Tax 0.35 +
+      // treatment plant lands tick-20 happiness in the stagnant
+      // band so density stays 1 and the milestone does not advance
+      // past 4 on the next growth tick.
+      let s = applySimEvent(EMPTY_SIM_STATE, placeRes(0, 0))
+      s = applySimEvent(s, placeTreatmentPlant(0, 1))
+      s = applySimEvent(s, {
+        type: 'setTaxRate',
+        payload: { kind: 'residential', rate: 0.35 },
+        clientCreatedAt: 0,
+        authorBuilderId: A_BUILDER,
+      })
+      s = tickN(20, s)
+      expect(s.population.totalPopulation).toBe(4)
+      expect(s.population.highestMilestoneReached).toBe(4)
+      expect(s.population.lastMilestoneTick).toBe(20)
+      const beforeRetrigger = s.population.lastMilestoneTick
+      // Stagnant band: density holds at 1, totalPopulation stays 4.
+      // The milestone does not retrigger at the same population.
+      s = tickN(20, s)
+      expect(s.population.totalPopulation).toBe(4)
+      expect(s.population.lastMilestoneTick).toBe(beforeRetrigger)
+    })
+
+    it('decline that drops totalPopulation below a previous milestone does NOT clear the record (mass-appeal slice)', () => {
+      // Place residential, set tax to 50% so the city declines back
+      // to density 0 + residents 0. The 4-resident milestone was
+      // already crossed at tick 20; after the decline at tick 40 it
+      // stays recorded.
+      let s = applySimEvent(EMPTY_SIM_STATE, placeRes(0, 0))
+      s = applySimEvent(s, placeTreatmentPlant(0, 1))
+      s = applySimEvent(s, {
+        type: 'setTaxRate',
+        payload: { kind: 'residential', rate: 0.5 },
+        clientCreatedAt: 0,
+        authorBuilderId: A_BUILDER,
+      })
+      s = tickN(40, s)
+      expect(s.population.totalPopulation).toBe(0)
+      expect(s.population.highestMilestoneReached).toBe(4)
+    })
+
+    it('placing residentials that cross multiple milestones at once records the HIGHEST one (mass-appeal slice)', () => {
+      // Forge zone state into a single density-3 cell (40 residents)
+      // by manually nudging the bucket, then verify the milestone
+      // jumps directly to 40 instead of stopping at 4 / 12.
+      let s = applySimEvent(EMPTY_SIM_STATE, placeRes(0, 0))
+      s = {
+        ...s,
+        zones: {
+          cells: { '0,0': { kind: 'residential', density: 3 } },
+        },
+      }
+      s = tickN(20, s)
+      expect(s.population.totalPopulation).toBe(40)
+      expect(s.population.highestMilestoneReached).toBe(40)
+    })
+
     it('abandoned cells damp happiness so the post-decline oscillation slows (REQ-079 follow-on)', () => {
       // Place a residential cell, set tax to 50%, drain sewage so
       // happiness only suffers from coverage + tax. Tick 20 grows

@@ -67,6 +67,7 @@ import {
   AUTO_BAILOUT_TOAST_TICKS,
   BANKRUPTCY_THRESHOLD_TICKS,
   GROWTH_HAPPINESS_THRESHOLD,
+  MILESTONE_TOAST_TICKS,
   type SimSpeed,
 } from '@/lib/sim/state'
 import { TICK_INTERVAL_MS_BASE } from '@/lib/sim/engine'
@@ -1244,6 +1245,22 @@ export function EditorClient({
             }}
           >
             {`abandoned: ${abandonedCellKeys.size}`}
+          </span>
+        ) : null}
+        {simState.population.lastMilestoneTick > 0 &&
+        simState.tick - simState.population.lastMilestoneTick <
+          MILESTONE_TOAST_TICKS ? (
+          <span
+            data-testid="editor-sim-milestone"
+            data-sim-milestone={simState.population.highestMilestoneReached}
+            style={{
+              marginLeft: 6,
+              fontFamily: 'ui-monospace, Menlo, monospace',
+              color: '#5fae5f',
+              fontWeight: 600,
+            }}
+          >
+            {`milestone! ${simState.population.highestMilestoneReached} residents`}
           </span>
         ) : null}
         {simState.economy.lastAutoBailoutTick > 0 &&
