@@ -69,6 +69,10 @@ import {
   streetCellWorldCenters,
   type AmbientCar,
 } from './ambientTraffic'
+import {
+  pedestrianAnchors,
+  pedestrianOffsetWithinCell,
+} from './ambientPedestrians'
 import { pieceFootprintCells } from './edit/snapGrid'
 import {
   applyDriveStep,
@@ -1131,6 +1135,49 @@ export function DriveSceneClient({
       }
     }
 
+    // Ambient pedestrians (F-014). Small bobbing box meshes at every
+    // populated zone cell, count capped at PEDESTRIANS_PER_CELL_CAP.
+    // Pure render proxies (no goals, no schedule, no path-finding);
+    // the per-mesh bob phase is offset by index so a count-4 cell
+    // looks like a small group of people rather than a synchronized
+    // animation. Gated on `city.pieces.length > 0` to mirror the
+    // ambient-car / player-car branch: the empty-city state shows
+    // the empty-state prompt and skips the integration loop, so
+    // static pedestrians on an otherwise-empty surface would look
+    // wrong.
+    const pedestrianMeshes: { mesh: THREE.Mesh; phase: number }[] = []
+    let pedestrianElapsed = 0
+    if (city.pieces.length > 0 && simState.population.totalPopulation > 0) {
+      const anchors = pedestrianAnchors(simState.population, cellToWorld)
+      const pedGeometry = new THREE.BoxGeometry(
+        CELL_SIZE * 0.06,
+        CELL_SIZE * 0.18,
+        CELL_SIZE * 0.06,
+      )
+      const pedMaterial = new THREE.MeshLambertMaterial({ color: 0xd9b48a })
+      for (const anchor of anchors) {
+        for (let i = 0; i < anchor.count; i++) {
+          const { dx, dz } = pedestrianOffsetWithinCell(i, CELL_SIZE)
+          const mesh = new THREE.Mesh(pedGeometry, pedMaterial)
+          mesh.position.set(
+            anchor.x + dx,
+            CELL_SIZE * 0.09,
+            anchor.z + dz,
+          )
+          mesh.userData = { type: 'ambient-pedestrian' }
+          // Phase derived from cell + within-cell index so the bob
+          // is deterministic and replay-stable.
+          const phase =
+            ((anchor.cellRow * 31 + anchor.cellCol * 17 + i * 7) % 100) /
+            100 *
+            Math.PI *
+            2
+          pedestrianMeshes.push({ mesh, phase })
+          scene.add(mesh)
+        }
+      }
+    }
+
     // Placeholder player vehicle (REQ-047). A primitive-composed car
     // (body + cabin + four wheels) sits at the deterministic spawn
     // anchor (REQ-036). The keyboard input slice (REQ-034) drives the
@@ -1903,6 +1950,20 @@ export function DriveSceneClient({
           mesh.rotation.y = dirToHeadingY(next.dir)
         }
       }
+      // Ambient pedestrian bob (F-014). Per-mesh phase keeps the
+      // crowd looking lively without synchronizing every figure.
+      // Drive the sine input with an accumulated unpaused time so
+      // pause / resume does not snap mesh heights (the wall-clock
+      // `timestamp / 1000` would advance during pause and produce
+      // a jump on the first resumed frame).
+      if (pedestrianMeshes.length > 0) {
+        pedestrianElapsed += dt
+        for (const { mesh, phase } of pedestrianMeshes) {
+          mesh.position.y =
+            CELL_SIZE * 0.09 +
+            Math.sin(pedestrianElapsed * 2.5 + phase) * CELL_SIZE * 0.012
+        }
+      }
       renderer.render(scene, camera)
     }
     if (car) {
@@ -1983,6 +2044,7 @@ export function DriveSceneClient({
     simState.power,
     simState.water,
     simState.disasters,
+    simState.population,
   ])
 
   // The placeholder car (REQ-047) renders only when at least one piece

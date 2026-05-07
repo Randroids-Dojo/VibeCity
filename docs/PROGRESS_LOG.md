@@ -16,6 +16,16 @@ Format for each slice:
 - Followups: any new `F-NNN` entries created. Link to them.
 ```
 
+## 2026-05-06, F-014: Ambient Pedestrians at Populated Zone Cells
+
+- Branch: `feature/20260506-ambient-pedestrians`
+- PR: #140
+- Changed: New `src/app/[slug]/ambientPedestrians.ts` pure module exporting `pedestrianAnchors(population, cellToWorld)` (returns one anchor per `population.cells` entry with `residents > 0`, capped at `PEDESTRIANS_PER_CELL_CAP = 4` per cell, sorted by key for replay stability with `Number.isFinite` guards on parsed row / col) and `pedestrianOffsetWithinCell(index, cellSize)` (lays the per-cell figures out on a small square inside the cell). `src/app/[slug]/DriveSceneClient.tsx` mounts a small box-mesh per pedestrian (warm tan color, ~6% cell-size wide, ~18% tall) at every populated zone cell while the city has at least one piece. Per-frame bob in the existing animation loop (`Math.sin(t * 2.5 + phase) * CELL_SIZE * 0.012`) gives the crowd a subtle vertical motion; the per-mesh phase is derived from cell coordinates plus within-cell index so two clients replaying the same event log animate identically. The effect dependency array gains `simState.population` so place / decline events refresh the scene the next render.
+- Verification: `npm test` 2156/2156 unit (7 new cases under `tests/app/ambientPedestrians.test.ts` covering: empty population yields empty anchors, residents=0 cells skipped, one anchor per populated cell at the world-projected position, count caps at PEDESTRIANS_PER_CELL_CAP regardless of residents, sorted-key iteration for replay stability, and 2 cases on `pedestrianOffsetWithinCell` covering the four corners + modulo-4 wraparound). `npm run build` green. `npm run check:dashes` clean. `git diff --check` clean. `npx playwright test e2e/sim.spec.ts e2e/drive.spec.ts --project=chromium` 30/30 local.
+- Assumptions: Pedestrians are static-anchor render proxies (no goals, no schedule, no path-finding) per the REQ-076 GDD spec text. Per-cell figure cap of 4 covers the full residential capacity ladder (density 1=4, 2=12, 3=40); higher-density cells hit the cap and look like a crowd of 4 rather than 12 / 40, a deliberate v1 simplification. Bob phase is deterministic (derived from cell + within-cell index) so replay determinism holds. The dependency array gains `simState.population` so decline / growth refresh the visible crowd; this also re-mounts ambient cars on population change as a side effect, which is acceptable because the existing ambient car spawn is cheap and the user-facing effect is a brief flicker on rare growth ticks.
+- GDD coverage: `docs/gdd/14-citizens.md` REQ-076 build log gains an F-014 entry. `docs/GDD_COVERAGE.json` REQ-075 row stays `partial` (NPC vehicle traffic + trip demand + demand-gated growth still outstanding).
+- Followups: F-014 marked resolved by this PR. F-NEW (deferred): pedestrian sprite art (replace the placeholder boxes with simple low-poly figures); per-cell pedestrian motion (small random walk between adjacent populated cells); per-zone-kind pedestrian color (residential warm tan, commercial business attire, industrial workwear).
+
 ## 2026-05-06, F-017 Regression: Orphan-Populated Cell Happiness
 
 - Branch: `feature/20260506-orphan-population-test`
