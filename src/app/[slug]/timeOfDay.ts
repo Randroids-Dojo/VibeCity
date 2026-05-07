@@ -21,13 +21,35 @@ import type { ZoneKind } from '@/lib/sim/state'
 export type TimeOfDay = 'day' | 'night'
 
 /**
- * Resolve `city.mood?.timeOfDay` into a known mode. Defaults to
- * 'day' on missing / unknown values so a v1 city without a mood
- * field renders identically to the pre-slice baseline.
+ * Auto-cycle length in sim ticks. At the default 4Hz tick rate this
+ * is 60 wall-seconds per full day-night cycle (30s day + 30s night).
+ * Mass-appeal slice 3: when `mood.timeOfDay === 'auto'` the renderer
+ * flips state on each cycle boundary so the city visibly changes
+ * over time without player input.
  */
-export function resolveTimeOfDay(mood: CityMood | undefined | null): TimeOfDay {
+export const DAY_NIGHT_CYCLE_TICKS = 240
+
+/**
+ * Resolve `city.mood?.timeOfDay` into a known mode.
+ *
+ *   - `undefined` / unknown: defaults to 'day' (v1 baseline).
+ *   - `'day'` / `'night'`: locked by the player.
+ *   - `'auto'`: phase-based on `tick`. The first half of each
+ *     `DAY_NIGHT_CYCLE_TICKS` cycle is day, the second half is
+ *     night. Two clients replaying the same tick render
+ *     identically.
+ */
+export function resolveTimeOfDay(
+  mood: CityMood | undefined | null,
+  tick: number = 0,
+): TimeOfDay {
   if (!mood) return 'day'
   if (mood.timeOfDay === 'night') return 'night'
+  if (mood.timeOfDay === 'auto') {
+    const phase = ((tick % DAY_NIGHT_CYCLE_TICKS) + DAY_NIGHT_CYCLE_TICKS) %
+      DAY_NIGHT_CYCLE_TICKS
+    return phase < DAY_NIGHT_CYCLE_TICKS / 2 ? 'day' : 'night'
+  }
   return 'day'
 }
 

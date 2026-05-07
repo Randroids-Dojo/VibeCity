@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest'
 import {
   BUILDING_LIT_WINDOW_HEX_NIGHT,
   BUILDING_LIT_WINDOW_INTENSITY_NIGHT,
+  DAY_NIGHT_CYCLE_TICKS,
   STREETLAMP_HEX_NIGHT,
   STREETLAMP_INTENSITY_NIGHT,
   TIME_OF_DAY_PALETTE,
@@ -36,6 +37,54 @@ describe('resolveTimeOfDay (REQ-088 slice 2)', () => {
 
   it('falls back to day on an unknown timeOfDay value', () => {
     expect(resolveTimeOfDay({ timeOfDay: 'tuesday' })).toBe('day')
+  })
+
+  describe('auto cycle (mass-appeal slice 3)', () => {
+    it('returns day in the first half of the cycle', () => {
+      expect(resolveTimeOfDay({ timeOfDay: 'auto' }, 0)).toBe('day')
+      expect(
+        resolveTimeOfDay(
+          { timeOfDay: 'auto' },
+          Math.floor(DAY_NIGHT_CYCLE_TICKS / 2) - 1,
+        ),
+      ).toBe('day')
+    })
+
+    it('returns night in the second half of the cycle', () => {
+      expect(
+        resolveTimeOfDay(
+          { timeOfDay: 'auto' },
+          Math.floor(DAY_NIGHT_CYCLE_TICKS / 2),
+        ),
+      ).toBe('night')
+      expect(
+        resolveTimeOfDay({ timeOfDay: 'auto' }, DAY_NIGHT_CYCLE_TICKS - 1),
+      ).toBe('night')
+    })
+
+    it('wraps around at the cycle boundary', () => {
+      expect(
+        resolveTimeOfDay({ timeOfDay: 'auto' }, DAY_NIGHT_CYCLE_TICKS),
+      ).toBe('day')
+      expect(
+        resolveTimeOfDay(
+          { timeOfDay: 'auto' },
+          DAY_NIGHT_CYCLE_TICKS + Math.floor(DAY_NIGHT_CYCLE_TICKS / 2),
+        ),
+      ).toBe('night')
+    })
+
+    it('handles negative ticks defensively (wraps to a valid phase)', () => {
+      expect(
+        ['day', 'night'].includes(
+          resolveTimeOfDay({ timeOfDay: 'auto' }, -5),
+        ),
+      ).toBe(true)
+    })
+
+    it('default tick=0 returns day for auto mode', () => {
+      expect(resolveTimeOfDay({ timeOfDay: 'auto' })).toBe('day')
+    })
   })
 })
 

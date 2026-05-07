@@ -16,6 +16,16 @@ Format for each slice:
 - Followups: any new `F-NNN` entries created. Link to them.
 ```
 
+## 2026-05-07, Mass-Appeal: Auto Day-Night Cycle
+
+- Branch: `feature/20260507-day-night-cycle`
+- PR: #N (when known)
+- Changed: `resolveTimeOfDay(mood, tick?)` (in `src/app/[slug]/timeOfDay.ts`) now accepts an optional `tick` and supports `mood.timeOfDay === 'auto'`: phase = `tick % DAY_NIGHT_CYCLE_TICKS`, first half = day, second half = night. New constant `DAY_NIGHT_CYCLE_TICKS = 240` (60 wall-seconds per cycle at 4Hz). `DriveSceneClient` threads `simState.tick` through both call sites and adds the resolved time-of-day to the effect dep array so day↔night transitions trigger a scene rebuild on cycle boundaries (~once per minute). `EditorClient` adds a third `auto` button to the existing day / night mood toggle. Closes the binary mood-toggle gap from the 2026-05-07 mass-appeal analysis (slice 3 of 5).
+- Verification: `npm test` 2188/2188 unit (5 new cases under "auto cycle (mass-appeal slice 3)"). `npm run type-check` green. `npm run build` green. `npm run check:dashes` clean. `git diff --check` clean. `npx playwright test e2e/sim.spec.ts --project=chromium` 29/29 local.
+- Assumptions: Auto-cycle is driven by `simState.tick` (not wall clock) so a paused city does NOT advance the cycle. This is correct for the simulation-as-truth model: pausing freezes the world. Two replays of the same event log render identical cycles. Scene rebuild on cycle boundary is acceptable (~1/minute at default speed); a future polish slice could swap the rebuild for in-place light/material updates each frame for smoother dawn/dusk interpolation.
+- GDD coverage: `docs/gdd/11-scene.md` REQ-088 build log gains an auto-cycle entry.
+- Followups: F-NEW (deferred): smooth dawn/dusk interpolation (currently a hard binary flip at the cycle midpoint); custom cycle length per city; tie auto-cycle to a "city age" day counter for narrative framing.
+
 ## 2026-05-07, Mass-Appeal: Random Earthquake Auto-Spawn
 
 - Branch: `feature/20260507-random-earthquakes`

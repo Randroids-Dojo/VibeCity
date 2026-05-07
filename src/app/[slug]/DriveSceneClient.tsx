@@ -609,7 +609,7 @@ export function DriveSceneClient({
     // sees the city's power state rendered as warm windows on
     // residential, cool office lights on commercial, and brownout
     // flicker on under-capacity cells.
-    const timeOfDay = resolveTimeOfDay(city.mood)
+    const timeOfDay = resolveTimeOfDay(city.mood, simState.tick)
     const todPalette = TIME_OF_DAY_PALETTE[timeOfDay]
     const scene = new THREE.Scene()
     scene.background = new THREE.Color(
@@ -2033,6 +2033,11 @@ export function DriveSceneClient({
     city.pieces,
     city.buildings,
     city.mood,
+    // Auto-cycle (mass-appeal slice 3): when mood is 'auto', the
+    // resolved day/night flips on each cycle boundary even though
+    // city.mood does not change. Include the resolved value so the
+    // scene rebuilds at transitions.
+    resolveTimeOfDay(city.mood, simState.tick),
     bounds,
     spawn,
     buildingCells,
@@ -2074,7 +2079,7 @@ export function DriveSceneClient({
       data-vehicle={hasVehicle ? 'true' : 'false'}
       data-controls-active={hasVehicle ? 'true' : 'false'}
       data-camera-mode={hasVehicle ? 'chase' : 'orbit'}
-      data-time-of-day={resolveTimeOfDay(city.mood)}
+      data-time-of-day={resolveTimeOfDay(city.mood, simState.tick)}
       data-pause-state={pauseState}
       data-on-building="false"
       data-off-street="false"
