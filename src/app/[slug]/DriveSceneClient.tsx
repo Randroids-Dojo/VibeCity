@@ -420,6 +420,15 @@ export function DriveSceneClient({
   // tearing down and rebuilding the scene; the projection matrix is
   // refreshed in the panel's onChange branch below.
   const perspectiveCameraRef = useRef<THREE.PerspectiveCamera | null>(null)
+  // Refs for the auto day-night cycle (mass-appeal slice 3). The
+  // bootstrap effect populates them; a separate effect mutates
+  // their properties in place on each cycle boundary so the
+  // visual flip happens without rebuilding the entire scene
+  // (which would teleport the player car back to spawn).
+  const sceneRef = useRef<THREE.Scene | null>(null)
+  const ambientLightRef = useRef<THREE.AmbientLight | null>(null)
+  const directionalLightRef = useRef<THREE.DirectionalLight | null>(null)
+  const groundMaterialRef = useRef<THREE.MeshLambertMaterial | null>(null)
   // Touch mode state (REQ-042). Loaded from localStorage on the same
   // first-mount effect as the camera tuning so a returning player sees
   // the same touch layout choice across visits. The runtime touch
@@ -612,6 +621,7 @@ export function DriveSceneClient({
     const timeOfDay = resolveTimeOfDay(city.mood, simState.tick)
     const todPalette = TIME_OF_DAY_PALETTE[timeOfDay]
     const scene = new THREE.Scene()
+    sceneRef.current = scene
     scene.background = new THREE.Color(
       timeOfDay === 'night' ? todPalette.skyHex : SKY_COLOR,
     )
@@ -641,6 +651,7 @@ export function DriveSceneClient({
         ? todPalette.ambientIntensity
         : AMBIENT_LIGHT_INTENSITY,
     )
+    ambientLightRef.current = ambient
     scene.add(ambient)
     const directional = new THREE.DirectionalLight(
       0xffffff,
@@ -648,17 +659,20 @@ export function DriveSceneClient({
         ? todPalette.sunIntensity
         : DIRECTIONAL_LIGHT_INTENSITY,
     )
+    directionalLightRef.current = directional
     directional.position.set(...DIRECTIONAL_LIGHT_POSITION)
     scene.add(directional)
 
     // Ground plane (REQ-044). Sized large enough to read past the
     // visible city without being so big that the depth buffer suffers.
     const groundSize = CELL_SIZE * 64
+    const groundMaterial = new THREE.MeshLambertMaterial({
+      color: timeOfDay === 'night' ? todPalette.groundHex : GROUND_COLOR,
+    })
+    groundMaterialRef.current = groundMaterial
     const ground = new THREE.Mesh(
       new THREE.PlaneGeometry(groundSize, groundSize),
-      new THREE.MeshLambertMaterial({
-        color: timeOfDay === 'night' ? todPalette.groundHex : GROUND_COLOR,
-      }),
+      groundMaterial,
     )
     ground.rotation.x = -Math.PI / 2
     scene.add(ground)
@@ -2033,11 +2047,6 @@ export function DriveSceneClient({
     city.pieces,
     city.buildings,
     city.mood,
-    // Auto-cycle (mass-appeal slice 3): when mood is 'auto', the
-    // resolved day/night flips on each cycle boundary even though
-    // city.mood does not change. Include the resolved value so the
-    // scene rebuilds at transitions.
-    resolveTimeOfDay(city.mood, simState.tick),
     bounds,
     spawn,
     buildingCells,
@@ -2051,6 +2060,41 @@ export function DriveSceneClient({
     simState.disasters,
     simState.population,
   ])
+
+  // Auto day-night cycle visual update (mass-appeal slice 3).
+  // When `mood.timeOfDay === 'auto'` the resolved day/night flips
+  // every `DAY_NIGHT_CYCLE_TICKS / 2` ticks. Mutate the scene's
+  // lighting + sky + ground in place via the refs populated above
+  // so the cycle does NOT trigger a full bootstrap re-run (which
+  // would teleport the player car back to spawn). Zone emissive
+  // and lit-window materials stay at their bootstrap value; a
+  // future polish slice can extend the in-place update to those.
+  const cycleResolvedTimeOfDay = resolveTimeOfDay(city.mood, simState.tick)
+  useEffect(() => {
+    const palette = TIME_OF_DAY_PALETTE[cycleResolvedTimeOfDay]
+    if (sceneRef.current) {
+      sceneRef.current.background = new THREE.Color(
+        cycleResolvedTimeOfDay === 'night' ? palette.skyHex : SKY_COLOR,
+      )
+    }
+    if (ambientLightRef.current) {
+      ambientLightRef.current.intensity =
+        cycleResolvedTimeOfDay === 'night'
+          ? palette.ambientIntensity
+          : AMBIENT_LIGHT_INTENSITY
+    }
+    if (directionalLightRef.current) {
+      directionalLightRef.current.intensity =
+        cycleResolvedTimeOfDay === 'night'
+          ? palette.sunIntensity
+          : DIRECTIONAL_LIGHT_INTENSITY
+    }
+    if (groundMaterialRef.current) {
+      groundMaterialRef.current.color = new THREE.Color(
+        cycleResolvedTimeOfDay === 'night' ? palette.groundHex : GROUND_COLOR,
+      )
+    }
+  }, [cycleResolvedTimeOfDay])
 
   // The placeholder car (REQ-047) renders only when at least one piece
   // exists. Mirrors the spawn-marker / empty-state branch above; we

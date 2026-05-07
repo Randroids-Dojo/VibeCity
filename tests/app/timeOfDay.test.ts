@@ -74,12 +74,13 @@ describe('resolveTimeOfDay (REQ-088 slice 2)', () => {
       ).toBe('night')
     })
 
-    it('handles negative ticks defensively (wraps to a valid phase)', () => {
-      expect(
-        ['day', 'night'].includes(
-          resolveTimeOfDay({ timeOfDay: 'auto' }, -5),
-        ),
-      ).toBe(true)
+    it('handles negative ticks via positive-modulo wrap (tick=-5 wraps to phase 235 -> night)', () => {
+      // (-5 % 240) === -5 in JS; the inner ((-5 % 240) + 240) % 240
+      // wraps to 235, which sits in the night half of the cycle.
+      expect(resolveTimeOfDay({ timeOfDay: 'auto' }, -5)).toBe('night')
+      // tick=-130 wraps to (-130 + 240)=110, which sits in the day
+      // half. Confirms the wrap is positive across both halves.
+      expect(resolveTimeOfDay({ timeOfDay: 'auto' }, -130)).toBe('day')
     })
 
     it('default tick=0 returns day for auto mode', () => {
