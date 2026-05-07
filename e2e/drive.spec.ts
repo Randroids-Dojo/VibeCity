@@ -94,6 +94,11 @@ test('drive route mounts the canvas with the slug label and Edit CTA', async ({
   // penalty is engaged. With no car mounted the per-frame mirror does
   // not run; the JSX default is the contract observable to a test.
   await expect(root).toHaveAttribute('data-hud-surface', 'street')
+  // F-013 slice 1: brake-input mirror defaults to false (no input on the
+  // empty grid). The integration loop overwrites it per frame once a car
+  // mounts; the default keeps a test that hits the route before mount
+  // from reading null.
+  await expect(root).toHaveAttribute('data-brake-active', 'false')
   // REQ-019 / REQ-064 / REQ-066: city validity defaults to closed because
   // the playwright webServer runs without KV so loadCity returns the
   // empty city and `validateConnections` returns the empty list. The
@@ -104,6 +109,7 @@ test('drive route mounts the canvas with the slug label and Edit CTA', async ({
   await expect(page.getByTestId('drive-hud-city-validity')).toHaveCount(0)
   await expect(page.getByTestId('drive-hud-speed')).toHaveCount(0)
   await expect(page.getByTestId('drive-hud-day')).toHaveCount(0)
+  await expect(page.getByTestId('drive-hud-brake')).toHaveCount(0)
   await expect(page.getByTestId('drive-hud-surface')).toHaveCount(0)
   // REQ-066: drive HUD direction span lives inside the speed HUD wrapper
   // so the listener gate that mounts the car also gates this span. With
@@ -263,6 +269,7 @@ test('drive route shows the empty-state prompt for a fresh slug (REQ-053)', asyn
   await expect(page.getByTestId('drive-hud-city-validity')).toHaveCount(0)
   await expect(page.getByTestId('drive-hud-speed')).toHaveCount(0)
   await expect(page.getByTestId('drive-hud-day')).toHaveCount(0)
+  await expect(page.getByTestId('drive-hud-brake')).toHaveCount(0)
   await expect(page.getByTestId('drive-hud-surface')).toHaveCount(0)
   // REQ-066: same direction-span gate as the scaffold spec; the empty
   // state branch hides the speed HUD wrapper so the direction readout

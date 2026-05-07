@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest'
 import {
   COMPASS_DIRECTIONS,
+  HUD_BRAKE_COLOR,
+  HUD_BRAKE_LABEL,
   HUD_CITY_VALIDITY_LABEL,
   HUD_COMPASS_LABEL,
   HUD_CONTROLS_HINT_LINES,
@@ -556,5 +558,36 @@ describe('HUD_COMPASS_LABEL (REQ-066)', () => {
       expect(label).not.toBe(HUD_SPEED_DIRECTION_LABEL.reverse)
       expect(label).not.toBe(HUD_CITY_VALIDITY_LABEL.open)
     }
+  })
+})
+
+describe('HUD_BRAKE_LABEL / HUD_BRAKE_COLOR (F-013 slice 1)', () => {
+  it('label is non-empty and trimmed', () => {
+    expect(HUD_BRAKE_LABEL.length).toBeGreaterThan(0)
+    expect(HUD_BRAKE_LABEL.trim()).toBe(HUD_BRAKE_LABEL)
+  })
+
+  it('label is distinct from every other HUD label channel', () => {
+    expect(HUD_BRAKE_LABEL).not.toBe(HUD_SURFACE_LABEL.street)
+    expect(HUD_BRAKE_LABEL).not.toBe(HUD_SURFACE_LABEL['off-street'])
+    expect(HUD_BRAKE_LABEL).not.toBe(HUD_SURFACE_LABEL.building)
+    expect(HUD_BRAKE_LABEL).not.toBe(HUD_SPEED_DIRECTION_LABEL.reverse)
+    expect(HUD_BRAKE_LABEL).not.toBe(HUD_SPEED_DIRECTION_LABEL.idle)
+    expect(HUD_BRAKE_LABEL).not.toBe(HUD_SPEED_DIRECTION_LABEL.forward)
+    expect(HUD_BRAKE_LABEL).not.toBe(HUD_CITY_VALIDITY_LABEL.open)
+    expect(HUD_BRAKE_LABEL).not.toBe(HUD_CITY_VALIDITY_LABEL.closed)
+    for (const dir of COMPASS_DIRECTIONS) {
+      expect(HUD_BRAKE_LABEL).not.toBe(HUD_COMPASS_LABEL[dir])
+    }
+  })
+
+  it('color is a non-empty hex string', () => {
+    expect(HUD_BRAKE_COLOR.length).toBeGreaterThan(0)
+    expect(HUD_BRAKE_COLOR.startsWith('#')).toBe(true)
+  })
+
+  it('color is distinct from the cool-sage compass and warm-tan day cues', () => {
+    expect(HUD_BRAKE_COLOR).not.toBe('#a3c8a3')
+    expect(HUD_BRAKE_COLOR).not.toBe('#cbb88a')
   })
 })

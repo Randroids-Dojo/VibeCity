@@ -16,6 +16,16 @@ Format for each slice:
 - Followups: any new `F-NNN` entries created. Link to them.
 ```
 
+## 2026-05-07, Drive Feel: Brake HUD Indicator (F-013 slice 1)
+
+- Branch: `feature/20260507-brake-hud-indicator`
+- PR: #N (when known)
+- Changed: `src/app/[slug]/driveHud.ts` adds `HUD_BRAKE_LABEL = 'Brake'` and `HUD_BRAKE_COLOR = '#e85a3a'` (warm red distinct from the existing HUD label channels). `src/app/[slug]/DriveSceneClient.tsx` adds a `hudBrakeRef` span in the dashboard's compass row (between `drive-hud-compass` and `drive-hud-day`) plus a `data-brake-active` attribute mirror on the scene root. The integration loop reads `input.brake` from the merged keyboard + touch input each frame and writes the label / data attribute, so the pill flips to visible the moment a brake input is observed and back to empty when released. The default `data-brake-active="false"` on the JSX root keeps the contract attribute readable before any car mounts. Closes the first piece of F-013 (drive-feel texture pass) from the 2026-05-03 fun-factor audit; the 3D tail-light material swap, the tire-screech audio cue, and the suspension-bob visual cue stay deferred to follow-on slices.
+- Verification: `npm test` 2212/2212 unit (4 new cases under `HUD_BRAKE_LABEL / HUD_BRAKE_COLOR (F-013 slice 1)`). `npm run type-check` green. `npm run check:dashes` clean. `git diff --check` clean. `npx playwright test e2e/drive.spec.ts --project=chromium --grep "mounts the canvas"` 1/1 local (asserts `drive-hud-brake` is absent on the empty playwright KV city and `data-brake-active="false"` on the scene root, mirroring the existing absence pattern for the other drive HUD readouts).
+- Assumptions: The brake pill is gated on `input.brake` (the merged keyboard + touch input flag), not on the integrator's deceleration or speed sign. This means the indicator follows the player's intent rather than the kinematic outcome, matching the "brake light when braking" framing in the audit. Color choice (warm red `#e85a3a`) sits in the warning channel, distinct from the cool-sage compass and warm-tan day cues so each HUD info channel stays visually independent.
+- GDD coverage: `docs/gdd/09-drive-mode.md` build log gains a brake-indicator entry. `docs/FOLLOWUPS.md` F-013 stays open with a Resolved-partial note; the remaining tail-light + tire-screech + suspension-bob sub-features are tracked under the same followup.
+- Followups: F-NEW (deferred): 3D tail-light material on the GLB rear face that toggles emissive on brake; tire-screech SFX gated on lateral acceleration above a threshold; suspension-bob visual cue keyed to throttle / brake transitions.
+
 ## 2026-05-07, Home Page Recent-Card Thumbnails (F-011)
 
 - Branch: `feature/20260507-home-thumbnails`

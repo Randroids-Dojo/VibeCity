@@ -308,3 +308,18 @@ export const HUD_COMPASS_LABEL: Record<CompassDirection, string> = {
   W: 'W',
   NW: 'NW',
 }
+
+/**
+ * Brake-input indicator label (F-013 drive-feel texture pass, slice 1).
+ * Surfaced in the 2026-05-03 fun-factor audit: the drive surface today
+ * has engine pitch (REQ-068) but no other texture. This slice ships a
+ * visible HUD pill that mounts only when `input.brake` is true, so a
+ * player who is actively braking gets visual feedback on top of the
+ * existing audio cue. The 3D tail-light material swap (and the tire
+ * screech audio + suspension bob visual cues that round out F-013) stay
+ * deferred to follow-on slices.
+ */
+export const HUD_BRAKE_LABEL = 'Brake'
+
+/** Hex fill for the brake pill text. Warm red, distinct from the other HUD label channels. */
+export const HUD_BRAKE_COLOR = '#e85a3a'
