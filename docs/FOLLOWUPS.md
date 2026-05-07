@@ -151,6 +151,7 @@ Keep `F-NNN` IDs monotonically increasing. When a followup ships, leave the entr
 - Context: Surfaced in the 2026-05-05 fun-factor audit. The editor currently presents a snap-grid SVG and a palette with no first-session hint. A brand-new player with no city-builder vocabulary may not realize the palette tile must be selected before the cell click. The OOS fence (`docs/gdd/99-out-of-scope.md`) explicitly forbids tutorials ("any tutorial that needs more than the on-ramp implies the on-ramp is broken; fix the on-ramp instead"). This followup is framed as on-ramp polish, not tutorial: a one-time pulsing outline on the first palette tile and the first empty cell when a slug has zero pieces, dismissed after the first successful piece placement. No multi-step walkthrough, no skip button, no instruction text beyond what the existing CTA copy already says.
 - Blocker: none.
 - Unblock condition: pick a dismissal storage mechanism (the absence-of-pieces in the city payload is the natural gate; no cookie or flag needed because the hint disappears the moment the first piece lands).
+- Resolved: PR #153. Shipped a one-paragraph welcome banner (`editor-onboarding-hint`) gated on `pieces.length === 0 && buildings.length === 0 && Object.keys(zones.cells).length === 0`. Dismisses the moment any zone / piece / building lands. Per-palette pulse animation + sticky-session flag stay deferred under F-NEW.
 
 ### F-011: Home page recent-card thumbnail (city preview SVG)
 

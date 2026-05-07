@@ -1153,6 +1153,43 @@ test('editor: abandoned-cells HUD readout surfaces freshly-declined residential 
   )
 })
 
+test('editor: onboarding hint appears on a fresh city and dismisses after the first zone is placed (mass-appeal slice 4)', async ({
+  page,
+}) => {
+  await page.route('**/api/city/**', async (route, req) => {
+    if (req.method() === 'PUT') {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          slug: 'sim-onboarding-spec',
+          versionHash: '0'.repeat(64),
+          updatedAt: 0,
+        }),
+      })
+    } else {
+      await route.fallback()
+    }
+  })
+
+  await page.goto('/sim-onboarding-spec/edit')
+
+  // Hint visible on a fresh empty city.
+  await expect(page.getByTestId('editor-onboarding-hint')).toBeVisible()
+
+  // Pause + paint a residential zone.
+  await page.getByTestId('editor-sim-speed-0').click()
+  await page.getByTestId('editor-palette-category-zone').click()
+  await page
+    .locator(
+      '[data-testid="editor-snap-grid"] rect[data-cell-row="0"][data-cell-col="0"]',
+    )
+    .click()
+
+  // Hint dismisses once the city has at least one zone.
+  await expect(page.getByTestId('editor-onboarding-hint')).toHaveCount(0)
+})
+
 test('editor: population milestone toast fires when residents cross a threshold (mass-appeal slice)', async ({
   page,
 }) => {
