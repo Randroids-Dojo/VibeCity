@@ -9,12 +9,14 @@ import { solveSewageStatus } from './sewageSolver'
 import { cellCoverage, coverageCount } from './servicesSolver'
 import { applyTornadoDamage } from './tornadoDamage'
 import {
+  ABANDONED_CELL_HAPPINESS_WEIGHT,
   DEFAULT_SIM_SPEED,
   DEFAULT_TAX_RATES,
   COMMERCIAL_JOBS_BY_DENSITY,
   COVERAGE_HAPPINESS_WEIGHT,
   EARTHQUAKE_HAPPINESS_PENALTY,
   EMPTY_ECONOMY_BUCKET,
+  MAX_ABANDONED_HAPPINESS_PENALTY,
   TAX_HAPPINESS_WEIGHT,
   TAX_NEUTRAL_RATE,
   WASTE_HAPPINESS_WEIGHT,
@@ -869,7 +871,32 @@ export function computeCityHappiness(
       Math.max(0, taxRates.residential - TAX_NEUTRAL_RATE) *
       TAX_HAPPINESS_WEIGHT
   }
-  const score = 100 - wastePenalty - coveragePenalty - taxPenalty - earthquakePenalty
+  // Abandoned-cell penalty (REQ-079 follow-on; damps the
+  // post-decline oscillation). A cell is abandoned when its zone
+  // density dropped to 0 but the population entry survived (the
+  // sync ran on the same growth tick as the decline, setting
+  // residents=0). Each abandoned cell contributes
+  // `ABANDONED_CELL_HAPPINESS_WEIGHT` happiness, capped at
+  // `MAX_ABANDONED_HAPPINESS_PENALTY` so a city with many abandoned
+  // cells stays in the stagnant band even when no other penalty
+  // applies (residents=0 means waste / coverage / tax are all 0).
+  let abandonedCount = 0
+  for (const key of Object.keys(zones.cells)) {
+    if (zones.cells[key].density !== 0) continue
+    if (population.cells[key] === undefined) continue
+    abandonedCount += 1
+  }
+  const abandonedPenalty = Math.min(
+    MAX_ABANDONED_HAPPINESS_PENALTY,
+    abandonedCount * ABANDONED_CELL_HAPPINESS_WEIGHT,
+  )
+  const score =
+    100 -
+    wastePenalty -
+    coveragePenalty -
+    taxPenalty -
+    earthquakePenalty -
+    abandonedPenalty
   const clamped = Math.max(0, Math.min(100, score))
   return Math.round(clamped * 10) / 10
 }
