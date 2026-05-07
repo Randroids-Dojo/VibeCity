@@ -3,8 +3,10 @@ import {
   AMBIENT_CAR_COLORS,
   AMBIENT_CAR_COUNT,
   AMBIENT_CAR_SPEED,
+  ambientCarCountForPopulation,
   dirToHeadingY,
   dirToVector,
+  RESIDENTS_PER_AMBIENT_CAR,
   spawnAmbientCar,
   spawnAmbientFleet,
   stepAmbientCar,
@@ -43,6 +45,40 @@ describe('AMBIENT_CAR_COUNT and AMBIENT_CAR_SPEED', () => {
 
   it('colors palette has at least one entry', () => {
     expect(AMBIENT_CAR_COLORS.length).toBeGreaterThan(0)
+  })
+})
+
+describe('ambientCarCountForPopulation', () => {
+  it('returns 0 for an empty city', () => {
+    expect(ambientCarCountForPopulation(0)).toBe(0)
+  })
+
+  it('returns 0 for a negative population (defensive)', () => {
+    expect(ambientCarCountForPopulation(-5)).toBe(0)
+  })
+
+  it('returns 0 for non-finite inputs (NaN / Infinity)', () => {
+    expect(ambientCarCountForPopulation(Number.NaN)).toBe(0)
+    expect(ambientCarCountForPopulation(Number.POSITIVE_INFINITY)).toBe(0)
+    expect(ambientCarCountForPopulation(Number.NEGATIVE_INFINITY)).toBe(0)
+  })
+
+  it('one ambient car per RESIDENTS_PER_AMBIENT_CAR threshold (ceil semantics)', () => {
+    expect(ambientCarCountForPopulation(1)).toBe(1)
+    expect(ambientCarCountForPopulation(RESIDENTS_PER_AMBIENT_CAR)).toBe(1)
+    expect(ambientCarCountForPopulation(RESIDENTS_PER_AMBIENT_CAR + 1)).toBe(2)
+  })
+
+  it('caps at AMBIENT_CAR_COUNT regardless of how large population gets', () => {
+    expect(ambientCarCountForPopulation(10_000)).toBe(AMBIENT_CAR_COUNT)
+  })
+
+  it('one small house (4 residents) yields 1 car under default RESIDENTS_PER_AMBIENT_CAR=8', () => {
+    expect(ambientCarCountForPopulation(4)).toBe(1)
+  })
+
+  it('one apartment (40 residents) yields 5 cars under default', () => {
+    expect(ambientCarCountForPopulation(40)).toBe(5)
   })
 })
 

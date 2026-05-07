@@ -62,7 +62,7 @@ import {
   spawnAnchor,
 } from './driveScene'
 import {
-  AMBIENT_CAR_COUNT,
+  ambientCarCountForPopulation,
   dirToHeadingY,
   spawnAmbientFleet,
   stepAmbientCar,
@@ -1087,7 +1087,7 @@ export function DriveSceneClient({
       )
       ambientCars = spawnAmbientFleet(
         ambientStreetCells,
-        AMBIENT_CAR_COUNT,
+        ambientCarCountForPopulation(simState.population.totalPopulation),
         Math.random,
       )
       const ambientBodyGeometry = new THREE.BoxGeometry(
