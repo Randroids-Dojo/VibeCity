@@ -534,6 +534,54 @@ export const CAR_AXLE_OFFSET = CELL_SIZE * 0.22
 export const CAR_GROUND_LIFT = CELL_SIZE * 0.02
 
 /**
+ * Brake-light tail-pad dimensions and offsets (F-013 slice 2). Two
+ * small box meshes ride at the rear of the car group; their material
+ * color flips between `BRAKE_LIGHT_COLOR_IDLE` (dim red) and
+ * `BRAKE_LIGHT_COLOR_ACTIVE` (bright red) when the player presses
+ * brake. The pads stay parented to the same `car` group as the
+ * placeholder body / GLB, so the integrator's position / heading
+ * continue to drive both layers without per-frame transform sync.
+ */
+export const BRAKE_LIGHT_WIDTH = CELL_SIZE * 0.06
+export const BRAKE_LIGHT_HEIGHT = CELL_SIZE * 0.04
+export const BRAKE_LIGHT_DEPTH = CELL_SIZE * 0.02
+export const BRAKE_LIGHT_COLOR_IDLE = 0x551a1a
+export const BRAKE_LIGHT_COLOR_ACTIVE = 0xff3030
+
+/**
+ * Pure brake-light color resolver. `active === true` means the player's
+ * brake input is currently asserted; the bright-red active color reads
+ * as a tail-light "lit up" cue against the dim-red idle baseline. Pure
+ * function so a unit test can lock in the contract without a renderer.
+ */
+export function brakeLightColor(active: boolean): number {
+  return active ? BRAKE_LIGHT_COLOR_ACTIVE : BRAKE_LIGHT_COLOR_IDLE
+}
+
+/**
+ * Local-space positions for the two brake-light pads. Mirrors the
+ * `carWheelOffsets()` pattern: `+x` is the right side, `+z` is the
+ * rear (forward axis is `-z`), and the y component sits at roughly
+ * mid-body height so the tail pads read as a horizontal stripe across
+ * the car's rear face. Returns a fresh array so callers cannot mutate
+ * a shared singleton.
+ */
+export function brakeLightOffsets(): readonly {
+  x: number
+  y: number
+  z: number
+  side: 'left' | 'right'
+}[] {
+  const halfWidth = CAR_WIDTH / 2 - BRAKE_LIGHT_WIDTH / 2
+  const z = CAR_AXLE_OFFSET + CELL_SIZE * 0.08
+  const y = CAR_GROUND_LIFT + CAR_WHEEL_RADIUS + CAR_BODY_HEIGHT * 0.5
+  return [
+    { x: -halfWidth, y, z, side: 'left' },
+    { x: halfWidth, y, z, side: 'right' },
+  ]
+}
+
+/**
  * Pure description of where the four wheels of the placeholder car sit
  * relative to the car body's local origin. The local space convention
  * matches the placed mesh: `+x` is the right side, `-z` is the forward
