@@ -30,6 +30,19 @@ export type TimeOfDay = 'day' | 'night'
 export const DAY_NIGHT_CYCLE_TICKS = 240
 
 /**
+ * City age in whole "days" (cycles since tick 0). Day 1 covers ticks
+ * 0 .. DAY_NIGHT_CYCLE_TICKS - 1; Day 2 starts at the first night-to-day
+ * boundary; and so on. Negative ticks clamp to Day 1 so the editor HUD
+ * never reads "Day 0" or a negative day. Mass-appeal slice 5: a city-age
+ * counter gives players a sense of how long their city has been running
+ * across sessions and adds a visible long-term progress signal.
+ */
+export function cityDayNumber(tick: number): number {
+  if (!Number.isFinite(tick) || tick < 0) return 1
+  return Math.floor(tick / DAY_NIGHT_CYCLE_TICKS) + 1
+}
+
+/**
  * Resolve `city.mood?.timeOfDay` into a known mode.
  *
  *   - `undefined` / unknown: defaults to 'day' (v1 baseline).

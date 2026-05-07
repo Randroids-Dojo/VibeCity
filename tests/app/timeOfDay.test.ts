@@ -6,6 +6,7 @@ import {
   STREETLAMP_HEX_NIGHT,
   STREETLAMP_INTENSITY_NIGHT,
   TIME_OF_DAY_PALETTE,
+  cityDayNumber,
   resolveTimeOfDay,
   zoneEmissiveHex,
   zoneEmissiveIntensity,
@@ -226,5 +227,34 @@ describe('lit-window night-ambience constants', () => {
     expect(STREETLAMP_INTENSITY_NIGHT).toBeGreaterThan(
       BUILDING_LIT_WINDOW_INTENSITY_NIGHT,
     )
+  })
+})
+
+
+describe('cityDayNumber (mass-appeal slice 5)', () => {
+  it('starts on Day 1 at tick 0', () => {
+    expect(cityDayNumber(0)).toBe(1)
+  })
+
+  it('stays on Day 1 across the first cycle', () => {
+    expect(cityDayNumber(1)).toBe(1)
+    expect(cityDayNumber(DAY_NIGHT_CYCLE_TICKS - 1)).toBe(1)
+  })
+
+  it('ticks to Day 2 at the first cycle boundary', () => {
+    expect(cityDayNumber(DAY_NIGHT_CYCLE_TICKS)).toBe(2)
+  })
+
+  it('advances one day per DAY_NIGHT_CYCLE_TICKS span', () => {
+    expect(cityDayNumber(DAY_NIGHT_CYCLE_TICKS * 5 - 1)).toBe(5)
+    expect(cityDayNumber(DAY_NIGHT_CYCLE_TICKS * 5)).toBe(6)
+    expect(cityDayNumber(DAY_NIGHT_CYCLE_TICKS * 100)).toBe(101)
+  })
+
+  it('clamps to Day 1 on negative or non-finite tick', () => {
+    expect(cityDayNumber(-1)).toBe(1)
+    expect(cityDayNumber(-DAY_NIGHT_CYCLE_TICKS * 3)).toBe(1)
+    expect(cityDayNumber(Number.NaN)).toBe(1)
+    expect(cityDayNumber(Number.POSITIVE_INFINITY)).toBe(1)
   })
 })
