@@ -2410,18 +2410,23 @@ export function DriveSceneClient({
             >
               N
             </span>
-            <span
-              data-testid="drive-hud-day"
-              data-sim-day={cityDayNumber(simState.tick)}
-              style={{
-                fontSize: 11,
-                letterSpacing: 0.4,
-                textTransform: 'uppercase',
-                color: '#cbb88a',
-              }}
-            >
-              {`Day ${cityDayNumber(simState.tick)}`}
-            </span>
+            {(() => {
+              const dayNumber = cityDayNumber(simState.tick)
+              return (
+                <span
+                  data-testid="drive-hud-day"
+                  data-sim-day={dayNumber}
+                  style={{
+                    fontSize: 11,
+                    letterSpacing: 0.4,
+                    textTransform: 'uppercase',
+                    color: '#cbb88a',
+                  }}
+                >
+                  {`Day ${dayNumber}`}
+                </span>
+              )
+            })()}
           </div>
           {cityValidityState === 'open' ? (
             <div
