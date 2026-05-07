@@ -50,16 +50,14 @@ export function computeEarthquakeAutoSpawn(
   tick: number,
 ): Disaster | null {
   if (disasters.active.some((d) => d.kind === 'earthquake')) return null
-  // Cheap bail-outs first so the hot per-tick path stays O(1) on
-  // the common case where no earthquake will spawn (~99.8% of
-  // ticks at default probability). Sorting the zone keys for
-  // replay stability is O(N log N) and only paid on the rare
-  // tick that actually triggers a roll-pass.
-  const cellCount = Object.keys(zones.cells).length
-  if (cellCount === 0) return null
+  // Roll the global per-tick hash FIRST so the common-case
+  // (~99.8% of ticks at default probability) bails out before
+  // any O(N) work on the zones bucket. Sorting + enumerating
+  // keys is only paid on the rare tick that triggers a pass.
   const roll = earthquakeAutoSpawnHash(tick)
   if (roll >= EARTHQUAKE_AUTO_SPAWN_PROBABILITY_PER_TICK) return null
   const cellKeys = Object.keys(zones.cells).sort()
+  if (cellKeys.length === 0) return null
   const pick = earthquakeCellPickHash(tick, cellKeys.length)
   const key = cellKeys[pick]
   const [rowStr, colStr] = key.split(',')
