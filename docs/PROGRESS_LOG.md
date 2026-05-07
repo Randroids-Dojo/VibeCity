@@ -19,7 +19,7 @@ Format for each slice:
 ## 2026-05-07, Mass-Appeal: City-Age Day Counter
 
 - Branch: `feature/20260507-city-age-counter`
-- PR: #N (when known)
+- PR: #154
 - Changed: New `cityDayNumber(tick)` pure helper in `src/app/[slug]/timeOfDay.ts` returning `Math.floor(tick / DAY_NIGHT_CYCLE_TICKS) + 1` (Day 1 covers ticks 0..239, Day 2 starts at tick 240, etc.). Negative or non-finite ticks clamp to Day 1 so a malformed event log can never read "Day 0". `src/app/[slug]/edit/EditorClient.tsx` adds an `editor-sim-day` readout span next to the existing tick / population readouts in the toolbar, mirroring `data-sim-day` and rendering "Day N". Closes the long-term-progress-signal gap from the 2026-05-07 mass-appeal analysis (slice 5 of 5).
 - Verification: `npm test` 2193/2193 unit (5 new cases under "cityDayNumber (mass-appeal slice 5)"). `npm run type-check` green. `npm run check:dashes` clean. `git diff --check` clean. `npx playwright test e2e/sim.spec.ts --project=chromium --grep "Day counter"` 1/1 local.
 - Assumptions: Day 1 begins at tick 0 (not Day 0); this matches the typical mental model of "the first day". The day length matches `DAY_NIGHT_CYCLE_TICKS = 240`, so one wall-clock minute at the default 4Hz tick rate equals one in-game day; this keeps the counter and the auto day-night cycle in lockstep. The readout shows the Day number regardless of whether `mood.timeOfDay` is locked-day, locked-night, or auto, because city age is independent of visual mode.
