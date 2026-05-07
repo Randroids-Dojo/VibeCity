@@ -1153,6 +1153,51 @@ test('editor: abandoned-cells HUD readout surfaces freshly-declined residential 
   )
 })
 
+test('editor: population milestone toast fires when residents cross a threshold (mass-appeal slice)', async ({
+  page,
+}) => {
+  await page.route('**/api/city/**', async (route, req) => {
+    if (req.method() === 'PUT') {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          slug: 'sim-milestone-spec',
+          versionHash: '0'.repeat(64),
+          updatedAt: 0,
+        }),
+      })
+    } else {
+      await route.fallback()
+    }
+  })
+
+  await page.goto('/sim-milestone-spec/edit')
+
+  // Toast absent on a fresh city.
+  await expect(page.getByTestId('editor-sim-milestone')).toHaveCount(0)
+
+  // Pause + paint a residential. Run at 4x; the first growth tick
+  // brings totalPopulation from 0 to 4, which crosses the smallest
+  // milestone and fires the toast.
+  await page.getByTestId('editor-sim-speed-0').click()
+  await page.getByTestId('editor-palette-category-zone').click()
+  await page
+    .locator(
+      '[data-testid="editor-snap-grid"] rect[data-cell-row="0"][data-cell-col="0"]',
+    )
+    .click()
+  await page.getByTestId('editor-sim-speed-4').click()
+
+  await expect(page.getByTestId('editor-sim-milestone')).toBeVisible({
+    timeout: 8000,
+  })
+  await expect(page.getByTestId('editor-sim-milestone')).toHaveAttribute(
+    'data-sim-milestone',
+    '4',
+  )
+})
+
 test('editor: industrial cell carries data-zone-fire-risk="true" when uncovered, "false" once a fire-station is in range (REQ-105 + REQ-100 follow-on)', async ({
   page,
 }) => {

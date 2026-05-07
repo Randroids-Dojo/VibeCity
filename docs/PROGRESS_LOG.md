@@ -16,6 +16,16 @@ Format for each slice:
 - Followups: any new `F-NNN` entries created. Link to them.
 ```
 
+## 2026-05-07, Mass-Appeal: Population Milestone Toasts
+
+- Branch: `feature/20260507-population-milestones`
+- PR: #150
+- Changed: `PopulationBucketSchema` (in `src/lib/sim/state.ts`) gains two new fields: `highestMilestoneReached` (zero = never crossed any) and `lastMilestoneTick` (zero = never fired). New constants: `POPULATION_MILESTONES = [4, 12, 40, 100, 250, 500, 1000]` (mirrors the residential density ladder + neighborhood / town / city / metropolis tiers) and `MILESTONE_TOAST_TICKS = 16` (~4s wall-time at 4Hz). `syncPopulationToZones` now takes a `tick` parameter and on every growth-tick sync walks the milestone list, recording the highest threshold the new `totalPopulation` cleared above the previous record. `applyTick` threads `nextTick` into the call site. `EditorClient` mounts a green "milestone! N residents" toast next to the auto-bailout / fire-risk / abandoned readouts when `state.tick - lastMilestoneTick < MILESTONE_TOAST_TICKS`. Closes the dopamine-hit gap from the gameplay analysis: the open-ended sandbox now has explicit "you reached this!" moments.
+- Verification: `npm test` 2173/2173 unit (3 new cases: first-crossing records the milestone + tick, retrigger-suppression at the same population, multi-milestone-jump records the highest). `npm run build` green. `npm run check:dashes` clean. `git diff --check` clean. `npx playwright test e2e/sim.spec.ts --project=chromium` 29/29 local (1 new case: paint residential, run at 4x, assert the toast becomes visible with `data-sim-milestone="4"`).
+- Assumptions: Decline that drops totalPopulation back below a previous milestone does NOT clear `highestMilestoneReached` (the player keeps the achievement). Multi-milestone jumps in a single growth tick (e.g. forging a density-3 cell directly to 40 residents) record the HIGHEST milestone in one event, not all crossed thresholds. The toast color (`#5fae5f`) matches the auto-bailout-fired toast so positive-reinforcement events share a visual language. Tied to the residential density ladder: 4 = first house, 12 = first mid-house, 40 = first apartment, then 100 / 250 / 500 / 1000 for neighborhood / town / city / metropolis tiers.
+- GDD coverage: `docs/gdd/14-citizens.md` REQ-075 build log gains a milestone entry. `docs/GDD_COVERAGE.json` REQ-075 row stays `partial`.
+- Followups: F-NEW (deferred): per-milestone unlock (a new building / palette tool unlocked at each tier); audio cue on milestone crossing; persisted achievement gallery on the home page recent-cards.
+
 ## 2026-05-06, REQ-079 Calibration: Abandoned Penalty Boundary Tests
 
 - Branch: `feature/20260506-abandoned-calibration`

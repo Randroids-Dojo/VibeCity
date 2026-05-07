@@ -154,6 +154,21 @@ export const PopulationBucketSchema = z
     totalPopulation: z.number().int().min(0),
     totalTripDemand: z.number().int().min(0),
     cityHappiness: z.number().min(0).max(100),
+    /**
+     * Highest milestone the city has ever crossed (resets only via
+     * `resetCity`, NOT via decline). Each milestone in
+     * `POPULATION_MILESTONES` is a population threshold the player
+     * gets a celebration toast for crossing for the first time.
+     * Stored on the population bucket because it is purely a
+     * function of `totalPopulation` history.
+     */
+    highestMilestoneReached: z.number().int().min(0),
+    /**
+     * Sim-tick on which the most recent milestone crossing fired
+     * (zero = never). Used by the editor HUD to show the "milestone
+     * reached" toast for a brief window after the crossing.
+     */
+    lastMilestoneTick: z.number().int().min(0),
   })
   .strict()
 
@@ -845,7 +860,31 @@ export const EMPTY_POPULATION_BUCKET: PopulationBucket = Object.freeze({
   totalPopulation: 0,
   totalTripDemand: 0,
   cityHappiness: DEFAULT_CITY_HAPPINESS,
+  highestMilestoneReached: 0,
+  lastMilestoneTick: 0,
 }) as PopulationBucket
+
+/**
+ * Population milestone thresholds that fire a HUD celebration
+ * toast the first time the city's `totalPopulation` crosses them.
+ * Mirrors SimCity 2000's milestone unlocks: each crossing gives
+ * the player a clear "you reached this!" moment that turns the
+ * open-ended sandbox into a progression arc.
+ *
+ * Tied to the residential density ladder: 4 = first small house;
+ * 12 = first mid house; 40 = first apartment; 100 / 250 / 500 /
+ * 1000 = neighborhood / town / city / metropolis tiers.
+ */
+export const POPULATION_MILESTONES: readonly number[] = [
+  4, 12, 40, 100, 250, 500, 1000,
+] as const
+
+/**
+ * How many ticks the editor HUD shows the milestone celebration
+ * toast after `population.lastMilestoneTick`. 16 ticks at the
+ * default 4Hz tick rate is ~4 seconds of wall-time.
+ */
+export const MILESTONE_TOAST_TICKS = 16
 export type WaterBucket = z.infer<typeof WaterBucketSchema>
 
 export const EMPTY_WATER_BUCKET: WaterBucket = Object.freeze({

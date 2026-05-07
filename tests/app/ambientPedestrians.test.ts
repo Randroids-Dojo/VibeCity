@@ -17,6 +17,8 @@ const emptyPopulation = (): PopulationBucket => ({
   totalPopulation: 0,
   totalTripDemand: 0,
   cityHappiness: 100,
+  highestMilestoneReached: 0,
+  lastMilestoneTick: 0,
 })
 
 describe('pedestrianAnchors', () => {
@@ -32,6 +34,8 @@ describe('pedestrianAnchors', () => {
       totalPopulation: 0,
       totalTripDemand: 0,
       cityHappiness: 100,
+      highestMilestoneReached: 0,
+      lastMilestoneTick: 0,
     }
     expect(pedestrianAnchors(population, cellToWorld)).toEqual([])
   })
@@ -45,6 +49,8 @@ describe('pedestrianAnchors', () => {
       totalPopulation: 16,
       totalTripDemand: 0,
       cityHappiness: 100,
+      highestMilestoneReached: 0,
+      lastMilestoneTick: 0,
     }
     const anchors = pedestrianAnchors(population, cellToWorld)
     expect(anchors).toHaveLength(2)
@@ -72,6 +78,8 @@ describe('pedestrianAnchors', () => {
       totalPopulation: 40,
       totalTripDemand: 0,
       cityHappiness: 100,
+      highestMilestoneReached: 0,
+      lastMilestoneTick: 0,
     }
     const anchors = pedestrianAnchors(population, cellToWorld)
     expect(anchors).toHaveLength(1)
@@ -88,6 +96,8 @@ describe('pedestrianAnchors', () => {
       totalPopulation: 3,
       totalTripDemand: 0,
       cityHappiness: 100,
+      highestMilestoneReached: 0,
+      lastMilestoneTick: 0,
     }
     const anchors = pedestrianAnchors(population, cellToWorld)
     expect(anchors.map((a) => `${a.cellRow},${a.cellCol}`)).toEqual([
