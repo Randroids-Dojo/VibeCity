@@ -16,6 +16,16 @@ Format for each slice:
 - Followups: any new `F-NNN` entries created. Link to them.
 ```
 
+## 2026-05-07, Mass-Appeal: First-Session Onboarding Hint (F-012)
+
+- Branch: `feature/20260507-onboarding-hint`
+- PR: #N (when known)
+- Changed: New onboarding hint banner in `src/app/[slug]/edit/EditorClient.tsx`. Mounts only when `city.pieces.length === 0 && city.buildings.length === 0 && Object.keys(simState.zones.cells).length === 0` (a truly fresh city with nothing placed). Carries `data-testid="editor-onboarding-hint"` and `role="status"` / `aria-live="polite"` for screen reader announcement. Body text walks the player through the four-step first action: pick a tab, click a cell, watch the zone grow, see the milestone toast. Dismisses automatically the moment the player places anything (any zone, any street piece, any building). Closes the F-012 first-session-hint gap from the 2026-05-07 mass-appeal analysis (slice 4 of 5).
+- Verification: `npm test` 2188/2188 unit. `npm run type-check` green. `npm run check:dashes` clean. `git diff --check` clean. `npx playwright test e2e/sim.spec.ts --project=chromium` 30/30 local (1 new case: hint visible on fresh city, paint a residential zone, hint dismisses).
+- Assumptions: The dismiss condition uses the editor's existing zone / pieces / buildings state, not a session flag, so a returning visitor to a city someone else has built does NOT see the hint (correct; they have something to look at). A player who erases everything WILL see the hint return; that is acceptable because they have effectively returned to a fresh state. Color palette (`#f4eccf` warm beige) reads as informational rather than urgent, distinct from the red warning / green celebration tones already in the HUD.
+- GDD coverage: `docs/gdd/07-editor.md` build log gains an onboarding-hint entry. `docs/FOLLOWUPS.md` F-012 marked resolved.
+- Followups: F-NEW (deferred): per-tab tooltip when hovered (each palette category gets a one-sentence "what this does"); animated arrow / pulse pointing at the zone tab specifically (currently the banner is static); dismiss-and-remember (sticky session flag so the hint stays gone even on full erase).
+
 ## 2026-05-07, Mass-Appeal: Auto Day-Night Cycle
 
 - Branch: `feature/20260507-day-night-cycle`

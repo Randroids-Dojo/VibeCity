@@ -1853,6 +1853,26 @@ export function EditorClient({
           ? ` / Buildings placed: ${city.buildings.length}`
           : ''}
       </p>
+      {city.pieces.length === 0 &&
+      city.buildings.length === 0 &&
+      Object.keys(simState.zones.cells).length === 0 ? (
+        <p
+          data-testid="editor-onboarding-hint"
+          role="status"
+          aria-live="polite"
+          style={{
+            fontSize: 13,
+            margin: '6px 0',
+            padding: '8px 12px',
+            borderRadius: 4,
+            background: '#f4eccf',
+            border: '1px solid #d6c98a',
+            color: '#5a4a1a',
+          }}
+        >
+          {`Welcome! Pick a tab below (Streets, Zones, Power, Water, Services), then click any cell on the grid to place your first piece. Once a residential zone grows, you'll see a "milestone" toast and the city comes alive.`}
+        </p>
+      ) : null}
       {connectorGlyphs.length > 0 ? (
         <p
           data-testid="editor-connector-match-readout"
