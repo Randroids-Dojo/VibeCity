@@ -674,6 +674,7 @@ function applyTick(state: SimState, event: TickEvent): SimState {
     nextWater,
     nextDisasters,
     monsterDamaged.services,
+    monsterDamaged.zones,
     state.taxRates,
   )
   return {
@@ -795,8 +796,13 @@ export function applyEconomyTick(
  * baseline minus four subtractive penalties:
  *   - Waste: avg-waste-ratio scaled by `WASTE_HAPPINESS_WEIGHT` (max 50).
  *   - Services coverage: `(5 - avgCoverage) * COVERAGE_HAPPINESS_WEIGHT`
- *     where avgCoverage is the per-populated-cell coverage count from
- *     `solveServicesCoverage` (max 20 when nothing is covered).
+ *     where avgCoverage averages per-populated-and-zoned-cell
+ *     coverage counts from `cellCoverage(row, col, services)` (max
+ *     20 when nothing is covered). The zones bucket is consulted
+ *     only as a membership gate; populated-but-not-zoned cells
+ *     (transient state after `applyEraseZone` until the next
+ *     growth-tick population sync) contribute 0 coverage, matching
+ *     the prior `solveServicesCoverage(zones, ...)` semantics.
  *   - Taxes: residential rate above `TAX_NEUTRAL_RATE` (10%) drags
  *     `(rate - TAX_NEUTRAL_RATE) * TAX_HAPPINESS_WEIGHT` per tick;
  *     rates at or below 10% contribute 0.
@@ -813,6 +819,7 @@ export function computeCityHappiness(
   population: PopulationBucket,
   disasters: DisastersBucket,
   services: ServicesBucket,
+  zones: ZonesBucket,
   taxRates: TaxRates,
 ): number {
   const populatedKeys = Object.keys(population.cells).filter(
@@ -838,9 +845,15 @@ export function computeCityHappiness(
     // walks the services list per cell, avoiding the full-zones
     // sort + per-zone-cell solve in solveServicesCoverage. For a
     // city with R residents and S services, the cost drops from
-    // O(|zones| log |zones| + |zones| * S) to O(R * S).
+    // O(|zones| log |zones| + |zones| * S) to O(R * S). The zones
+    // membership check preserves the old solveServicesCoverage
+    // behavior for the edge case where a player erases a zone but
+    // population is still in the bucket until the next growth-tick
+    // sync (a populated-but-not-zoned cell contributes 0 coverage,
+    // matching the old `coverageMap[key] === undefined` branch).
     let totalCoverage = 0
     for (const key of populatedKeys) {
+      if (zones.cells[key] === undefined) continue
       const [rowStr, colStr] = key.split(',')
       const row = Number(rowStr)
       const col = Number(colStr)
@@ -861,14 +874,20 @@ export function computeCityHappiness(
 /**
  * Per-tick happiness reducer (REQ-076 multi-input). Recomputes
  * `cityHappiness` from the freshly-updated water bucket, active
- * disasters, services coverage, and tax rates. Identity-on-
- * no-change short-circuits when the score is unchanged.
+ * disasters, services coverage, zones membership, and tax rates.
+ * `zones` is read only as a membership gate so the per-cell
+ * coverage walk skips populated-but-not-zoned cells (a transient
+ * state between erase and the next growth-tick sync); the per-cell
+ * coverage walk itself uses `cellCoverage(row, col, services)` and
+ * does not depend on the zones bucket. Identity-on-no-change
+ * short-circuits when the score is unchanged.
  */
 export function applyHappinessTick(
   population: PopulationBucket,
   water: WaterBucket,
   disasters: DisastersBucket,
   services: ServicesBucket,
+  zones: ZonesBucket,
   taxRates: TaxRates,
 ): PopulationBucket {
   const next = computeCityHappiness(
@@ -876,6 +895,7 @@ export function applyHappinessTick(
     population,
     disasters,
     services,
+    zones,
     taxRates,
   )
   if (next === population.cityHappiness) return population
