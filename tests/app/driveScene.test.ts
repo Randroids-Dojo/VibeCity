@@ -47,6 +47,13 @@ import {
   buildingRoofHeightFor,
   buildingRoofInsetFactorFor,
   buildingRoofY,
+  BRAKE_LIGHT_COLOR_ACTIVE,
+  BRAKE_LIGHT_COLOR_IDLE,
+  BRAKE_LIGHT_DEPTH,
+  BRAKE_LIGHT_HEIGHT,
+  BRAKE_LIGHT_WIDTH,
+  brakeLightColor,
+  brakeLightOffsets,
   carBodyY,
   carCabinY,
   carWheelOffsets,
@@ -855,6 +862,92 @@ describe('pieceFootprintWorldCells (REQ-045 multi-cell ground meshes)', () => {
       const expected = cellToWorld(cell.row, cell.col)
       expect(cell.x).toBeCloseTo(expected.x, 10)
       expect(cell.z).toBeCloseTo(expected.z, 10)
+    }
+  })
+})
+
+describe('brake-light constants (F-013 slice 2)', () => {
+  it('idle and active hex colors are positive integers', () => {
+    expect(BRAKE_LIGHT_COLOR_IDLE).toBeGreaterThan(0)
+    expect(BRAKE_LIGHT_COLOR_ACTIVE).toBeGreaterThan(0)
+  })
+
+  it('active is brighter than idle (sum of channels)', () => {
+    const idleSum =
+      ((BRAKE_LIGHT_COLOR_IDLE >> 16) & 0xff) +
+      ((BRAKE_LIGHT_COLOR_IDLE >> 8) & 0xff) +
+      (BRAKE_LIGHT_COLOR_IDLE & 0xff)
+    const activeSum =
+      ((BRAKE_LIGHT_COLOR_ACTIVE >> 16) & 0xff) +
+      ((BRAKE_LIGHT_COLOR_ACTIVE >> 8) & 0xff) +
+      (BRAKE_LIGHT_COLOR_ACTIVE & 0xff)
+    expect(activeSum).toBeGreaterThan(idleSum)
+  })
+
+  it('both colors read as red-dominant (red channel exceeds green and blue)', () => {
+    for (const hex of [BRAKE_LIGHT_COLOR_IDLE, BRAKE_LIGHT_COLOR_ACTIVE]) {
+      const r = (hex >> 16) & 0xff
+      const g = (hex >> 8) & 0xff
+      const b = hex & 0xff
+      expect(r).toBeGreaterThan(g)
+      expect(r).toBeGreaterThan(b)
+    }
+  })
+
+  it('pad dimensions are positive', () => {
+    expect(BRAKE_LIGHT_WIDTH).toBeGreaterThan(0)
+    expect(BRAKE_LIGHT_HEIGHT).toBeGreaterThan(0)
+    expect(BRAKE_LIGHT_DEPTH).toBeGreaterThan(0)
+  })
+})
+
+describe('brakeLightColor (F-013 slice 2)', () => {
+  it('returns idle when brake is not active', () => {
+    expect(brakeLightColor(false)).toBe(BRAKE_LIGHT_COLOR_IDLE)
+  })
+
+  it('returns active when brake is asserted', () => {
+    expect(brakeLightColor(true)).toBe(BRAKE_LIGHT_COLOR_ACTIVE)
+  })
+})
+
+describe('brakeLightOffsets (F-013 slice 2)', () => {
+  it('returns exactly two pads (left + right)', () => {
+    const offsets = brakeLightOffsets()
+    expect(offsets).toHaveLength(2)
+    const sides = offsets.map((o) => o.side).sort()
+    expect(sides).toEqual(['left', 'right'])
+  })
+
+  it('left and right pads are mirrored across x = 0', () => {
+    const offsets = brakeLightOffsets()
+    const left = offsets.find((o) => o.side === 'left')
+    const right = offsets.find((o) => o.side === 'right')
+    expect(left?.x).toBeCloseTo(-(right?.x ?? 0), 10)
+  })
+
+  it('both pads share the same y and z (rear stripe alignment)', () => {
+    const offsets = brakeLightOffsets()
+    expect(offsets[0].y).toBe(offsets[1].y)
+    expect(offsets[0].z).toBe(offsets[1].z)
+  })
+
+  it('z places the pads behind the rear axle (positive z = rear of car)', () => {
+    const offsets = brakeLightOffsets()
+    expect(offsets[0].z).toBeGreaterThan(0)
+  })
+
+  it('returns a fresh array on every call', () => {
+    const a = brakeLightOffsets()
+    const b = brakeLightOffsets()
+    expect(a).not.toBe(b)
+  })
+
+  it('finite numeric components for every pad', () => {
+    for (const offset of brakeLightOffsets()) {
+      expect(Number.isFinite(offset.x)).toBe(true)
+      expect(Number.isFinite(offset.y)).toBe(true)
+      expect(Number.isFinite(offset.z)).toBe(true)
     }
   })
 })

@@ -32,11 +32,16 @@ import {
   CAR_CABIN_LENGTH,
   CAR_CABIN_OFFSET,
   CAR_CABIN_WIDTH,
+  BRAKE_LIGHT_DEPTH,
+  BRAKE_LIGHT_HEIGHT,
+  BRAKE_LIGHT_WIDTH,
   CAR_LENGTH,
   CAR_WHEEL_COLOR,
   CAR_WHEEL_RADIUS,
   CAR_WHEEL_THICKNESS,
   CAR_WIDTH,
+  brakeLightColor,
+  brakeLightOffsets,
   CELL_SIZE,
   DIRECTIONAL_LIGHT_INTENSITY,
   DIRECTIONAL_LIGHT_POSITION,
@@ -358,6 +363,10 @@ export function DriveSceneClient({
   // the integration effect creates it; the toggle button reads the ref
   // to call `setMuted` without re-rendering.
   const engineRigRef = useRef<EngineAudioRig | null>(null)
+  // F-013 slice 2: shared material for the two brake-light tail pads.
+  // Both meshes use the same `MeshBasicMaterial` so a single per-frame
+  // `color.set(...)` call flips both pads in lockstep.
+  const brakeLightMaterialRef = useRef<THREE.MeshBasicMaterial | null>(null)
   const handleToggleEngineMute = useCallback(() => {
     setEngineMuted((prev) => {
       const next = !prev
@@ -1267,6 +1276,27 @@ export function DriveSceneClient({
         car.add(wheel)
       }
 
+      // F-013 slice 2: brake-light tail pads. Two small box meshes at
+      // the rear of the car group, sharing one material so a single
+      // per-frame `color.set(...)` flips both pads from dim red (idle)
+      // to bright red (braking). Not flagged `placeholder` so they
+      // ride alongside the GLB once it loads.
+      const brakeLightGeometry = new THREE.BoxGeometry(
+        BRAKE_LIGHT_WIDTH,
+        BRAKE_LIGHT_HEIGHT,
+        BRAKE_LIGHT_DEPTH,
+      )
+      const brakeLightMaterial = new THREE.MeshBasicMaterial({
+        color: brakeLightColor(false),
+      })
+      brakeLightMaterialRef.current = brakeLightMaterial
+      for (const padOffset of brakeLightOffsets()) {
+        const pad = new THREE.Mesh(brakeLightGeometry, brakeLightMaterial)
+        pad.position.set(padOffset.x, padOffset.y, padOffset.z)
+        pad.userData = { brakeLight: true, side: padOffset.side }
+        car.add(pad)
+      }
+
       scene.add(car)
 
       // Lazy-load the Kenney Car GLB (REQ-047 fidelity bump). Mounted
@@ -1878,8 +1908,17 @@ export function DriveSceneClient({
         // alongside the rest of the dashboard; the integration loop
         // writes the label text and a `data-brake-active` attribute
         // each frame so a player sees a visible cue when they are
-        // actively braking. The 3D tail-light material swap and the
-        // tire-screech / suspension-bob layers stay deferred.
+        // actively braking. F-013 slice 2 layers a 3D tail-light
+        // material swap on top: when `input.brake` is true, the two
+        // rear tail pads flip from dim red to bright red so the brake
+        // cue reads in the world as well as in the HUD. The tire-
+        // screech audio cue and the suspension-bob visual cue stay
+        // deferred to follow-on slices.
+        if (brakeLightMaterialRef.current) {
+          brakeLightMaterialRef.current.color.setHex(
+            brakeLightColor(input.brake),
+          )
+        }
         if (root) {
           root.setAttribute(
             'data-brake-active',

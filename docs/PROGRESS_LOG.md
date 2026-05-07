@@ -16,6 +16,16 @@ Format for each slice:
 - Followups: any new `F-NNN` entries created. Link to them.
 ```
 
+## 2026-05-07, Drive Feel: 3D Brake Tail Lights (F-013 slice 2)
+
+- Branch: `feature/20260507-brake-tail-lights`
+- PR: #N (when known)
+- Changed: `src/app/[slug]/driveScene.ts` adds `BRAKE_LIGHT_WIDTH` / `HEIGHT` / `DEPTH` dimensions, `BRAKE_LIGHT_COLOR_IDLE = 0x551a1a` (dim red) / `BRAKE_LIGHT_COLOR_ACTIVE = 0xff3030` (bright red), `brakeLightColor(active)` pure resolver, and `brakeLightOffsets()` returning the two left/right rear pad positions in local car space (mirrors the `carWheelOffsets()` pattern). `src/app/[slug]/DriveSceneClient.tsx` mounts two box-mesh tail pads as children of the `car` group sharing one `MeshBasicMaterial`; the integration loop reads `input.brake` from the merged keyboard + touch input each frame and calls `material.color.setHex(brakeLightColor(input.brake))` so the pads flip together from dim red to bright red when the player presses brake. Pads are not flagged `placeholder` so they ride alongside the GLB once it loads. Closes the second piece of F-013 (the 3D in-world brake light) from the 2026-05-03 fun-factor audit.
+- Verification: `npm test` 2232/2232 unit (12 new cases under `brake-light constants (F-013 slice 2)` + `brakeLightColor (F-013 slice 2)` + `brakeLightOffsets (F-013 slice 2)`). `npm run type-check` green. `npm run build` green. `npm run check:dashes` clean. `git diff --check` clean.
+- Assumptions: The pads share one material so a single `color.setHex` call flips both in lockstep (no per-mesh state). The dim-red idle baseline is intentional so the pads read as physical tail lights even when not braking; a fully-off idle would make the rear of the car look flat. Position the pads at slightly larger `+z` than the rear axle so they sit on the back face of the car body; vertical y matches roughly the body mid-height for a horizontal stripe silhouette.
+- GDD coverage: `docs/gdd/09-drive-mode.md` build log gains a tail-lights entry under the existing F-013 slice. F-013 in `docs/FOLLOWUPS.md` is now Resolved-partial across two sub-features (HUD pill + tail lights); the tire-screech and suspension-bob sub-features stay deferred.
+- Followups: tracked under F-013 (deferred sub-features): tire-screech SFX gated on lateral acceleration above a threshold; suspension-bob visual cue keyed to throttle / brake transitions.
+
 ## 2026-05-07, Day-Rollover Flash (mass-appeal slice 5 follow-on)
 
 - Branch: `feature/20260507-day-rollover-flash`
