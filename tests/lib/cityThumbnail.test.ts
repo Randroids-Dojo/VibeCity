@@ -147,3 +147,54 @@ describe('cityThumbnailDots (F-011)', () => {
     }
   })
 })
+
+describe('cityThumbnailDots multi-cell footprints (PR #156 follow-on)', () => {
+  it('emits one dot per cell of a multi-cell hairpin (six cells)', () => {
+    const piece: City['pieces'][number] = {
+      type: 'hairpin',
+      row: 0,
+      col: 0,
+      rotation: 0,
+    }
+    const city: City = { ...EMPTY_CITY, pieces: [piece] }
+    const dots = cityThumbnailDots(city)
+    // Hairpin canonical footprint is 2x3 = 6 cells.
+    expect(dots).toHaveLength(6)
+    for (const dot of dots) {
+      expect(dot.kind).toBe('piece')
+    }
+    // Each footprint cell maps to a distinct (xNorm, yNorm) so the
+    // thumbnail reads as the road shape, not six dots stacked at one
+    // coordinate.
+    const uniquePositions = new Set(
+      dots.map((d) => `${d.xNorm.toFixed(6)},${d.yNorm.toFixed(6)}`),
+    )
+    expect(uniquePositions.size).toBe(6)
+  })
+
+  it('still emits a single dot for a single-cell piece', () => {
+    const city: City = makeCity([makePiece(0, 0)])
+    expect(cityThumbnailDots(city)).toHaveLength(1)
+  })
+
+  it('mixes multi-cell footprints with single-cell pieces and buildings', () => {
+    const hairpin: City['pieces'][number] = {
+      type: 'hairpin',
+      row: 0,
+      col: 0,
+      rotation: 0,
+    }
+    const straight: City['pieces'][number] = makePiece(5, 5)
+    const building = makeBuilding(8, 8)
+    const city: City = {
+      ...EMPTY_CITY,
+      pieces: [hairpin, straight],
+      buildings: [building],
+    }
+    const dots = cityThumbnailDots(city)
+    // 6 hairpin cells + 1 straight + 1 building = 8 dots.
+    expect(dots).toHaveLength(8)
+    expect(dots.filter((d) => d.kind === 'piece')).toHaveLength(7)
+    expect(dots.filter((d) => d.kind === 'building')).toHaveLength(1)
+  })
+})

@@ -1,3 +1,4 @@
+import { pieceFootprintCells } from '@/app/[slug]/edit/snapGrid'
 import type { City } from './schemas'
 
 /**
@@ -39,15 +40,17 @@ export interface ThumbnailDot {
  * the dot at (0.5, 0.5) so a one-piece city still reads as visible
  * activity rather than a degenerate corner dot.
  *
- * The mapping uses each placement's anchor cell only; multi-cell
- * footprints (mega sweep, hairpin) project as a single dot to keep
- * the thumbnail at-a-glance simple. A future polish slice can extend
- * this to walk every footprint cell.
+ * Each piece emits one dot per footprint cell via `pieceFootprintCells`,
+ * so a multi-cell piece (mega sweep, hairpin) reads as the road shape it
+ * actually covers rather than a single anchor dot. Buildings emit one
+ * dot at their anchor cell (v1 buildings have no footprint field).
  */
 export function cityThumbnailDots(city: City): ThumbnailDot[] {
   const placements: { row: number; col: number; kind: ThumbnailDotKind }[] = []
   for (const piece of city.pieces) {
-    placements.push({ row: piece.row, col: piece.col, kind: 'piece' })
+    for (const cell of pieceFootprintCells(piece)) {
+      placements.push({ row: cell.row, col: cell.col, kind: 'piece' })
+    }
   }
   for (const building of city.buildings) {
     placements.push({
