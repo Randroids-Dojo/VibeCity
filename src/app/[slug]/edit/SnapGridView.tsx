@@ -295,6 +295,7 @@ export function SnapGrid({
   services,
   water,
   disasters,
+  abandonedCellKeys,
   onSurfaceWheel,
   onSurfacePointerDown,
 }: {
@@ -351,6 +352,15 @@ export function SnapGrid({
    * connector glyphs.
    */
   disasters?: DisastersBucket | null
+  /**
+   * Optional set of cell keys (`"row,col"`) for cells whose density
+   * dropped to 0 via REQ-079 happiness-driven decline (population
+   * entry exists with residents=0). When supplied, those cells get a
+   * `data-zone-abandoned="true"` attribute and a dashed gray stroke
+   * override so the player can distinguish a freshly-abandoned cell
+   * from a never-grown density-0 zone.
+   */
+  abandonedCellKeys?: ReadonlySet<string> | null
   onSurfaceWheel?: (event: ReactWheelEvent<SVGSVGElement>) => void
   onSurfacePointerDown?: (event: ReactPointerEvent<SVGSVGElement>) => void
 }) {
@@ -552,6 +562,8 @@ export function SnapGrid({
                 zone.kind === 'industrial' &&
                 zone.density > 0 &&
                 !coverage?.['fire-station']
+              const isAbandoned =
+                zone.density === 0 && abandonedCellKeys?.has(key) === true
               const baseStroke =
                 status === 'unpowered'
                   ? ZONE_STROKE[zone.kind]
@@ -570,14 +582,24 @@ export function SnapGrid({
                   data-zone-water-status={wstatus}
                   data-zone-sewage-status={sstatus}
                   data-zone-fire-risk={isFireRisk ? 'true' : 'false'}
+                  data-zone-abandoned={isAbandoned ? 'true' : 'false'}
                   x={x + 1}
                   y={y + 1}
                   width={CELL_PIXELS - 2}
                   height={CELL_PIXELS - 2}
                   fill={ZONE_FILL[zone.kind]}
                   fillOpacity={ZONE_DENSITY_OPACITY[zone.density]}
-                  stroke={isFireRisk ? '#a3372a' : baseStroke}
-                  strokeWidth={isFireRisk ? 2 : baseStrokeWidth}
+                  stroke={
+                    isFireRisk
+                      ? '#a3372a'
+                      : isAbandoned
+                        ? '#8a8a8a'
+                        : baseStroke
+                  }
+                  strokeWidth={
+                    isFireRisk ? 2 : isAbandoned ? 2 : baseStrokeWidth
+                  }
+                  strokeDasharray={isAbandoned ? '4 3' : undefined}
                   pointerEvents="none"
                 />
               )
