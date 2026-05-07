@@ -627,6 +627,7 @@ function applyTick(state: SimState, event: TickEvent): SimState {
     monsterDamaged.power,
     state.taxRates,
     monsterDamaged.zones,
+    nextTick,
   )
   // Waste tick (REQ-092 slice 4). Populated cells accumulate waste
   // unless their sewage status is 'drained' (in which case the
@@ -713,6 +714,7 @@ export function applyEconomyTick(
   power: PowerBucket,
   taxRates: TaxRates,
   zones: ZonesBucket,
+  tick: number = 0,
 ): EconomyBucket {
   let commercialJobs = 0
   let industrialJobs = 0
@@ -759,7 +761,7 @@ export function applyEconomyTick(
   // recovery would); a follow-on can introduce an explicit flag
   // or event if a one-tick acknowledgement is wanted.
   if (nextBankruptcyCounter === BANKRUPTCY_THRESHOLD_TICKS) {
-    return EMPTY_ECONOMY_BUCKET
+    return { ...EMPTY_ECONOMY_BUCKET, lastAutoBailoutTick: tick }
   }
   if (
     economy.lastTickIncome === income &&
@@ -774,6 +776,7 @@ export function applyEconomyTick(
     lastTickIncome: income,
     lastTickMaintenance: maintenance,
     bankruptcyTickCounter: nextBankruptcyCounter,
+    lastAutoBailoutTick: economy.lastAutoBailoutTick,
   }
 }
 

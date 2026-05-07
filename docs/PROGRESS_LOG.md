@@ -16,6 +16,16 @@ Format for each slice:
 - Followups: any new `F-NNN` entries created. Link to them.
 ```
 
+## 2026-05-06, REQ-095 HUD: Auto-Bailout Acknowledgement Toast
+
+- Branch: `feature/20260506-bailout-hud`
+- PR: #N (when known)
+- Changed: `EconomyBucketSchema` (in `src/lib/sim/state.ts`) gains a new `lastAutoBailoutTick: number` field (zero = never fired). New `AUTO_BAILOUT_TOAST_TICKS = 12` constant (~3s at 4Hz). `applyEconomyTick` takes an optional `tick` parameter (default 0) and now returns `{ ...EMPTY_ECONOMY_BUCKET, lastAutoBailoutTick: tick }` on the auto-bailout branch instead of the bare empty bucket; `applyTick` threads `nextTick` into the call site. `EditorClient` mounts an "auto-bailout fired" green toast next to the existing growth-stalled / fire-risk / abandoned readouts when `state.tick - economy.lastAutoBailoutTick < AUTO_BAILOUT_TOAST_TICKS`. Closes the visibility gap from PR #135 noted in the Copilot review on PR #135: the auto-reset is no longer silent.
+- Verification: `npm test` 2168/2168 unit (1 new case "lastAutoBailoutTick is set to the firing tick when the bailout fires" + 2 fixture updates for the schema migration). `npm run build` green. `npm run check:dashes` clean. `git diff --check` clean. `npx playwright test e2e/sim.spec.ts --project=chromium` 28/28 local.
+- Assumptions: Player-fired `resetBudget` does NOT touch the field (only the auto-reset inside `applyEconomyTick` does), so the toast distinguishes auto-bailout from manual bailout. Default tick=0 in `applyEconomyTick` keeps direct-call tests that exercise the reducer in isolation working under the existing fixtures; production calls thread `nextTick` for the real value.
+- GDD coverage: `docs/gdd/18-economy.md` REQ-095 build log gains an auto-bailout-toast entry.
+- Followups: F-NEW (deferred): a treasury / happiness penalty so the auto-bailout isn't a free reset; toast translation strings; auto-dismiss animation.
+
 ## 2026-05-06, REQ-079 HUD: Abandoned-Cells Readout
 
 - Branch: `feature/20260506-abandoned-hud`

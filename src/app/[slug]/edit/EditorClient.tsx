@@ -64,6 +64,7 @@ import type {
   SpawnDisasterEvent,
 } from '@/lib/sim/events'
 import {
+  AUTO_BAILOUT_TOAST_TICKS,
   BANKRUPTCY_THRESHOLD_TICKS,
   GROWTH_HAPPINESS_THRESHOLD,
   type SimSpeed,
@@ -1243,6 +1244,22 @@ export function EditorClient({
             }}
           >
             {`abandoned: ${abandonedCellKeys.size}`}
+          </span>
+        ) : null}
+        {simState.economy.lastAutoBailoutTick > 0 &&
+        simState.tick - simState.economy.lastAutoBailoutTick <
+          AUTO_BAILOUT_TOAST_TICKS ? (
+          <span
+            data-testid="editor-sim-auto-bailout"
+            data-sim-auto-bailout-tick={simState.economy.lastAutoBailoutTick}
+            style={{
+              marginLeft: 6,
+              fontFamily: 'ui-monospace, Menlo, monospace',
+              color: '#5fae5f',
+              fontWeight: 600,
+            }}
+          >
+            {'auto-bailout fired'}
           </span>
         ) : null}
         {simState.economy.bankruptcyTickCounter > 0 ? (
