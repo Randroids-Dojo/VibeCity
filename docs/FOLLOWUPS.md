@@ -73,6 +73,7 @@ Keep `F-NNN` IDs monotonically increasing. When a followup ships, leave the entr
 - Context: REQ-076's GDD bullet covers "Citizen pedestrians: sidewalk-adjacent residential and commercial cells spawn ambient pedestrian sprites that walk between cells. Pedestrians are pure render; they have no goals, no schedule, no path-finding. Density mirrors population." The 2026-05-06 multi-input happiness slice took the REQ-076 ID but only addressed the citizen-happiness model; the pedestrian render proxies remain.
 - Blocker: none in principle. The drive scene already loads a Three.js scene per slug and the existing ambient traffic helper (`src/app/[slug]/ambientTraffic.ts`) is a near-template for sidewalk pedestrian motion.
 - Unblock condition: port the ambient traffic pattern to a sidewalk-pedestrian variant. Spawn density mirrors `population.totalPopulation`; despawn at any other zone cell. No goals, no schedule.
+- Resolved: PR #140. Shipped a stripped-down version: static-anchor box meshes per populated cell capped at 4 figures, with deterministic per-mesh bob via the existing animation loop. Per-cell motion / sprite art / per-zone-kind variation stay deferred under F-NEW followups in PROGRESS_LOG.
 
 ### F-008: Seed a non-empty city in playwright so visible-movement assertions land
 
