@@ -755,6 +755,25 @@ export const TAX_HAPPINESS_WEIGHT = 200
 export const TAX_NEUTRAL_RATE = 0.10
 
 /**
+ * Per-abandoned-cell happiness weight (REQ-079 follow-on).
+ *
+ * Each cell counted as abandoned (zone density 0 with a population
+ * entry that survived decline) drops `cityHappiness` by this many
+ * points, capped at `MAX_ABANDONED_HAPPINESS_PENALTY`. Damps the
+ * post-decline oscillation: a city with many abandoned cells can't
+ * recompute back to 100 happiness just because residents dropped to
+ * 0; the abandonment itself is a happiness signal.
+ *
+ * 6 per cell, capped at 60 total: a small handful of abandoned
+ * cells barely registers (1 cell = 6 penalty, happiness sits at 94),
+ * but a wave of abandonment caps the player into the stagnant band
+ * (10+ cells = 60 penalty, happiness 40, no growth) until the
+ * underlying problem is addressed.
+ */
+export const ABANDONED_CELL_HAPPINESS_WEIGHT = 6
+export const MAX_ABANDONED_HAPPINESS_PENALTY = 60
+
+/**
  * Happiness gate for organic zone growth (REQ-081 + REQ-076 follow-on).
  *
  * `maybeGrowZones` skips the per-`GROWTH_INTERVAL_TICKS` density

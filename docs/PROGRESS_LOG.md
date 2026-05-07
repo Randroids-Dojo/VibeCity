@@ -16,6 +16,16 @@ Format for each slice:
 - Followups: any new `F-NNN` entries created. Link to them.
 ```
 
+## 2026-05-06, REQ-079 Damping: Per-Abandoned-Cell Happiness Penalty
+
+- Branch: `feature/20260506-abandoned-penalty`
+- PR: #N (when known)
+- Changed: `computeCityHappiness` now subtracts `abandonedPenalty = min(MAX_ABANDONED_HAPPINESS_PENALTY = 60, abandonedCellCount * ABANDONED_CELL_HAPPINESS_WEIGHT = 6)` from the happiness baseline. New constants in `src/lib/sim/state.ts`. The reducer counts abandoned cells inline (zone density 0 + population entry present) so the helper stays in `events.ts` next to the rest of the happiness math. Damps the post-decline oscillation noted in PR #133's followups: a city with many abandoned cells stays in the stagnant band even when no residents remain to suffer waste / tax / coverage penalties.
+- Verification: `npm test` 2169/2169 unit (1 new case "abandoned cells damp happiness so the post-decline oscillation slows": tax=50% drives a residential cell to decline at tick 40, then asserts post-decline happiness sits at 94 instead of the no-penalty 100). `npm run build` green. `npm run check:dashes` clean. `git diff --check` clean. `npx playwright test e2e/sim.spec.ts --project=chromium` 28/28 local.
+- Assumptions: Calibration: 1 abandoned cell = 6 penalty (small enough to allow recovery), 10+ cells = 60 penalty cap (keeps the city stagnant while the player addresses the underlying problem). Penalty applies even when populatedKeys is empty (residents=0 doesn't zero the abandonment signal). Cap matches the missing-services penalty (20) + max waste (50) so the abandonment can stand on its own as a happiness drag.
+- GDD coverage: `docs/gdd/14-citizens.md` REQ-079 build log gains a damping entry.
+- Followups: F-NEW (deferred): tune the 6/60 calibration based on playtesting; per-zone-kind abandonment weights (industrial abandonment more punishing than residential); abandonment decay over time so old abandonments fade.
+
 ## 2026-05-06, REQ-095 HUD: Auto-Bailout Acknowledgement Toast
 
 - Branch: `feature/20260506-bailout-hud`

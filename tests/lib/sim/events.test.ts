@@ -1552,6 +1552,30 @@ describe('applySimEvent', () => {
       expect(a.population.cityHappiness).toBe(b.population.cityHappiness)
     })
 
+    it('abandoned cells damp happiness so the post-decline oscillation slows (REQ-079 follow-on)', () => {
+      // Place a residential cell, set tax to 50%, drain sewage so
+      // happiness only suffers from coverage + tax. Tick 20 grows
+      // (density 1, residents=4), happiness post-tick = 0
+      // (miserable). Tick 40 declines back to density 0;
+      // syncPopulationToZones sets residents=0 on the same tick.
+      // After tick 40 happiness recomputes: populatedKeys is empty
+      // (no residents) so waste / coverage / tax all read 0; the
+      // abandoned-cell penalty (zone density 0 + population entry
+      // present) drops happiness from 100 to 100 - 6 = 94.
+      let s = applySimEvent(EMPTY_SIM_STATE, placeRes(0, 0))
+      s = applySimEvent(s, placeTreatmentPlant(0, 1))
+      s = applySimEvent(s, {
+        type: 'setTaxRate',
+        payload: { kind: 'residential', rate: 0.5 },
+        clientCreatedAt: 0,
+        authorBuilderId: A_BUILDER,
+      })
+      s = tickN(40, s)
+      expect(s.zones.cells['0,0']?.density).toBe(0)
+      expect(s.population.cells['0,0']?.residents).toBe(0)
+      expect(s.population.cityHappiness).toBe(94)
+    })
+
     it('orphan-populated cell (zone erased, population not yet resynced) contributes 0 coverage (F-017 regression)', () => {
       // Stand up a residential cell at (0, 1), drain its waste with
       // a treatment plant at (0, 0), and place a fire-station at
