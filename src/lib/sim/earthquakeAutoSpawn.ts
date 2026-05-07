@@ -28,7 +28,7 @@ import {
  */
 
 export function earthquakeAutoSpawnHash(tick: number): number {
-  let h = (tick | 0) * 0x9b9773e9
+  let h = Math.imul(tick | 0, 0x9b9773e9) >>> 0
   h = (h ^ (h >>> 16)) >>> 0
   h = Math.imul(h, 0x6a5d39eb) >>> 0
   h = (h ^ (h >>> 14)) >>> 0
@@ -37,7 +37,7 @@ export function earthquakeAutoSpawnHash(tick: number): number {
 
 export function earthquakeCellPickHash(tick: number, cellCount: number): number {
   if (cellCount <= 0) return 0
-  let h = (tick | 0) * 0x39b9c47b
+  let h = Math.imul(tick | 0, 0x39b9c47b) >>> 0
   h = (h ^ (h >>> 13)) >>> 0
   h = Math.imul(h, 0x4f9af23f) >>> 0
   h = (h ^ (h >>> 16)) >>> 0
@@ -50,10 +50,16 @@ export function computeEarthquakeAutoSpawn(
   tick: number,
 ): Disaster | null {
   if (disasters.active.some((d) => d.kind === 'earthquake')) return null
-  const cellKeys = Object.keys(zones.cells).sort()
-  if (cellKeys.length === 0) return null
+  // Cheap bail-outs first so the hot per-tick path stays O(1) on
+  // the common case where no earthquake will spawn (~99.8% of
+  // ticks at default probability). Sorting the zone keys for
+  // replay stability is O(N log N) and only paid on the rare
+  // tick that actually triggers a roll-pass.
+  const cellCount = Object.keys(zones.cells).length
+  if (cellCount === 0) return null
   const roll = earthquakeAutoSpawnHash(tick)
   if (roll >= EARTHQUAKE_AUTO_SPAWN_PROBABILITY_PER_TICK) return null
+  const cellKeys = Object.keys(zones.cells).sort()
   const pick = earthquakeCellPickHash(tick, cellKeys.length)
   const key = cellKeys[pick]
   const [rowStr, colStr] = key.split(',')

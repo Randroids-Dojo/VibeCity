@@ -719,14 +719,14 @@ export const FIRE_AUTO_SPAWN_PROBABILITY_PER_TICK = 0.004
  * the happiness reducer, so a single earthquake briefly tanks
  * happiness without damaging zones directly.
  *
- * Calibration: 0.0005 per tick at the 4Hz default gives expected
+ * Calibration: 0.002 per tick at the 4Hz default gives expected
  * one earthquake per ~500 ticks (~125 wall-seconds at 1x). Rare
  * enough that the player doesn't feel harassed; common enough
  * that two replays of the same starter city diverge meaningfully.
  * Adds replay-variability flagged by the 2026-05-07 mass-appeal
  * gameplay analysis.
  */
-export const EARTHQUAKE_AUTO_SPAWN_PROBABILITY_PER_TICK = 0.0005
+export const EARTHQUAKE_AUTO_SPAWN_PROBABILITY_PER_TICK = 0.002
 
 /**
  * Per-tick fire damage probability (REQ-105 slice 4). Each active

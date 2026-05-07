@@ -13,12 +13,17 @@ import {
 
 const EMPTY_DISASTERS: DisastersBucket = { active: [] }
 
+// Cache the first igniting tick so the O(probability^-1) search
+// runs once per suite, not once per case that needs the value.
+let cachedIgnitingTick: number | null = null
 function findIgnitingTick(): number {
+  if (cachedIgnitingTick !== null) return cachedIgnitingTick
   for (let tick = 1; tick < 1000000; tick++) {
     if (
       earthquakeAutoSpawnHash(tick) <
       EARTHQUAKE_AUTO_SPAWN_PROBABILITY_PER_TICK
     ) {
+      cachedIgnitingTick = tick
       return tick
     }
   }
