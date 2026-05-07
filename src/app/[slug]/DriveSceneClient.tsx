@@ -13,6 +13,7 @@ import {
   STREETLAMP_HEX_NIGHT,
   STREETLAMP_INTENSITY_NIGHT,
   TIME_OF_DAY_PALETTE,
+  cityDayNumber,
   resolveTimeOfDay,
   zoneEmissiveHex,
   zoneEmissiveIntensity,
@@ -2409,6 +2410,23 @@ export function DriveSceneClient({
             >
               N
             </span>
+            {(() => {
+              const dayNumber = cityDayNumber(simState.tick)
+              return (
+                <span
+                  data-testid="drive-hud-day"
+                  data-sim-day={dayNumber}
+                  style={{
+                    fontSize: 11,
+                    letterSpacing: 0.4,
+                    textTransform: 'uppercase',
+                    color: '#cbb88a',
+                  }}
+                >
+                  {`Day ${dayNumber}`}
+                </span>
+              )
+            })()}
           </div>
           {cityValidityState === 'open' ? (
             <div
