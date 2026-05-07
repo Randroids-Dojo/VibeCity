@@ -16,6 +16,16 @@ Format for each slice:
 - Followups: any new `F-NNN` entries created. Link to them.
 ```
 
+## 2026-05-07, Drive HUD: City-Age Day Counter
+
+- Branch: `feature/20260507-drive-hud-day`
+- PR: #N (when known)
+- Changed: `src/app/[slug]/DriveSceneClient.tsx` imports the `cityDayNumber` helper (added in PR #154 / mass-appeal slice 5) and adds a new `drive-hud-day` span next to the existing `drive-hud-compass` span in the dashboard's compass row. Mirrors `data-sim-day` and renders "Day N". Reads from the same `simState.tick` source the editor toolbar already does, so the editor and drive surfaces agree on the city's age. The readout uses a warm tan `#cbb88a` distinct from the green compass and amber direction so the day cue reads as its own channel. Closes the deferred F-NEW from PR #154 (drive-scene HUD Day readout).
+- Verification: `npm run type-check` green. `npm run check:dashes` clean. `git diff --check` clean. `npx playwright test e2e/drive.spec.ts --project=chromium --grep "mounts the canvas"` 1/1 (asserts `drive-hud-day` is absent on the empty playwright KV city, matching the existing absence pattern for `drive-hud-speed` / `drive-hud-surface` / `drive-hud-direction`).
+- Assumptions: The drive HUD day readout uses the same compute path as the editor (`cityDayNumber(simState.tick)`); two replays of the same event log show identical Day numbers across editor and drive views. Color choice (`#cbb88a` warm tan) sits between the green compass and amber direction so each HUD info channel stays visually distinct.
+- GDD coverage: `docs/gdd/09-drive-mode.md` build log gains a Day-counter entry.
+- Followups: F-NEW (deferred): animated day-rollover flash on both editor + drive readouts; persistent "longest-running city" leaderboard surface.
+
 ## 2026-05-07, Mass-Appeal: City-Age Day Counter
 
 - Branch: `feature/20260507-city-age-counter`
