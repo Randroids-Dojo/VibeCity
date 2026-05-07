@@ -1,5 +1,6 @@
 import { z } from 'zod'
 import { BuilderIdSchema } from '@/lib/schemas'
+import { computeEarthquakeAutoSpawn } from './earthquakeAutoSpawn'
 import { applyFireDamage } from './fireDamage'
 import { computeFireAutoSpawn } from './fireAutoSpawn'
 import { computeFireSpread } from './fireSpread'
@@ -664,10 +665,24 @@ function applyTick(state: SimState, event: TickEvent): SimState {
     decrementedDisasters,
     nextTick,
   )
+  // Random earthquake auto-spawn (mass-appeal slice 2 of 5).
+  // Single global per-tick roll picks a deterministic-hash zoned
+  // cell. Adds replay variability flagged by the gameplay
+  // analysis: an unmoderated city of identical zone placements
+  // can experience different per-tick disaster sequences across
+  // replays of distinct event logs.
+  const autoSpawnedEarthquake = computeEarthquakeAutoSpawn(
+    monsterDamaged.zones,
+    decrementedDisasters,
+    nextTick,
+  )
+  const autoSpawned = autoSpawnedEarthquake
+    ? [...autoSpawnedFires, autoSpawnedEarthquake]
+    : autoSpawnedFires
   const nextDisasters: typeof decrementedDisasters =
-    autoSpawnedFires.length === 0
+    autoSpawned.length === 0
       ? decrementedDisasters
-      : { active: [...decrementedDisasters.active, ...autoSpawnedFires] }
+      : { active: [...decrementedDisasters.active, ...autoSpawned] }
   // Citizen happiness (REQ-076 multi-input). Reads waste, services
   // coverage, taxes, and disasters from the post-tick state so the
   // HUD reflects this tick's drain state, freshly-erased services

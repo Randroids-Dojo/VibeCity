@@ -711,6 +711,24 @@ export const FIRE_SPREAD_PROBABILITY_PER_TICK = 0.05
 export const FIRE_AUTO_SPAWN_PROBABILITY_PER_TICK = 0.004
 
 /**
+ * Per-tick random earthquake auto-spawn probability (REQ-105 +
+ * mass-appeal slice 2 of 5). Each tick rolls once for the whole
+ * city; on a hit, a deterministic-hash-picked zoned cell gets a
+ * fresh earthquake. Earthquakes have a 20-tick default duration
+ * and contribute `EARTHQUAKE_HAPPINESS_PENALTY = 25` per active to
+ * the happiness reducer, so a single earthquake briefly tanks
+ * happiness without damaging zones directly.
+ *
+ * Calibration: 0.002 per tick at the 4Hz default gives expected
+ * one earthquake per ~500 ticks (~125 wall-seconds at 1x). Rare
+ * enough that the player doesn't feel harassed; common enough
+ * that two replays of the same starter city diverge meaningfully.
+ * Adds replay-variability flagged by the 2026-05-07 mass-appeal
+ * gameplay analysis.
+ */
+export const EARTHQUAKE_AUTO_SPAWN_PROBABILITY_PER_TICK = 0.002
+
+/**
  * Per-tick fire damage probability (REQ-105 slice 4). Each active
  * fire on a zoned cell rolls once per tick; on a hit, the cell's
  * density drops by 1. A fire on a density-0 cell or unzoned cell is

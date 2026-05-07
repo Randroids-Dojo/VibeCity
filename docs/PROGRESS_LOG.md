@@ -16,6 +16,16 @@ Format for each slice:
 - Followups: any new `F-NNN` entries created. Link to them.
 ```
 
+## 2026-05-07, Mass-Appeal: Random Earthquake Auto-Spawn
+
+- Branch: `feature/20260507-random-earthquakes`
+- PR: #151
+- Changed: New `EARTHQUAKE_AUTO_SPAWN_PROBABILITY_PER_TICK = 0.002` constant in `src/lib/sim/state.ts`. New module `src/lib/sim/earthquakeAutoSpawn.ts` with `earthquakeAutoSpawnHash(tick)` (single global per-tick roll, mixing constants distinct from fire spread / fire damage / fire auto-spawn so the rolls are independent), `earthquakeCellPickHash(tick, cellCount)` (deterministic-hash cell index), and `computeEarthquakeAutoSpawn(zones, disasters, tick)` that returns at most one earthquake per tick: skips if an earthquake is already active (no swarm), if no zoned cells exist, or if the roll is above probability. Picks a zoned cell from sorted keys for replay stability. `applyTick` calls it after `computeFireAutoSpawn` and appends to the same auto-spawned bundle. Calibration: ~one earthquake per 500 ticks (~125 wall-seconds at 1x). Closes the replay-variability gap from the 2026-05-07 mass-appeal analysis (slice 2 of 5).
+- Verification: `npm test` 2183/2183 unit (10 new cases under `tests/lib/sim/earthquakeAutoSpawn.test.ts`: hash distribution + determinism, cell pick boundaries, no-zones / already-earthquake / non-igniting / igniting paths, multi-cell determinism). `npm run type-check` green. `npm run build` green. `npm run check:dashes` clean. `git diff --check` clean. `npx playwright test e2e/sim.spec.ts --project=chromium` 29/29 local.
+- Assumptions: The "no concurrent earthquake" rule prevents back-to-back unlucky hashes from producing an oppressive earthquake swarm; one is enough to feel the city react. The single-global-per-tick roll keeps the cost O(1) regardless of city size; the cell pick is O(|zones|) only when a roll fires (rare). No e2e: random earthquakes have wall-clock-too-long expected times to test against; the unit suite covers the deterministic contract.
+- GDD coverage: `docs/gdd/20-disasters.md` build log gains an earthquake auto-spawn entry. `docs/GDD_COVERAGE.json` REQ-105 row stays `done`.
+- Followups: F-NEW (deferred): random flood / tornado / monster auto-spawn (currently only fire + earthquake auto-spawn); seasonal probability modulation (e.g. earthquakes more common in certain "months" of city age once a city-age counter exists in slice 5).
+
 ## 2026-05-07, Mass-Appeal: Population Milestone Toasts
 
 - Branch: `feature/20260507-population-milestones`
