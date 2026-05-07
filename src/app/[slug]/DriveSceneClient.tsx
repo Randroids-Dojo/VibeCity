@@ -133,6 +133,8 @@ import {
 } from './offStreetPenalty'
 import { buildTrackPath, validateConnections } from '@/lib/trackPath'
 import {
+  HUD_BRAKE_COLOR,
+  HUD_BRAKE_LABEL,
   HUD_CITY_VALIDITY_LABEL,
   HUD_COMPASS_LABEL,
   HUD_CONTROLS_HINT_LINES,
@@ -308,6 +310,14 @@ export function DriveSceneClient({
   // always non-empty (the compass is informational rather than a
   // conditional alert) so the span stays mounted on every render.
   const hudCompassRef = useRef<HTMLSpanElement | null>(null)
+  // F-013 slice 1: brake-input visible HUD pill. The span is mounted
+  // whenever the HUD is visible (gated on `hasVehicle && !showPauseMenu`
+  // alongside the rest of the dashboard); the integration loop writes
+  // the label text imperatively each frame so the pill reads as the
+  // brake label when `input.brake` is true and as an empty string when
+  // it is false. The empty-string default keeps the React tree from
+  // re-rendering per frame (mirrors the speed / surface readouts).
+  const hudBrakeRef = useRef<HTMLSpanElement | null>(null)
   // Minimap car marker ref (REQ-069). The integration loop writes the
   // live `transform` attribute on the SVG group each tick so the
   // marker tracks the car position and heading without forcing a
@@ -1863,6 +1873,23 @@ export function DriveSceneClient({
           touchModeRef.current,
         )
         const input = mergeDriveInputs(keyboardInput, touchInputForFrame)
+        // F-013 slice 1: brake-input mirror. The pill stays mounted
+        // alongside the rest of the dashboard; the integration loop
+        // writes the label text and a `data-brake-active` attribute
+        // each frame so a player sees a visible cue when they are
+        // actively braking. The 3D tail-light material swap and the
+        // tire-screech / suspension-bob layers stay deferred.
+        if (root) {
+          root.setAttribute(
+            'data-brake-active',
+            input.brake ? 'true' : 'false',
+          )
+        }
+        if (hudBrakeRef.current) {
+          hudBrakeRef.current.textContent = input.brake
+            ? HUD_BRAKE_LABEL
+            : ''
+        }
         vehicle = applyDriveStep(vehicle, input, dt)
         // Off-street penalty (REQ-054) with per-wheel detection
         // (REQ-032). Applied first so a player who veers off the road
@@ -2138,6 +2165,7 @@ export function DriveSceneClient({
       data-hud-direction="idle"
       data-hud-compass="N"
       data-hud-surface="street"
+      data-brake-active="false"
       data-city-validity={cityValidityState}
       data-unmatched-port-count={unmatchedPortCount}
       data-engine-audio-muted={engineMuted ? 'true' : 'false'}
@@ -2410,6 +2438,17 @@ export function DriveSceneClient({
             >
               N
             </span>
+            <span
+              ref={hudBrakeRef}
+              data-testid="drive-hud-brake"
+              style={{
+                fontSize: 11,
+                letterSpacing: 0.4,
+                textTransform: 'uppercase',
+                color: HUD_BRAKE_COLOR,
+                fontWeight: 600,
+              }}
+            />
             {(() => {
               const dayNumber = cityDayNumber(simState.tick)
               return (
