@@ -543,6 +543,20 @@ export function SnapGrid({
               const wstatus: CellWaterStatus = waterStatus[key] ?? 'unserved'
               const sstatus: CellSewageStatus =
                 sewageStatus[key] ?? 'unmanaged'
+              // Fire-risk highlight (REQ-105 + REQ-100 follow-on).
+              // An industrial cell with density > 0 not covered by a
+              // fire-station gets a red stroke override so the player
+              // sees WHICH cells contribute to the editor's fire-risk
+              // readout, not just the count.
+              const isFireRisk =
+                zone.kind === 'industrial' &&
+                zone.density > 0 &&
+                !coverage?.['fire-station']
+              const baseStroke =
+                status === 'unpowered'
+                  ? ZONE_STROKE[zone.kind]
+                  : POWER_STATUS_STROKE[status]
+              const baseStrokeWidth = POWER_STATUS_STROKE_WIDTH[status]
               return (
                 <rect
                   key={`zone-${key}`}
@@ -555,18 +569,15 @@ export function SnapGrid({
                   data-zone-coverage-count={cov}
                   data-zone-water-status={wstatus}
                   data-zone-sewage-status={sstatus}
+                  data-zone-fire-risk={isFireRisk ? 'true' : 'false'}
                   x={x + 1}
                   y={y + 1}
                   width={CELL_PIXELS - 2}
                   height={CELL_PIXELS - 2}
                   fill={ZONE_FILL[zone.kind]}
                   fillOpacity={ZONE_DENSITY_OPACITY[zone.density]}
-                  stroke={
-                    status === 'unpowered'
-                      ? ZONE_STROKE[zone.kind]
-                      : POWER_STATUS_STROKE[status]
-                  }
-                  strokeWidth={POWER_STATUS_STROKE_WIDTH[status]}
+                  stroke={isFireRisk ? '#a3372a' : baseStroke}
+                  strokeWidth={isFireRisk ? 2 : baseStrokeWidth}
                   pointerEvents="none"
                 />
               )

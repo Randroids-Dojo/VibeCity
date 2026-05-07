@@ -16,6 +16,16 @@ Format for each slice:
 - Followups: any new `F-NNN` entries created. Link to them.
 ```
 
+## 2026-05-06, REQ-105 + REQ-100: Per-Cell Fire-Risk Overlay
+
+- Branch: `feature/20260506-fire-risk-overlay`
+- PR: #N (when known)
+- Changed: `src/app/[slug]/edit/SnapGridView.tsx` zone-overlay loop now derives an `isFireRisk` flag per cell (`zone.kind === 'industrial' && zone.density > 0 && !coverage?.['fire-station']`), surfaces it via a new `data-zone-fire-risk` attribute, and overrides the cell's stroke + strokeWidth to the warning red palette (`#a3372a`, width 2) when the flag is true. Pairs with the editor's HUD fire-risk count from PR #138: the player now sees both the count AND which cells contribute to it.
+- Verification: `npm test` 2163/2163 unit. `npm run build` green. `npm run check:dashes` clean. `git diff --check` clean. `npx playwright test e2e/sim.spec.ts --project=chromium --grep fire-risk` 2/2 local (1 new case: paint industrial -> assert `data-zone-fire-risk="true"` after first growth tick, place a fire-station within range, assert flag flips to `false`).
+- Assumptions: The override stroke color matches the existing low-happiness / open-port warning palette so visual language stays consistent. The base stroke logic (power-status-driven) still applies for non-risk cells.
+- GDD coverage: `docs/gdd/20-disasters.md` build log gains a per-cell-overlay entry. `docs/GDD_COVERAGE.json` REQ-105 row stays `done`.
+- Followups: F-NEW (deferred): legend / tooltip explaining the red stroke; per-cell highlight for residential / commercial cells if those follow-on auto-spawn paths land.
+
 ## 2026-05-06, REQ-077 Lite: Population-Scaled Ambient Car Count
 
 - Branch: `feature/20260506-traffic-population-scaled`
