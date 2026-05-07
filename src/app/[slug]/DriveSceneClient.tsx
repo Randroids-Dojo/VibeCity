@@ -14,6 +14,7 @@ import {
   STREETLAMP_INTENSITY_NIGHT,
   TIME_OF_DAY_PALETTE,
   cityDayNumber,
+  dayRolloverFlashing,
   resolveTimeOfDay,
   zoneEmissiveHex,
   zoneEmissiveIntensity,
@@ -2451,15 +2452,18 @@ export function DriveSceneClient({
             />
             {(() => {
               const dayNumber = cityDayNumber(simState.tick)
+              const flashing = dayRolloverFlashing(simState.tick)
               return (
                 <span
                   data-testid="drive-hud-day"
                   data-sim-day={dayNumber}
+                  data-day-flash={flashing ? 'active' : 'idle'}
                   style={{
                     fontSize: 11,
                     letterSpacing: 0.4,
                     textTransform: 'uppercase',
-                    color: '#cbb88a',
+                    color: flashing ? '#9be0a3' : '#cbb88a',
+                    fontWeight: flashing ? 700 : undefined,
                   }}
                 >
                   {`Day ${dayNumber}`}

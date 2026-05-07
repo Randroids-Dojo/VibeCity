@@ -120,7 +120,7 @@ import {
   validateConnections,
 } from '@/lib/trackPath'
 import { spawnAnchorMarker, spawnAnchorReadout } from './spawnMarker'
-import { cityDayNumber } from '../timeOfDay'
+import { cityDayNumber, dayRolloverFlashing } from '../timeOfDay'
 import { SceneTransitionCurtain } from '../SceneTransitionCurtain'
 import {
   buildEditUrl,
@@ -1084,13 +1084,25 @@ export function EditorClient({
         >
           {`pop ${simState.population.totalPopulation}`}
         </span>
-        <span
-          data-testid="editor-sim-day"
-          data-sim-day={cityDayNumber(simState.tick)}
-          style={{ marginLeft: 6, fontFamily: 'ui-monospace, Menlo, monospace' }}
-        >
-          {`Day ${cityDayNumber(simState.tick)}`}
-        </span>
+        {(() => {
+          const dayNumber = cityDayNumber(simState.tick)
+          const flashing = dayRolloverFlashing(simState.tick)
+          return (
+            <span
+              data-testid="editor-sim-day"
+              data-sim-day={dayNumber}
+              data-day-flash={flashing ? 'active' : 'idle'}
+              style={{
+                marginLeft: 6,
+                fontFamily: 'ui-monospace, Menlo, monospace',
+                color: flashing ? '#1f7a1f' : undefined,
+                fontWeight: flashing ? 700 : undefined,
+              }}
+            >
+              {`Day ${dayNumber}`}
+            </span>
+          )
+        })()}
         {(() => {
           const demand = computeRciDemand(simState.zones, simState.population)
           return (['residential', 'commercial', 'industrial'] as const).map(

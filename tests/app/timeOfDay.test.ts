@@ -6,7 +6,9 @@ import {
   STREETLAMP_HEX_NIGHT,
   STREETLAMP_INTENSITY_NIGHT,
   TIME_OF_DAY_PALETTE,
+  DAY_ROLLOVER_FLASH_TICKS,
   cityDayNumber,
+  dayRolloverFlashing,
   resolveTimeOfDay,
   zoneEmissiveHex,
   zoneEmissiveIntensity,
@@ -256,5 +258,62 @@ describe('cityDayNumber (mass-appeal slice 5)', () => {
     expect(cityDayNumber(-DAY_NIGHT_CYCLE_TICKS * 3)).toBe(1)
     expect(cityDayNumber(Number.NaN)).toBe(1)
     expect(cityDayNumber(Number.POSITIVE_INFINITY)).toBe(1)
+  })
+})
+
+describe('dayRolloverFlashing (mass-appeal slice 5 follow-on)', () => {
+  it('does not flash on tick 0 (city just mounted, no rollover)', () => {
+    expect(dayRolloverFlashing(0)).toBe(false)
+  })
+
+  it('does not flash anywhere inside Day 1', () => {
+    expect(dayRolloverFlashing(1)).toBe(false)
+    expect(dayRolloverFlashing(DAY_NIGHT_CYCLE_TICKS - 1)).toBe(false)
+  })
+
+  it('flashes on the first tick of Day 2', () => {
+    expect(dayRolloverFlashing(DAY_NIGHT_CYCLE_TICKS)).toBe(true)
+  })
+
+  it('flashes through the full DAY_ROLLOVER_FLASH_TICKS window', () => {
+    for (let i = 0; i < DAY_ROLLOVER_FLASH_TICKS; i++) {
+      expect(dayRolloverFlashing(DAY_NIGHT_CYCLE_TICKS + i)).toBe(true)
+    }
+  })
+
+  it('stops flashing once the window expires', () => {
+    expect(
+      dayRolloverFlashing(DAY_NIGHT_CYCLE_TICKS + DAY_ROLLOVER_FLASH_TICKS),
+    ).toBe(false)
+    expect(
+      dayRolloverFlashing(
+        DAY_NIGHT_CYCLE_TICKS + DAY_ROLLOVER_FLASH_TICKS + 1,
+      ),
+    ).toBe(false)
+  })
+
+  it('flashes again at every subsequent day boundary', () => {
+    for (let day = 2; day <= 10; day++) {
+      const boundary = (day - 1) * DAY_NIGHT_CYCLE_TICKS
+      expect(dayRolloverFlashing(boundary)).toBe(true)
+      expect(
+        dayRolloverFlashing(boundary + DAY_ROLLOVER_FLASH_TICKS - 1),
+      ).toBe(true)
+      expect(dayRolloverFlashing(boundary + DAY_ROLLOVER_FLASH_TICKS)).toBe(
+        false,
+      )
+    }
+  })
+
+  it('returns false for negative or non-finite ticks', () => {
+    expect(dayRolloverFlashing(-1)).toBe(false)
+    expect(dayRolloverFlashing(-DAY_NIGHT_CYCLE_TICKS)).toBe(false)
+    expect(dayRolloverFlashing(Number.NaN)).toBe(false)
+    expect(dayRolloverFlashing(Number.POSITIVE_INFINITY)).toBe(false)
+  })
+
+  it('DAY_ROLLOVER_FLASH_TICKS is positive and well below the cycle length', () => {
+    expect(DAY_ROLLOVER_FLASH_TICKS).toBeGreaterThan(0)
+    expect(DAY_ROLLOVER_FLASH_TICKS).toBeLessThan(DAY_NIGHT_CYCLE_TICKS / 2)
   })
 })
