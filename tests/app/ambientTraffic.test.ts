@@ -57,6 +57,12 @@ describe('ambientCarCountForPopulation', () => {
     expect(ambientCarCountForPopulation(-5)).toBe(0)
   })
 
+  it('returns 0 for non-finite inputs (NaN / Infinity)', () => {
+    expect(ambientCarCountForPopulation(Number.NaN)).toBe(0)
+    expect(ambientCarCountForPopulation(Number.POSITIVE_INFINITY)).toBe(0)
+    expect(ambientCarCountForPopulation(Number.NEGATIVE_INFINITY)).toBe(0)
+  })
+
   it('one ambient car per RESIDENTS_PER_AMBIENT_CAR threshold (ceil semantics)', () => {
     expect(ambientCarCountForPopulation(1)).toBe(1)
     expect(ambientCarCountForPopulation(RESIDENTS_PER_AMBIENT_CAR)).toBe(1)

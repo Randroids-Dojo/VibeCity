@@ -46,7 +46,7 @@ export const RESIDENTS_PER_AMBIENT_CAR = 8
 export function ambientCarCountForPopulation(
   totalPopulation: number,
 ): number {
-  if (totalPopulation <= 0) return 0
+  if (!Number.isFinite(totalPopulation) || totalPopulation <= 0) return 0
   return Math.min(
     AMBIENT_CAR_COUNT,
     Math.ceil(totalPopulation / RESIDENTS_PER_AMBIENT_CAR),
