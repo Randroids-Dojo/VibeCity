@@ -1369,9 +1369,14 @@ export function EditorClient({
         >
           Mood
         </span>
-        {(['day', 'night'] as const).map((mode) => {
-          const current =
-            city.mood?.timeOfDay === 'night' ? 'night' : 'day'
+        {(['day', 'night', 'auto'] as const).map((mode) => {
+          const persisted = city.mood?.timeOfDay
+          const current: 'day' | 'night' | 'auto' =
+            persisted === 'night'
+              ? 'night'
+              : persisted === 'auto'
+                ? 'auto'
+                : 'day'
           const active = current === mode
           return (
             <button
@@ -1399,7 +1404,9 @@ export function EditorClient({
                 background: active
                   ? mode === 'night'
                     ? '#0e1a2c'
-                    : '#bfd9e8'
+                    : mode === 'auto'
+                      ? '#7a8a9a'
+                      : '#bfd9e8'
                   : '#fdfaf2',
                 border: '1px solid #d6cfbf',
                 borderRadius: 4,
