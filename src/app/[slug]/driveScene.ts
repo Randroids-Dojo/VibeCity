@@ -617,7 +617,14 @@ export function tireScreechActive(
   threshold: number = TIRE_SCREECH_LATERAL_ACCEL_THRESHOLD,
 ): boolean {
   if (!Number.isFinite(lateralAccel)) return false
-  return Math.abs(lateralAccel) >= threshold
+  // A non-finite or non-positive caller threshold collapses to the
+  // default so a tuning bug cannot silently disable the cue (negative
+  // threshold) or fire on every finite input (zero threshold).
+  const effective =
+    Number.isFinite(threshold) && threshold > 0
+      ? threshold
+      : TIRE_SCREECH_LATERAL_ACCEL_THRESHOLD
+  return Math.abs(lateralAccel) >= effective
 }
 
 /**

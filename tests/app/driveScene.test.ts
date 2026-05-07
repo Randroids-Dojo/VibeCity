@@ -1100,6 +1100,16 @@ describe('tireScreechActive (F-013 slice 3)', () => {
     expect(tireScreechActive(15, 10)).toBe(true)
   })
 
+  it('falls back to the default threshold on non-finite or non-positive overrides', () => {
+    // Non-finite threshold collapses to the default; an above-default
+    // input still fires.
+    expect(tireScreechActive(TIRE_SCREECH_LATERAL_ACCEL_THRESHOLD, Number.NaN)).toBe(true)
+    // Negative or zero threshold collapses to the default; a below-
+    // default input does NOT fire (no spurious always-true behavior).
+    expect(tireScreechActive(5, 0)).toBe(false)
+    expect(tireScreechActive(5, -10)).toBe(false)
+  })
+
   it('returns false for non-finite input (NaN, Infinity)', () => {
     expect(tireScreechActive(Number.NaN)).toBe(false)
     expect(tireScreechActive(Number.POSITIVE_INFINITY)).toBe(false)
