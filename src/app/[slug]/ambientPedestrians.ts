@@ -17,6 +17,25 @@ import type { PopulationBucket } from '@/lib/sim/state'
 
 export const PEDESTRIANS_PER_CELL_CAP = 4
 
+/**
+ * Residents-to-pedestrian-count tier table. Maps residents to a
+ * visible figure count so the player can read density at a glance:
+ *
+ *   - 0          -> 0 figures (skip; cell not populated)
+ *   - 1..4       -> 1 figure   (density 1: small house = 4 residents)
+ *   - 5..12      -> 2 figures  (density 2: mid house = 12 residents)
+ *   - 13+        -> 4 figures  (density 3: apartment = 40 residents, capped)
+ *
+ * The tiers map cleanly to the residential density ladder so each
+ * step in density is visually distinguishable.
+ */
+export function pedestrianCountForResidents(residents: number): number {
+  if (residents <= 0) return 0
+  if (residents <= 4) return 1
+  if (residents <= 12) return 2
+  return PEDESTRIANS_PER_CELL_CAP
+}
+
 export interface PedestrianAnchor {
   x: number
   z: number
@@ -43,7 +62,7 @@ export function pedestrianAnchors(
       z,
       cellRow: row,
       cellCol: col,
-      count: Math.min(cell.residents, PEDESTRIANS_PER_CELL_CAP),
+      count: pedestrianCountForResidents(cell.residents),
     })
   }
   return anchors

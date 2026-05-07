@@ -16,6 +16,16 @@ Format for each slice:
 - Followups: any new `F-NNN` entries created. Link to them.
 ```
 
+## 2026-05-06, F-014 Follow-on: Density-Tiered Pedestrian Count
+
+- Branch: `feature/20260506-pedestrians-density`
+- PR: #N (when known)
+- Changed: New `pedestrianCountForResidents(residents)` tier table in `src/app/[slug]/ambientPedestrians.ts`. Maps residents directly onto figure count: 0 -> 0 (skip), 1..4 (density 1) -> 1, 5..12 (density 2) -> 2, 13+ (density 3, capped) -> 4. Replaces the prior `Math.min(residents, 4)` in `pedestrianAnchors` so the player sees density at a glance: density-1 cells have a single figure, density-2 a small pair, density-3 a small crowd of 4. Closes the visual-density-flatness from PR #140 where every populated cell rendered the same 4-figure cap regardless of density.
+- Verification: `npm test` 2167/2167 unit (4 new cases under `pedestrianCountForResidents` + 2 reworked anchor cases for the new tier values). `npm run build` green. `npm run check:dashes` clean. `git diff --check` clean.
+- Assumptions: 1/2/4 maps to the residential density ladder so each step is visually distinguishable. The tier transitions (1->2 at 5 residents, 2->4 at 13 residents) align with the small-house / mid-house / apartment thresholds. Pedestrians under 4 figures use the existing four-corners offset table; the count never exceeds `PEDESTRIANS_PER_CELL_CAP = 4`.
+- GDD coverage: `docs/gdd/14-citizens.md` build log gains a density-tier entry. `docs/GDD_COVERAGE.json` REQ-075 row stays `partial`.
+- Followups: F-NEW (deferred): randomize per-cell figure positions slightly per-tick so a density-1 cell looks like a person walking around rather than a single static figure.
+
 ## 2026-05-06, REQ-105 + REQ-100: Per-Cell Fire-Risk Overlay
 
 - Branch: `feature/20260506-fire-risk-overlay`
