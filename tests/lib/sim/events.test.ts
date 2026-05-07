@@ -1576,6 +1576,66 @@ describe('applySimEvent', () => {
       expect(s.population.cityHappiness).toBe(94)
     })
 
+    it('abandoned penalty scales linearly per cell up to the cap (REQ-079 calibration)', () => {
+      // Direct call to computeCityHappiness with a hand-built state
+      // proving the penalty boundaries: 1 cell = 6, 5 cells = 30,
+      // 10 cells = 60 (cap), 20 cells = 60 (cap held).
+      const buildState = (
+        abandonedCount: number,
+      ): {
+        water: SimState['water']
+        population: SimState['population']
+        disasters: SimState['disasters']
+        services: SimState['services']
+        zones: SimState['zones']
+        taxRates: SimState['taxRates']
+      } => {
+        const zoneCells: Record<string, { kind: 'residential'; density: 0 }> =
+          {}
+        const popCells: Record<string, { residents: 0; tripDemand: 0 }> = {}
+        for (let i = 0; i < abandonedCount; i++) {
+          const key = `0,${i}`
+          zoneCells[key] = { kind: 'residential', density: 0 }
+          popCells[key] = { residents: 0, tripDemand: 0 }
+        }
+        return {
+          water: {
+            sources: [],
+            pipes: {},
+            treatmentPlants: [],
+            wasteAccumulation: {},
+          },
+          population: {
+            cells: popCells,
+            totalPopulation: 0,
+            totalTripDemand: 0,
+            cityHappiness: 100,
+          },
+          disasters: { active: [] },
+          services: { buildings: [] },
+          zones: { cells: zoneCells },
+          taxRates: { residential: 0.07, commercial: 0.07, industrial: 0.05 },
+        }
+      }
+      const callForCount = (n: number): number => {
+        const s = buildState(n)
+        return computeCityHappiness(
+          s.water,
+          s.population,
+          s.disasters,
+          s.services,
+          s.zones,
+          s.taxRates,
+        )
+      }
+      expect(callForCount(0)).toBe(100)
+      expect(callForCount(1)).toBe(94)
+      expect(callForCount(5)).toBe(70)
+      expect(callForCount(10)).toBe(40)
+      expect(callForCount(11)).toBe(40)
+      expect(callForCount(20)).toBe(40)
+    })
+
     it('orphan-populated cell (zone erased, population not yet resynced) contributes 0 coverage (F-017 regression)', () => {
       // Stand up a residential cell at (0, 1), drain its waste with
       // a treatment plant at (0, 0), and place a fire-station at
