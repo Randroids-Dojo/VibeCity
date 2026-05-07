@@ -1667,35 +1667,36 @@ describe('applySimEvent', () => {
       expect(s.economy.bankruptcyTickCounter).toBe(5)
     })
 
-    it('counter saturates at BANKRUPTCY_THRESHOLD_TICKS after long deficit', () => {
+    it('full economy bucket auto-resets at the bailout tick (REQ-095 slice 4 follow-on)', () => {
       // Six coal plants put treasury at -4000 immediately; per-tick
-      // maintenance keeps it negative. Run past the threshold to
-      // confirm the counter caps and stops growing.
+      // maintenance keeps it negative. Run BANKRUPTCY_THRESHOLD_TICKS
+      // ticks; the bailout fires on the threshold-th tick and the
+      // economy bucket flips to the full EMPTY_ECONOMY_BUCKET shape:
+      // treasury back to INITIAL_TREASURY, counter zeroed, last-tick
+      // readouts zeroed.
       let s: SimState = EMPTY_SIM_STATE
       for (let i = 0; i < 6; i++) s = applySimEvent(s, placeCoal(i, 0))
-      s = tickN(BANKRUPTCY_THRESHOLD_TICKS + 50, s)
-      expect(s.economy.bankruptcyTickCounter).toBe(BANKRUPTCY_THRESHOLD_TICKS)
+      s = tickN(BANKRUPTCY_THRESHOLD_TICKS, s)
+      expect(s.economy.bankruptcyTickCounter).toBe(0)
+      expect(s.economy.treasury).toBe(20000)
+      expect(s.economy.lastTickIncome).toBe(0)
+      expect(s.economy.lastTickMaintenance).toBe(0)
     })
 
-    it('saturated counter lets the per-tick reducer short-circuit identity', () => {
-      // After saturation, applyEconomyTick called with a still-
-      // negative-treasury bucket whose income / maintenance match
-      // returns the same bucket reference (counter cannot grow past
-      // the cap, so identity-on-no-change kicks in).
-      const saturated: EconomyBucket = {
+    it('treasury restores to INITIAL_TREASURY at the auto-reset tick (REQ-095 slice 4 follow-on)', () => {
+      // applyEconomyTick called directly with a bucket one tick away
+      // from saturation under a deficit configuration. The next tick
+      // increments the counter to BANKRUPTCY_THRESHOLD_TICKS, which
+      // triggers the auto-reset path: the returned bucket is the
+      // EMPTY_ECONOMY_BUCKET shape (treasury 20000, counter 0).
+      const oneTickAway: EconomyBucket = {
         treasury: -100,
         lastTickIncome: 0,
         lastTickMaintenance: 0.5,
-        bankruptcyTickCounter: BANKRUPTCY_THRESHOLD_TICKS,
+        bankruptcyTickCounter: BANKRUPTCY_THRESHOLD_TICKS - 1,
       }
-      // Note: with treasury -100 and maintenance 0.5, the next tick
-      // would compute nextTreasury = -100.5 (treasury moves), so
-      // the short-circuit will not fire when income/maintenance push
-      // treasury further negative. The cap saturation guarantee is
-      // proved by the previous test; this case proves the bucket
-      // shape is stable (same fields, no extra allocations).
       const next = applyEconomyTick(
-        saturated,
+        oneTickAway,
         {
           cells: {},
           totalPopulation: 0,
@@ -1706,7 +1707,10 @@ describe('applySimEvent', () => {
         { residential: 0.07, commercial: 0.07, industrial: 0.05 },
         { cells: {} },
       )
-      expect(next.bankruptcyTickCounter).toBe(BANKRUPTCY_THRESHOLD_TICKS)
+      expect(next.bankruptcyTickCounter).toBe(0)
+      expect(next.treasury).toBe(20000)
+      expect(next.lastTickIncome).toBe(0)
+      expect(next.lastTickMaintenance).toBe(0)
     })
 
     it('per-tick reducer resets the counter when treasury is non-negative', () => {

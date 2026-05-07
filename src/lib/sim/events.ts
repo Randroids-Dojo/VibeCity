@@ -735,10 +735,10 @@ export function applyEconomyTick(
   const nextTreasury = economy.treasury + income - maintenance
   // Bankruptcy countdown (REQ-095 slice 3). Increments while the
   // running balance is below zero; resets to 0 the moment the
-  // treasury rebounds. Capped at `BANKRUPTCY_THRESHOLD_TICKS` so a
-  // long steady-state deficit run hits a stable counter value and
-  // the identity-on-no-change branch below skips per-tick
-  // allocations once the counter saturates. The HUD reads
+  // treasury rebounds. The `Math.min(..., THRESHOLD)` keeps the
+  // counter bounded; the auto-bailout branch below catches the
+  // boundary case so `nextBankruptcyCounter === THRESHOLD` is
+  // never observable in returned state. The HUD reads
   // `bankruptcyTickCounter > 0` to surface the warning span.
   const nextBankruptcyCounter =
     nextTreasury < 0
@@ -747,6 +747,20 @@ export function applyEconomyTick(
           BANKRUPTCY_THRESHOLD_TICKS,
         )
       : 0
+  // Auto-bankruptcy bailout (REQ-095 slice 4 follow-on). When the
+  // counter would reach `BANKRUPTCY_THRESHOLD_TICKS` the economy
+  // auto-resets to the same shape as a player-fired `resetBudget`:
+  // treasury restored to `INITIAL_TREASURY`, counter zeroed,
+  // last-tick readouts zeroed. Other layers stay untouched so the
+  // player keeps their infrastructure. Closes the bankruptcy loop
+  // end-to-end without requiring a manual click. The HUD has no
+  // distinct auto-bailout signal in this slice (the counter
+  // returns to 0 exactly the same way a normal positive-treasury
+  // recovery would); a follow-on can introduce an explicit flag
+  // or event if a one-tick acknowledgement is wanted.
+  if (nextBankruptcyCounter === BANKRUPTCY_THRESHOLD_TICKS) {
+    return EMPTY_ECONOMY_BUCKET
+  }
   if (
     economy.lastTickIncome === income &&
     economy.lastTickMaintenance === maintenance &&
