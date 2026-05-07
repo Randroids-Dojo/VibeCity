@@ -16,6 +16,16 @@ Format for each slice:
 - Followups: any new `F-NNN` entries created. Link to them.
 ```
 
+## 2026-05-07, Drive Feel: Suspension Bob (F-013 slice 4)
+
+- Branch: `feature/20260507-suspension-bob`
+- PR: #N (when known)
+- Changed: `src/app/[slug]/driveScene.ts` adds `BOB_FREQUENCY_HZ = 8`, `BOB_AMPLITUDE_MAX = CELL_SIZE * 0.012`, and `suspensionBobOffset(speed, timeSeconds, maxSpeed)` pure resolver. The integration loop in `DriveSceneClient.tsx` writes `car.position.y = suspensionBobOffset(vehicle.speed, performance.now() / 1000, MAX_SPEED)` per frame so a moving car bobs vertically at a speed-proportional amplitude (zero at rest, full amplitude at MAX_SPEED). Closes the third piece of F-013 (drive-feel texture pass) from the 2026-05-03 fun-factor audit; the only remaining sub-feature is the tire-screech SFX cue.
+- Verification: `npm test` 2245/2245 unit (10 new cases under `suspensionBobOffset (F-013 slice 4)` covering at-rest, peak-amplitude, linear scaling, abs-speed symmetry, max-clamp, defensive non-finite handling, and bound preservation). `npm run type-check` green. `npm run check:dashes` clean. `git diff --check` clean.
+- Assumptions: Bob applies to the whole car group (wheels included). The amplitude is small (~`CELL_SIZE * 0.012`, roughly 1.2% of a cell) so the slight wheel float reads as natural road texture rather than a visual bug; a pixel-perfect refactor (bob a sub-group above the wheels) is deferred. The phase advances with `performance.now()` so the bob is visible across REPL pauses (no event-source dependency); a deterministic replay invariant is not required because the bob is purely cosmetic and does not affect integrator state.
+- GDD coverage: `docs/gdd/09-drive-mode.md` build log gains a suspension-bob entry under the existing F-013 slice. F-013 in `docs/FOLLOWUPS.md` is now Resolved-partial across three sub-features (HUD pill PR #157 + tail lights PR #159 + bob); the tire-screech SFX is the only remaining sub-feature.
+- Followups: tracked under F-013 (deferred sub-feature): tire-screech SFX gated on lateral acceleration above a threshold.
+
 ## 2026-05-07, Home Thumbnail: Multi-Cell Footprint Walk (PR #156 follow-on)
 
 - Branch: `feature/20260507-thumbnail-footprints`

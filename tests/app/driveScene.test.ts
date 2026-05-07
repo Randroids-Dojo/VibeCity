@@ -47,6 +47,8 @@ import {
   buildingRoofHeightFor,
   buildingRoofInsetFactorFor,
   buildingRoofY,
+  BOB_AMPLITUDE_MAX,
+  BOB_FREQUENCY_HZ,
   BRAKE_LIGHT_COLOR_ACTIVE,
   BRAKE_LIGHT_COLOR_IDLE,
   BRAKE_LIGHT_DEPTH,
@@ -54,6 +56,7 @@ import {
   BRAKE_LIGHT_WIDTH,
   brakeLightColor,
   brakeLightOffsets,
+  suspensionBobOffset,
   carBodyY,
   carCabinY,
   carWheelOffsets,
@@ -949,5 +952,74 @@ describe('brakeLightOffsets (F-013 slice 2)', () => {
       expect(Number.isFinite(offset.y)).toBe(true)
       expect(Number.isFinite(offset.z)).toBe(true)
     }
+  })
+})
+
+describe('suspensionBobOffset (F-013 slice 4)', () => {
+  const MAX = 32 // arbitrary positive max for the test
+
+  it('returns 0 at rest', () => {
+    expect(suspensionBobOffset(0, 0, MAX)).toBe(0)
+    expect(suspensionBobOffset(0, 1.234, MAX)).toBe(0)
+  })
+
+  it('returns 0 at phase 0 regardless of speed (sin(0) = 0)', () => {
+    expect(suspensionBobOffset(MAX, 0, MAX)).toBe(0)
+    expect(suspensionBobOffset(MAX / 2, 0, MAX)).toBe(0)
+  })
+
+  it('peaks at the quarter-period (sin(pi/2) = 1)', () => {
+    const t = 1 / (4 * BOB_FREQUENCY_HZ)
+    expect(suspensionBobOffset(MAX, t, MAX)).toBeCloseTo(BOB_AMPLITUDE_MAX, 6)
+  })
+
+  it('amplitude scales linearly with speed fraction', () => {
+    const t = 1 / (4 * BOB_FREQUENCY_HZ)
+    expect(suspensionBobOffset(MAX / 2, t, MAX)).toBeCloseTo(
+      BOB_AMPLITUDE_MAX / 2,
+      6,
+    )
+  })
+
+  it('clamps fraction at 1 when speed exceeds maxSpeed', () => {
+    const t = 1 / (4 * BOB_FREQUENCY_HZ)
+    expect(suspensionBobOffset(MAX * 3, t, MAX)).toBeCloseTo(
+      BOB_AMPLITUDE_MAX,
+      6,
+    )
+  })
+
+  it('uses absolute speed (reverse and forward bob with same amplitude)', () => {
+    const t = 1 / (4 * BOB_FREQUENCY_HZ)
+    expect(suspensionBobOffset(-MAX, t, MAX)).toBeCloseTo(
+      suspensionBobOffset(MAX, t, MAX),
+      6,
+    )
+  })
+
+  it('returns 0 for non-finite speed or time', () => {
+    expect(suspensionBobOffset(Number.NaN, 0.5, MAX)).toBe(0)
+    expect(suspensionBobOffset(MAX, Number.NaN, MAX)).toBe(0)
+    expect(suspensionBobOffset(Number.POSITIVE_INFINITY, 0.5, MAX)).toBe(0)
+  })
+
+  it('returns 0 for non-positive or non-finite maxSpeed', () => {
+    expect(suspensionBobOffset(MAX, 0.5, 0)).toBe(0)
+    expect(suspensionBobOffset(MAX, 0.5, -1)).toBe(0)
+    expect(suspensionBobOffset(MAX, 0.5, Number.NaN)).toBe(0)
+  })
+
+  it('output stays within +/- BOB_AMPLITUDE_MAX', () => {
+    for (let i = 0; i < 100; i++) {
+      const t = i / 30 // various phases
+      const offset = suspensionBobOffset(MAX, t, MAX)
+      expect(offset).toBeGreaterThanOrEqual(-BOB_AMPLITUDE_MAX - 1e-9)
+      expect(offset).toBeLessThanOrEqual(BOB_AMPLITUDE_MAX + 1e-9)
+    }
+  })
+
+  it('BOB_FREQUENCY_HZ and BOB_AMPLITUDE_MAX are positive', () => {
+    expect(BOB_FREQUENCY_HZ).toBeGreaterThan(0)
+    expect(BOB_AMPLITUDE_MAX).toBeGreaterThan(0)
   })
 })

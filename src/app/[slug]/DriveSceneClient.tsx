@@ -42,6 +42,7 @@ import {
   CAR_WIDTH,
   brakeLightColor,
   brakeLightOffsets,
+  suspensionBobOffset,
   CELL_SIZE,
   DIRECTIONAL_LIGHT_INTENSITY,
   DIRECTIONAL_LIGHT_POSITION,
@@ -82,6 +83,7 @@ import {
 } from './ambientPedestrians'
 import { pieceFootprintCells } from './edit/snapGrid'
 import {
+  MAX_SPEED,
   applyDriveStep,
   createVehicleState,
   inputFromPressedKeys,
@@ -1966,6 +1968,14 @@ export function DriveSceneClient({
         vehicle = applyBuildingPenalty(vehicle, onBuilding, dt)
         car.position.x = vehicle.x
         car.position.z = vehicle.z
+        // F-013 slice 4: speed-proportional suspension bob. Phase
+        // advances with wall-clock seconds; amplitude scales with
+        // |vehicle.speed| / MAX_SPEED so a stopped car reads as flat.
+        car.position.y = suspensionBobOffset(
+          vehicle.speed,
+          performance.now() / 1000,
+          MAX_SPEED,
+        )
         car.rotation.y = vehicle.heading
         updateVehicleAttrs()
         updateOnBuildingAttr(onBuilding)
