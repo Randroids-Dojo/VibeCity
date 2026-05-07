@@ -1972,7 +1972,7 @@ export function EditorClient({
             color: '#5a4a1a',
           }}
         >
-          {`Welcome! Pick a tab above (Streets, Zones, Power, Water, Services), then click any cell on the grid to place your first piece. Once a residential zone grows, you'll see a "milestone" toast and the city comes alive.`}
+          {`Welcome! Pick a tab above (try Streets, Zones, or Buildings), then click any cell on the grid to place your first item. Once a residential zone grows, you'll see a "milestone" toast and the city comes alive.`}
         </p>
       ) : null}
     </div>
