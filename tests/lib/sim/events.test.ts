@@ -1745,6 +1745,7 @@ describe('applySimEvent', () => {
         lastTickIncome: 0,
         lastTickMaintenance: 0.5,
         bankruptcyTickCounter: BANKRUPTCY_THRESHOLD_TICKS - 1,
+        lastAutoBailoutTick: 0,
       }
       const next = applyEconomyTick(
         oneTickAway,
@@ -1764,6 +1765,31 @@ describe('applySimEvent', () => {
       expect(next.lastTickMaintenance).toBe(0)
     })
 
+    it('lastAutoBailoutTick is set to the firing tick when the bailout fires (REQ-095 slice 4 follow-on)', () => {
+      const oneTickAway: EconomyBucket = {
+        treasury: -100,
+        lastTickIncome: 0,
+        lastTickMaintenance: 0.5,
+        bankruptcyTickCounter: BANKRUPTCY_THRESHOLD_TICKS - 1,
+        lastAutoBailoutTick: 0,
+      }
+      const FIRING_TICK = 12345
+      const next = applyEconomyTick(
+        oneTickAway,
+        {
+          cells: {},
+          totalPopulation: 0,
+          totalTripDemand: 0,
+          cityHappiness: 100,
+        },
+        { plants: [{ kind: 'coal', row: 0, col: 0 }], lines: {} },
+        { residential: 0.07, commercial: 0.07, industrial: 0.05 },
+        { cells: {} },
+        FIRING_TICK,
+      )
+      expect(next.lastAutoBailoutTick).toBe(FIRING_TICK)
+    })
+
     it('per-tick reducer resets the counter when treasury is non-negative', () => {
       // applyEconomyTick called directly to exercise both branches.
       const seed: EconomyBucket = {
@@ -1771,6 +1797,7 @@ describe('applySimEvent', () => {
         lastTickIncome: 0,
         lastTickMaintenance: 0,
         bankruptcyTickCounter: 5,
+        lastAutoBailoutTick: 0,
       }
       const next = applyEconomyTick(
         seed,

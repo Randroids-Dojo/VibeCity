@@ -510,6 +510,15 @@ export const EconomyBucketSchema = z
     lastTickIncome: z.number().min(0),
     lastTickMaintenance: z.number().min(0),
     bankruptcyTickCounter: z.number().int().min(0),
+    /**
+     * Sim-tick on which the auto-bankruptcy bailout last fired
+     * (REQ-095 slice 4 follow-on, see PR #135). 0 = never. The HUD
+     * shows a brief acknowledgement toast for `tick - lastAutoBailoutTick`
+     * less than `AUTO_BAILOUT_TOAST_TICKS` (~3s at 4Hz). Player-fired
+     * `resetBudget` does NOT touch this field; only the auto-reset
+     * inside `applyEconomyTick` does.
+     */
+    lastAutoBailoutTick: z.number().int().min(0),
   })
   .strict()
 export type EconomyBucket = z.infer<typeof EconomyBucketSchema>
@@ -519,7 +528,15 @@ export const EMPTY_ECONOMY_BUCKET: EconomyBucket = Object.freeze({
   lastTickIncome: 0,
   lastTickMaintenance: 0,
   bankruptcyTickCounter: 0,
+  lastAutoBailoutTick: 0,
 }) as EconomyBucket
+
+/**
+ * How many ticks the editor HUD shows the "auto-bailout fired"
+ * toast after `economy.lastAutoBailoutTick`. 12 ticks at the
+ * default 4Hz tick rate is ~3 seconds of wall-time.
+ */
+export const AUTO_BAILOUT_TOAST_TICKS = 12
 /**
  * Service buildings (REQ-100 slice 1 of N).
  *
