@@ -19,7 +19,7 @@ Format for each slice:
 ## 2026-05-07, Home Thumbnail: Multi-Cell Footprint Walk (PR #156 follow-on)
 
 - Branch: `feature/20260507-thumbnail-footprints`
-- PR: #N (when known)
+- PR: #160
 - Changed: `src/lib/cityThumbnail.ts` `cityThumbnailDots(city)` now imports `pieceFootprintCells` from `@/app/[slug]/edit/snapGrid` and walks each piece's footprint, emitting one dot per cell instead of one dot per anchor. A multi-cell hairpin now reads as the road shape it actually covers (six dots in the canonical 2x3 footprint) rather than a single anchor dot. Single-cell pieces and buildings keep their existing one-dot-per-placement behavior. Closes the deferred F-NEW from PR #156 (multi-cell footprint walking in the home page recent-card thumbnails).
 - Verification: `npm test` 2235/2235 unit (3 new cases under `cityThumbnailDots multi-cell footprints (PR #156 follow-on)` covering hairpin six-cell expansion, single-cell preservation, and a mixed-placement city). `npm run type-check` green. `npm run check:dashes` clean. `git diff --check` clean.
 - Assumptions: The cross-import from `@/app/[slug]/edit/snapGrid` matches the existing pattern in `src/lib/wheelContact.ts:1`. v1 buildings have no footprint field so they remain one dot at their anchor; if REQ-046 ever migrates buildings into a multi-cell substrate, this helper will need a parallel walker (deferred).
