@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest'
 import {
   PEDESTRIANS_PER_CELL_CAP,
   pedestrianAnchors,
+  pedestrianCountForResidents,
   pedestrianOffsetWithinCell,
 } from '@/app/[slug]/ambientPedestrians'
 import type { PopulationBucket } from '@/lib/sim/state'
@@ -35,7 +36,7 @@ describe('pedestrianAnchors', () => {
     expect(pedestrianAnchors(population, cellToWorld)).toEqual([])
   })
 
-  it('emits one anchor per populated cell at the world-projected position', () => {
+  it('emits one anchor per populated cell at the world-projected position with tiered count', () => {
     const population: PopulationBucket = {
       cells: {
         '0,0': { residents: 4, tripDemand: 0 },
@@ -52,18 +53,18 @@ describe('pedestrianAnchors', () => {
       z: 0,
       cellRow: 0,
       cellCol: 0,
-      count: 4,
+      count: 1,
     })
     expect(anchors[1]).toEqual({
       x: 20,
       z: 10,
       cellRow: 1,
       cellCol: 2,
-      count: PEDESTRIANS_PER_CELL_CAP,
+      count: 2,
     })
   })
 
-  it('caps count at PEDESTRIANS_PER_CELL_CAP regardless of residents', () => {
+  it('caps count at PEDESTRIANS_PER_CELL_CAP for density-3 residents (40+)', () => {
     const population: PopulationBucket = {
       cells: {
         '0,0': { residents: 40, tripDemand: 0 },
@@ -94,6 +95,29 @@ describe('pedestrianAnchors', () => {
       '2,2',
       '5,3',
     ])
+  })
+})
+
+describe('pedestrianCountForResidents', () => {
+  it('returns 0 for residents <= 0', () => {
+    expect(pedestrianCountForResidents(0)).toBe(0)
+    expect(pedestrianCountForResidents(-3)).toBe(0)
+  })
+
+  it('returns 1 for density-1 cells (1..4 residents)', () => {
+    expect(pedestrianCountForResidents(1)).toBe(1)
+    expect(pedestrianCountForResidents(4)).toBe(1)
+  })
+
+  it('returns 2 for density-2 cells (5..12 residents)', () => {
+    expect(pedestrianCountForResidents(5)).toBe(2)
+    expect(pedestrianCountForResidents(12)).toBe(2)
+  })
+
+  it('returns PEDESTRIANS_PER_CELL_CAP (4) for density-3 cells (13+)', () => {
+    expect(pedestrianCountForResidents(13)).toBe(PEDESTRIANS_PER_CELL_CAP)
+    expect(pedestrianCountForResidents(40)).toBe(PEDESTRIANS_PER_CELL_CAP)
+    expect(pedestrianCountForResidents(1000)).toBe(PEDESTRIANS_PER_CELL_CAP)
   })
 })
 
