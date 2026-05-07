@@ -310,10 +310,13 @@ export function DriveSceneClient({
   // always non-empty (the compass is informational rather than a
   // conditional alert) so the span stays mounted on every render.
   const hudCompassRef = useRef<HTMLSpanElement | null>(null)
-  // F-013 slice 1: brake-input visible HUD pill. The integration loop
-  // writes the label imperatively each frame so the pill flips to
-  // visible the moment a brake input is observed and back to empty when
-  // released, matching the cadence of the speed and surface readouts.
+  // F-013 slice 1: brake-input visible HUD pill. The span is mounted
+  // whenever the HUD is visible (gated on `hasVehicle && !showPauseMenu`
+  // alongside the rest of the dashboard); the integration loop writes
+  // the label text imperatively each frame so the pill reads as the
+  // brake label when `input.brake` is true and as an empty string when
+  // it is false. The empty-string default keeps the React tree from
+  // re-rendering per frame (mirrors the speed / surface readouts).
   const hudBrakeRef = useRef<HTMLSpanElement | null>(null)
   // Minimap car marker ref (REQ-069). The integration loop writes the
   // live `transform` attribute on the SVG group each tick so the
@@ -1870,10 +1873,12 @@ export function DriveSceneClient({
           touchModeRef.current,
         )
         const input = mergeDriveInputs(keyboardInput, touchInputForFrame)
-        // F-013 slice 1: brake-input mirror. The HUD pill plus the
-        // scene-root data attribute let a player see a visible cue when
-        // they are actively braking; the 3D tail-light material swap
-        // and the tire-screech / suspension-bob layers stay deferred.
+        // F-013 slice 1: brake-input mirror. The pill stays mounted
+        // alongside the rest of the dashboard; the integration loop
+        // writes the label text and a `data-brake-active` attribute
+        // each frame so a player sees a visible cue when they are
+        // actively braking. The 3D tail-light material swap and the
+        // tire-screech / suspension-bob layers stay deferred.
         if (root) {
           root.setAttribute(
             'data-brake-active',
