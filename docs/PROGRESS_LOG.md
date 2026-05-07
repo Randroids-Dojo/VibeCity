@@ -16,6 +16,16 @@ Format for each slice:
 - Followups: any new `F-NNN` entries created. Link to them.
 ```
 
+## 2026-05-06, F-017 Regression: Orphan-Populated Cell Happiness
+
+- Branch: `feature/20260506-orphan-population-test`
+- PR: #N (when known)
+- Changed: New unit case in `tests/lib/sim/events.test.ts` exercising the membership gate added in PR #136. Sets up a residential cell at (0, 1), a treatment plant at (0, 0), and a fire-station at (0, 2) within fire-station Manhattan radius. Grows once so residents=4 and the city sits at happiness 84 (100 minus 16 coverage penalty from the single covered cell). Erases the zone via `eraseZone`: zones.cells loses the entry immediately while population.cells keeps residents=4 until the next growth-tick `syncPopulationToZones`. Calls `computeCityHappiness` directly on the orphan-populated state and asserts happiness is 80, proving the gate keeps the orphan at 0 coverage (without the gate, the fire-station would compute coverageCount=1 and happiness would stay at 84; the 80-vs-84 gap is the gate doing its job).
+- Verification: `npm test` 2149/2149 unit (1 new case). `npm run build` green. `npm run check:dashes` clean. `git diff --check` clean.
+- Assumptions: The fixture uses placeServiceBuilding (the existing event) to insert a fire-station inline rather than via a helper; matches the inline-event style of nearby tests. `computeCityHappiness` is called directly to bypass the wasteTick that would otherwise add 0.5 waste penalty in the same-tick path.
+- GDD coverage: No build log changes (this slice is purely defensive test coverage, no behavior changes). `docs/FOLLOWUPS.md` F-017 resolution note updated to reference the regression test landing in this PR.
+- Followups: none (F-017 fully closed by this PR + PR #136).
+
 ## 2026-05-06, REQ-105 + REQ-100 HUD: Fire-Risk Readout
 
 - Branch: `feature/20260506-fire-risk-hud`
