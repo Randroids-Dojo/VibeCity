@@ -161,6 +161,7 @@ import {
 } from './driveHud'
 import { RESPAWN_KEY_CODE, respawnVehicle } from './respawn'
 import { ENGINE_MUTE_KEY_CODE, EngineAudioRig } from './engineAudio'
+import { TireScreechAudioRig } from './tireScreechAudio'
 import {
   SHARE_COPY_RESET_DELAY_MS,
   buildShareUrl,
@@ -367,6 +368,12 @@ export function DriveSceneClient({
   // the integration effect creates it; the toggle button reads the ref
   // to call `setMuted` without re-rendering.
   const engineRigRef = useRef<EngineAudioRig | null>(null)
+  // F-013 slice 3 audio: screech rig sits next to the engine rig and
+  // shares the same lifecycle and mute state. The rig stays silent
+  // until `update(true)` flips the gain on for the duration of a
+  // skid; the substrate predicate (`tireScreechActive`) decides when
+  // that happens.
+  const tireScreechRigRef = useRef<TireScreechAudioRig | null>(null)
   // F-013 slice 2: shared material for the two brake-light tail pads.
   // Both meshes use the same `MeshBasicMaterial` so a single per-frame
   // `color.set(...)` call flips both pads in lockstep.
@@ -376,6 +383,8 @@ export function DriveSceneClient({
       const next = !prev
       const rig = engineRigRef.current
       if (rig) rig.setMuted(next)
+      const screechRig = tireScreechRigRef.current
+      if (screechRig) screechRig.setMuted(next)
       return next
     })
   }, [])
@@ -1424,15 +1433,24 @@ export function DriveSceneClient({
         const ctx = new Ctor()
         const rig = new EngineAudioRig(ctx)
         engineRigRef.current = rig
+        // F-013 slice 3 audio: build the screech rig on the same
+        // context. It shares the engine rig's mute state and start
+        // gesture so a single mute toggle covers both.
+        const screechRig = new TireScreechAudioRig(ctx)
+        tireScreechRigRef.current = screechRig
         // Apply the live mute state before start so a player who muted
         // before the first gesture stays muted on first sound.
         rig.setMuted(engineMutedRef.current)
+        screechRig.setMuted(engineMutedRef.current)
         // Fire-and-forget the resume / start; the rig's update calls
         // before the promise resolves are safely swallowed (start is a
         // no-op while not started).
         rig.start().catch(() => {
           // Swallow autoplay rejections; a future user gesture will
           // re-trigger this branch via `ensureEngineAudio`.
+        })
+        screechRig.start().catch(() => {
+          // Same autoplay-rejection handling as the engine rig.
         })
         if (root) {
           root.setAttribute('data-engine-audio-started', 'true')
@@ -2042,6 +2060,12 @@ export function DriveSceneClient({
         // oscillator frequency and the gain track the live speed.
         const rig = engineRigRef.current
         if (rig) rig.update(vehicle.speed)
+        // F-013 slice 3 audio. The rig shares the engine rig's mute
+        // state and start gesture. When `screechActive` is true the
+        // gain ramps to the configured screech level; when false it
+        // ramps back to silence.
+        const screechRig = tireScreechRigRef.current
+        if (screechRig) screechRig.update(screechActive)
       }
       if (rig && vehicle) {
         updateCameraRig(
@@ -2143,6 +2167,14 @@ export function DriveSceneClient({
       if (rigToStop) {
         rigToStop.stop()
         engineRigRef.current = null
+      }
+      // F-013 slice 3 audio: stop the screech rig too. Same ramp-to-
+      // zero contract as the engine rig so a screeching skid at
+      // unmount does not click off.
+      const screechToStop = tireScreechRigRef.current
+      if (screechToStop) {
+        screechToStop.stop()
+        tireScreechRigRef.current = null
       }
       // Dispose every geometry / material attached to the scene so
       // navigating away does not leak GPU memory across slugs.
