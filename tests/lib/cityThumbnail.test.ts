@@ -163,6 +163,13 @@ describe('cityThumbnailDots multi-cell footprints (PR #156 follow-on)', () => {
     for (const dot of dots) {
       expect(dot.kind).toBe('piece')
     }
+    // Each footprint cell maps to a distinct (xNorm, yNorm) so the
+    // thumbnail reads as the road shape, not six dots stacked at one
+    // coordinate.
+    const uniquePositions = new Set(
+      dots.map((d) => `${d.xNorm.toFixed(6)},${d.yNorm.toFixed(6)}`),
+    )
+    expect(uniquePositions.size).toBe(6)
   })
 
   it('still emits a single dot for a single-cell piece', () => {
