@@ -16,6 +16,16 @@ Format for each slice:
 - Followups: any new `F-NNN` entries created. Link to them.
 ```
 
+## 2026-05-06, F-017: Scope Happiness Coverage to Populated Cells
+
+- Branch: `feature/20260506-happiness-coverage-perf`
+- PR: #136
+- Changed: `computeCityHappiness` and `applyHappinessTick` no longer call `solveServicesCoverage(zones, services)` (which sorts zone keys and walks every zoned cell). The reducer now calls `cellCoverage(row, col, services)` from `src/lib/sim/servicesSolver.ts` once per populated cell. The `zones` parameter is preserved on both signatures and read as a membership gate so populated-but-not-zoned cells (transient state after `applyEraseZone` until the next growth-tick population sync) contribute 0 coverage, matching the prior `solveServicesCoverage(zones, ...)[key] === undefined` branch. Per-tick cost drops from `O(|zones| log |zones| + |zones| * |services|)` to `O(R * |services|)` where R is the count of populated cells.
+- Verification: `npm test` 2144/2144 unit (no test changes; the existing happiness assertions all pass with the new implementation). `npm run build` green. `npm run check:dashes` clean. `git diff --check` clean. `npx playwright test e2e/sim.spec.ts --project=chromium` 25/25 local.
+- Assumptions: Numerical output is equivalent for the case the existing tests cover (populated cells are zoned). The zones membership gate preserves the prior 0-coverage-for-orphan-populated-cells behavior so the PR is not a behavioral change; a regression test for the orphan edge case stays a follow-up. `Number.isFinite` guards on the parsed row / col mirror the existing pattern in `fireAutoSpawn.ts`. The full `solveServicesCoverage` helper stays exported because the editor's per-zone-cell coverage stroke (REQ-101) still uses it.
+- GDD coverage: `docs/gdd/14-citizens.md` REQ-076 build log gains an F-017 note; `docs/GDD_COVERAGE.json` REQ-075 row stays `partial`.
+- Followups: F-017 marked resolved by this PR.
+
 ## 2026-05-06, REQ-095 Slice 4 Follow-on: Auto-Bankruptcy Treasury Reset
 
 - Branch: `feature/20260506-auto-bankruptcy-reset`
