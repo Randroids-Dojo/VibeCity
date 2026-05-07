@@ -3,6 +3,7 @@ import {
   SimEventSchema,
   applyEconomyTick,
   applySimEvent,
+  computeCityHappiness,
   maybeGrowZones,
   reduceSimEvents,
   type SimEvent,
@@ -1549,6 +1550,56 @@ describe('applySimEvent', () => {
       const a = applyMany(EMPTY_SIM_STATE, events)
       const b = applyMany(EMPTY_SIM_STATE, events)
       expect(a.population.cityHappiness).toBe(b.population.cityHappiness)
+    })
+
+    it('orphan-populated cell (zone erased, population not yet resynced) contributes 0 coverage (F-017 regression)', () => {
+      // Stand up a residential cell at (0, 1), drain its waste with
+      // a treatment plant at (0, 0), and place a fire-station at
+      // (0, 2) within fire-station Manhattan radius. Grow once so
+      // residents=4 and populatedKeys has a single entry. With the
+      // fire-station in range, baseline happiness would compute
+      // coverageCount=1 -> avgCoverage=1 -> coveragePenalty=16, so
+      // happiness sits at 84 (100 - 0 waste - 16 coverage).
+      let s = applySimEvent(EMPTY_SIM_STATE, placeRes(0, 1))
+      s = applySimEvent(s, placeTreatmentPlant(0, 0))
+      s = applySimEvent(s, {
+        type: 'placeServiceBuilding',
+        payload: { kind: 'fire-station', row: 0, col: 2 },
+        clientCreatedAt: 0,
+        authorBuilderId: A_BUILDER,
+      })
+      s = tickN(20, s)
+      expect(s.zones.cells['0,1']?.density).toBe(1)
+      expect(s.population.cells['0,1']?.residents).toBe(4)
+      expect(s.population.cityHappiness).toBe(84)
+      // Erase the zone mid-cycle (between tick 20 and tick 40, when
+      // syncPopulationToZones would next run).
+      s = applySimEvent(s, {
+        type: 'eraseZone',
+        payload: { row: 0, col: 1 },
+        clientCreatedAt: 0,
+        authorBuilderId: A_BUILDER,
+      })
+      expect(s.zones.cells['0,1']).toBeUndefined()
+      expect(s.population.cells['0,1']?.residents).toBe(4)
+      // Direct call avoids the wasteTick + happiness reducer path
+      // and isolates the membership-gate behavior. With the gate,
+      // the orphan contributes 0 coverage (the implicit 0 from the
+      // prior `coverageMap[key] === undefined` branch), so
+      // coveragePenalty = (5 - 0) * 4 = 20 and happiness drops to
+      // 80. Without the gate, the fire-station at (0, 2) would
+      // raise the orphan's coverageCount to 1, coveragePenalty to
+      // 16, and happiness back to 84 (matching the pre-erase
+      // baseline). The 80-vs-84 gap is the gate doing its job.
+      const happinessOrphan = computeCityHappiness(
+        s.water,
+        s.population,
+        s.disasters,
+        s.services,
+        s.zones,
+        s.taxRates,
+      )
+      expect(happinessOrphan).toBe(80)
     })
   })
 
