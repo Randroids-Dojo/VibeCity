@@ -2,6 +2,13 @@ import Link from 'next/link'
 import { cityIndexCount, recentCities } from '@/lib/recentSlugs'
 import { formatCityCount } from '@/lib/cityCount'
 import { formatRelativeTime } from '@/lib/relativeTime'
+import { loadCity } from '@/lib/loadCity'
+import {
+  THUMBNAIL_DOT_RADIUS,
+  THUMBNAIL_SIZE_PX,
+  cityThumbnailDots,
+  type ThumbnailDot,
+} from '@/lib/cityThumbnail'
 import { HomeCreateForm } from './HomeCreateForm'
 
 /**
@@ -33,6 +40,16 @@ export default async function HomePage() {
     recentCities(),
     cityIndexCount(),
   ])
+  // F-011: fetch each recent city's payload in parallel so the
+  // recent-card thumbnails render alongside the slug + relative-time
+  // labels. The recentCities limit is bounded (default 12) so the
+  // parallel fan-out stays small.
+  const thumbnailDots = await Promise.all(
+    cities.map(async ({ slug }) => {
+      const { city } = await loadCity(slug)
+      return cityThumbnailDots(city)
+    }),
+  )
   // Snapshot the clock once per request so every entry's relative cue
   // is computed against the same `now`. Reading `Date.now()` per-entry
   // would let a slow render leak inconsistent readouts ("just now" /
@@ -129,9 +146,10 @@ export default async function HomePage() {
               gap: 8,
             }}
           >
-            {cities.map(({ slug, updatedAt }) => {
+            {cities.map(({ slug, updatedAt }, index) => {
               const relative = formatRelativeTime(updatedAt, nowMs)
               const iso = new Date(updatedAt).toISOString()
+              const dots = thumbnailDots[index] ?? []
               return (
                 <li key={slug}>
                   <Link
@@ -142,8 +160,9 @@ export default async function HomePage() {
                     prefetch
                     style={{
                       display: 'flex',
-                      flexDirection: 'column',
-                      gap: 4,
+                      flexDirection: 'row',
+                      alignItems: 'center',
+                      gap: 10,
                       padding: '10px 12px',
                       fontSize: 15,
                       color: '#222',
@@ -154,18 +173,28 @@ export default async function HomePage() {
                       wordBreak: 'break-all',
                     }}
                   >
-                    <span data-testid="home-recent-slug">{slug}</span>
-                    {relative.length > 0 ? (
-                      <time
-                        data-testid="home-recent-updated"
-                        data-updated-at={updatedAt}
-                        dateTime={iso}
-                        title={iso}
-                        style={{ fontSize: 12, opacity: 0.6 }}
-                      >
-                        {`Updated ${relative}`}
-                      </time>
-                    ) : null}
+                    <RecentCityThumbnail slug={slug} dots={dots} />
+                    <span
+                      style={{
+                        display: 'flex',
+                        flexDirection: 'column',
+                        gap: 4,
+                        minWidth: 0,
+                      }}
+                    >
+                      <span data-testid="home-recent-slug">{slug}</span>
+                      {relative.length > 0 ? (
+                        <time
+                          data-testid="home-recent-updated"
+                          data-updated-at={updatedAt}
+                          dateTime={iso}
+                          title={iso}
+                          style={{ fontSize: 12, opacity: 0.6 }}
+                        >
+                          {`Updated ${relative}`}
+                        </time>
+                      ) : null}
+                    </span>
                   </Link>
                 </li>
               )
@@ -174,5 +203,50 @@ export default async function HomePage() {
         )}
       </section>
     </main>
+  )
+}
+
+/**
+ * Tiny SVG preview of a city's pieces and buildings (F-011). Renders
+ * a fixed-size square thumbnail in each recent-card so a visitor reads
+ * which slug is interesting at a glance instead of just slug text.
+ * An empty city renders an empty grid background with no dots.
+ */
+function RecentCityThumbnail({
+  slug,
+  dots,
+}: {
+  slug: string
+  dots: ThumbnailDot[]
+}) {
+  return (
+    <svg
+      data-testid="home-recent-thumbnail"
+      data-slug={slug}
+      data-dot-count={dots.length}
+      role="img"
+      aria-label={`Preview of ${slug}`}
+      width={THUMBNAIL_SIZE_PX}
+      height={THUMBNAIL_SIZE_PX}
+      viewBox="0 0 1 1"
+      preserveAspectRatio="xMidYMid meet"
+      style={{
+        flex: '0 0 auto',
+        background: '#f4eedc',
+        border: '1px solid #d6cfbf',
+        borderRadius: 3,
+      }}
+    >
+      {dots.map((dot, i) => (
+        <circle
+          key={i}
+          cx={dot.xNorm}
+          cy={dot.yNorm}
+          r={THUMBNAIL_DOT_RADIUS}
+          fill={dot.kind === 'piece' ? '#3a2f1a' : '#a36a3a'}
+          data-dot-kind={dot.kind}
+        />
+      ))}
+    </svg>
   )
 }

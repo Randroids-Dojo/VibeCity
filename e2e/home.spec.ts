@@ -35,6 +35,9 @@ test('home page renders the heading, the Create form, and the empty list', async
   await expect(section).toBeVisible()
   await expect(section).toHaveAttribute('data-recent-count', '0')
   await expect(page.getByTestId('home-recent-empty')).toBeVisible()
+  // F-011: thumbnails only mount inside recent-card list items; with
+  // no recent cards there are no thumbnail SVGs.
+  await expect(page.getByTestId('home-recent-thumbnail')).toHaveCount(0)
 
   // Total-count header cue is visible with the zero-count copy. The
   // Playwright webServer runs without KV configured so cityIndexCount()
