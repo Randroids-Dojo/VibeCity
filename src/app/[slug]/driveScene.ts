@@ -549,6 +549,46 @@ export const BRAKE_LIGHT_COLOR_IDLE = 0x551a1a
 export const BRAKE_LIGHT_COLOR_ACTIVE = 0xff3030
 
 /**
+ * Suspension-bob constants and resolver (F-013 slice 4). The bob is a
+ * speed-proportional sinusoidal y-offset applied to the car group each
+ * frame so a moving car reads as physically rolling over the road
+ * texture rather than gliding flat. At rest the bob is zero (no offset).
+ *
+ * `BOB_FREQUENCY_HZ = 2` is the per-second oscillation rate at full
+ * speed (two full sine cycles per second, four "bumps" if you count
+ * each peak and trough). The phase derives from accumulated unpaused
+ * `timeSeconds` (the integration loop's per-frame `dt` accumulator),
+ * not wall-clock time, so pause / resume does not snap the car height.
+ * `BOB_AMPLITUDE_MAX` is the max y-offset in world units; chosen small
+ * so the bob reads as subtle road texture rather than a pogo-stick.
+ */
+export const BOB_FREQUENCY_HZ = 2
+export const BOB_AMPLITUDE_MAX = CELL_SIZE * 0.012
+
+/**
+ * Pure suspension-bob y-offset resolver. Returns a finite number in
+ * `[-BOB_AMPLITUDE_MAX, BOB_AMPLITUDE_MAX]` proportional to the
+ * absolute speed fraction (0 at rest, 1 at `maxSpeed`). Bob amplitude
+ * scales linearly with speed so a slow crawl barely bobs and a top-
+ * speed highway run bobs at the full amplitude. Phase advances with
+ * `timeSeconds`; non-finite or non-positive `maxSpeed` collapses the
+ * bob to 0 so a tuning bug cannot crash the per-frame mount.
+ */
+export function suspensionBobOffset(
+  speed: number,
+  timeSeconds: number,
+  maxSpeed: number,
+): number {
+  if (!Number.isFinite(speed)) return 0
+  if (!Number.isFinite(timeSeconds)) return 0
+  if (!Number.isFinite(maxSpeed) || maxSpeed <= 0) return 0
+  const fraction = Math.min(1, Math.abs(speed) / maxSpeed)
+  if (fraction === 0) return 0
+  const phase = timeSeconds * BOB_FREQUENCY_HZ * Math.PI * 2
+  return Math.sin(phase) * BOB_AMPLITUDE_MAX * fraction
+}
+
+/**
  * Pure brake-light color resolver. `active === true` means the player's
  * brake input is currently asserted; the bright-red active color reads
  * as a tail-light "lit up" cue against the dim-red idle baseline. Pure
