@@ -566,6 +566,61 @@ export const BOB_FREQUENCY_HZ = 2
 export const BOB_AMPLITUDE_MAX = CELL_SIZE * 0.012
 
 /**
+ * Tire-screech plumbing constants and resolvers (F-013 slice 3).
+ *
+ * The threshold is the lateral-acceleration magnitude (in world units
+ * per second squared) above which the car is "skidding" and the
+ * tire-screech cue should fire. Tuned so a casual 90deg sweep at
+ * mid-speed does NOT fire but a deliberate hard turn at high speed
+ * does. The actual audio buffer is deferred under F-013 (see
+ * `docs/FOLLOWUPS.md`); this slice ships the substrate plus a
+ * `data-screech-active` scene-root mirror so a future audio slice
+ * can wire the buffer directly without introducing new state.
+ */
+export const TIRE_SCREECH_LATERAL_ACCEL_THRESHOLD = CELL_SIZE * 18
+
+/**
+ * Pure lateral-acceleration estimator. Returns the magnitude of the
+ * heading-change vector scaled by speed: `|deltaHeading / dt| * speed`.
+ * `prevHeading` and `curHeading` come from the integrator's `vehicle.heading`
+ * (radians); `speed` is `vehicle.speed` (forward / reverse). `dt` is the
+ * frame time in seconds. Non-finite or non-positive `dt` collapses the
+ * output to 0 so a tuning bug cannot crash the per-frame mount. Returns
+ * 0 at rest (no lateral force without forward motion).
+ */
+export function lateralAcceleration(
+  prevHeading: number,
+  curHeading: number,
+  speed: number,
+  dt: number,
+): number {
+  if (!Number.isFinite(prevHeading)) return 0
+  if (!Number.isFinite(curHeading)) return 0
+  if (!Number.isFinite(speed)) return 0
+  if (!Number.isFinite(dt) || dt <= 0) return 0
+  let dHeading = curHeading - prevHeading
+  // Wrap to (-pi, pi] so a heading flip from +pi to -pi reads as a
+  // tiny step rather than a 2pi jump.
+  while (dHeading > Math.PI) dHeading -= Math.PI * 2
+  while (dHeading <= -Math.PI) dHeading += Math.PI * 2
+  return Math.abs((dHeading / dt) * speed)
+}
+
+/**
+ * Pure screech-active predicate. The cue is on when the lateral
+ * acceleration magnitude exceeds `TIRE_SCREECH_LATERAL_ACCEL_THRESHOLD`.
+ * A separate threshold parameter lets a future calibration slice
+ * tune the trigger without recompiling the integrator.
+ */
+export function tireScreechActive(
+  lateralAccel: number,
+  threshold: number = TIRE_SCREECH_LATERAL_ACCEL_THRESHOLD,
+): boolean {
+  if (!Number.isFinite(lateralAccel)) return false
+  return Math.abs(lateralAccel) >= threshold
+}
+
+/**
  * Pure suspension-bob y-offset resolver. Returns a finite number in
  * `[-BOB_AMPLITUDE_MAX, BOB_AMPLITUDE_MAX]` proportional to the
  * absolute speed fraction (0 at rest, 1 at `maxSpeed`). Bob amplitude

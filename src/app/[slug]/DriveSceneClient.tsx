@@ -42,7 +42,9 @@ import {
   CAR_WIDTH,
   brakeLightColor,
   brakeLightOffsets,
+  lateralAcceleration,
   suspensionBobOffset,
+  tireScreechActive,
   CELL_SIZE,
   DIRECTIONAL_LIGHT_INTENSITY,
   DIRECTIONAL_LIGHT_POSITION,
@@ -1189,6 +1191,13 @@ export function DriveSceneClient({
     // not advance the bob phase across the pause window (a wall-clock
     // `performance.now()` source would snap the car height on resume).
     let bobElapsed = 0
+    // F-013 slice 3: previous heading for the lateral-acceleration
+    // estimator that drives the tire-screech cue. Initialized to NaN
+    // so the very first frame's delta is dropped (the helper guards
+    // against non-finite input). The audio buffer wiring is deferred;
+    // this slice ships the substrate plus a `data-screech-active`
+    // scene-root mirror.
+    let prevHeading = Number.NaN
     if (city.pieces.length > 0 && simState.population.totalPopulation > 0) {
       const anchors = pedestrianAnchors(simState.population, cellToWorld)
       const pedGeometry = new THREE.BoxGeometry(
@@ -1986,6 +1995,25 @@ export function DriveSceneClient({
           MAX_SPEED,
         )
         car.rotation.y = vehicle.heading
+        // F-013 slice 3: tire-screech plumbing. Compute the lateral-
+        // acceleration magnitude from the heading delta and mirror
+        // `data-screech-active` on the scene root so a future audio
+        // slice (and any contract-based test) can read the live state
+        // without introducing new computations.
+        const lateralAccel = lateralAcceleration(
+          prevHeading,
+          vehicle.heading,
+          vehicle.speed,
+          dt,
+        )
+        const screechActive = tireScreechActive(lateralAccel)
+        if (root) {
+          root.setAttribute(
+            'data-screech-active',
+            screechActive ? 'true' : 'false',
+          )
+        }
+        prevHeading = vehicle.heading
         updateVehicleAttrs()
         updateOnBuildingAttr(onBuilding)
         updateOffStreetAttr(!onStreet)
@@ -2225,6 +2253,7 @@ export function DriveSceneClient({
       data-hud-compass="N"
       data-hud-surface="street"
       data-brake-active="false"
+      data-screech-active="false"
       data-city-validity={cityValidityState}
       data-unmatched-port-count={unmatchedPortCount}
       data-engine-audio-muted={engineMuted ? 'true' : 'false'}

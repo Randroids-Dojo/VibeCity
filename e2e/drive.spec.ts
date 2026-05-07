@@ -99,6 +99,11 @@ test('drive route mounts the canvas with the slug label and Edit CTA', async ({
   // mounts; the default keeps a test that hits the route before mount
   // from reading null.
   await expect(root).toHaveAttribute('data-brake-active', 'false')
+  // F-013 slice 3: tire-screech plumbing default. Mirrors the brake
+  // contract; the attribute starts at 'false' before any car mounts
+  // and the integration loop overwrites it per frame from the lateral
+  // acceleration estimate.
+  await expect(root).toHaveAttribute('data-screech-active', 'false')
   // REQ-019 / REQ-064 / REQ-066: city validity defaults to closed because
   // the playwright webServer runs without KV so loadCity returns the
   // empty city and `validateConnections` returns the empty list. The
