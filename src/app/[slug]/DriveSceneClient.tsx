@@ -1140,9 +1140,14 @@ export function DriveSceneClient({
     // Pure render proxies (no goals, no schedule, no path-finding);
     // the per-mesh bob phase is offset by index so a count-4 cell
     // looks like a small group of people rather than a synchronized
-    // animation.
+    // animation. Gated on `city.pieces.length > 0` to mirror the
+    // ambient-car / player-car branch: the empty-city state shows
+    // the empty-state prompt and skips the integration loop, so
+    // static pedestrians on an otherwise-empty surface would look
+    // wrong.
     const pedestrianMeshes: { mesh: THREE.Mesh; phase: number }[] = []
-    if (simState.population.totalPopulation > 0) {
+    let pedestrianElapsed = 0
+    if (city.pieces.length > 0 && simState.population.totalPopulation > 0) {
       const anchors = pedestrianAnchors(simState.population, cellToWorld)
       const pedGeometry = new THREE.BoxGeometry(
         CELL_SIZE * 0.06,
@@ -1947,11 +1952,16 @@ export function DriveSceneClient({
       }
       // Ambient pedestrian bob (F-014). Per-mesh phase keeps the
       // crowd looking lively without synchronizing every figure.
+      // Drive the sine input with an accumulated unpaused time so
+      // pause / resume does not snap mesh heights (the wall-clock
+      // `timestamp / 1000` would advance during pause and produce
+      // a jump on the first resumed frame).
       if (pedestrianMeshes.length > 0) {
-        const t = timestamp / 1000
+        pedestrianElapsed += dt
         for (const { mesh, phase } of pedestrianMeshes) {
           mesh.position.y =
-            CELL_SIZE * 0.09 + Math.sin(t * 2.5 + phase) * CELL_SIZE * 0.012
+            CELL_SIZE * 0.09 +
+            Math.sin(pedestrianElapsed * 2.5 + phase) * CELL_SIZE * 0.012
         }
       }
       renderer.render(scene, camera)
