@@ -16,6 +16,16 @@ Format for each slice:
 - Followups: any new `F-NNN` entries created. Link to them.
 ```
 
+## 2026-05-07, Drive Feel: Tire-Screech Plumbing (F-013 slice 3)
+
+- Branch: `feature/20260507-tire-screech-plumbing`
+- PR: #162
+- Changed: `src/app/[slug]/driveScene.ts` adds `TIRE_SCREECH_LATERAL_ACCEL_THRESHOLD = CELL_SIZE * 18`, `lateralAcceleration(prevHeading, curHeading, speed, dt)` pure estimator (`|deltaHeading / dt| * speed` with wrap-aware delta across the +/- pi boundary), and `tireScreechActive(lateralAccel, threshold?)` predicate. `src/app/[slug]/DriveSceneClient.tsx` tracks `prevHeading` per integration loop, computes the lateral-accel magnitude each frame, and mirrors `data-screech-active` on the scene root (default `false` on the JSX root before any car mounts). The audio buffer wiring is intentionally deferred so a follow-on slice can read the substrate state without introducing new computations. Closes the substrate piece of F-013 slice 3 (drive-feel texture pass) from the 2026-05-03 fun-factor audit.
+- Verification: `npm test` 2259/2259 unit (14 new cases under `lateralAcceleration (F-013 slice 3)` + `tireScreechActive (F-013 slice 3)` covering at-rest / no-turn / speed scaling / heading-delta scaling / abs symmetry / +/- pi wrap / non-finite guards / threshold defaults / non-finite input). `npm run type-check` green. `npm run check:dashes` clean. `git diff --check` clean. `npx playwright test e2e/drive.spec.ts --project=chromium --grep "mounts the canvas"` 1/1 (asserts `data-screech-active="false"` default on the empty playwright KV city, mirroring the brake-active contract).
+- Assumptions: The lateral-accel estimator uses wrap-aware heading delta so a flip from `+pi - 0.05` to `-pi + 0.05` reads as a 0.1 step rather than a near-2pi swing. The threshold (`CELL_SIZE * 18`) was tuned by hand to NOT fire on a casual 90deg sweep at mid-speed but DO fire on a hard high-speed turn; a calibration slice can re-tune later via the threshold parameter without touching the integrator. The audio rig is the next slice's work; this slice ships only the substrate plus the contract attribute so the test surface is settled before the audio buffer lands.
+- GDD coverage: `docs/gdd/09-drive-mode.md` build log gains a tire-screech plumbing entry under the existing F-013 slice. F-013 in `docs/FOLLOWUPS.md` is now Resolved-substrate across all four sub-features (HUD pill PR #157 + tail lights PR #159 + bob PR #161 + screech plumbing); the audio buffer for the screech cue is the only remaining piece.
+- Followups: tracked under F-013 (deferred audio sub-feature): tire-screech audio buffer + rig (gated on the substrate landed in this slice).
+
 ## 2026-05-07, Drive Feel: Suspension Bob (F-013 slice 4)
 
 - Branch: `feature/20260507-suspension-bob`

@@ -54,9 +54,12 @@ import {
   BRAKE_LIGHT_DEPTH,
   BRAKE_LIGHT_HEIGHT,
   BRAKE_LIGHT_WIDTH,
+  TIRE_SCREECH_LATERAL_ACCEL_THRESHOLD,
   brakeLightColor,
   brakeLightOffsets,
+  lateralAcceleration,
   suspensionBobOffset,
+  tireScreechActive,
   carBodyY,
   carCabinY,
   carWheelOffsets,
@@ -1021,5 +1024,99 @@ describe('suspensionBobOffset (F-013 slice 4)', () => {
   it('BOB_FREQUENCY_HZ and BOB_AMPLITUDE_MAX are positive', () => {
     expect(BOB_FREQUENCY_HZ).toBeGreaterThan(0)
     expect(BOB_AMPLITUDE_MAX).toBeGreaterThan(0)
+  })
+})
+
+describe('lateralAcceleration (F-013 slice 3)', () => {
+  it('returns 0 at rest (speed = 0)', () => {
+    expect(lateralAcceleration(0, Math.PI / 4, 0, 0.05)).toBe(0)
+  })
+
+  it('returns 0 when prev = current heading (no turn)', () => {
+    expect(lateralAcceleration(0, 0, 50, 0.05)).toBe(0)
+    expect(lateralAcceleration(Math.PI, Math.PI, 50, 0.05)).toBe(0)
+  })
+
+  it('scales with speed for the same heading delta', () => {
+    const a = lateralAcceleration(0, 0.1, 10, 0.05)
+    const b = lateralAcceleration(0, 0.1, 20, 0.05)
+    expect(b).toBeCloseTo(a * 2, 6)
+  })
+
+  it('scales with heading-delta magnitude', () => {
+    const a = lateralAcceleration(0, 0.05, 30, 0.05)
+    const b = lateralAcceleration(0, 0.1, 30, 0.05)
+    expect(b).toBeCloseTo(a * 2, 6)
+  })
+
+  it('uses absolute value (left and right turns return same magnitude)', () => {
+    const left = lateralAcceleration(0, 0.1, 30, 0.05)
+    const right = lateralAcceleration(0, -0.1, 30, 0.05)
+    expect(left).toBe(right)
+  })
+
+  it('wraps heading delta across the +/- pi boundary', () => {
+    // A flip from +pi - 0.05 to -pi + 0.05 is a small step (-0.1
+    // wrapped), not a near-2pi swing. Without wrap-aware delta this
+    // would produce an outsized lateral accel.
+    const result = lateralAcceleration(Math.PI - 0.05, -Math.PI + 0.05, 30, 0.05)
+    const naive = lateralAcceleration(Math.PI - 0.05, Math.PI + 0.05, 30, 0.05)
+    expect(result).toBeCloseTo(naive, 4)
+  })
+
+  it('returns 0 for non-finite or non-positive dt', () => {
+    expect(lateralAcceleration(0, 0.1, 30, 0)).toBe(0)
+    expect(lateralAcceleration(0, 0.1, 30, -0.05)).toBe(0)
+    expect(lateralAcceleration(0, 0.1, 30, Number.NaN)).toBe(0)
+  })
+
+  it('returns 0 for non-finite heading or speed inputs', () => {
+    expect(lateralAcceleration(Number.NaN, 0.1, 30, 0.05)).toBe(0)
+    expect(lateralAcceleration(0, Number.NaN, 30, 0.05)).toBe(0)
+    expect(lateralAcceleration(0, 0.1, Number.NaN, 0.05)).toBe(0)
+  })
+})
+
+describe('tireScreechActive (F-013 slice 3)', () => {
+  it('returns false below the default threshold', () => {
+    expect(
+      tireScreechActive(TIRE_SCREECH_LATERAL_ACCEL_THRESHOLD - 1),
+    ).toBe(false)
+  })
+
+  it('returns true at or above the default threshold', () => {
+    expect(tireScreechActive(TIRE_SCREECH_LATERAL_ACCEL_THRESHOLD)).toBe(true)
+    expect(
+      tireScreechActive(TIRE_SCREECH_LATERAL_ACCEL_THRESHOLD * 2),
+    ).toBe(true)
+  })
+
+  it('uses absolute value (negative lateral accel still triggers)', () => {
+    expect(tireScreechActive(-TIRE_SCREECH_LATERAL_ACCEL_THRESHOLD)).toBe(true)
+  })
+
+  it('respects a custom threshold override', () => {
+    expect(tireScreechActive(5, 10)).toBe(false)
+    expect(tireScreechActive(15, 10)).toBe(true)
+  })
+
+  it('falls back to the default threshold on non-finite or non-positive overrides', () => {
+    // Non-finite threshold collapses to the default; an above-default
+    // input still fires.
+    expect(tireScreechActive(TIRE_SCREECH_LATERAL_ACCEL_THRESHOLD, Number.NaN)).toBe(true)
+    // Negative or zero threshold collapses to the default; a below-
+    // default input does NOT fire (no spurious always-true behavior).
+    expect(tireScreechActive(5, 0)).toBe(false)
+    expect(tireScreechActive(5, -10)).toBe(false)
+  })
+
+  it('returns false for non-finite input (NaN, Infinity)', () => {
+    expect(tireScreechActive(Number.NaN)).toBe(false)
+    expect(tireScreechActive(Number.POSITIVE_INFINITY)).toBe(false)
+    expect(tireScreechActive(Number.NEGATIVE_INFINITY)).toBe(false)
+  })
+
+  it('TIRE_SCREECH_LATERAL_ACCEL_THRESHOLD is positive', () => {
+    expect(TIRE_SCREECH_LATERAL_ACCEL_THRESHOLD).toBeGreaterThan(0)
   })
 })
