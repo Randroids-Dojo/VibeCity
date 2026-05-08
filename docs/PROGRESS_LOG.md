@@ -19,7 +19,7 @@ Format for each slice:
 ## 2026-05-08, Sim-as-Primary Slice B: Route Swap (REQ-110)
 
 - Branch: `feature/20260508-route-swap`
-- PR: #N (when known)
+- PR: #167
 - Changed: Inverted the `/<slug>` and `/<slug>/edit` routes so the SimCity-style sim view (the editor surface) is now the canonical landing for a saved city. Specifically:
   - `src/app/[slug]/page.tsx` now renders the editor (was the drive scene). Default export `SlugSimPage`.
   - New `src/app/[slug]/drive/page.tsx` renders `DriveSceneClient` (was at `/<slug>`).
