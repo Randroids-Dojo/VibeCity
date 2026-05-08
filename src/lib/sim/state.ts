@@ -903,6 +903,64 @@ export const POPULATION_MILESTONES: readonly number[] = [
  * default 4Hz tick rate is ~4 seconds of wall-time.
  */
 export const MILESTONE_TOAST_TICKS = 16
+
+/**
+ * Per-tier milestone label and color (mass-appeal slice 1 follow-on).
+ * Each `POPULATION_MILESTONES` threshold gets a distinct copy and tint
+ * so the toast reads as a progression arc ("first homes" -> "village"
+ * -> "town" -> "metropolis") rather than a single repeating cue. Mirrors
+ * SimCity 2000's tier-name unlocks.
+ *
+ * Resolution rule: pick the entry whose threshold equals the
+ * `highestMilestoneReached` value. Falls back to the generic copy /
+ * color when the value is below the smallest threshold (e.g. immediately
+ * after a `resetCity` while the toast still has ticks left to show).
+ */
+export interface MilestoneTier {
+  /** Threshold population required to enter this tier. */
+  threshold: number
+  /** Body text for the toast (e.g. "village!" or "metropolis!"). */
+  label: string
+  /** Hex CSS color for the toast text. */
+  color: string
+}
+
+export const MILESTONE_TIERS: readonly MilestoneTier[] = [
+  { threshold: 4, label: 'first homes!', color: '#c89a3a' },
+  { threshold: 12, label: 'village!', color: '#7ab85a' },
+  { threshold: 40, label: 'neighborhood!', color: '#5fae5f' },
+  { threshold: 100, label: 'town!', color: '#3a8fc8' },
+  { threshold: 250, label: 'borough!', color: '#7a5fc8' },
+  { threshold: 500, label: 'city!', color: '#c8923a' },
+  { threshold: 1000, label: 'metropolis!', color: '#e8b03a' },
+] as const
+
+export const DEFAULT_MILESTONE_LABEL = 'milestone!'
+export const DEFAULT_MILESTONE_COLOR = '#5fae5f'
+
+/**
+ * Resolve a tier label for the given milestone value. Returns the
+ * label of the entry whose threshold equals the value, or the generic
+ * default when no entry matches (e.g. value below the smallest tier).
+ */
+export function milestoneTierLabel(value: number): string {
+  for (const tier of MILESTONE_TIERS) {
+    if (tier.threshold === value) return tier.label
+  }
+  return DEFAULT_MILESTONE_LABEL
+}
+
+/**
+ * Resolve a tier color for the given milestone value. Returns the
+ * color of the entry whose threshold equals the value, or the generic
+ * default when no entry matches.
+ */
+export function milestoneTierColor(value: number): string {
+  for (const tier of MILESTONE_TIERS) {
+    if (tier.threshold === value) return tier.color
+  }
+  return DEFAULT_MILESTONE_COLOR
+}
 export type WaterBucket = z.infer<typeof WaterBucketSchema>
 
 export const EMPTY_WATER_BUCKET: WaterBucket = Object.freeze({
