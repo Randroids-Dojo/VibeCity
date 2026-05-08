@@ -19,7 +19,7 @@ Format for each slice:
 ## 2026-05-08, Sim-as-Primary Slice D: Sim Controls Panel Contract (REQ-110, REQ-113)
 
 - Branch: `feature/20260508-sim-controls-polish`
-- PR: TBD
+- PR: #169
 - Changed: Locked the REQ-113 always-visible-in-sim-view contract for the sim controls panel. The four pieces called out in the GDD (Pause / 1x / 2x / 4x speed selector, treasury readout, R / C / I demand bars, R / C / I tax sliders) were already implemented inline in `src/app/[slug]/edit/EditorClient.tsx`, but the project had no single test that asserted all four are visible together on the canonical `/<slug>` sim-as-primary route after slice B. Added one new REQ-113-shaped e2e in `e2e/sim.spec.ts` that loads `/<slug>` and asserts every piece is visible. No code changes to `EditorClient.tsx` (the implementation already covers the spec); slice discipline says do not refactor a working component just to feel busy.
 - Verification: dash check (clean for the slice), `npx playwright test e2e/sim.spec.ts -g "REQ-113 controls panel"` (1/1 pass).
 - Assumptions: REQ-113 is treated as functionally complete now that the contract test exists; future slices that add visual polish (e.g., grouping the panel into named subsections) can flip the GDD section status from `partial` to `done` once REQ-114 (Drive toggle) is also locked.
