@@ -42,11 +42,11 @@ test.beforeEach(async ({ page }) => {
   })
 })
 
-test('legacy /<slug>/sim redirects to /<slug>/edit', async ({ page }) => {
+test('legacy /<slug>/sim redirects to /<slug> (REQ-110 slice B)', async ({ page }) => {
   const response = await page.goto('/sim-redirect-spec/sim')
   expect(response?.status()).toBe(200)
-  // Final URL is the editor route after the redirect.
-  expect(page.url()).toContain('/sim-redirect-spec/edit')
+  // Final URL is the bare-slug sim view after the redirect.
+  expect(page.url()).toMatch(/\/sim-redirect-spec(?:[?#].*)?$/)
 })
 
 test('editor toolbar exposes the sim speed controls (Pause / 1x / 2x / 4x)', async ({

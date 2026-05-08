@@ -15,7 +15,7 @@ import { RACE_HUD_FORBIDDEN_TESTIDS } from '../src/app/[slug]/driveAntiFeatures'
 test('drive route mounts the canvas with the slug label and Edit CTA', async ({
   page,
 }) => {
-  const response = await page.goto('/drive-scaffold-spec')
+  const response = await page.goto('/drive-scaffold-spec/drive')
   expect(response?.status()).toBe(200)
 
   const root = page.getByTestId('drive-scene-root')
@@ -33,7 +33,7 @@ test('drive route mounts the canvas with the slug label and Edit CTA', async ({
   // Edit CTA points back at the editor route.
   const editCta = page.getByTestId('drive-edit-cta')
   await expect(editCta).toBeVisible()
-  await expect(editCta).toHaveAttribute('href', '/drive-scaffold-spec/edit')
+  await expect(editCta).toHaveAttribute('href', '/drive-scaffold-spec')
   await expect(editCta).toHaveAttribute('data-slug', 'drive-scaffold-spec')
   await expect(editCta).toHaveText('Edit')
 
@@ -222,7 +222,7 @@ test('drive route mounts the canvas with the slug label and Edit CTA', async ({
 test('drive route shows the empty-state prompt for a fresh slug (REQ-053)', async ({
   page,
 }) => {
-  const response = await page.goto('/drive-empty-spec')
+  const response = await page.goto('/drive-empty-spec/drive')
   expect(response?.status()).toBe(200)
 
   const root = page.getByTestId('drive-scene-root')
@@ -350,7 +350,7 @@ test('drive route shows the empty-state prompt for a fresh slug (REQ-053)', asyn
   // The Open editor link is the empty-state CTA back into the editor.
   const cta = page.getByTestId('drive-empty-create-cta')
   await expect(cta).toBeVisible()
-  await expect(cta).toHaveAttribute('href', '/drive-empty-spec/edit')
+  await expect(cta).toHaveAttribute('href', '/drive-empty-spec')
 
   // The pause overlay must not render on the empty grid even if Esc is
   // pressed (the listener is gated on the car being mounted).
@@ -360,14 +360,14 @@ test('drive route shows the empty-state prompt for a fresh slug (REQ-053)', asyn
 
   // Clicking the Open editor link routes to the editor.
   await cta.click()
-  await page.waitForURL('**/drive-empty-spec/edit')
-  expect(page.url()).toMatch(/\/drive-empty-spec\/edit$/)
+  await page.waitForURL('**/drive-empty-spec')
+  expect(page.url()).toMatch(/\/drive-empty-spec$/)
 })
 
 test('drive route sets the per-slug document title (REQ-006, REQ-053)', async ({
   page,
 }) => {
-  const response = await page.goto('/title-spec-city')
+  const response = await page.goto('/title-spec-city/drive')
   expect(response?.status()).toBe(200)
   await expect(page).toHaveTitle('Drive title-spec-city | VibeCity')
 })
@@ -386,7 +386,7 @@ test('drive HUD share-copy button copies the canonical drive URL (REQ-006, REQ-0
   })
   try {
     const page = await context.newPage()
-    const response = await page.goto('/share-copy-spec')
+    const response = await page.goto('/share-copy-spec/drive')
     expect(response?.status()).toBe(200)
 
     const root = page.getByTestId('drive-scene-root')
@@ -420,7 +420,7 @@ test('drive HUD share-copy button copies the canonical drive URL (REQ-006, REQ-0
     // the click handler wrote to.
     const clipboardText = await page.evaluate(() => navigator.clipboard.readText())
     const expectedOrigin = baseURL ?? page.url().replace(/\/share-copy-spec.*/, '')
-    expect(clipboardText).toBe(`${expectedOrigin.replace(/\/$/, '')}/share-copy-spec`)
+    expect(clipboardText).toBe(`${expectedOrigin.replace(/\/$/, '')}/share-copy-spec/drive`)
 
     // After SHARE_COPY_RESET_DELAY_MS (1600 ms) the button resets.
     await expect(button).toHaveText('Copy share URL', { timeout: 4000 })

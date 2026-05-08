@@ -65,61 +65,61 @@ describe('SHARE_COPY constants (REQ-006, REQ-053)', () => {
   })
 })
 
-describe('buildShareUrl (REQ-006, REQ-053)', () => {
+describe('buildShareUrl (REQ-006, REQ-053, REQ-110 slice B)', () => {
   it('composes the absolute URL when a clean origin is provided', () => {
     expect(buildShareUrl(slug('downtown'), 'https://vibecity.example')).toBe(
-      'https://vibecity.example/downtown',
+      'https://vibecity.example/downtown/drive',
     )
   })
 
   it('strips a single trailing slash on the origin', () => {
     expect(buildShareUrl(slug('downtown'), 'https://vibecity.example/')).toBe(
-      'https://vibecity.example/downtown',
+      'https://vibecity.example/downtown/drive',
     )
   })
 
   it('does not add a second slash when the origin is bare', () => {
-    expect(buildShareUrl(slug('a'), 'https://x')).toBe('https://x/a')
+    expect(buildShareUrl(slug('a'), 'https://x')).toBe('https://x/a/drive')
   })
 
   it('returns a relative path when origin is undefined', () => {
-    expect(buildShareUrl(slug('downtown'))).toBe('/downtown')
+    expect(buildShareUrl(slug('downtown'))).toBe('/downtown/drive')
   })
 
   it('returns a relative path when origin is null', () => {
-    expect(buildShareUrl(slug('downtown'), null)).toBe('/downtown')
+    expect(buildShareUrl(slug('downtown'), null)).toBe('/downtown/drive')
   })
 
   it('returns a relative path when origin is the empty string', () => {
-    expect(buildShareUrl(slug('downtown'), '')).toBe('/downtown')
+    expect(buildShareUrl(slug('downtown'), '')).toBe('/downtown/drive')
   })
 
   it('returns a relative path when origin is whitespace only', () => {
-    expect(buildShareUrl(slug('downtown'), '   ')).toBe('/downtown')
+    expect(buildShareUrl(slug('downtown'), '   ')).toBe('/downtown/drive')
   })
 
   it('includes localhost ports in the absolute URL', () => {
     expect(buildShareUrl(slug('downtown'), 'http://localhost:3000')).toBe(
-      'http://localhost:3000/downtown',
+      'http://localhost:3000/downtown/drive',
     )
   })
 
   it('preserves protocol on the origin (no transformation)', () => {
     expect(buildShareUrl(slug('a'), 'http://example.com')).toBe(
-      'http://example.com/a',
+      'http://example.com/a/drive',
     )
     expect(buildShareUrl(slug('a'), 'https://example.com')).toBe(
-      'https://example.com/a',
+      'https://example.com/a/drive',
     )
   })
 
   it('does not duplicate the slash when origin is just a forward slash', () => {
-    expect(buildShareUrl(slug('downtown'), '/')).toBe('/downtown')
+    expect(buildShareUrl(slug('downtown'), '/')).toBe('/downtown/drive')
   })
 
   it('handles a hyphenated slug correctly', () => {
     expect(buildShareUrl(slug('my-cool-city'), 'https://x.example')).toBe(
-      'https://x.example/my-cool-city',
+      'https://x.example/my-cool-city/drive',
     )
   })
 
@@ -214,61 +214,61 @@ describe('EDIT_COPY_LABEL_IDLE (REQ-007, REQ-026)', () => {
   })
 })
 
-describe('buildEditUrl (REQ-007, REQ-026)', () => {
+describe('buildEditUrl (REQ-007, REQ-026, REQ-110 slice B)', () => {
   it('composes the absolute editor URL when a clean origin is provided', () => {
     expect(buildEditUrl(slug('downtown'), 'https://vibecity.example')).toBe(
-      'https://vibecity.example/downtown/edit',
+      'https://vibecity.example/downtown',
     )
   })
 
   it('strips a single trailing slash on the origin', () => {
     expect(buildEditUrl(slug('downtown'), 'https://vibecity.example/')).toBe(
-      'https://vibecity.example/downtown/edit',
+      'https://vibecity.example/downtown',
     )
   })
 
   it('does not add a second slash when the origin is bare', () => {
-    expect(buildEditUrl(slug('a'), 'https://x')).toBe('https://x/a/edit')
+    expect(buildEditUrl(slug('a'), 'https://x')).toBe('https://x/a')
   })
 
   it('returns a relative path when origin is undefined', () => {
-    expect(buildEditUrl(slug('downtown'))).toBe('/downtown/edit')
+    expect(buildEditUrl(slug('downtown'))).toBe('/downtown')
   })
 
   it('returns a relative path when origin is null', () => {
-    expect(buildEditUrl(slug('downtown'), null)).toBe('/downtown/edit')
+    expect(buildEditUrl(slug('downtown'), null)).toBe('/downtown')
   })
 
   it('returns a relative path when origin is the empty string', () => {
-    expect(buildEditUrl(slug('downtown'), '')).toBe('/downtown/edit')
+    expect(buildEditUrl(slug('downtown'), '')).toBe('/downtown')
   })
 
   it('returns a relative path when origin is whitespace only', () => {
-    expect(buildEditUrl(slug('downtown'), '   ')).toBe('/downtown/edit')
+    expect(buildEditUrl(slug('downtown'), '   ')).toBe('/downtown')
   })
 
   it('includes localhost ports in the absolute URL', () => {
     expect(buildEditUrl(slug('downtown'), 'http://localhost:3000')).toBe(
-      'http://localhost:3000/downtown/edit',
+      'http://localhost:3000/downtown',
     )
   })
 
   it('preserves protocol on the origin (no transformation)', () => {
     expect(buildEditUrl(slug('a'), 'http://example.com')).toBe(
-      'http://example.com/a/edit',
+      'http://example.com/a',
     )
     expect(buildEditUrl(slug('a'), 'https://example.com')).toBe(
-      'https://example.com/a/edit',
+      'https://example.com/a',
     )
   })
 
   it('does not duplicate the slash when origin is just a forward slash', () => {
-    expect(buildEditUrl(slug('downtown'), '/')).toBe('/downtown/edit')
+    expect(buildEditUrl(slug('downtown'), '/')).toBe('/downtown')
   })
 
   it('handles a hyphenated slug correctly', () => {
     expect(buildEditUrl(slug('my-cool-city'), 'https://x.example')).toBe(
-      'https://x.example/my-cool-city/edit',
+      'https://x.example/my-cool-city',
     )
   })
 
@@ -278,9 +278,9 @@ describe('buildEditUrl (REQ-007, REQ-026)', () => {
     expect(url.startsWith('//')).toBe(false)
   })
 
-  it('appends /edit so the link lands on the editor route', () => {
-    expect(buildEditUrl(slug('downtown'))).toMatch(/\/edit$/)
-    expect(buildEditUrl(slug('downtown'), 'https://x.example')).toMatch(
+  it('REQ-110 slice B: editor URL is the bare slug (no /edit suffix anymore)', () => {
+    expect(buildEditUrl(slug('downtown'))).not.toMatch(/\/edit$/)
+    expect(buildEditUrl(slug('downtown'), 'https://x.example')).not.toMatch(
       /\/edit$/,
     )
   })
@@ -289,7 +289,8 @@ describe('buildEditUrl (REQ-007, REQ-026)', () => {
     const driveUrl = buildShareUrl(slug('downtown'), 'https://x.example')
     const buildUrl = buildEditUrl(slug('downtown'), 'https://x.example')
     expect(driveUrl).not.toBe(buildUrl)
-    expect(buildUrl).toBe(`${driveUrl}/edit`)
+    // Drive is the editor URL plus `/drive` after slice B.
+    expect(driveUrl).toBe(`${buildUrl}/drive`)
   })
 
   it('reuses SHARE_COPY_RESET_DELAY_MS so the two surfaces share the lifecycle timing', () => {

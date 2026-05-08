@@ -70,27 +70,28 @@ export const SHARE_COPY_RESET_DELAY_MS = 1600
 
 /**
  * Compose the canonical drive-view share URL for a given slug. Returns
- * the absolute URL `${origin}/<slug>` when an origin is provided and
- * the bare `/<slug>` path otherwise so a server-rendered preview (or
- * a misconfigured deployment that fails to read `window.location`)
- * still emits a usable relative link.
+ * the absolute URL `${origin}/<slug>/drive` when an origin is provided
+ * and the bare `/<slug>/drive` path otherwise so a server-rendered
+ * preview (or a misconfigured deployment that fails to read
+ * `window.location`) still emits a usable relative link.
  *
- * The trailing slash on the origin is stripped so callers that pass
- * `https://example.com/` and callers that pass `https://example.com`
- * both produce `https://example.com/<slug>`. A blank string origin
- * (after trimming) collapses to the relative path so a misconfigured
- * deployment does not emit `/<slug>` (an absolute path with no host).
+ * Slice B of REQ-110 (sim-as-primary view) moved the drive scene from
+ * `/<slug>` to `/<slug>/drive` so the bare slug URL can host the
+ * SimCity-style sim view as the default. The trailing slash on the
+ * origin is stripped so callers that pass `https://example.com/` and
+ * callers that pass `https://example.com` both produce
+ * `https://example.com/<slug>/drive`.
  */
 export function buildShareUrl(slug: Slug, origin?: string | null): string {
   if (typeof origin !== 'string') {
-    return `/${slug}`
+    return `/${slug}/drive`
   }
   const trimmed = origin.trim()
   if (trimmed.length === 0) {
-    return `/${slug}`
+    return `/${slug}/drive`
   }
   const stripped = trimmed.endsWith('/') ? trimmed.slice(0, -1) : trimmed
-  return `${stripped}/${slug}`
+  return `${stripped}/${slug}/drive`
 }
 
 /**
@@ -113,14 +114,14 @@ export function buildShareUrl(slug: Slug, origin?: string | null): string {
  */
 export function buildEditUrl(slug: Slug, origin?: string | null): string {
   if (typeof origin !== 'string') {
-    return `/${slug}/edit`
+    return `/${slug}`
   }
   const trimmed = origin.trim()
   if (trimmed.length === 0) {
-    return `/${slug}/edit`
+    return `/${slug}`
   }
   const stripped = trimmed.endsWith('/') ? trimmed.slice(0, -1) : trimmed
-  return `${stripped}/${slug}/edit`
+  return `${stripped}/${slug}`
 }
 
 /**

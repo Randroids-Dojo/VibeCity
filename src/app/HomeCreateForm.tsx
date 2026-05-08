@@ -8,18 +8,19 @@ import { SlugSchema, normalizeSlug } from '@/lib/schemas'
  * Create-new-slug input on the home page (REQ-050).
  *
  * Renders a single-line input that lets a visitor type a slug and
- * navigate to `/<slug>/edit` to start a new city. The input runs the
- * raw value through `normalizeSlug` for the live preview and validates
- * the normalized result against `SlugSchema` to gate the submit button.
+ * navigate to `/<slug>` to start a new city in the SimCity-style sim
+ * view (REQ-110 sim-as-primary). The input runs the raw value through
+ * `normalizeSlug` for the live preview and validates the normalized
+ * result against `SlugSchema` to gate the submit button.
  *
  * The form is uncontrolled in the sense that it stores the raw text
  * the user typed. The normalized preview is shown alongside so a user
  * who types `"Downtown!"` sees `downtown` and understands what URL the
  * Create button will navigate to.
  *
- * On submit, the router pushes `/<normalized>/edit`. The route segment
- * runs the slug through `parseSlugParam` again so a malformed input
- * never reaches the editor surface.
+ * On submit, the router pushes `/<normalized>`. The route segment runs
+ * the slug through `parseSlugParam` again so a malformed input never
+ * reaches the sim surface.
  */
 export function HomeCreateForm() {
   const router = useRouter()
@@ -32,7 +33,7 @@ export function HomeCreateForm() {
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
     if (!isValid) return
-    router.push(`/${normalized}/edit`)
+    router.push(`/${normalized}`)
   }
 
   return (
@@ -97,7 +98,7 @@ export function HomeCreateForm() {
         {raw.length === 0
           ? 'Lowercase letters, digits, and hyphens. 1 to 128 characters.'
           : isValid
-            ? `Will open /${normalized}/edit`
+            ? `Will open /${normalized}`
             : 'Invalid slug. Use lowercase letters, digits, and hyphens.'}
       </p>
       <button
