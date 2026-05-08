@@ -158,6 +158,11 @@ import {
   type PreviewCell,
 } from './editorPreview'
 import {
+  DEFAULT_SNAP_GRID_VIEW_MODE,
+  isoTransformCss,
+  type SnapGridViewMode,
+} from './isoProjection'
+import {
   REJECTION_FLASH_DURATION_MS,
   REJECTION_FLASH_FILL,
   REJECTION_FLASH_FILL_OPACITY,
@@ -298,6 +303,7 @@ export function SnapGrid({
   abandonedCellKeys,
   onSurfaceWheel,
   onSurfacePointerDown,
+  viewMode = DEFAULT_SNAP_GRID_VIEW_MODE,
 }: {
   city: City
   onCellClick?: (row: number, col: number) => void
@@ -363,6 +369,14 @@ export function SnapGrid({
   abandonedCellKeys?: ReadonlySet<string> | null
   onSurfaceWheel?: (event: ReactWheelEvent<SVGSVGElement>) => void
   onSurfacePointerDown?: (event: ReactPointerEvent<SVGSVGElement>) => void
+  /**
+   * Visual projection mode (REQ-110, REQ-111). `'iso'` applies the
+   * SimCity-style 45deg dimetric CSS transform to the SVG element;
+   * `'flat'` keeps the orthographic top-down render. The internal
+   * SVG coords are unchanged in both modes; pointer events and pan /
+   * zoom continue to operate on the flat coord system.
+   */
+  viewMode?: SnapGridViewMode
 }) {
   const cells = gridCells()
   const occupiedPieces = occupiedPieceCells(city)
@@ -430,6 +444,7 @@ export function SnapGrid({
       data-viewport-pan-y={viewport.panY}
       data-viewport-zoom={viewport.zoom}
       data-viewport-default={viewportIsDefault ? 'true' : 'false'}
+      data-view-mode={viewMode}
       width={GRID_PIXEL_SIZE}
       height={GRID_PIXEL_SIZE}
       viewBox={viewBox}
@@ -444,6 +459,8 @@ export function SnapGrid({
         height: 'auto',
         cursor,
         touchAction: 'none',
+        transform: isoTransformCss(viewMode),
+        transformOrigin: 'center center',
       }}
     >
       {cells.map((cell) => {
