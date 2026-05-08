@@ -1,10 +1,10 @@
 /**
- * Pure undo / redo helpers for the VibeCity editor (REQ-023).
+ * Pure undo / redo stack helpers. Game-agnostic.
  *
- * Ported from VibeRacer's `src/game/editorHistory.ts` so the same
- * immutable history math powers VibeCity. The editor component owns
- * React state and keyboard wiring; this module is responsible for the
- * stack math:
+ * The same immutable history math powers VibeCity's editor (REQ-023)
+ * and the VibeRacer editor (`src/game/editorHistory.ts` upstream).
+ * The consumer owns React state and keyboard wiring; this module
+ * owns the stack math:
  *
  *  - `createHistory(initial)` seeds a fresh history with one present
  *    entry and no past or future.
@@ -32,13 +32,11 @@
  */
 
 /**
- * Hard cap on the number of past states kept around. Each entry is a
- * shallow `City` reference (the editor's `placePiece` / `erasePiece`
- * reducers already produce new objects on every mutation), so 100
- * entries is well under any memory concern even on a 64-piece city.
- *
- * This matches the cap VibeRacer ships so authors who switch between
- * the projects see consistent undo depth.
+ * Hard cap on the number of past states kept around. Each entry is
+ * a shallow reference to whatever value type `T` represents, so
+ * 100 entries is well under any memory concern for typical editor
+ * payloads (cities, tracks, etc.). Matches the cap VibeRacer ships
+ * so authors who switch between projects see consistent undo depth.
  */
 export const EDITOR_HISTORY_MAX_PAST = 100
 

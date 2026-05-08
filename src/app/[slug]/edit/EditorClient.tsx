@@ -89,7 +89,7 @@ import {
   redoHistory,
   undoHistory,
   type EditorHistory,
-} from './editorHistory'
+} from '@/lib/editor'
 import {
   previewCellsFor,
   previewKindFor,
