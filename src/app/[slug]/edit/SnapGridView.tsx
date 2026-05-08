@@ -161,7 +161,7 @@ import {
   DEFAULT_SNAP_GRID_VIEW_MODE,
   isoTransformCss,
   type SnapGridViewMode,
-} from './isoProjection'
+} from '@/lib/render/iso'
 import {
   REJECTION_FLASH_DURATION_MS,
   REJECTION_FLASH_FILL,

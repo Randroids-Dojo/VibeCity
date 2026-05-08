@@ -4,7 +4,7 @@ import {
   ISO_ROTATE_DEG,
   ISO_SCALE_Y,
   isoTransformCss,
-} from '@/app/[slug]/edit/isoProjection'
+} from '@/lib/render/iso'
 
 describe('isoProjection constants (REQ-110, REQ-111)', () => {
   it('ISO_ROTATE_DEG is the SimCity-style 45deg rotation', () => {

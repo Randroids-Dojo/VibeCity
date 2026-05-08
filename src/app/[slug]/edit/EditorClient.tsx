@@ -114,7 +114,7 @@ import {
   DEFAULT_ISO_ROTATION_DEG,
   rotateIsoCcw,
   rotateIsoCw,
-} from './isoRotation'
+} from '@/lib/render/iso'
 import {
   cityConnectorGlyphs,
   countMatchedGlyphs,

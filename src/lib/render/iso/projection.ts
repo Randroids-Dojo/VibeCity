@@ -1,18 +1,21 @@
 /**
- * Iso-projection helpers for the sim-as-primary view (REQ-110, REQ-111).
+ * Iso-projection rendering primitives. Game-agnostic.
  *
- * The editor's `SnapGridView` renders a flat 2D snap grid in SVG. To
- * give the surface the SimCity-style 45-degree dimetric look, we apply
- * a CSS transform to the SVG element itself: rotate by `-45deg`, then
- * compress the vertical axis by `0.5` so a square cell renders as a
- * diamond that is twice as wide as it is tall (the classic 2:1
+ * To give a flat 2D snap grid the SimCity-style 45-degree dimetric
+ * look, apply a CSS transform to the surface: rotate by `-45deg`,
+ * then compress the vertical axis by `0.5` so a square cell renders
+ * as a diamond that is twice as wide as it is tall (the classic 2:1
  * dimetric projection used by SimCity 2000 / 4).
  *
- * The transform is purely visual: the SVG's internal coordinate system
- * is unchanged. Pointer events and viewBox-space pan / zoom continue
- * to operate on the flat coords; the browser applies the inverse
- * transform for hit-testing automatically. This lets the slice ship
- * iso visuals without a parallel hit-testing implementation.
+ * The transform is purely visual: the surface's internal coordinate
+ * system is unchanged. Pointer events and viewBox-space pan / zoom
+ * continue to operate on the flat coords; the browser applies the
+ * inverse transform for hit-testing automatically. This lets a
+ * caller ship iso visuals without a parallel hit-testing path.
+ *
+ * VibeCity's editor at `/<slug>` is the v1 consumer (REQ-110,
+ * REQ-111); future games can import from this lib without depending
+ * on the city app tree.
  */
 
 /** Rotation angle (degrees) applied to the SVG in iso mode. */
@@ -21,13 +24,13 @@ export const ISO_ROTATE_DEG = -45
 /** Vertical scale applied after rotation. 0.5 yields the 2:1 dimetric ratio. */
 export const ISO_SCALE_Y = 0.5
 
-/** View-mode union exposed to the editor. */
+/** View-mode union for iso-aware grid surfaces. */
 export type SnapGridViewMode = 'flat' | 'iso'
 
 /**
- * Returns the CSS `transform` string for the given view mode. The
- * editor and any future surfaces (e.g. home-page thumbnails) read this
- * so a single tuning change updates every iso-rendered grid.
+ * Returns the CSS `transform` string for the given view mode. A
+ * caller reads this once per render so a single tuning change
+ * updates every iso-rendered grid in the app.
  *
  * CSS transform functions are applied RIGHT-TO-LEFT (the rightmost
  * function transforms the original coordinate space first, then the
@@ -55,8 +58,8 @@ export function isoTransformCss(
 }
 
 /**
- * Default view mode for a freshly-mounted editor surface. Iso is the
- * SimCity-style default; the flat mode stays available as a debug
- * toggle for builders who want a top-down orthographic view.
+ * Default view mode for a freshly-mounted iso-aware surface. Iso is
+ * the SimCity-style default; flat stays available as a debug toggle
+ * for callers who want a top-down orthographic view.
  */
 export const DEFAULT_SNAP_GRID_VIEW_MODE: SnapGridViewMode = 'iso'
