@@ -1850,6 +1850,46 @@ export function EditorClient({
         </button>
         <button
           type="button"
+          data-testid="editor-rotate-iso-ccw"
+          data-iso-rotation-deg={isoRotationDeg}
+          aria-label="Rotate camera counterclockwise (Q)"
+          title="Rotate camera counterclockwise (Q)"
+          onClick={handleRotateIsoCcw}
+          style={{
+            padding: '8px 14px',
+            fontSize: 14,
+            fontFamily: 'inherit',
+            color: '#222',
+            background: '#efe7d2',
+            border: '1px solid #d6cfbf',
+            borderRadius: 4,
+            cursor: 'pointer',
+          }}
+        >
+          {'↺'}
+        </button>
+        <button
+          type="button"
+          data-testid="editor-rotate-iso-cw"
+          data-iso-rotation-deg={isoRotationDeg}
+          aria-label="Rotate camera clockwise (])"
+          title="Rotate camera clockwise (])"
+          onClick={handleRotateIsoCw}
+          style={{
+            padding: '8px 14px',
+            fontSize: 14,
+            fontFamily: 'inherit',
+            color: '#222',
+            background: '#efe7d2',
+            border: '1px solid #d6cfbf',
+            borderRadius: 4,
+            cursor: 'pointer',
+          }}
+        >
+          {'↻'}
+        </button>
+        <button
+          type="button"
           data-testid="editor-copy-build-url"
           data-copy-status={editCopyStatus}
           aria-label={editCopyAriaLabel(slug, editCopyStatus)}
