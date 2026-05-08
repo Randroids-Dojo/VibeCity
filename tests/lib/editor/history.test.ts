@@ -7,7 +7,7 @@ import {
   pushHistory,
   redoHistory,
   undoHistory,
-} from '@/app/[slug]/edit/editorHistory'
+} from '@/lib/editor'
 import { EMPTY_CITY, type City } from '@/lib/schemas'
 import { placePiece } from '@/app/[slug]/edit/editorState'
 
