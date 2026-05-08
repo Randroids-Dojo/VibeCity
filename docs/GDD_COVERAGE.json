@@ -1416,6 +1416,7 @@
       "status": "partial",
       "implementationRefs": [
         "src/app/[slug]/edit/isoProjection.ts",
+        "src/app/[slug]/edit/isoRotation.ts",
         "src/app/[slug]/edit/SnapGridView.tsx",
         "src/app/[slug]/page.tsx",
         "src/app/[slug]/drive/page.tsx",
@@ -1428,6 +1429,7 @@
       ],
       "testRefs": [
         "tests/app/isoProjection.test.ts",
+        "tests/app/isoRotation.test.ts",
         "tests/app/shareUrl.test.ts",
         "tests/app/editRoute.test.ts",
         "tests/app/driveRoute.test.ts",

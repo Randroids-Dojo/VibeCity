@@ -111,6 +111,11 @@ import {
 } from './gridViewport'
 import { SnapGrid } from './SnapGridView'
 import {
+  DEFAULT_ISO_ROTATION_DEG,
+  rotateIsoCcw,
+  rotateIsoCw,
+} from './isoRotation'
+import {
   cityConnectorGlyphs,
   countMatchedGlyphs,
   unmatchedPortGlyphs,
@@ -291,6 +296,19 @@ export function EditorClient({
   const rejectionTimeoutRef = useRef<number | null>(null)
   const [viewport, setViewport] = useState<Viewport>(DEFAULT_VIEWPORT)
   const viewportDefault = isDefaultViewport(viewport)
+  // REQ-111 slice C: iso camera rotation in 90deg snaps. Stored as
+  // an integer degrees value in [0, 360). Q rotates ccw, `]` rotates
+  // cw. Persisted only in component state for v1; a future slice can
+  // pin it as part of the city mood preset.
+  const [isoRotationDeg, setIsoRotationDeg] = useState<number>(
+    DEFAULT_ISO_ROTATION_DEG,
+  )
+  const handleRotateIsoCcw = useCallback(() => {
+    setIsoRotationDeg((current) => rotateIsoCcw(current))
+  }, [])
+  const handleRotateIsoCw = useCallback(() => {
+    setIsoRotationDeg((current) => rotateIsoCw(current))
+  }, [])
   const undoAvailable = canUndo(history)
   const redoAvailable = canRedo(history)
 
@@ -755,19 +773,36 @@ export function EditorClient({
       if (event.altKey) return
       const isRotate = event.key === 'r' || event.key === 'R'
       const isErase = event.key === 'e' || event.key === 'E'
-      if (!isRotate && !isErase) return
+      // REQ-111 slice C: Q rotates the iso camera counterclockwise,
+      // `]` rotates clockwise. Q is the canonical SimCity binding;
+      // `]` substitutes for E (which is bound to erase) until a future
+      // polish slice introduces an alternate cw binding.
+      const isCameraCcw = event.key === 'q' || event.key === 'Q'
+      const isCameraCw = event.key === ']'
+      if (!isRotate && !isErase && !isCameraCcw && !isCameraCw) return
       event.preventDefault()
       if (isRotate) {
         handleRotate()
-      } else {
+      } else if (isErase) {
         handleToggleErase()
+      } else if (isCameraCcw) {
+        handleRotateIsoCcw()
+      } else {
+        handleRotateIsoCw()
       }
     }
     window.addEventListener('keydown', onKeyDown)
     return () => {
       window.removeEventListener('keydown', onKeyDown)
     }
-  }, [handleRotate, handleToggleErase, handleUndo, handleRedo])
+  }, [
+    handleRotate,
+    handleToggleErase,
+    handleUndo,
+    handleRedo,
+    handleRotateIsoCcw,
+    handleRotateIsoCw,
+  ])
 
   // Window-level pointer listeners drive the pan tool (REQ-024). The
   // pointerdown handler on the SVG seeds `panDragRef`; this effect
@@ -1982,6 +2017,7 @@ export function EditorClient({
         abandonedCellKeys={abandonedCellKeys}
         onSurfaceWheel={handleSurfaceWheel}
         onSurfacePointerDown={handleSurfacePointerDown}
+        viewRotationDeg={isoRotationDeg}
       />
       {city.pieces.length === 0 &&
       city.buildings.length === 0 &&

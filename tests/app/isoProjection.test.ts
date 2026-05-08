@@ -57,4 +57,22 @@ describe('isoTransformCss', () => {
   it('flat transform is distinct from iso so the SVG style flips visibly', () => {
     expect(isoTransformCss('flat')).not.toBe(isoTransformCss('iso'))
   })
+
+  it('sums rotationDeg into the iso rotate angle (REQ-111 slice C)', () => {
+    expect(isoTransformCss('iso', 0)).toContain(`rotate(${ISO_ROTATE_DEG}deg)`)
+    expect(isoTransformCss('iso', 90)).toContain(
+      `rotate(${ISO_ROTATE_DEG + 90}deg)`,
+    )
+    expect(isoTransformCss('iso', 180)).toContain(
+      `rotate(${ISO_ROTATE_DEG + 180}deg)`,
+    )
+    expect(isoTransformCss('iso', 270)).toContain(
+      `rotate(${ISO_ROTATE_DEG + 270}deg)`,
+    )
+  })
+
+  it('rotationDeg has no effect in flat mode', () => {
+    expect(isoTransformCss('flat', 90)).toBe('none')
+    expect(isoTransformCss('flat', 270)).toBe('none')
+  })
 })
