@@ -74,6 +74,10 @@ test('editor palette places pieces with click-to-place', async ({ page }) => {
   const grid = page.getByTestId('editor-snap-grid')
   await expect(grid).toBeVisible()
   await expect(grid).toHaveAttribute('data-occupied-count', '0')
+  // REQ-110, REQ-111: editor grid mounts in iso mode by default so the
+  // sim-as-primary surface reads as a SimCity-style 45deg dimetric
+  // canvas rather than a flat top-down editor.
+  await expect(grid).toHaveAttribute('data-view-mode', 'iso')
 
   const pieceCount = page.getByTestId('editor-piece-count')
   await expect(pieceCount).toHaveText('Pieces placed: 0')

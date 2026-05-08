@@ -1,6 +1,6 @@
 # 21. Sim-as-primary View
 
-**Status:** not_started
+**Status:** partial
 
 The sim-as-primary view is the top-down or 2.5D-isometric surface that replaces the existing snap-grid editor as the default `/<slug>` route. The drive view becomes a toggle from this surface, not the default. This is the UI side of the Q-009 pivot.
 
@@ -30,4 +30,4 @@ The existing `/<slug>` and `/<slug>/edit` routes need careful handling. Recommen
 
 ### Build log
 
-(no entries yet)
+- 2026-05-08: Slice A landed: 45deg iso projection on the editor SnapGrid (REQ-111 visual). New `src/app/[slug]/edit/isoProjection.ts` exports `ISO_ROTATE_DEG = -45`, `ISO_SCALE_Y = 0.5`, `isoTransformCss(mode)`, and `SnapGridViewMode` union. `src/app/[slug]/edit/SnapGridView.tsx` accepts `viewMode` prop (default `'iso'`) and applies the CSS transform to the SVG element with `transform-origin: center center`; the SVG's internal coords are unchanged so existing pointer events and viewBox pan/zoom keep working. Tests: `tests/app/isoProjection.test.ts` (8 cases on the constants and the transform string); `e2e/editor.spec.ts` adds a `data-view-mode="iso"` assertion. REQ-110 status flips `not_started` -> `partial`. Slice B (route swap), slice C (iso camera rotate + Q/E keys), and slice D (sim controls panel polish) stay deferred. PR #166.

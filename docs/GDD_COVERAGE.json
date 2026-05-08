@@ -1413,9 +1413,15 @@
       "id": "REQ-110",
       "requirement": "Sim-as-primary view: top-down 45-degree iso camera as the new default at /<slug> (drive moves to /<slug>/drive, edit absorbs into the sim toolbar), pan / 90deg-snap rotate / zoom controls, redesigned toolbar tabs (zones, infrastructure, services, transit, terrain), sim controls panel (Pause / 1x / 2x / 4x speed, tax sliders, treasury readout, demand bars), persistent Drive toggle that drops to street level at the camera focus point.",
       "gddRef": "docs/gdd/21-sim-as-primary-view.md",
-      "status": "not_started",
-      "implementationRefs": [],
-      "testRefs": [],
+      "status": "partial",
+      "implementationRefs": [
+        "src/app/[slug]/edit/isoProjection.ts",
+        "src/app/[slug]/edit/SnapGridView.tsx"
+      ],
+      "testRefs": [
+        "tests/app/isoProjection.test.ts",
+        "e2e/editor.spec.ts"
+      ],
       "followupRefs": []
     }
   ]
