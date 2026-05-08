@@ -168,7 +168,7 @@ import {
   shareCopyAriaLabel,
   shareCopyLabel,
   type CopyShareStatus,
-} from './shareUrl'
+} from '@/lib/share'
 import {
   MINIMAP_BACKGROUND_COLOR,
   MINIMAP_BORDER_COLOR,

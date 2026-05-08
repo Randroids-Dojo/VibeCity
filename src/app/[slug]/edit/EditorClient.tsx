@@ -133,7 +133,7 @@ import {
   editCopyLabel,
   SHARE_COPY_RESET_DELAY_MS,
   type CopyShareStatus,
-} from '../shareUrl'
+} from '@/lib/share'
 
 /**
  * Editor client surface (REQ-017, REQ-020, REQ-021, REQ-022, REQ-023,

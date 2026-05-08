@@ -121,13 +121,13 @@
         "src/app/[slug]/slugRoute.ts",
         "src/app/[slug]/DriveSceneClient.tsx",
         "src/app/[slug]/driveScene.ts",
-        "src/app/[slug]/shareUrl.ts",
+        "src/lib/share/index.ts",
         "src/app/[slug]/slugMetadata.ts"
       ],
       "testRefs": [
         "tests/app/slugRoute.test.ts",
         "tests/app/driveScene.test.ts",
-        "tests/app/shareUrl.test.ts",
+        "tests/lib/share/index.test.ts",
         "e2e/drive.spec.ts",
         "tests/app/slugMetadata.test.ts"
       ],
@@ -142,13 +142,13 @@
         "src/app/[slug]/edit/page.tsx",
         "src/app/[slug]/edit/EditorClient.tsx",
         "src/app/[slug]/slugMetadata.ts",
-        "src/app/[slug]/shareUrl.ts"
+        "src/lib/share/index.ts"
       ],
       "testRefs": [
         "tests/app/editRoute.test.ts",
         "e2e/editor.spec.ts",
         "tests/app/slugMetadata.test.ts",
-        "tests/app/shareUrl.test.ts"
+        "tests/lib/share/index.test.ts"
       ],
       "followupRefs": []
     },
@@ -633,11 +633,11 @@
       "implementationRefs": [
         "src/app/[slug]/edit/EditorClient.tsx",
         "src/app/[slug]/edit/page.tsx",
-        "src/app/[slug]/shareUrl.ts"
+        "src/lib/share/index.ts"
       ],
       "testRefs": [
         "e2e/editor.spec.ts",
-        "tests/app/shareUrl.test.ts"
+        "tests/lib/share/index.test.ts"
       ],
       "followupRefs": []
     },
@@ -1076,12 +1076,12 @@
       "implementationRefs": [
         "src/app/[slug]/DriveSceneClient.tsx",
         "src/app/[slug]/driveScene.ts",
-        "src/app/[slug]/shareUrl.ts",
+        "src/lib/share/index.ts",
         "src/app/[slug]/slugMetadata.ts"
       ],
       "testRefs": [
         "tests/app/driveScene.test.ts",
-        "tests/app/shareUrl.test.ts",
+        "tests/lib/share/index.test.ts",
         "e2e/drive.spec.ts",
         "tests/app/slugMetadata.test.ts"
       ],
@@ -1423,7 +1423,7 @@
         "src/app/[slug]/drive/page.tsx",
         "src/app/[slug]/edit/page.tsx",
         "src/app/[slug]/sim/page.tsx",
-        "src/app/[slug]/shareUrl.ts",
+        "src/lib/share/index.ts",
         "src/app/HomeCreateForm.tsx",
         "src/app/[slug]/edit/EditorClient.tsx",
         "src/app/[slug]/DriveSceneClient.tsx"
@@ -1431,7 +1431,7 @@
       "testRefs": [
         "tests/lib/render/iso/projection.test.ts",
         "tests/lib/render/iso/rotation.test.ts",
-        "tests/app/shareUrl.test.ts",
+        "tests/lib/share/index.test.ts",
         "tests/app/editRoute.test.ts",
         "tests/app/driveRoute.test.ts",
         "e2e/editor.spec.ts",
