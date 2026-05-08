@@ -1,10 +1,8 @@
 /**
- * Iso-camera rotation helpers (REQ-111 sim-as-primary slice C).
- *
- * The sim view's iso projection (slice A) renders the city as a 45deg
- * dimetric diamond. Slice C adds 90deg-snap camera rotation on top so
- * a builder can spin the surface to see the back-side of a city or
- * align a placement with a different cardinal direction.
+ * Iso-camera rotation helpers. Game-agnostic: any iso-rendered
+ * surface (e.g. VibeCity's editor at REQ-111, or a future
+ * VibeRacer track viewer) can stack 90deg-snap camera rotation on
+ * top of the base 45deg dimetric projection from `./projection`.
  *
  * Rotation values are stored as integer degrees in [0, 360). The
  * normalize helper accepts any integer (positive, negative, > 360)
@@ -12,10 +10,10 @@
  * transform always reads from one of {0, 90, 180, 270}.
  */
 
-/** Rotation step (degrees) for one Q / `]` press. 90deg gives the four cardinal snaps. */
+/** Rotation step (degrees) per cardinal-snap call. 90deg yields four cardinal orientations. */
 export const ISO_ROTATION_STEP_DEG = 90
 
-/** Default camera rotation when the editor mounts. Zero matches the slice-A iso baseline. */
+/** Default camera rotation for a freshly-mounted iso surface. Zero matches the base 45deg projection. */
 export const DEFAULT_ISO_ROTATION_DEG = 0
 
 /**
@@ -32,18 +30,16 @@ export function normalizeIsoRotation(deg: number): number {
 }
 
 /**
- * Rotate the camera one step counterclockwise (Q key per REQ-111).
- * Returns a normalized degrees value in [0, 360).
+ * Rotate one step counterclockwise. Returns a normalized degrees
+ * value in [0, 360).
  */
 export function rotateIsoCcw(current: number): number {
   return normalizeIsoRotation(current - ISO_ROTATION_STEP_DEG)
 }
 
 /**
- * Rotate the camera one step clockwise. Bound to `]` because the
- * conventional REQ-111 `E` key is already wired to the editor's
- * erase tool (REQ-022); a future slice can add an alternate keybind
- * without conflict. Returns a normalized degrees value in [0, 360).
+ * Rotate one step clockwise. Returns a normalized degrees value
+ * in [0, 360).
  */
 export function rotateIsoCw(current: number): number {
   return normalizeIsoRotation(current + ISO_ROTATION_STEP_DEG)

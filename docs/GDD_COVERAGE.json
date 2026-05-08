@@ -1415,8 +1415,9 @@
       "gddRef": "docs/gdd/21-sim-as-primary-view.md",
       "status": "partial",
       "implementationRefs": [
-        "src/app/[slug]/edit/isoProjection.ts",
-        "src/app/[slug]/edit/isoRotation.ts",
+        "src/lib/render/iso/projection.ts",
+        "src/lib/render/iso/rotation.ts",
+        "src/lib/render/iso/index.ts",
         "src/app/[slug]/edit/SnapGridView.tsx",
         "src/app/[slug]/page.tsx",
         "src/app/[slug]/drive/page.tsx",
@@ -1428,8 +1429,8 @@
         "src/app/[slug]/DriveSceneClient.tsx"
       ],
       "testRefs": [
-        "tests/app/isoProjection.test.ts",
-        "tests/app/isoRotation.test.ts",
+        "tests/lib/render/iso/projection.test.ts",
+        "tests/lib/render/iso/rotation.test.ts",
         "tests/app/shareUrl.test.ts",
         "tests/app/editRoute.test.ts",
         "tests/app/driveRoute.test.ts",
