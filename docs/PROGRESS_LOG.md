@@ -16,6 +16,16 @@ Format for each slice:
 - Followups: any new `F-NNN` entries created. Link to them.
 ```
 
+## 2026-05-08, Cleanup R8: Generic UUID v4 Helpers Extracted
+
+- Branch: `feature/20260508-cleanup-r8-anonid`
+- PR: TBD
+- Changed: Round 8 of the 10-round cleanup. The anonymous-builder-id flow (REQ-009) baked a UUID v4 regex and a `crypto.randomUUID()` call inline in `src/lib/builderId.ts`. Extract the generic shape check + minter to `src/lib/auth/uuidV4.ts` so any future game with the same anonymous-id-in-cookie pattern can reuse them. `builderId.ts` `isValidBuilderId` and `newBuilderId` now delegate to `isValidUuidV4` / `mintUuidV4`. Adds 9 new generic-helper tests in `tests/lib/auth/uuidV4.test.ts` covering canonical accept, version-digit reject, variant-digit reject, lowercase enforcement, malformed-shape reject, and mint-uniqueness.
+- Verification: `npx tsc --noEmit` (clean), `npx vitest run` (76 files, 2343 tests, +9 new), `npm run check:dashes` (clean).
+- Assumptions: A factory like `createAnonCookieMiddleware` was considered but the middleware itself is only 62 lines and parameterizing it would force every callsite (just one currently) to pass the same set of options for no reuse benefit yet. Defer that until a second game proves the demand.
+- GDD coverage: No `docs/GDD_COVERAGE.json` row change.
+- Followups: None new.
+
 ## 2026-05-08, Cleanup R7: Generic Count-Label Formatter Extracted
 
 - Branch: `feature/20260508-cleanup-r7-builderid`

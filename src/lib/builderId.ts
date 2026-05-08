@@ -1,5 +1,6 @@
 import { cookies } from 'next/headers'
 import type { BuilderId } from './schemas'
+import { isValidUuidV4, mintUuidV4 } from './auth/uuidV4'
 
 /**
  * Anonymous owner identity for VibeCity (REQ-009).
@@ -36,19 +37,17 @@ export async function readBuilderId(): Promise<BuilderId | null> {
 }
 
 /**
- * UUID v4 shape check. Mirrors VibeRacer's `isValidRacerId` regex so the
- * two projects accept the same id format.
+ * UUID v4 shape check for a builder id. Delegates to the generic
+ * `isValidUuidV4` so VibeCity and VibeRacer accept the same id format.
  */
 export function isValidBuilderId(value: string): boolean {
-  return /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/.test(
-    value,
-  )
+  return isValidUuidV4(value)
 }
 
 /**
- * Mints a fresh builder id. Call from the route handler that issues the
- * cookie on first visit.
+ * Mints a fresh builder id. Call from the route handler that issues
+ * the cookie on first visit. Delegates to `mintUuidV4`.
  */
 export function newBuilderId(): BuilderId {
-  return crypto.randomUUID()
+  return mintUuidV4()
 }
