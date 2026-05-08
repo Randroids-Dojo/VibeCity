@@ -1,6 +1,6 @@
 # 21. Sim-as-primary View
 
-**Status:** not_started
+**Status:** partial
 
 The sim-as-primary view is the top-down or 2.5D-isometric surface that replaces the existing snap-grid editor as the default `/<slug>` route. The drive view becomes a toggle from this surface, not the default. This is the UI side of the Q-009 pivot.
 

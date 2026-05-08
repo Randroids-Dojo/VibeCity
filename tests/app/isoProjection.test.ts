@@ -33,12 +33,19 @@ describe('isoTransformCss', () => {
     expect(css).toContain('scaleY(0.5)')
   })
 
-  it('rotate appears before scaleY (CSS order matters for the iso shape)', () => {
+  it('scaleY appears before rotate so rotate applies first under CSS right-to-left order', () => {
+    // CSS transform functions are applied right-to-left: the rightmost
+    // function transforms the original coord space first, then the
+    // next-leftmost. To rotate the unit square into a diamond first
+    // and THEN squash the diamond vertically (the SimCity dimetric
+    // shape), `scaleY` must appear on the LEFT and `rotate` on the
+    // RIGHT of the transform string.
     const css = isoTransformCss('iso')
     const rotateIdx = css.indexOf('rotate')
     const scaleIdx = css.indexOf('scale')
     expect(rotateIdx).toBeGreaterThanOrEqual(0)
-    expect(scaleIdx).toBeGreaterThan(rotateIdx)
+    expect(scaleIdx).toBeGreaterThanOrEqual(0)
+    expect(rotateIdx).toBeGreaterThan(scaleIdx)
   })
 
   it('iso transform string mentions the canonical constant values', () => {

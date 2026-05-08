@@ -28,10 +28,18 @@ export type SnapGridViewMode = 'flat' | 'iso'
  * Returns the CSS `transform` string for the given view mode. The
  * editor and any future surfaces (e.g. home-page thumbnails) read this
  * so a single tuning change updates every iso-rendered grid.
+ *
+ * CSS transform functions are applied RIGHT-TO-LEFT (the rightmost
+ * function transforms the original coordinate space first, then the
+ * next-leftmost transforms the result, etc.). For the SimCity-style
+ * dimetric projection we want to rotate the unit square into a
+ * diamond first, then squash the diamond's vertical axis to get the
+ * flat 2:1 ratio. That means `rotate` must appear on the RIGHT and
+ * `scaleY` on the LEFT of the transform string.
  */
 export function isoTransformCss(mode: SnapGridViewMode): string {
   if (mode === 'iso') {
-    return `rotate(${ISO_ROTATE_DEG}deg) scaleY(${ISO_SCALE_Y})`
+    return `scaleY(${ISO_SCALE_Y}) rotate(${ISO_ROTATE_DEG}deg)`
   }
   return 'none'
 }
