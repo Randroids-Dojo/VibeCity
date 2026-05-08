@@ -16,6 +16,16 @@ Format for each slice:
 - Followups: any new `F-NNN` entries created. Link to them.
 ```
 
+## 2026-05-08, Cleanup R3: Autosave FSM Split From City-Specific Equality
+
+- Branch: `feature/20260508-cleanup-r3-autosave`
+- PR: #173
+- Changed: Round 3 of the 10-round cleanup. The old `src/app/[slug]/edit/autosaveStatus.ts` mixed a generic FSM (statuses, labels, default debounce) with the city-shaped `isCityContentEqual` helper. Split: generic FSM moves to `src/lib/editor/autosaveStatus.ts` (re-exported through the `@/lib/editor` barrel); city-specific equality stays in app tree at `src/app/[slug]/edit/cityAutosave.ts`. Tests follow: `tests/lib/editor/autosaveStatus.test.ts` covers the FSM contract; `tests/app/cityAutosave.test.ts` covers the city equality. `EditorClient.tsx` import block consolidated to one `@/lib/editor` import + one `./cityAutosave` import. No behavior changes.
+- Verification: `npx tsc --noEmit` (clean), `npx vitest run` (74/74 files, 2325/2325 tests), `npm run check:dashes` (clean).
+- Assumptions: Splitting cleanly between FSM and equality lets a future game with a different document type (e.g. VibeRacer's `Track`) reuse the FSM without dragging the city schema along. The split adds a one-line second import in `EditorClient.tsx` but the lib file is now city-free.
+- GDD coverage: No `docs/GDD_COVERAGE.json` row change.
+- Followups: None new.
+
 ## 2026-05-08, Cleanup R2: Editor History Hoisted to `src/lib/editor/history.ts`
 
 - Branch: `feature/20260508-cleanup-r2-history`

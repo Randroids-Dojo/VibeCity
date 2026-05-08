@@ -78,18 +78,16 @@ import { countUncoveredIndustrial } from '@/lib/sim/fireAutoSpawn'
 import {
   AUTOSAVE_STATUS_LABEL,
   DEFAULT_AUTOSAVE_DEBOUNCE_MS,
-  isCityContentEqual,
-  type AutosaveStatus,
-} from './autosaveStatus'
-import {
   canRedo,
   canUndo,
   createHistory,
   pushHistory,
   redoHistory,
   undoHistory,
+  type AutosaveStatus,
   type EditorHistory,
 } from '@/lib/editor'
+import { isCityContentEqual } from './cityAutosave'
 import {
   previewCellsFor,
   previewKindFor,

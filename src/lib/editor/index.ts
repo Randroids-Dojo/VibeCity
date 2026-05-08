@@ -14,3 +14,9 @@ export {
   undoHistory,
   type EditorHistory,
 } from './history'
+
+export {
+  AUTOSAVE_STATUS_LABEL,
+  DEFAULT_AUTOSAVE_DEBOUNCE_MS,
+  type AutosaveStatus,
+} from './autosaveStatus'
