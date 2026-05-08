@@ -28,6 +28,9 @@ function findBetweenTierProbe(): number | null {
 const ABOVE_MAX_PROBE =
   Math.max(...MILESTONE_TIERS.map((t) => t.threshold)) + 1
 
+const MIN_THRESHOLD = Math.min(...MILESTONE_TIERS.map((t) => t.threshold))
+const BELOW_MIN_PROBE = MIN_THRESHOLD - 1
+
 describe('MILESTONE_TIERS (mass-appeal slice 1 follow-on)', () => {
   it('covers every threshold in POPULATION_MILESTONES', () => {
     const tierThresholds = MILESTONE_TIERS.map((t) => t.threshold).sort(
@@ -77,9 +80,9 @@ describe('milestoneTierLabel', () => {
   })
 
   it('falls back to the default label for values below the smallest tier', () => {
-    expect(milestoneTierLabel(0)).toBe(DEFAULT_MILESTONE_LABEL)
-    expect(milestoneTierLabel(1)).toBe(DEFAULT_MILESTONE_LABEL)
-    expect(milestoneTierLabel(3)).toBe(DEFAULT_MILESTONE_LABEL)
+    // Derive the probe from the tier table so the assertion stays
+    // valid if a future slice retunes the smallest threshold.
+    expect(milestoneTierLabel(BELOW_MIN_PROBE)).toBe(DEFAULT_MILESTONE_LABEL)
   })
 
   it('falls back to the default for values that do not match any tier', () => {
@@ -99,8 +102,7 @@ describe('milestoneTierColor', () => {
   })
 
   it('falls back to the default color for values below the smallest tier', () => {
-    expect(milestoneTierColor(0)).toBe(DEFAULT_MILESTONE_COLOR)
-    expect(milestoneTierColor(3)).toBe(DEFAULT_MILESTONE_COLOR)
+    expect(milestoneTierColor(BELOW_MIN_PROBE)).toBe(DEFAULT_MILESTONE_COLOR)
   })
 
   it('falls back to the default color for between-tier and above-max values', () => {
