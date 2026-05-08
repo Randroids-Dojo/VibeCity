@@ -1431,12 +1431,13 @@ export function DriveSceneClient({
       if (!Ctor) return
       try {
         const ctx = new Ctor()
+        // Build BOTH rigs before assigning either ref so a throw in
+        // the screech-rig constructor does not leave the engine ref
+        // set with the screech ref null (the next call to
+        // `ensureEngineAudio` short-circuits on the engine ref alone).
         const rig = new EngineAudioRig(ctx)
-        engineRigRef.current = rig
-        // F-013 slice 3 audio: build the screech rig on the same
-        // context. It shares the engine rig's mute state and start
-        // gesture so a single mute toggle covers both.
         const screechRig = new TireScreechAudioRig(ctx)
+        engineRigRef.current = rig
         tireScreechRigRef.current = screechRig
         // Apply the live mute state before start so a player who muted
         // before the first gesture stays muted on first sound.

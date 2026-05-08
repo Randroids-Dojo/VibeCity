@@ -65,10 +65,18 @@ export class TireScreechAudioRig {
   async start(): Promise<void> {
     if (this.started) return
     this.started = true
-    if (this.context.state === 'suspended') {
-      await this.context.resume()
+    try {
+      if (this.context.state === 'suspended') {
+        await this.context.resume()
+      }
+      this.oscillator.start()
+    } catch (error) {
+      // Reset the flag so a subsequent gesture can retry; without this
+      // a transient resume / start failure would lock the rig out for
+      // the entire session.
+      this.started = false
+      throw error
     }
-    this.oscillator.start()
   }
 
   /**

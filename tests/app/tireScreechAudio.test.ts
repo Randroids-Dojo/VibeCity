@@ -7,7 +7,10 @@ import {
   TIRE_SCREECH_SMOOTHING_SECONDS,
   TireScreechAudioRig,
 } from '@/app/[slug]/tireScreechAudio'
-import type { EngineAudioContextLike } from '@/app/[slug]/engineAudio'
+import {
+  ENGINE_MAX_GAIN,
+  type EngineAudioContextLike,
+} from '@/app/[slug]/engineAudio'
 
 interface FakeAudioParam {
   value: number
@@ -125,9 +128,11 @@ describe('TireScreechAudio constants (F-013 slice 3 audio)', () => {
   })
 
   it('gain is well below the engine-rig max (subtle layered cue)', () => {
-    // Engine rig max gain is 0.18; screech gain should sit below it
-    // so the screech does not drown the engine sound.
-    expect(TIRE_SCREECH_GAIN).toBeLessThan(0.18)
+    // Screech gain should sit below the engine's max so the screech
+    // does not drown the engine sound; reading the value through the
+    // shared constant keeps this invariant aligned if the engine rig
+    // is retuned.
+    expect(TIRE_SCREECH_GAIN).toBeLessThan(ENGINE_MAX_GAIN)
   })
 })
 
@@ -200,6 +205,32 @@ describe('TireScreechAudioRig.start', () => {
     const rig = new TireScreechAudioRig(ctx)
     await rig.start()
     expect(ctx.resumeCalls).toBe(0)
+  })
+
+  it('resets started flag on resume failure so a retry can succeed', async () => {
+    // Build a context whose first resume() rejects; the rig should
+    // catch the error, clear the started flag, and re-throw so the
+    // caller can decide whether to retry.
+    const ctx = makeFakeContext('suspended') as FakeContext & {
+      _resumeShouldFail: boolean
+    }
+    ctx._resumeShouldFail = true
+    const originalResume = ctx.resume.bind(ctx)
+    ctx.resume = async () => {
+      if (ctx._resumeShouldFail) {
+        ctx._resumeShouldFail = false
+        throw new Error('autoplay rejected')
+      }
+      await originalResume()
+    }
+
+    const rig = new TireScreechAudioRig(ctx)
+    await expect(rig.start()).rejects.toThrow('autoplay rejected')
+    expect(rig.isStarted()).toBe(false)
+    // A subsequent gesture retries cleanly.
+    await rig.start()
+    expect(rig.isStarted()).toBe(true)
+    expect(ctx.oscillators[0].start).toHaveBeenCalledTimes(1)
   })
 })
 
