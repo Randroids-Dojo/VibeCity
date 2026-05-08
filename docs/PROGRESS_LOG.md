@@ -19,7 +19,7 @@ Format for each slice:
 ## 2026-05-08, Iso Camera Rotate Buttons (REQ-111 polish)
 
 - Branch: `feature/20260508-iso-rotate-buttons`
-- PR: TBD
+- PR: #170
 - Changed: Surfaced the iso-rotate feature added in slice C as discoverable UI. Two rotate buttons (`↺` ccw / `↻` cw) sit in the editor toolbar next to Reset View, wired to the existing `handleRotateIsoCcw` / `handleRotateIsoCw` handlers. Each carries `data-iso-rotation-deg` and a `data-testid`; tooltips and aria-labels mention the Q / `]` keyboard shortcuts so the keyboard binding stays discoverable from the buttons themselves. New e2e in `e2e/sim.spec.ts` clicks the buttons and asserts the SVG `data-viewport-rotation` flips through 0 -> 90 -> 180 -> 270 with two cw clicks then 90 -> 270 via three ccw clicks. No new pure-logic modules; the slice is purely UI surface area on top of slice C.
 - Verification: dash check (clean), `npx tsc --noEmit` (clean), `npx vitest run` (73 files / 2325 tests), `npx playwright test e2e/sim.spec.ts -g "rotate buttons surface iso"` (1/1 pass).
 - Assumptions: The buttons sit inline in the existing tools toolbar rather than as a floating overlay because the toolbar is already where Reset View, Undo, Redo live; consistency wins over a SimCity-style fixed floating widget for v1.
