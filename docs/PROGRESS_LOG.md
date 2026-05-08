@@ -16,6 +16,16 @@ Format for each slice:
 - Followups: any new `F-NNN` entries created. Link to them.
 ```
 
+## 2026-05-08, Cleanup R9: Generic Bbox Thumbnail Projector Extracted
+
+- Branch: `feature/20260508-cleanup-r9-thumbnail`
+- PR: #179
+- Changed: Round 9 of the 10-round cleanup. The home page recent-card thumbnail (F-011, REQ-050) had its bbox-to-normalized math baked into `cityThumbnailDots` in `src/lib/cityThumbnail.ts`. Extracted the generic projection (placements -> normalized [0, 1] x [0, 1] dots with margin + single-placement-centering) into `src/lib/render/thumbnail.ts` as `bboxNormalizedDots<Kind>(placements, { margin })`. The kind tag is generic so any future game (e.g. a VibeRacer track preview) can reuse the same math with its own kind set. `cityThumbnail.ts` is rewritten to gather city-specific placements (pieces with footprints + buildings) and delegate the projection to the generic helper. Public exports (`THUMBNAIL_*`, `ThumbnailDot`, `ThumbnailDotKind`, `cityThumbnailDots`) unchanged. Adds 8 new generic-projector tests in `tests/lib/render/thumbnail.test.ts` covering empty input, single-placement centering, span-collapse axis centering, multi-placement min/max projection, intermediate linear interpolation, kind-tag preservation, and margin contract (0 and 0.25).
+- Verification: `npx tsc --noEmit` (clean), `npx vitest run` (77 files, 2351 tests, +8 new), `npm run check:dashes` (clean).
+- Assumptions: The generic `bboxNormalizedDots` is exported from `src/lib/render/thumbnail.ts` (not as a barrel) because there is no other render-layer module yet that warrants a barrel-level entry. R10 can promote it if more render primitives accumulate.
+- GDD coverage: No `docs/GDD_COVERAGE.json` row change.
+- Followups: None new.
+
 ## 2026-05-08, Cleanup R8: Generic UUID v4 Helpers Extracted
 
 - Branch: `feature/20260508-cleanup-r8-anonid`
