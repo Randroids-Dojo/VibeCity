@@ -12,7 +12,7 @@ import {
   shareCopyAriaLabel,
   shareCopyLabel,
   type CopyShareStatus,
-} from '@/app/[slug]/shareUrl'
+} from '@/lib/share'
 import { SlugSchema, type Slug } from '@/lib/schemas'
 
 /**

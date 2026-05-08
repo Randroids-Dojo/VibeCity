@@ -1,27 +1,25 @@
 import type { Slug } from '@/lib/schemas'
 
 /**
- * Drive-mode share-URL helpers (REQ-006, REQ-053 share polish).
+ * Slug-based share-URL helpers + clipboard-copy FSM. Game-agnostic
+ * within the slug-URL family.
  *
- * Pure module: no React, no DOM, no `navigator.clipboard`. The drive
- * scene client owns the live clipboard call and the per-click status
- * timer; the math here keeps the URL composition and the button
- * label / status mapping fully unit-testable.
+ * Pure module: no React, no DOM, no `navigator.clipboard`. The
+ * caller owns the live clipboard call and the per-click status
+ * timer; this module owns URL composition and the button label /
+ * status mapping so they stay fully unit-testable.
  *
- * Pillar 2 ("Your city, your URL") promises that the slug page is the
- * share link. The drive view is the canonical destination for a
- * shared link: `/<slug>` renders the city in drive mode, while
- * `/<slug>/edit` opens the editor (the build link). The button this
- * module backs lives on the drive HUD and copies the canonical drive
- * URL to the player's clipboard so a visitor can hand the link to a
- * friend without leaving the drive view.
+ * VibeCity's "Your city, your URL" pillar (REQ-006, REQ-053) is the
+ * v1 consumer: `/<slug>` renders the sim view, `/<slug>/drive`
+ * renders the drive scene. Future games on the same slug-URL pattern
+ * (one resource per slug, two views) can import these helpers as is.
  *
  * The URL composition takes an explicit `origin` rather than reading
- * `window.location.origin` so the helper stays pure: the drive scene
- * client passes the live origin in the click handler. A blank or
- * non-string origin collapses to the bare `/<slug>` path so a server-
- * rendered preview (or a misconfigured deployment) still emits a
- * usable relative link rather than a corrupted absolute URL.
+ * `window.location.origin` so the helper stays pure: the consumer
+ * passes the live origin in the click handler. A blank or non-string
+ * origin collapses to the bare relative path so a server-rendered
+ * preview (or a misconfigured deployment) still emits a usable link
+ * rather than a corrupted absolute URL.
  */
 
 /**
