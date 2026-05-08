@@ -10,7 +10,7 @@ import {
   hasKvConfigured,
   kvKeys,
   type CityVersionHash,
-} from '@/lib/kv'
+} from '@/lib/cityKv'
 import { BUILDER_ID_COOKIE, isValidBuilderId } from '@/lib/builderId'
 import { loadCity } from '@/lib/loadCity'
 import { parseCityVersionHash } from '@/lib/cityVersion'

@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach, beforeAll, vi } from 'vitest'
 import { NextRequest } from 'next/server'
 import { FakeKv } from '../_fakeKv'
-import { kvKeys } from '@/lib/kv'
+import { kvKeys } from '@/lib/cityKv'
 import { BUILDER_ID_COOKIE } from '@/lib/builderId'
 import type { Slug } from '@/lib/schemas'
 import type { SimEvent } from '@/lib/sim/events'
@@ -15,8 +15,8 @@ beforeAll(() => {
   process.env.KV_REST_API_TOKEN = 'fake'
 })
 
-vi.mock('@/lib/kv', async () => {
-  const actual = await vi.importActual<typeof import('@/lib/kv')>('@/lib/kv')
+vi.mock('@/lib/cityKv', async () => {
+  const actual = await vi.importActual<typeof import('@/lib/cityKv')>('@/lib/cityKv')
   return { ...actual, getKv: () => fake }
 })
 

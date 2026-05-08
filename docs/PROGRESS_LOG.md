@@ -16,6 +16,16 @@ Format for each slice:
 - Followups: any new `F-NNN` entries created. Link to them.
 ```
 
+## 2026-05-08, Cleanup R6: KV Client Split From City Key Namespace
+
+- Branch: `feature/20260508-cleanup-r6-kv`
+- PR: #176
+- Changed: Round 6 of the 10-round cleanup. The old `src/lib/kv.ts` mixed the generic Upstash Redis client wrapper (`getKv`, `hasKvConfigured`, env-presence checks) with the VibeCity-specific `city:`-namespaced key shapes. Split: generic Redis bits move to `src/lib/storage/kv.ts`; the city-key namespace stays at the lib root, renamed `src/lib/cityKv.ts`. `cityKv.ts` re-exports `getKv` and `hasKvConfigured` for backwards-compatible import shape so callers that only need city keys do not have to grow a second import. New cross-game callers can import the Redis wrapper directly from `@/lib/storage/kv`. Tests follow: `tests/lib/kv.test.ts` -> `tests/lib/cityKv.test.ts`. All `@/lib/kv` imports across `src/` and `tests/` (including `vi.mock` / `vi.importActual` calls) bulk-flipped to `@/lib/cityKv`. Eight `src/lib/*.ts` callers updated for the relative `./kv` -> `./cityKv` rename.
+- Verification: `npx tsc --noEmit` (clean), `npx vitest run` (74/74 files, 2325/2325 tests), `npm run check:dashes` (clean).
+- Assumptions: Re-exporting `getKv` / `hasKvConfigured` from `cityKv.ts` keeps the city-key callsite import shape stable; new cross-game code is encouraged to import from `@/lib/storage/kv` directly so the boundary stays explicit at the call site.
+- GDD coverage: No `docs/GDD_COVERAGE.json` row change; the Redis wrapper is plumbing.
+- Followups: None new.
+
 ## 2026-05-08, Cleanup R5: `relativeTime.ts` Moved to `src/lib/format/`
 
 - Branch: `feature/20260508-cleanup-r5-viewport`

@@ -4,7 +4,7 @@ import {
   kvKeys,
   getKv,
   type CityVersionHash,
-} from '@/lib/kv'
+} from '@/lib/cityKv'
 import type { Slug } from '@/lib/schemas'
 
 const ENV_KEYS = ['KV_REST_API_URL', 'KV_REST_API_TOKEN'] as const

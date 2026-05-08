@@ -1,5 +1,5 @@
 import { SlugSchema, type Slug } from './schemas'
-import { getKv, hasKvConfigured, kvKeys } from './kv'
+import { getKv, hasKvConfigured, kvKeys } from './cityKv'
 
 /**
  * Default page size for the home page recently-updated list (REQ-011,

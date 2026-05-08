@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { FakeKv } from '../_fakeKv'
-import { kvKeys, type CityVersionHash } from '@/lib/kv'
+import { kvKeys, type CityVersionHash } from '@/lib/cityKv'
 import { type Slug } from '@/lib/schemas'
 
 const ENV_KEYS = ['KV_REST_API_URL', 'KV_REST_API_TOKEN'] as const
@@ -20,8 +20,8 @@ function restoreEnv(snap: Record<string, string | undefined>): void {
 
 const fake = new FakeKv()
 
-vi.mock('@/lib/kv', async () => {
-  const actual = await vi.importActual<typeof import('@/lib/kv')>('@/lib/kv')
+vi.mock('@/lib/cityKv', async () => {
+  const actual = await vi.importActual<typeof import('@/lib/cityKv')>('@/lib/cityKv')
   return { ...actual, getKv: () => fake }
 })
 

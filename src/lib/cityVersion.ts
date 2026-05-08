@@ -1,4 +1,4 @@
-import type { CityVersionHash } from './kv'
+import type { CityVersionHash } from './cityKv'
 
 /**
  * sha256 hex digest is 64 lowercase hex chars (REQ-013).

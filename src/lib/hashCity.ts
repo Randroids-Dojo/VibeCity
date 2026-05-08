@@ -1,6 +1,6 @@
 import { createHash } from 'node:crypto'
 import type { Building, City, Piece, PieceFootprintCell } from './schemas'
-import type { CityVersionHash } from './kv'
+import type { CityVersionHash } from './cityKv'
 
 /**
  * Stable content hash over a city's `pieces` and `buildings` (REQ-013).

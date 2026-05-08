@@ -1,7 +1,7 @@
 import { NextResponse, type NextRequest } from 'next/server'
 import { z } from 'zod'
 import { SlugSchema, type Slug } from '@/lib/schemas'
-import { getKv, hasKvConfigured, kvKeys } from '@/lib/kv'
+import { getKv, hasKvConfigured, kvKeys } from '@/lib/cityKv'
 import { BUILDER_ID_COOKIE, isValidBuilderId } from '@/lib/builderId'
 import { SimEventSchema, type SimEvent } from '@/lib/sim/events'
 import {
