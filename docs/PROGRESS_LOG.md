@@ -26,6 +26,16 @@ Format for each slice:
 - GDD coverage: No `docs/GDD_COVERAGE.json` row change; no GDD section file is the sole owner of the editor-history requirement.
 - Followups: None new.
 
+## 2026-05-08, Cleanup R1: Iso Render Primitives Hoisted to `src/lib/render/iso/`
+
+- Branch: `feature/20260508-cleanup-r1-iso`
+- PR: #171
+- Changed: First of a 10-round cleanup to abstract reusable primitives out of the city app tree so future games can import without depending on `src/app/[slug]/`. This round moves the iso projection + camera rotation helpers (game-agnostic CSS-transform math) out of `src/app/[slug]/edit/isoProjection.ts` + `src/app/[slug]/edit/isoRotation.ts` into a new `src/lib/render/iso/` package: `projection.ts`, `rotation.ts`, and an `index.ts` barrel re-export. Tests followed: `tests/lib/render/iso/projection.test.ts` + `tests/lib/render/iso/rotation.test.ts`. Docstrings de-coupled from the editor (the lib documents its API generically; `EditorClient.tsx` and `SnapGridView.tsx` document their own consumer use). No behavior changes; consumers updated to import from `@/lib/render/iso`.
+- Verification: `npx tsc --noEmit` (clean), `npx vitest run` (73/73 files, 2325/2325 tests), `npm run check:dashes` (clean).
+- Assumptions: Co-locating projection + rotation under one `iso/` package because they are coupled by `isoTransformCss(mode, rotationDeg)` in projection.ts; splitting them would force a circular import or push the sum into the consumer.
+- GDD coverage: `docs/GDD_COVERAGE.json` REQ-110 implementationRefs / testRefs updated to the new paths; `docs/gdd/21-sim-as-primary-view.md` build log appended.
+- Followups: None new in this slice.
+
 ## 2026-05-08, Iso Camera Rotate Buttons (REQ-111 polish)
 
 - Branch: `feature/20260508-iso-rotate-buttons`

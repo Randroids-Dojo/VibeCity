@@ -5,7 +5,7 @@ import {
   normalizeIsoRotation,
   rotateIsoCcw,
   rotateIsoCw,
-} from '@/app/[slug]/edit/isoRotation'
+} from '@/lib/render/iso'
 
 describe('isoRotation constants (REQ-111 slice C)', () => {
   it('ISO_ROTATION_STEP_DEG is 90 (four cardinal snaps)', () => {
