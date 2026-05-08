@@ -19,7 +19,7 @@ Format for each slice:
 ## 2026-05-08, Sim-as-Primary Slice C: Iso Camera Rotate (REQ-110, REQ-111)
 
 - Branch: `feature/20260508-iso-rotate`
-- PR: TBD
+- PR: #168
 - Changed: Added a 90deg-snap iso camera rotation on top of the slice-A dimetric projection so a builder can spin the editor surface to view the city from any cardinal direction. Pure helpers in a new `src/app/[slug]/edit/isoRotation.ts` module: `ISO_ROTATION_STEP_DEG`, `DEFAULT_ISO_ROTATION_DEG`, `normalizeIsoRotation` (positive-modulo wrap with non-finite fallback), `rotateIsoCcw`, `rotateIsoCw`. Extended `isoTransformCss(mode, rotationDeg)` in `src/app/[slug]/edit/isoProjection.ts` to sum the camera rotation into the iso rotate angle so the SVG style flips from a single source. `SnapGridView` accepts `viewRotationDeg?: number` (defaults to 0) and mirrors it on the SVG root as `data-viewport-rotation`. `EditorClient` holds the `isoRotationDeg` state, threads it into `<SnapGrid />`, and binds Q to ccw and `]` to cw in the existing keyboard handler (E stays bound to erase per REQ-022, so `]` substitutes for the canonical SimCity E binding).
 - Verification: dash check (clean for the slice), `npx tsc --noEmit` (clean), `npx vitest run` (73 files, 2325 tests passing including 12 new `tests/app/isoRotation.test.ts` cases plus 2 new `tests/app/isoProjection.test.ts` cases for the rotation parameter).
 - Assumptions: Camera rotation is component-local state. Persistence as part of the city mood preset is deferred to a future polish slice. `]` is the cw binding because REQ-022 already owns `E`; documented in code so a future slice can introduce an alternate cw key without conflict.
