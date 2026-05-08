@@ -36,10 +36,20 @@ export type SnapGridViewMode = 'flat' | 'iso'
  * diamond first, then squash the diamond's vertical axis to get the
  * flat 2:1 ratio. That means `rotate` must appear on the RIGHT and
  * `scaleY` on the LEFT of the transform string.
+ *
+ * `rotationDeg` (REQ-111 slice C) adds an additional camera rotation
+ * on top of the base iso angle so a builder can spin the canvas in
+ * 90deg snaps. The two rotations sum into a single `rotate(...)` call
+ * to keep the CSS string compact and the matrix multiplication order
+ * unambiguous.
  */
-export function isoTransformCss(mode: SnapGridViewMode): string {
+export function isoTransformCss(
+  mode: SnapGridViewMode,
+  rotationDeg: number = 0,
+): string {
   if (mode === 'iso') {
-    return `scaleY(${ISO_SCALE_Y}) rotate(${ISO_ROTATE_DEG}deg)`
+    const totalRotate = ISO_ROTATE_DEG + rotationDeg
+    return `scaleY(${ISO_SCALE_Y}) rotate(${totalRotate}deg)`
   }
   return 'none'
 }

@@ -304,6 +304,7 @@ export function SnapGrid({
   onSurfaceWheel,
   onSurfacePointerDown,
   viewMode = DEFAULT_SNAP_GRID_VIEW_MODE,
+  viewRotationDeg = 0,
 }: {
   city: City
   onCellClick?: (row: number, col: number) => void
@@ -377,6 +378,12 @@ export function SnapGrid({
    * zoom continue to operate on the flat coord system.
    */
   viewMode?: SnapGridViewMode
+  /**
+   * Camera rotation in degrees (REQ-111 slice C). Stacks on top of
+   * the base iso rotation so a builder can spin the surface in 90deg
+   * snaps via Q / `]`. Ignored when `viewMode === 'flat'`.
+   */
+  viewRotationDeg?: number
 }) {
   const cells = gridCells()
   const occupiedPieces = occupiedPieceCells(city)
@@ -445,6 +452,7 @@ export function SnapGrid({
       data-viewport-zoom={viewport.zoom}
       data-viewport-default={viewportIsDefault ? 'true' : 'false'}
       data-view-mode={viewMode}
+      data-viewport-rotation={viewRotationDeg}
       width={GRID_PIXEL_SIZE}
       height={GRID_PIXEL_SIZE}
       viewBox={viewBox}
@@ -459,7 +467,7 @@ export function SnapGrid({
         height: 'auto',
         cursor,
         touchAction: 'none',
-        transform: isoTransformCss(viewMode),
+        transform: isoTransformCss(viewMode, viewRotationDeg),
         transformOrigin: 'center center',
       }}
     >
