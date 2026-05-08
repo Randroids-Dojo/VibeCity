@@ -82,6 +82,15 @@ describe('milestoneTierColor', () => {
     expect(milestoneTierColor(3)).toBe(DEFAULT_MILESTONE_COLOR)
   })
 
+  it('falls back to the default color for between-tier and above-max values', () => {
+    // Between-tier: exact-match contract means a value sitting between
+    // two thresholds collapses to the default.
+    expect(milestoneTierColor(5)).toBe(DEFAULT_MILESTONE_COLOR)
+    expect(milestoneTierColor(50)).toBe(DEFAULT_MILESTONE_COLOR)
+    // Above the largest tier: same contract applies.
+    expect(milestoneTierColor(2000)).toBe(DEFAULT_MILESTONE_COLOR)
+  })
+
   it('default color is a valid hex string', () => {
     expect(DEFAULT_MILESTONE_COLOR).toMatch(/^#[0-9a-fA-F]{6}$/)
   })
