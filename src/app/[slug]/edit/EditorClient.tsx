@@ -67,7 +67,7 @@ import {
   AUTO_BAILOUT_TOAST_TICKS,
   BANKRUPTCY_THRESHOLD_TICKS,
   GROWTH_HAPPINESS_THRESHOLD,
-  MILESTONE_TOAST_TICKS,
+  isMilestoneToastVisible,
   milestoneTierColor,
   milestoneTierLabel,
   type SimSpeed,
@@ -1269,9 +1269,10 @@ export function EditorClient({
             {`abandoned: ${abandonedCellKeys.size}`}
           </span>
         ) : null}
-        {simState.population.lastMilestoneTick > 0 &&
-        simState.tick - simState.population.lastMilestoneTick <
-          MILESTONE_TOAST_TICKS ? (
+        {isMilestoneToastVisible(
+          simState.tick,
+          simState.population.lastMilestoneTick,
+        ) ? (
           <span
             data-testid="editor-sim-milestone"
             data-sim-milestone={simState.population.highestMilestoneReached}

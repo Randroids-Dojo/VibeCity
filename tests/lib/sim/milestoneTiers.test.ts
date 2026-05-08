@@ -3,7 +3,9 @@ import {
   DEFAULT_MILESTONE_COLOR,
   DEFAULT_MILESTONE_LABEL,
   MILESTONE_TIERS,
+  MILESTONE_TOAST_TICKS,
   POPULATION_MILESTONES,
+  isMilestoneToastVisible,
   milestoneTierColor,
   milestoneTierLabel,
 } from '@/lib/sim/state'
@@ -123,5 +125,40 @@ describe('milestoneTierColor', () => {
 
   it('default color is a valid hex string', () => {
     expect(DEFAULT_MILESTONE_COLOR).toMatch(/^#[0-9a-fA-F]{6}$/)
+  })
+})
+
+describe('isMilestoneToastVisible (PR #165 follow-on)', () => {
+  it('is hidden when no milestone has fired (lastMilestoneTick = 0)', () => {
+    expect(isMilestoneToastVisible(0, 0)).toBe(false)
+    expect(isMilestoneToastVisible(100, 0)).toBe(false)
+  })
+
+  it('is hidden when lastMilestoneTick is negative (defensive guard)', () => {
+    expect(isMilestoneToastVisible(100, -5)).toBe(false)
+  })
+
+  it('is visible at the boundary tickDiff = 0 (just fired)', () => {
+    expect(isMilestoneToastVisible(50, 50)).toBe(true)
+  })
+
+  it('is visible at tickDiff = MILESTONE_TOAST_TICKS - 1 (last visible tick)', () => {
+    expect(
+      isMilestoneToastVisible(50 + MILESTONE_TOAST_TICKS - 1, 50),
+    ).toBe(true)
+  })
+
+  it('is hidden at tickDiff = MILESTONE_TOAST_TICKS (window expires exactly)', () => {
+    expect(isMilestoneToastVisible(50 + MILESTONE_TOAST_TICKS, 50)).toBe(false)
+  })
+
+  it('is hidden at tickDiff > MILESTONE_TOAST_TICKS (long after the window)', () => {
+    expect(
+      isMilestoneToastVisible(50 + MILESTONE_TOAST_TICKS * 10, 50),
+    ).toBe(false)
+  })
+
+  it('is hidden when currentTick precedes lastMilestoneTick (replay rewind)', () => {
+    expect(isMilestoneToastVisible(40, 50)).toBe(false)
   })
 })

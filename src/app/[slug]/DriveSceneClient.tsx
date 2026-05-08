@@ -182,6 +182,11 @@ import {
   worldToMinimap,
 } from './driveMinimap'
 import { SceneTransitionCurtain } from './SceneTransitionCurtain'
+import {
+  isMilestoneToastVisible,
+  milestoneTierColor,
+  milestoneTierLabel,
+} from '@/lib/sim/state'
 
 /**
  * Drive scene scaffold (REQ-044, REQ-045, REQ-046, REQ-053) plus the
@@ -2637,6 +2642,42 @@ export function DriveSceneClient({
               }}
             />
           </div>
+        </div>
+      ) : null}
+      {hasVehicle &&
+      !showPauseMenu &&
+      isMilestoneToastVisible(
+        simState.tick,
+        simState.population.lastMilestoneTick,
+      ) ? (
+        <div
+          data-testid="drive-hud-milestone"
+          data-sim-milestone={simState.population.highestMilestoneReached}
+          data-milestone-label={milestoneTierLabel(
+            simState.population.highestMilestoneReached,
+          )}
+          role="status"
+          aria-live="polite"
+          aria-atomic="true"
+          style={{
+            position: 'absolute',
+            top: 24,
+            left: '50%',
+            transform: 'translateX(-50%)',
+            padding: '10px 16px',
+            borderRadius: 4,
+            background: 'rgba(34, 34, 34, 0.78)',
+            color: milestoneTierColor(
+              simState.population.highestMilestoneReached,
+            ),
+            fontFamily: 'system-ui, sans-serif',
+            fontSize: 14,
+            fontWeight: 700,
+            letterSpacing: 0.5,
+            whiteSpace: 'nowrap',
+          }}
+        >
+          {`${milestoneTierLabel(simState.population.highestMilestoneReached)} ${simState.population.highestMilestoneReached} residents`}
         </div>
       ) : null}
       {hasVehicle && !showPauseMenu ? (

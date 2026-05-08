@@ -16,6 +16,16 @@ Format for each slice:
 - Followups: any new `F-NNN` entries created. Link to them.
 ```
 
+## 2026-05-08, Drive HUD: Milestone Toast (mass-appeal slice 1 follow-on)
+
+- Branch: `feature/20260508-drive-hud-milestone`
+- PR: #165
+- Changed: `src/app/[slug]/DriveSceneClient.tsx` mounts a top-center `drive-hud-milestone` toast when `population.lastMilestoneTick > 0` and `simState.tick - lastMilestoneTick < MILESTONE_TOAST_TICKS`. The toast renders the same tier-specific label / color from `milestoneTierLabel(value)` / `milestoneTierColor(value)` (PR #164), so the celebratory cue ("village! 12 residents") fires across both editor and drive views. Gated on `hasVehicle && !showPauseMenu` so the toast does not paint over the empty-state prompt or the pause menu. `data-sim-milestone` and `data-milestone-label` mirror the live state for tests. Closes the parity gap that left a player driving when their city crossed a threshold without seeing the celebration.
+- Verification: `npm test` 2296/2296 unit. `npm run type-check` green. `npm run check:dashes` clean. `git diff --check` clean. `npx playwright test e2e/drive.spec.ts --project=chromium --grep "mounts the canvas"` 1/1 (asserts `drive-hud-milestone` is absent on the empty playwright KV city, matching the existing absence-only contract for every other drive HUD readout that requires a non-empty city).
+- Assumptions: Position absolute top-center (different from the speed HUD's bottom-left placement) so the celebration reads as its own channel rather than crowding the speedometer; the same color palette as the editor toast keeps the cue one channel across surfaces. Same `MILESTONE_TOAST_TICKS = 16` window as the editor (~4 wall-seconds at 4Hz) so a returning player who reads the toast sees it for the same duration on both views.
+- GDD coverage: no row in `docs/GDD_COVERAGE.json` flips because milestone polish has no canonical REQ-NNN ID; this entry sits under PR #150's mass-appeal slice 1 in the progress log.
+- Followups: F-NEW (deferred): per-tier sound effect (low chime for `village`, brass swell for `metropolis`); animated tier badge image to the left of the text; in-world ground particle effect on milestone fires.
+
 ## 2026-05-08, Mass-Appeal Polish: Tier-Specific Milestone Toasts (mass-appeal slice 1 follow-on)
 
 - Branch: `feature/20260508-milestone-tiers`
