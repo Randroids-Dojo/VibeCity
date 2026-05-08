@@ -63,10 +63,23 @@ describe('milestoneTierLabel', () => {
   })
 
   it('falls back to the default for values that do not match any tier', () => {
-    // Between thresholds: the tier ladder is exact-match, not range-based.
-    expect(milestoneTierLabel(5)).toBe(DEFAULT_MILESTONE_LABEL)
-    expect(milestoneTierLabel(50)).toBe(DEFAULT_MILESTONE_LABEL)
-    expect(milestoneTierLabel(2000)).toBe(DEFAULT_MILESTONE_LABEL)
+    // Between thresholds: derive a probe strictly between two adjacent
+    // tiers so the assertion stays valid if a future slice retunes the
+    // tier ladder. The exact-match contract guarantees this collapses
+    // to the default regardless of which tiers exist.
+    const between =
+      MILESTONE_TIERS[0].threshold + 1 < MILESTONE_TIERS[1].threshold
+        ? MILESTONE_TIERS[0].threshold + 1
+        : Math.floor(
+            (MILESTONE_TIERS[0].threshold + MILESTONE_TIERS[1].threshold) /
+              2,
+          )
+    expect(milestoneTierLabel(between)).toBe(DEFAULT_MILESTONE_LABEL)
+    // Above the largest tier: the highest threshold + 1 is guaranteed
+    // not to match any tier.
+    const aboveMax =
+      Math.max(...MILESTONE_TIERS.map((t) => t.threshold)) + 1
+    expect(milestoneTierLabel(aboveMax)).toBe(DEFAULT_MILESTONE_LABEL)
   })
 })
 
@@ -83,12 +96,19 @@ describe('milestoneTierColor', () => {
   })
 
   it('falls back to the default color for between-tier and above-max values', () => {
-    // Between-tier: exact-match contract means a value sitting between
-    // two thresholds collapses to the default.
-    expect(milestoneTierColor(5)).toBe(DEFAULT_MILESTONE_COLOR)
-    expect(milestoneTierColor(50)).toBe(DEFAULT_MILESTONE_COLOR)
-    // Above the largest tier: same contract applies.
-    expect(milestoneTierColor(2000)).toBe(DEFAULT_MILESTONE_COLOR)
+    // Derive probes from the MILESTONE_TIERS table so the assertion
+    // stays valid if a future slice retunes the ladder.
+    const between =
+      MILESTONE_TIERS[0].threshold + 1 < MILESTONE_TIERS[1].threshold
+        ? MILESTONE_TIERS[0].threshold + 1
+        : Math.floor(
+            (MILESTONE_TIERS[0].threshold + MILESTONE_TIERS[1].threshold) /
+              2,
+          )
+    expect(milestoneTierColor(between)).toBe(DEFAULT_MILESTONE_COLOR)
+    const aboveMax =
+      Math.max(...MILESTONE_TIERS.map((t) => t.threshold)) + 1
+    expect(milestoneTierColor(aboveMax)).toBe(DEFAULT_MILESTONE_COLOR)
   })
 
   it('default color is a valid hex string', () => {
