@@ -1,5 +1,20 @@
 import { pieceFootprintCells } from '@/app/[slug]/edit/snapGrid'
 import type { City } from './schemas'
+import {
+  bboxNormalizedDots,
+  type BboxPlacement,
+  type NormalizedDot,
+} from './render/thumbnail'
+
+/**
+ * VibeCity-specific thumbnail dot projection (F-011, REQ-050). Walks
+ * the city's pieces (with footprints) and buildings to gather a
+ * placement list, then delegates the bbox-to-normalized projection to
+ * the generic `bboxNormalizedDots` helper in `@/lib/render/thumbnail`.
+ *
+ * The home page recent-cards (`src/app/page.tsx`) consume the result
+ * to render the small SVG thumbnail next to each slug.
+ */
 
 /**
  * Rendered thumbnail size in pixels (square). Drives both the SVG
@@ -25,13 +40,7 @@ export const THUMBNAIL_DOT_RADIUS = 0.05
 /** Distinguishes piece dots (streets) from building dots so consumers can color them differently. */
 export type ThumbnailDotKind = 'piece' | 'building'
 
-export interface ThumbnailDot {
-  /** Normalized x in [0, 1] (column axis). */
-  xNorm: number
-  /** Normalized y in [0, 1] (row axis). */
-  yNorm: number
-  kind: ThumbnailDotKind
-}
+export type ThumbnailDot = NormalizedDot<ThumbnailDotKind>
 
 /**
  * Project a city's pieces and buildings into a normalized [0, 1] x
@@ -46,7 +55,7 @@ export interface ThumbnailDot {
  * dot at their anchor cell (v1 buildings have no footprint field).
  */
 export function cityThumbnailDots(city: City): ThumbnailDot[] {
-  const placements: { row: number; col: number; kind: ThumbnailDotKind }[] = []
+  const placements: BboxPlacement<ThumbnailDotKind>[] = []
   for (const piece of city.pieces) {
     for (const cell of pieceFootprintCells(piece)) {
       placements.push({ row: cell.row, col: cell.col, kind: 'piece' })
@@ -59,31 +68,5 @@ export function cityThumbnailDots(city: City): ThumbnailDot[] {
       kind: 'building',
     })
   }
-  if (placements.length === 0) return []
-
-  let minRow = placements[0].row
-  let maxRow = placements[0].row
-  let minCol = placements[0].col
-  let maxCol = placements[0].col
-  for (const p of placements) {
-    if (p.row < minRow) minRow = p.row
-    if (p.row > maxRow) maxRow = p.row
-    if (p.col < minCol) minCol = p.col
-    if (p.col > maxCol) maxCol = p.col
-  }
-  const rowSpan = maxRow - minRow
-  const colSpan = maxCol - minCol
-  const usable = 1 - THUMBNAIL_MARGIN * 2
-
-  return placements.map((p) => {
-    const xNorm =
-      colSpan === 0
-        ? 0.5
-        : THUMBNAIL_MARGIN + ((p.col - minCol) / colSpan) * usable
-    const yNorm =
-      rowSpan === 0
-        ? 0.5
-        : THUMBNAIL_MARGIN + ((p.row - minRow) / rowSpan) * usable
-    return { xNorm, yNorm, kind: p.kind }
-  })
+  return bboxNormalizedDots(placements, { margin: THUMBNAIL_MARGIN })
 }
