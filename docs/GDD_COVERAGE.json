@@ -1416,11 +1416,25 @@
       "status": "partial",
       "implementationRefs": [
         "src/app/[slug]/edit/isoProjection.ts",
-        "src/app/[slug]/edit/SnapGridView.tsx"
+        "src/app/[slug]/edit/SnapGridView.tsx",
+        "src/app/[slug]/page.tsx",
+        "src/app/[slug]/drive/page.tsx",
+        "src/app/[slug]/edit/page.tsx",
+        "src/app/[slug]/sim/page.tsx",
+        "src/app/[slug]/shareUrl.ts",
+        "src/app/HomeCreateForm.tsx",
+        "src/app/[slug]/edit/EditorClient.tsx",
+        "src/app/[slug]/DriveSceneClient.tsx"
       ],
       "testRefs": [
         "tests/app/isoProjection.test.ts",
-        "e2e/editor.spec.ts"
+        "tests/app/shareUrl.test.ts",
+        "tests/app/editRoute.test.ts",
+        "tests/app/driveRoute.test.ts",
+        "e2e/editor.spec.ts",
+        "e2e/drive.spec.ts",
+        "e2e/home.spec.ts",
+        "e2e/sim.spec.ts"
       ],
       "followupRefs": []
     }

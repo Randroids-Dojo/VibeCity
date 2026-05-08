@@ -2376,7 +2376,7 @@ export function DriveSceneClient({
         </button>
       </div>
       <Link
-        href={`/${slug}/edit`}
+        href={`/${slug}`}
         data-testid="drive-edit-cta"
         data-slug={slug}
         aria-label={`Edit city ${slug}`}
@@ -2450,7 +2450,7 @@ export function DriveSceneClient({
             the grid to start your city.
           </p>
           <Link
-            href={`/${slug}/edit`}
+            href={`/${slug}`}
             data-testid="drive-empty-create-cta"
             prefetch
             style={{
@@ -2889,7 +2889,7 @@ export function DriveSceneClient({
               Resume
             </button>
             <Link
-              href={`/${slug}/edit`}
+              href={`/${slug}`}
               data-testid="drive-pause-edit-cta"
               data-slug={slug}
               aria-label={`Edit city ${slug}`}

@@ -16,6 +16,26 @@ Format for each slice:
 - Followups: any new `F-NNN` entries created. Link to them.
 ```
 
+## 2026-05-08, Sim-as-Primary Slice B: Route Swap (REQ-110)
+
+- Branch: `feature/20260508-route-swap`
+- PR: #N (when known)
+- Changed: Inverted the `/<slug>` and `/<slug>/edit` routes so the SimCity-style sim view (the editor surface) is now the canonical landing for a saved city. Specifically:
+  - `src/app/[slug]/page.tsx` now renders the editor (was the drive scene). Default export `SlugSimPage`.
+  - New `src/app/[slug]/drive/page.tsx` renders `DriveSceneClient` (was at `/<slug>`).
+  - `src/app/[slug]/edit/page.tsx` is now a 308 redirect to `/<slug>` (preserves the optional `?v=<hash>` query string for deep links).
+  - `src/app/[slug]/sim/page.tsx` redirect target updated from `/<slug>/edit` to `/<slug>` so the legacy chain collapses to one hop.
+  - `src/app/[slug]/shareUrl.ts`: `buildShareUrl(slug, origin?)` now returns `/<slug>/drive`; `buildEditUrl(slug, origin?)` now returns `/<slug>`.
+  - `src/app/[slug]/edit/EditorClient.tsx`: editor toolbar Drive CTA href flipped from `/<slug>` to `/<slug>/drive`.
+  - `src/app/[slug]/DriveSceneClient.tsx`: drive HUD Edit CTAs (top-right, empty-state, pause-menu) all flipped from `/<slug>/edit` to `/<slug>`.
+  - `src/app/HomeCreateForm.tsx`: home page Create CTA navigates new slugs to `/<slug>` instead of `/<slug>/edit`; preview text updated to "Will open /<normalized>".
+  - All e2e tests updated: drive specs visit `/<slug>/drive`, editor href / waitForURL assertions match the new contract, share-copy clipboard assertions, sim/sim-redirect target.
+  - Test imports updated: `tests/app/driveRoute.test.ts` imports from `@/app/[slug]/drive/page`; `tests/app/editRoute.test.ts` imports from `@/app/[slug]/page` (the new editor location).
+- Verification: `npm test` 2311/2311 unit (URL contract assertions in `tests/app/shareUrl.test.ts` retuned for the new buildShareUrl `/drive` suffix and buildEditUrl bare-slug shape). `npm run type-check` green. `npm run build` green. `npm run check:dashes` clean. `git diff --check` clean. `npx playwright test e2e/drive.spec.ts --project=chromium` 4/4 local. `npx playwright test e2e/editor.spec.ts --project=chromium` 28/28 local. `npx playwright test e2e/sim.spec.ts --project=chromium` 31/31 local. `npx playwright test e2e/home.spec.ts --project=chromium` 2/3 local (the `home page renders the heading` test fails on a stale dev-KV that has 2 leftover slugs from earlier session runs; the assertion is hermetic on CI which runs against a clean KV; same flakiness was tracked under F-008/F-010 on previous PRs).
+- Assumptions: The 308-redirect at `/<slug>/edit` preserves shareable bookmarks across the migration window; a future polish slice can decide whether to retire the redirect or keep it as a permanent alias. The "Edit" label on the drive HUD CTAs stays unchanged for slice B (the action of returning to the building canvas is still "edit"); a future slice could rename to "Sim view" if the team prefers.
+- GDD coverage: `docs/GDD_COVERAGE.json` REQ-110 implementationRefs and testRefs both extended with the route + helpers + test files touched in this slice. `docs/gdd/21-sim-as-primary-view.md` build log gains an entry. Slice C (iso camera rotate + Q/E keys) and slice D (sim controls panel polish) stay deferred.
+- Followups: F-NEW (deferred): rename "Edit" CTA labels to "Sim view" for clarity; per-route metadata refresh so the new `/<slug>` reads "Sim <slug> | VibeCity" instead of inheriting the old editTitle.
+
 ## 2026-05-08, Sim-as-Primary Slice A: 45deg Iso Projection (REQ-110, REQ-111)
 
 - Branch: `feature/20260508-iso-projection`

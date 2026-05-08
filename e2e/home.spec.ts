@@ -62,7 +62,7 @@ test('Create form normalizes input and gates the submit on validity', async ({
   await input.fill('Downtown Loop!')
   await expect(preview).toHaveAttribute('data-normalized', 'downtownloop')
   await expect(preview).toHaveAttribute('data-valid', 'true')
-  await expect(preview).toContainText('Will open /downtownloop/edit')
+  await expect(preview).toContainText('Will open /downtownloop')
   await expect(submit).toBeEnabled()
 
   // All-disallowed input collapses to empty after normalize and fails the schema.
@@ -78,7 +78,7 @@ test('Create form normalizes input and gates the submit on validity', async ({
   await expect(submit).toBeEnabled()
 })
 
-test('Create form submit navigates to /<normalized>/edit', async ({ page }) => {
+test('Create form submit navigates to /<normalized> (REQ-110 slice B)', async ({ page }) => {
   await page.goto('/')
 
   const input = page.getByTestId('home-create-slug-input')
@@ -87,6 +87,6 @@ test('Create form submit navigates to /<normalized>/edit', async ({ page }) => {
   const submit = page.getByTestId('home-create-submit')
   await submit.click()
 
-  await page.waitForURL('**/my-first-city/edit')
-  expect(page.url()).toMatch(/\/my-first-city\/edit$/)
+  await page.waitForURL('**/my-first-city')
+  expect(page.url()).toMatch(/\/my-first-city$/)
 })

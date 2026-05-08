@@ -1,10 +1,14 @@
 import { describe, expect, it } from 'vitest'
-import EditCityPage, { generateMetadata } from '@/app/[slug]/edit/page'
+import SlugSimPage, { generateMetadata } from '@/app/[slug]/page'
 import { editDescription, editTitle } from '@/app/[slug]/slugMetadata'
 import { SlugSchema } from '@/lib/schemas'
 
+const EditCityPage = SlugSimPage
+
 /**
- * REQ-007: `/<slug>/edit` editor route.
+ * REQ-007 + REQ-110 slice B: editor / sim-as-primary route at `/<slug>`.
+ * (Was `/<slug>/edit` before the route swap; that path is now a 308
+ * redirect and the editor logic lives at `/<slug>`.)
  *
  * The route reuses `parseSlugParam` (covered by `slugRoute.test.ts`)
  * for slug validation, so the accept paths for slug shape are already

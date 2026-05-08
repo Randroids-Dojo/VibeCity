@@ -1840,7 +1840,7 @@ export function EditorClient({
           {editCopyLabel(editCopyStatus)}
         </button>
         <Link
-          href={`/${slug}`}
+          href={`/${slug}/drive`}
           data-testid="editor-drive-cta"
           data-slug={slug}
           aria-label={`Drive city ${slug}`}

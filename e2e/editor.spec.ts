@@ -543,14 +543,14 @@ test('toolbar Drive CTA links to /<slug> and navigates on click (REQ-026)', asyn
   await expect(palette.getByTestId('editor-drive-cta')).toBeVisible()
 
   // The CTA points at the slug's drive view at /<slug>.
-  await expect(driveCta).toHaveAttribute('href', '/drive-cta-spec')
+  await expect(driveCta).toHaveAttribute('href', '/drive-cta-spec/drive')
   await expect(driveCta).toHaveAttribute('data-slug', 'drive-cta-spec')
   await expect(driveCta).toHaveText('Drive')
 
-  // Clicking the Drive CTA navigates to /<slug>.
+  // Clicking the Drive CTA navigates to /<slug>/drive (REQ-110 slice B).
   await driveCta.click()
-  await page.waitForURL('**/drive-cta-spec')
-  expect(page.url()).toMatch(/\/drive-cta-spec$/)
+  await page.waitForURL('**/drive-cta-spec/drive')
+  expect(page.url()).toMatch(/\/drive-cta-spec\/drive$/)
 })
 
 test('building palette places, switches category, and erases (REQ-028, REQ-029)', async ({
@@ -1891,17 +1891,17 @@ test('editor toolbar copy-build-URL button copies the canonical edit URL (REQ-00
       'Copied build URL for copy-build-spec',
     )
 
-    // The clipboard now holds the canonical editor URL composed from the
-    // page origin plus the slug plus the `/edit` suffix. We read it back
-    // via the page's navigator.clipboard so the assertion exercises the
-    // same surface the click handler wrote to.
+    // REQ-110 slice B: the canonical editor URL is now the bare slug
+    // (the editor lives at `/<slug>`; drive moved to `/<slug>/drive`).
+    // We read the clipboard back via the page's navigator.clipboard so
+    // the assertion exercises the same surface the click handler wrote.
     const clipboardText = await page.evaluate(() =>
       navigator.clipboard.readText(),
     )
     const expectedOrigin =
       baseURL ?? page.url().replace(/\/copy-build-spec.*/, '')
     expect(clipboardText).toBe(
-      `${expectedOrigin.replace(/\/$/, '')}/copy-build-spec/edit`,
+      `${expectedOrigin.replace(/\/$/, '')}/copy-build-spec`,
     )
 
     // After SHARE_COPY_RESET_DELAY_MS (1600 ms) the button resets to idle

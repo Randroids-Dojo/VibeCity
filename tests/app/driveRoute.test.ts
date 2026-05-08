@@ -1,10 +1,12 @@
 import { describe, expect, it } from 'vitest'
-import SlugDrivePage, { generateMetadata } from '@/app/[slug]/page'
+import SlugDrivePage, { generateMetadata } from '@/app/[slug]/drive/page'
 import { driveDescription, driveTitle } from '@/app/[slug]/slugMetadata'
 import { SlugSchema } from '@/lib/schemas'
 
 /**
- * REQ-006 / REQ-049: `/<slug>` drive-view route.
+ * REQ-006 / REQ-049 + REQ-110 slice B: drive-view route at `/<slug>/drive`.
+ * (Was `/<slug>` before the route swap; sim-as-primary moved the editor
+ * to `/<slug>` and the drive scene to `/<slug>/drive`.)
  *
  * The route reuses `parseSlugParam` (covered by `slugRoute.test.ts`)
  * for slug validation, so the accept paths for slug shape are already

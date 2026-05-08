@@ -4,47 +4,34 @@ import { notFound } from 'next/navigation'
 import { loadCity } from '@/lib/loadCity'
 import { readVersionParam } from '@/lib/cityVersion'
 import { parseSlugParam } from './slugRoute'
-import { DriveSceneClient } from './DriveSceneClient'
-import { driveDescription, driveTitle } from './slugMetadata'
+import { editDescription, editTitle } from './slugMetadata'
 import { BUILDER_ID_COOKIE, isValidBuilderId } from '@/lib/builderId'
 import type { BuilderId } from '@/lib/schemas'
+import { EditorClient } from './edit/EditorClient'
 
 /**
- * Drive-view route at `/<slug>` (REQ-006, REQ-044, REQ-045, REQ-046,
- * REQ-049, REQ-053).
+ * Sim-as-primary view at `/<slug>` (REQ-110, REQ-111).
  *
- * v1 scope: validate the slug, optionally pin to a historical version
- * via `?v=<hash>` (REQ-049), load the saved city via `loadCity`
- * (REQ-015), and mount the three.js drive scene scaffold seeded with
- * that city. The scaffold renders street pieces as flat colored quads
- * (REQ-045), buildings as extruded boxes (REQ-046), with a noon-style
- * lighting rig over a flat ground plane (REQ-044), and an empty-state
- * prompt that asks the author to place a road first when the city has
- * zero pieces and zero buildings (REQ-053). The Edit CTA in the
- * scene's top-right corner returns to `/<slug>/edit` so the build /
- * drive loop round-trips from a single control surface.
+ * Was the drive route before slice B of REQ-110; the route swap moved
+ * the drive scene to `/<slug>/drive` so `/<slug>` can host the
+ * SimCity-style 45deg dimetric editor / sim surface as the default
+ * landing experience for a saved city. The contract here is the same
+ * editor surface that previously lived at `/<slug>/edit` (REQ-007,
+ * REQ-016 grid + REQ-017 palette + REQ-020 click-to-place + REQ-021
+ * rotate + REQ-022 erase + REQ-023 undo/redo + REQ-025 autosave +
+ * REQ-026 Drive CTA + REQ-028/REQ-029 building palette parity). The
+ * old `/<slug>/edit` route 308-redirects to here so bookmarks keep
+ * working through the migration window.
  *
- * `?v=<hash>` (REQ-049): pins the load to a specific historical
- * version. Hash format is sha256 hex (64 lowercase hex chars) per
- * REQ-013. A malformed hash fails the route via `notFound()` so a
- * broken share link surfaces the framework 404 instead of silently
- * falling through to the latest version (which would be a confusing
- * UX for a shared snapshot URL). A valid-shape hash that is not in KV
- * resolves to `EMPTY_CITY` via `loadCity`'s missing-version branch so
- * the empty-state prompt appears; the page still renders, the URL is
- * still meaningful, and the player can click Edit to start over.
+ * `?v=<hash>` (REQ-048): pins the initial load to a specific
+ * historical version. Hash format is sha256 hex (64 lowercase hex
+ * chars) per REQ-013. A malformed hash fails the route via
+ * `notFound()`. Loading a pinned version into the editor and then
+ * making an edit forks: the next autosave PUT writes a fresh `:latest`
+ * pointer, mirroring VibeRacer's "edit-from-history" semantics.
  *
  * Invalid slugs return 404 via `notFound()` so unsharable URLs do not
- * leak into the drive view.
- */
-/**
- * Per-route metadata for `/<slug>` (REQ-006, REQ-053). Sets the browser
- * tab title to "Drive <slug> | VibeCity" and the description to a
- * one-line sentence naming the slug so a shared drive link in iMessage,
- * Slack, or a browser-tab list reads with the slug context instead of
- * the bare site name. Invalid slugs fall back to the site-wide title
- * defined in `src/app/layout.tsx` so a 404 render does not leak a
- * slug-shaped title for a URL that did not load.
+ * leak into the editor.
  */
 export async function generateMetadata({
   params,
@@ -56,16 +43,16 @@ export async function generateMetadata({
   if (!slug) {
     return {}
   }
-  const description = driveDescription(slug)
+  const description = editDescription(slug)
   return {
-    title: driveTitle(slug),
+    title: editTitle(slug),
     description,
-    openGraph: { title: driveTitle(slug), description },
-    twitter: { title: driveTitle(slug), description },
+    openGraph: { title: editTitle(slug), description },
+    twitter: { title: editTitle(slug), description },
   }
 }
 
-export default async function SlugDrivePage({
+export default async function SlugSimPage({
   params,
   searchParams,
 }: {
@@ -86,11 +73,6 @@ export default async function SlugDrivePage({
 
   const { city } = await loadCity(slug, pinned ?? undefined)
 
-  // Read the builder cookie so the drive scene can mount the sim
-  // engine and surface zones / power state from the event log
-  // (REQ-088). Middleware mints + propagates on first visit; if the
-  // cookie is somehow missing, fail closed with notFound() and let a
-  // refresh recover.
   const jar = await cookies()
   const builderIdRaw = jar.get(BUILDER_ID_COOKIE)?.value
   if (!builderIdRaw || !isValidBuilderId(builderIdRaw)) {
@@ -98,5 +80,31 @@ export default async function SlugDrivePage({
   }
   const builderId = builderIdRaw as BuilderId
 
-  return <DriveSceneClient slug={slug} city={city} builderId={builderId} />
+  return (
+    <main
+      style={{
+        minHeight: '100vh',
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        gap: 16,
+        fontFamily: 'system-ui, sans-serif',
+        background: '#f7f4ee',
+        color: '#222',
+        padding: 24,
+      }}
+    >
+      <p style={{ fontSize: 14, margin: 0, opacity: 0.55, letterSpacing: 1 }}>
+        VIBECITY
+      </p>
+      <h1 style={{ fontSize: 32, margin: 0, wordBreak: 'break-all' }}>{slug}</h1>
+      <p style={{ fontSize: 14, margin: 0, opacity: 0.65, textAlign: 'center' }}>
+        Pick a tab (Streets, Zones, Buildings, Power, Water, Services,
+        Disasters), click the iso grid to place items. Press R to
+        rotate. Press E to erase. Edits autosave. Click Drive in the
+        toolbar to take this city for a spin.
+      </p>
+      <EditorClient slug={slug} initialCity={city} builderId={builderId} />
+    </main>
+  )
 }
