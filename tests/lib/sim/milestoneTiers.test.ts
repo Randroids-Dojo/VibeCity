@@ -8,6 +8,26 @@ import {
   milestoneTierLabel,
 } from '@/lib/sim/state'
 
+/**
+ * Find a probe value strictly between two adjacent tier thresholds.
+ * Walks every adjacent pair so a tier ladder with one tight pair (say
+ * 4 and 5) and one loose pair (say 12 and 40) still yields a valid
+ * probe from the loose pair. Returns null when every pair is
+ * consecutive integers (no gap anywhere); the calling test should
+ * skip the between-tier assertion in that case.
+ */
+function findBetweenTierProbe(): number | null {
+  for (let i = 1; i < MILESTONE_TIERS.length; i++) {
+    const lo = MILESTONE_TIERS[i - 1].threshold
+    const hi = MILESTONE_TIERS[i].threshold
+    if (hi > lo + 1) return lo + 1
+  }
+  return null
+}
+
+const ABOVE_MAX_PROBE =
+  Math.max(...MILESTONE_TIERS.map((t) => t.threshold)) + 1
+
 describe('MILESTONE_TIERS (mass-appeal slice 1 follow-on)', () => {
   it('covers every threshold in POPULATION_MILESTONES', () => {
     const tierThresholds = MILESTONE_TIERS.map((t) => t.threshold).sort(
@@ -63,23 +83,11 @@ describe('milestoneTierLabel', () => {
   })
 
   it('falls back to the default for values that do not match any tier', () => {
-    // Between thresholds: derive a probe strictly between two adjacent
-    // tiers so the assertion stays valid if a future slice retunes the
-    // tier ladder. The exact-match contract guarantees this collapses
-    // to the default regardless of which tiers exist.
-    const between =
-      MILESTONE_TIERS[0].threshold + 1 < MILESTONE_TIERS[1].threshold
-        ? MILESTONE_TIERS[0].threshold + 1
-        : Math.floor(
-            (MILESTONE_TIERS[0].threshold + MILESTONE_TIERS[1].threshold) /
-              2,
-          )
-    expect(milestoneTierLabel(between)).toBe(DEFAULT_MILESTONE_LABEL)
-    // Above the largest tier: the highest threshold + 1 is guaranteed
-    // not to match any tier.
-    const aboveMax =
-      Math.max(...MILESTONE_TIERS.map((t) => t.threshold)) + 1
-    expect(milestoneTierLabel(aboveMax)).toBe(DEFAULT_MILESTONE_LABEL)
+    const between = findBetweenTierProbe()
+    if (between !== null) {
+      expect(milestoneTierLabel(between)).toBe(DEFAULT_MILESTONE_LABEL)
+    }
+    expect(milestoneTierLabel(ABOVE_MAX_PROBE)).toBe(DEFAULT_MILESTONE_LABEL)
   })
 })
 
@@ -96,19 +104,11 @@ describe('milestoneTierColor', () => {
   })
 
   it('falls back to the default color for between-tier and above-max values', () => {
-    // Derive probes from the MILESTONE_TIERS table so the assertion
-    // stays valid if a future slice retunes the ladder.
-    const between =
-      MILESTONE_TIERS[0].threshold + 1 < MILESTONE_TIERS[1].threshold
-        ? MILESTONE_TIERS[0].threshold + 1
-        : Math.floor(
-            (MILESTONE_TIERS[0].threshold + MILESTONE_TIERS[1].threshold) /
-              2,
-          )
-    expect(milestoneTierColor(between)).toBe(DEFAULT_MILESTONE_COLOR)
-    const aboveMax =
-      Math.max(...MILESTONE_TIERS.map((t) => t.threshold)) + 1
-    expect(milestoneTierColor(aboveMax)).toBe(DEFAULT_MILESTONE_COLOR)
+    const between = findBetweenTierProbe()
+    if (between !== null) {
+      expect(milestoneTierColor(between)).toBe(DEFAULT_MILESTONE_COLOR)
+    }
+    expect(milestoneTierColor(ABOVE_MAX_PROBE)).toBe(DEFAULT_MILESTONE_COLOR)
   })
 
   it('default color is a valid hex string', () => {
