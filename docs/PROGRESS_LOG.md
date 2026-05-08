@@ -16,6 +16,16 @@ Format for each slice:
 - Followups: any new `F-NNN` entries created. Link to them.
 ```
 
+## 2026-05-08, Mass-Appeal Polish: Tier-Specific Milestone Toasts (mass-appeal slice 1 follow-on)
+
+- Branch: `feature/20260508-milestone-tiers`
+- PR: #164
+- Changed: `src/lib/sim/state.ts` adds `MilestoneTier` interface, the `MILESTONE_TIERS` table mapping each `POPULATION_MILESTONES` threshold to a distinct label + hex color (`first homes!` warm yellow, `village!` light green, `neighborhood!` green, `town!` blue, `borough!` purple, `city!` gold, `metropolis!` bright gold), `DEFAULT_MILESTONE_LABEL` / `DEFAULT_MILESTONE_COLOR` fallbacks, and pure resolvers `milestoneTierLabel(value)` / `milestoneTierColor(value)`. `src/app/[slug]/edit/EditorClient.tsx` reads both helpers in the milestone toast JSX so the toast text reads "neighborhood! 40 residents" with a green tint instead of the prior generic "milestone! 40 residents". `data-milestone-label` mirrors the live label for tests. Closes the deferred F-NEW from PR #150 (mass-appeal slice 1: tier-specific milestone copy and colors).
+- Verification: `npm test` 2294/2294 unit (12 new cases under `MILESTONE_TIERS (mass-appeal slice 1 follow-on)` + `milestoneTierLabel` + `milestoneTierColor` covering coverage parity with `POPULATION_MILESTONES`, label / color non-empty + distinctness, threshold strictly increasing, exact-match resolution, and default fallback). `npm run type-check` green. `npm run check:dashes` clean. `git diff --check` clean.
+- Assumptions: The resolver uses exact-threshold matching (not range-based), so a population value of 50 between the 40 and 100 tiers reads as "milestone!" with the default green; this matches the `POPULATION_MILESTONES` event-source contract where the toast only fires the moment the city CROSSES a threshold (`highestMilestoneReached` is always one of the listed values). Color choices follow a warm-cool-warm progression (yellow / greens / blue / purple / golds) so the player reads the ladder as a journey rather than a single channel.
+- GDD coverage: no row in `docs/GDD_COVERAGE.json` flips because milestone polish has no canonical REQ-NNN ID; this entry sits under PR #150's mass-appeal slice 1 in the progress log.
+- Followups: F-NEW (deferred): per-tier sound effect (low chime for `village`, brass swell for `metropolis`); animated tier badge image to the left of the text instead of plain copy.
+
 ## 2026-05-07, Drive Feel: Tire-Screech Audio Rig (F-013 slice 3 audio)
 
 - Branch: `feature/20260507-tire-screech-audio`
