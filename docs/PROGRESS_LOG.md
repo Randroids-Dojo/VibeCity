@@ -19,7 +19,7 @@ Format for each slice:
 ## 2026-05-08, Cleanup R4: Share URL Helpers Hoisted to `src/lib/share/`
 
 - Branch: `feature/20260508-cleanup-r4-shareurl`
-- PR: TBD
+- PR: #174
 - Changed: Round 4 of the 10-round cleanup. The slug-based share-URL helpers + clipboard-copy FSM (`buildShareUrl`, `buildEditUrl`, `CopyShareStatus`, `shareCopyLabel`, `shareCopyAriaLabel`, `editCopyLabel`, `editCopyAriaLabel`, `SHARE_COPY_*`, `EDIT_COPY_*`, `SHARE_COPY_RESET_DELAY_MS`) move out of `src/app/[slug]/shareUrl.ts` into `src/lib/share/index.ts`. Tests follow to `tests/lib/share/index.test.ts`. Module docstring rewritten to describe the slug-URL contract generically (any future game on the same one-resource-two-views pattern can import as is). `EditorClient.tsx` and `DriveSceneClient.tsx` import from `@/lib/share`. No behavior changes.
 - Verification: `npx tsc --noEmit` (clean), `npx vitest run` (74/74 files, 2325/2325 tests), `npm run check:dashes` (clean).
 - Assumptions: Whole-cloth move rather than splitting the FSM from URL composition. Both halves work cleanly together; splitting would force a tiny barrel and add an extra import line in two consumers without making either half more reusable.
