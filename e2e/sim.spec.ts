@@ -49,6 +49,27 @@ test('legacy /<slug>/sim redirects to /<slug> (REQ-110 slice B)', async ({ page 
   expect(page.url()).toMatch(/\/sim-redirect-spec(?:[?#].*)?$/)
 })
 
+test('sim view: rotate buttons surface iso camera rotation (REQ-111)', async ({
+  page,
+}) => {
+  await page.goto('/sim-rotate-buttons-spec')
+  const ccw = page.getByTestId('editor-rotate-iso-ccw')
+  const cw = page.getByTestId('editor-rotate-iso-cw')
+  const grid = page.locator('[data-viewport-rotation]')
+  await expect(ccw).toBeVisible()
+  await expect(cw).toBeVisible()
+  await expect(grid).toHaveAttribute('data-viewport-rotation', '0')
+  await cw.click()
+  await expect(grid).toHaveAttribute('data-viewport-rotation', '90')
+  await cw.click()
+  await expect(grid).toHaveAttribute('data-viewport-rotation', '180')
+  await ccw.click()
+  await expect(grid).toHaveAttribute('data-viewport-rotation', '90')
+  await ccw.click()
+  await ccw.click()
+  await expect(grid).toHaveAttribute('data-viewport-rotation', '270')
+})
+
 test('sim view: REQ-113 controls panel is visible by default at /<slug> (speed selector, treasury, demand bars, tax sliders)', async ({
   page,
 }) => {
