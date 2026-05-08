@@ -32,6 +32,14 @@ const MIN_THRESHOLD = Math.min(...MILESTONE_TIERS.map((t) => t.threshold))
 const BELOW_MIN_PROBE = MIN_THRESHOLD - 1
 
 describe('MILESTONE_TIERS (mass-appeal slice 1 follow-on)', () => {
+  it('contains at least one tier (non-empty invariant)', () => {
+    // The probe constants and several other assertions in this file
+    // assume at least one tier exists; an empty table would make them
+    // vacuous (and `Math.max(...[])` would yield `-Infinity`). This
+    // guard surfaces the regression directly.
+    expect(MILESTONE_TIERS.length).toBeGreaterThan(0)
+  })
+
   it('covers every threshold in POPULATION_MILESTONES', () => {
     const tierThresholds = MILESTONE_TIERS.map((t) => t.threshold).sort(
       (a, b) => a - b,
