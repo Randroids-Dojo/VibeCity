@@ -16,6 +16,16 @@ Format for each slice:
 - Followups: any new `F-NNN` entries created. Link to them.
 ```
 
+## 2026-05-08, Cleanup R7: Generic Count-Label Formatter Extracted
+
+- Branch: `feature/20260508-cleanup-r7-builderid`
+- PR: #177
+- Changed: Round 7 of the 10-round cleanup. Considered extracting `builderId.ts` (small, web-framework-coupled) and `connectors.ts` (heavily city-piece-coupled) but neither was a clean cross-game win. Pivoted to extracting the generic count-with-noun pluralizer that backs the home page's "N cities so far" cue. New `src/lib/format/countLabel.ts` exports `formatCountLabel(count, { singular, plural, suffix? })` with the defensive contract (non-finite / negative -> empty, fractional floored). `src/lib/cityCount.ts` rewritten to delegate to the generic helper while keeping the same public exports (`formatCityCount`, `CITY_COUNT_SUFFIX`, `CITY_COUNT_NOUN_SINGULAR`, `CITY_COUNT_NOUN_PLURAL`) so callers do not change. Adds 9 new generic-formatter tests in `tests/lib/format/countLabel.test.ts`.
+- Verification: `npx tsc --noEmit` (clean), `npx vitest run` (75 files, 2334 tests, +9 new), `npm run check:dashes` (clean).
+- Assumptions: The generic helper takes a structured `{ singular, plural, suffix? }` options object so future callers can omit the suffix or override per-call without growing the parameter list. English-only pluralization for v1; locale-aware pluralization can layer on later if the game ships in non-English markets.
+- GDD coverage: No `docs/GDD_COVERAGE.json` row change.
+- Followups: None new.
+
 ## 2026-05-08, Cleanup R6: KV Client Split From City Key Namespace
 
 - Branch: `feature/20260508-cleanup-r6-kv`
