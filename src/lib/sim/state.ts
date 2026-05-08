@@ -905,6 +905,27 @@ export const POPULATION_MILESTONES: readonly number[] = [
 export const MILESTONE_TOAST_TICKS = 16
 
 /**
+ * Pure predicate for whether the milestone toast should currently be
+ * visible. The toast is on for the `MILESTONE_TOAST_TICKS` ticks that
+ * follow `lastMilestoneTick`; it is off when no milestone has fired yet
+ * (`lastMilestoneTick === 0`) or the window has elapsed. Both the
+ * editor toolbar and the drive HUD read this so the visibility window
+ * stays one channel across surfaces.
+ */
+export function isMilestoneToastVisible(
+  currentTick: number,
+  lastMilestoneTick: number,
+): boolean {
+  if (lastMilestoneTick <= 0) return false
+  const diff = currentTick - lastMilestoneTick
+  // A replay rewind to a tick BEFORE the milestone fired should not
+  // re-show the toast (the milestone has not happened yet from the
+  // replay's point of view).
+  if (diff < 0) return false
+  return diff < MILESTONE_TOAST_TICKS
+}
+
+/**
  * Per-tier milestone label and color (mass-appeal slice 1 follow-on).
  * Each `POPULATION_MILESTONES` threshold gets a distinct copy and tint
  * so the toast reads as a progression arc ("first homes" -> "village"

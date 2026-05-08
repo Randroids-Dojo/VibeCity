@@ -183,7 +183,7 @@ import {
 } from './driveMinimap'
 import { SceneTransitionCurtain } from './SceneTransitionCurtain'
 import {
-  MILESTONE_TOAST_TICKS,
+  isMilestoneToastVisible,
   milestoneTierColor,
   milestoneTierLabel,
 } from '@/lib/sim/state'
@@ -2646,9 +2646,10 @@ export function DriveSceneClient({
       ) : null}
       {hasVehicle &&
       !showPauseMenu &&
-      simState.population.lastMilestoneTick > 0 &&
-      simState.tick - simState.population.lastMilestoneTick <
-        MILESTONE_TOAST_TICKS ? (
+      isMilestoneToastVisible(
+        simState.tick,
+        simState.population.lastMilestoneTick,
+      ) ? (
         <div
           data-testid="drive-hud-milestone"
           data-sim-milestone={simState.population.highestMilestoneReached}
