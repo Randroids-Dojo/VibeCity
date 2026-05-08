@@ -1,7 +1,7 @@
 import Link from 'next/link'
 import { cityIndexCount, recentCities } from '@/lib/recentSlugs'
 import { formatCityCount } from '@/lib/cityCount'
-import { formatRelativeTime } from '@/lib/relativeTime'
+import { formatRelativeTime } from '@/lib/format/relativeTime'
 import { loadCity } from '@/lib/loadCity'
 import {
   THUMBNAIL_DOT_RADIUS,
