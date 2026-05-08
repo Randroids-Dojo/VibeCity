@@ -19,7 +19,7 @@ Format for each slice:
 ## 2026-05-08, Cleanup R2: Editor History Hoisted to `src/lib/editor/history.ts`
 
 - Branch: `feature/20260508-cleanup-r2-history`
-- PR: TBD
+- PR: #172
 - Changed: Round 2 of the 10-round cleanup. The undo / redo helpers were already pure and generic on `T` (a port from VibeRacer), so this round just relocates them out of the city app tree. `src/app/[slug]/edit/editorHistory.ts` -> `src/lib/editor/history.ts`; new `src/lib/editor/index.ts` barrel; tests follow to `tests/lib/editor/history.test.ts`. Lib docstring rewritten to describe the generic API (no editor-specific framing). `EditorClient.tsx` imports flipped to `@/lib/editor`. No behavior changes.
 - Verification: `npx tsc --noEmit` (clean), `npx vitest run` (73/73 files, 2325/2325 tests), `npm run check:dashes` (clean).
 - Assumptions: One barrel file under `src/lib/editor/` so future generic editor primitives (autosave status FSM in R3, etc.) can co-locate without each one growing its own import path.
