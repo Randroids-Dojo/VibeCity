@@ -49,6 +49,33 @@ test('legacy /<slug>/sim redirects to /<slug> (REQ-110 slice B)', async ({ page 
   expect(page.url()).toMatch(/\/sim-redirect-spec(?:[?#].*)?$/)
 })
 
+test('sim view: REQ-113 controls panel is visible by default at /<slug> (speed selector, treasury, demand bars, tax sliders)', async ({
+  page,
+}) => {
+  await page.goto('/sim-controls-panel-spec')
+  // Speed selector (Pause / 1x / 2x / 4x) per REQ-113.
+  await expect(page.getByTestId('editor-sim-speed')).toBeVisible()
+  for (const speed of [0, 1, 2, 4]) {
+    await expect(page.getByTestId(`editor-sim-speed-${speed}`)).toBeVisible()
+  }
+  // Treasury readout per REQ-113.
+  await expect(page.getByTestId('editor-sim-treasury')).toBeVisible()
+  // Demand bars (R / C / I) per REQ-113.
+  for (const kind of ['residential', 'commercial', 'industrial']) {
+    await expect(page.getByTestId(`editor-sim-demand-${kind}`)).toBeVisible()
+  }
+  // Tax sliders (R / C / I) per REQ-113.
+  for (const kind of ['residential', 'commercial', 'industrial']) {
+    await expect(page.getByTestId(`editor-sim-tax-${kind}`)).toBeVisible()
+    await expect(
+      page.getByTestId(`editor-sim-tax-${kind}-up`),
+    ).toBeVisible()
+    await expect(
+      page.getByTestId(`editor-sim-tax-${kind}-down`),
+    ).toBeVisible()
+  }
+})
+
 test('editor toolbar exposes the sim speed controls (Pause / 1x / 2x / 4x)', async ({
   page,
 }) => {
