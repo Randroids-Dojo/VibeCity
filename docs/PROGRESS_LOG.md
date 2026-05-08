@@ -16,6 +16,16 @@ Format for each slice:
 - Followups: any new `F-NNN` entries created. Link to them.
 ```
 
+## 2026-05-08, Cleanup R5: `relativeTime.ts` Moved to `src/lib/format/`
+
+- Branch: `feature/20260508-cleanup-r5-viewport`
+- PR: #175
+- Changed: Round 5 of the 10-round cleanup. Originally planned to extract `gridViewport.ts`, but it depends on `snapGrid.ts` which is heavily coupled to city schemas (`City`, `Piece`, `PieceFootprintCell`); a clean extraction would require parameterizing every callsite that reads `GRID_PIXEL_SIZE` / `CELL_PIXELS`, which is more invasive than this round should be. Pivoted to a smaller cleanly-extractable target: the generic relative-time formatter. `src/lib/relativeTime.ts` -> `src/lib/format/relativeTime.ts`. Tests follow to `tests/lib/format/relativeTime.test.ts`. Two import sites updated (`src/app/page.tsx`, `src/lib/recentSlugs.ts` docstring). New `src/lib/format/` subdir gives later rounds a place to land more pure formatters without growing the lib top level.
+- Verification: `npx tsc --noEmit` (clean), `npx vitest run` (74/74 files, 2325/2325 tests), `npm run check:dashes` (clean).
+- Assumptions: Smaller scope is better than forcing a heavy refactor of the viewport math just to put it in a different folder. The viewport extraction can return as a later round once the snap-grid coupling is unwound (or once a future game proves it needs the same math against a different cell size).
+- GDD coverage: No `docs/GDD_COVERAGE.json` row change.
+- Followups: Documenting that gridViewport / snapGrid extraction stays deferred for now.
+
 ## 2026-05-08, Cleanup R4: Share URL Helpers Hoisted to `src/lib/share/`
 
 - Branch: `feature/20260508-cleanup-r4-shareurl`

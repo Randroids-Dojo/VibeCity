@@ -23,7 +23,7 @@ export const MAX_RECENT_SLUGS_LIMIT = 100
  * to 128 chars). `updatedAt` is the `Date.now()` value the writer set
  * as the sorted-set score at the time the city was last saved; the home
  * page renders it as a relative "N ago" cue via `formatRelativeTime`
- * from `./relativeTime`.
+ * from `./format/relativeTime`.
  */
 export type RecentCityEntry = {
   slug: Slug

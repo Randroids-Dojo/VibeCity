@@ -3,7 +3,7 @@ import {
   RELATIVE_TIME_JUST_NOW_LABEL,
   RELATIVE_TIME_JUST_NOW_THRESHOLD_MS,
   formatRelativeTime,
-} from '@/lib/relativeTime'
+} from '@/lib/format/relativeTime'
 
 const SECOND_MS = 1000
 const MINUTE_MS = 60 * SECOND_MS
