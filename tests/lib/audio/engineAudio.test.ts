@@ -13,7 +13,7 @@ import {
   engineGainForSpeed,
 } from '@/lib/audio/engineAudio'
 import { DEFAULT_KEY_BINDINGS, MAX_SPEED } from '@/app/[slug]/driveControls'
-import { PAUSE_KEY_CODE } from '@/app/[slug]/pauseMenu'
+import { PAUSE_KEY_CODE } from '@/lib/ui/pauseMenu'
 import { RESPAWN_KEY_CODE } from '@/app/[slug]/respawn'
 
 /**
