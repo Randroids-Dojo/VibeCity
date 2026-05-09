@@ -45,6 +45,14 @@ Keep `F-NNN` IDs monotonically increasing. When a followup ships, leave the entr
 
 ## Nice To Have
 
+### F-018: Adopt `@randroids-dojo/vibekit` across remaining duplicated lib modules
+
+- Priority: nice-to-have
+- Context: VibeKit v0.1.0 cut the kit's first stable release with framework-agnostic modules (`storage`, `editor-history`, `confetti`, `math`, `rng`, `virtual-joystick`) plus a server entry (`server/kv`, `server/sign`, `server/rate-limit`) that mirror code already shipped under VibeCity's `src/lib/`. Slice 1 swapped `src/lib/editor/history.ts` to re-export from the kit. The umbrella tracks the remaining migrations on the open dots (`VibeCity-migrate-src-storage-*`, `VibeCity-migrate-citykv-ts-*`, `VibeCity-audit-src-audio-*`).
+- Blocker: each slice has its own behavioral delta to vet (e.g. kit `getKv()` returns `null` instead of throwing on missing env, kit `storage` is schema-validated rather than string-level), so the umbrella stays open until all consumers are vetted slice-by-slice.
+- Unblock condition: each migration dot ships its own PR with type-check, vitest, and build green; close the dot with the PR url and append a `Status: slice N landed YYYY-MM-DD via PR #N` line here. Close this umbrella when no kit-equivalent helper remains duplicated in `src/lib/`.
+- Status: slice 1 landed 2026-05-09 (`src/lib/editor/history.ts` re-exports from `@randroids-dojo/vibekit`) via PR <pending>.
+
 ### F-017: Scope `solveServicesCoverage` to populated cells in `computeCityHappiness`
 
 - Priority: nice-to-have

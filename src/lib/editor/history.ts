@@ -1,17 +1,23 @@
 /**
  * Pure undo / redo stack helpers. Game-agnostic.
  *
- * The same immutable history math powers VibeCity's editor (REQ-023)
- * and the VibeRacer editor (`src/game/editorHistory.ts` upstream).
- * The consumer owns React state and keyboard wiring; this module
- * owns the stack math:
+ * Re-exports the kit's `editor-history` module so VibeCity and the
+ * other consumer games (VibeRacer, FrackingAsteroids, etc.) all share
+ * the same immutable history math. REQ-023 (editor undo / redo) wires
+ * VibeCity's editor onto these helpers.
+ *
+ * The kit holds the canonical implementation in
+ * `@randroids-dojo/vibekit` (`editor-history.ts`). Keeping a thin
+ * re-export here preserves the project-internal `@/lib/editor` barrel
+ * shape so consumers do not have to import from the kit directly. The
+ * surface mirrors what `tests/lib/editor/history.test.ts` exercises:
  *
  *  - `createHistory(initial)` seeds a fresh history with one present
  *    entry and no past or future.
  *  - `pushHistory(history, next)` records the current present onto the
- *    past stack, sets `next` as the new present, clears the redo stack,
- *    and caps the past length at `EDITOR_HISTORY_MAX_PAST` so a long
- *    editing session cannot grow without bound.
+ *    past stack, sets `next` as the new present, clears the redo
+ *    stack, and caps the past length at `EDITOR_HISTORY_MAX_PAST` so a
+ *    long editing session cannot grow without bound.
  *  - `undoHistory(history)` pops the most recent past entry into the
  *    present and pushes the prior present onto the future stack so it
  *    can be redone.
@@ -20,76 +26,23 @@
  *  - `canUndo` / `canRedo` are O(1) flags the toolbar reads to disable
  *    buttons.
  *
- * Equality: when the caller pushes a value that is reference-equal to
- * the current present, the helpers return the same history object.
- * This keeps an idempotent state-setter callsite (e.g. clicking erase
- * on an already empty cell, or click-to-place on an occupied cell that
- * the `placePiece` reducer rejects via identity equality) from
- * polluting the past stack with no-op duplicates.
+ * Equality semantics: when the caller pushes a value reference-equal
+ * to the current present, the helpers return the same history object,
+ * so an idempotent setter (e.g. clicking erase on an already empty
+ * cell) does not pollute the past stack with no-op duplicates.
  *
- * Generic `T` lets the same helpers wrap a `City`, a `Piece[]`, or any
- * future editor-managed value. The VibeCity editor wraps `City`.
+ * The kit also exposes `replacePresent` and `resetHistory`. They are
+ * not re-exported here because the v1 VibeCity editor does not use
+ * them; a future slice that needs them can extend this re-export.
  */
 
-/**
- * Hard cap on the number of past states kept around. Each entry is
- * a shallow reference to whatever value type `T` represents, so
- * 100 entries is well under any memory concern for typical editor
- * payloads (cities, tracks, etc.). Matches the cap VibeRacer ships
- * so authors who switch between projects see consistent undo depth.
- */
-export const EDITOR_HISTORY_MAX_PAST = 100
-
-export interface EditorHistory<T> {
-  past: T[]
-  present: T
-  future: T[]
-}
-
-export function createHistory<T>(initial: T): EditorHistory<T> {
-  return { past: [], present: initial, future: [] }
-}
-
-export function canUndo<T>(history: EditorHistory<T>): boolean {
-  return history.past.length > 0
-}
-
-export function canRedo<T>(history: EditorHistory<T>): boolean {
-  return history.future.length > 0
-}
-
-export function pushHistory<T>(
-  history: EditorHistory<T>,
-  next: T,
-): EditorHistory<T> {
-  // No-op when the value did not actually change. Keeps the past stack
-  // free of duplicates from idempotent setters (e.g. a `placePiece`
-  // call that returns the original city because the target cell is
-  // occupied).
-  if (next === history.present) return history
-  // Use spread + bracket push instead of `Array.prototype.concat` so an
-  // array-typed `T` is not auto-flattened into the past stack.
-  const past = [...history.past, history.present]
-  // Drop the oldest entry once we exceed the cap. The cap is a safety
-  // net, not a feature, so an author who hits it just loses access to
-  // the earliest few states rather than blowing up memory.
-  while (past.length > EDITOR_HISTORY_MAX_PAST) past.shift()
-  return { past, present: next, future: [] }
-}
-
-export function undoHistory<T>(history: EditorHistory<T>): EditorHistory<T> {
-  if (!canUndo(history)) return history
-  const past = history.past.slice(0, -1)
-  const present = history.past[history.past.length - 1]
-  const future = [history.present, ...history.future]
-  return { past, present, future }
-}
-
-export function redoHistory<T>(history: EditorHistory<T>): EditorHistory<T> {
-  if (!canRedo(history)) return history
-  const present = history.future[0]
-  const future = history.future.slice(1)
-  // Spread instead of concat so an array-typed `T` is not auto-flattened.
-  const past = [...history.past, history.present]
-  return { past, present, future }
-}
+export {
+  EDITOR_HISTORY_MAX_PAST,
+  canRedo,
+  canUndo,
+  createHistory,
+  pushHistory,
+  redoHistory,
+  undoHistory,
+  type EditorHistory,
+} from '@randroids-dojo/vibekit'

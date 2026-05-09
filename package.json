@@ -15,6 +15,7 @@
     "check:dashes": "bash scripts/check-no-dashes.sh"
   },
   "dependencies": {
+    "@randroids-dojo/vibekit": "github:Randroids-Dojo/VibeKit#v0.1.0",
     "@types/three": "^0.184.0",
     "@upstash/redis": "^1.37.0",
     "next": "^15.0.0",

@@ -10,7 +10,7 @@ These directories contain pure helpers that have no dependency on the city schem
 | --- | --- | --- |
 | `audio/` | Web Audio rigs (oscillator + filter + gain wiring + per-frame `update`) | `engineAudio.ts`, `tireScreech.ts` |
 | `auth/` | UUID v4 helpers, anonymous-cookie middleware factory | `uuidV4.ts`, `anonCookie.ts` |
-| `editor/` | Generic editor primitives: undo/redo stack, autosave FSM | `history.ts`, `autosaveStatus.ts` |
+| `editor/` | Generic editor primitives: undo/redo stack (re-exports from `@randroids-dojo/vibekit`), autosave FSM | `history.ts`, `autosaveStatus.ts` |
 | `format/` | Pure string formatters | `relativeTime.ts`, `countLabel.ts` |
 | `input/` | Generic vehicle input plumbing: action vocabulary, default WASD/arrow bindings, key-set to input snapshot translator | `vehicleControls.ts` |
 | `physics/` | Pure planar arcade vehicle integrator parameterized via `VehicleTuning` | `vehicle.ts` |

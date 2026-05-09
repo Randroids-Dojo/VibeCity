@@ -16,6 +16,16 @@ Format for each slice:
 - Followups: any new `F-NNN` entries created. Link to them.
 ```
 
+## 2026-05-09, Adopt `@randroids-dojo/vibekit` v0.1.0 (slice 1: editor history)
+
+- Branch: `chore/deps/adopt-vibekit-v0.1.0`
+- PR: #N (pending)
+- Changed: First migration slice off the VibeKit umbrella (F-018). Added `@randroids-dojo/vibekit` at `github:Randroids-Dojo/VibeKit#v0.1.0` to `package.json` dependencies. Replaced the body of `src/lib/editor/history.ts` with a thin re-export of the kit's `editor-history` exports (`createHistory`, `pushHistory`, `undoHistory`, `redoHistory`, `canUndo`, `canRedo`, `EDITOR_HISTORY_MAX_PAST`, `type EditorHistory`). The `@/lib/editor` barrel keeps the same external shape so `EditorClient.tsx` and the history test file need zero changes; the kit becomes the source of truth for the undo/redo math shared with VibeRacer. The kit ships TypeScript source rather than a compiled `dist/`, so `next.config.mjs` adds `transpilePackages: ['@randroids-dojo/vibekit']` to let Next's swc loader run the kit through the build pipeline. Updated the `editor/` row in `src/lib/README.md` to note the re-export. Filed F-018 as the umbrella followup tracking the remaining dots (`migrate-src-storage`, `migrate-citykv-ts`, `audit-src-audio`).
+- Verification: `npm run check:dashes` (clean), `npm run type-check` (clean), `npm test` (85 files / 2416 tests passing), `npm run build` (compiled successfully, all routes generated).
+- Assumptions: The kit's `editor-history` exports are byte-identical in signature to the VibeCity copy that originally ported from VibeRacer, so no consumer change is required; the kit also exposes `replacePresent` and `resetHistory` but the v1 editor does not use them, so they are not re-exported through `@/lib/editor` until a future slice needs them. Pinning to the `v0.1.0` git tag (rather than a floating ref) matches the watch-list contract in `docs/DEPENDENCY_LEDGER.md`.
+- GDD coverage: No `docs/GDD_COVERAGE.json` row change. REQ-023 (editor undo / redo) still references `src/lib/editor/history.ts` and `tests/lib/editor/history.test.ts`; both paths still resolve, the implementation now lives behind the kit re-export.
+- Followups: F-018 (umbrella) with first-slice status line added.
+
 ## 2026-05-09, Cleanup R30: `docs/CLEANUP_LOOPS_SUMMARY.md` (Loop 3 Final Round)
 
 - Branch: `feature/20260508-cleanup-r30-loop3-final`
