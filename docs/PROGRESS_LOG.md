@@ -19,7 +19,7 @@ Format for each slice:
 ## 2026-05-09, Cleanup R18: Dead-Code / Unused-Export Audit
 
 - Branch: `feature/20260508-cleanup-r18-unused-exports`
-- PR: TBD
+- PR: #188
 - Changed: Round 18 of the cleanup loop. Ran `npx knip` to surface unused exports across the lib + app trees. The full report flagged ~50 candidates but most are false positives: zod schemas accessed via `vi.mock` / dynamic import (`tests/lib/recentVersions.test.ts` imports `MAX_RECENT_VERSIONS_LIMIT` via `await import(...)` which knip cannot trace), schema composition (sim event schemas referenced through union types), or recently-added forward-looking exports (the R15 `chaseCameraDefaults` / `CAMERA_RIG_UNIT_SIZE`). Two clean safe wins kept:
   - `src/lib/builderId.ts`: removed the unused `readBuilderId()` helper plus its `cookies` import from `next/headers`. Server components that need the cookie call `cookies()` directly; the helper added a layer that no caller used.
   - `src/lib/recentSlugs.ts`: dropped `export` from `DEFAULT_RECENT_SLUGS_LIMIT` (used only as a default-arg value within the file; no external consumer).
