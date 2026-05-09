@@ -1,22 +1,20 @@
 /**
- * Drive-mode pause menu state machine (REQ-039 pause via Esc, REQ-038
- * Edit CTA in the pause menu).
+ * Pause menu state machine. Game-agnostic.
  *
- * Pure module: no React, no DOM, no three.js. The drive scene client
- * owns the live state, the keyboard listener, and the overlay markup;
- * this module supplies the state taxonomy, the bound key code, and the
- * pure transitions so the state machine is fully unit-testable.
+ * A two-state machine (`running` / `paused`) with a single Esc-key
+ * toggle. Pure module: no React, no DOM. The consumer owns the live
+ * state, the keyboard listener, and the overlay markup; this module
+ * supplies the state taxonomy, the bound key code, and the pure
+ * transitions so the state machine is fully unit-testable.
  *
- * v1 ships two states (`running` and `paused`) and one trigger (Esc).
- * VibeRacer's lap-timer compensation (which paused / resumed the timer
- * around a paused interval) is dropped here because REQ-037 explicitly
- * forbids a lap timer in VibeCity. The pause menu offers two actions:
- * resume (closes the menu) and Edit (navigates back to `/<slug>/edit`).
+ * VibeCity's drive scene (REQ-038, REQ-039) is the v1 consumer.
+ * Future games with a pause overlay can wire the same toggle without
+ * rebuilding the state taxonomy.
  *
- * The integration loop in `DriveSceneClient.tsx` reads the live state
- * each frame: while paused, the loop skips the `applyDriveStep` call
- * and the chase camera rig update so the world freezes; when the menu
- * closes the loop resumes from the same vehicle state.
+ * The integration loop in the consumer reads the live state each
+ * frame: while paused, the loop skips its step / camera updates so
+ * the world freezes; when the menu closes the loop resumes from the
+ * same simulation state.
  */
 
 /**

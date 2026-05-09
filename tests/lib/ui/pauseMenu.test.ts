@@ -7,7 +7,7 @@ import {
   openPauseMenu,
   togglePauseState,
   type PauseState,
-} from '@/app/[slug]/pauseMenu'
+} from '@/lib/ui/pauseMenu'
 
 /**
  * REQ-039 pause via Esc, REQ-038 Edit CTA in pause menu. The state

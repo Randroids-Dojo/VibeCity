@@ -129,7 +129,7 @@ import {
   isPaused,
   togglePauseState,
   type PauseState,
-} from './pauseMenu'
+} from '@/lib/ui/pauseMenu'
 import {
   applyBuildingPenalty,
   buildingCellSet,
