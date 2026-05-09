@@ -16,6 +16,16 @@ Format for each slice:
 - Followups: any new `F-NNN` entries created. Link to them.
 ```
 
+## 2026-05-09, Cleanup R21: Generic Transition Curtain Primitives Extracted
+
+- Branch: `feature/20260508-cleanup-r21-scene-transition`
+- PR: TBD
+- Changed: First round of the third 10-round cleanup loop. The `sceneTransition.ts` module (REQ-055) bundled generic curtain visuals with city-specific target labels. Extracted the generic substrate to `src/lib/ui/transitionCurtain.ts`: `TRANSITION_CURTAIN_BACKGROUND`, `TRANSITION_CURTAIN_FOREGROUND`, `TRANSITION_CURTAIN_FADE_MS`, `TRANSITION_CURTAIN_Z_INDEX`, plus a `transitionCurtainTestid(target, prefix?)` helper with a default prefix override. `src/app/[slug]/sceneTransition.ts` keeps the city-specific bits (`SceneTransitionTarget = 'drive' | 'edit'`, the `SCENE_TRANSITION_LABEL` map, the `SCENE_TRANSITION_TESTID_PREFIX` literal that the Playwright specs anchor on) and re-exports the generic constants under their existing `SCENE_TRANSITION_*` names so consumer call sites do not change. Adds 7 new generic-helper tests in `tests/lib/ui/transitionCurtain.test.ts`.
+- Verification: `npx tsc --noEmit` (clean), `npx vitest run` (81 files, 2381 tests, +7 new), `npm run check:dashes` (clean after fixing one stray em-dash in the rewritten sceneTransition docstring).
+- Assumptions: Re-export pattern keeps the existing call sites stable (DriveSceneClient, SceneTransitionCurtain, the unit test) without forcing them to learn two import paths. Future games on the same prefetch + curtain pattern can import directly from `@/lib/ui/transitionCurtain` and supply their own target vocabulary.
+- GDD coverage: No `docs/GDD_COVERAGE.json` row change.
+- Followups: None new.
+
 ## 2026-05-09, Cleanup R20: `src/lib/README.md` Refresh (Second Loop Final Round)
 
 - Branch: `feature/20260508-cleanup-r20-readme-refresh`
