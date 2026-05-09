@@ -1,10 +1,19 @@
 ---
-title: "art: smooth + advanced street piece meshes (slice 4 of 6)"
-status: open
+title: "art: smooth + advanced street piece meshes (slice 4 of 6) [SUPERSEDED]"
+status: superseded
 priority: 3
 issue-type: task
 created-at: "2026-05-08T23:50:52-05:00"
 ---
+
+## Status
+
+**Superseded 2026-05-09** by
+`VibeCity-port-viberacer-procedural-roads-bcee89d0.md`. The art pass
+pivoted away from per-piece custom meshes / composites in favor of
+VibeRacer's procedural road ribbon, which renders every piece type
+(cardinals + smooth + advanced) from one sampled-centerline path.
+Keeping this dot in place per ledger discipline.
 
 ## Description
 

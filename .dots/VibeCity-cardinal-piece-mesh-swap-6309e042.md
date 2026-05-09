@@ -1,10 +1,20 @@
 ---
-title: "art: cardinal street piece mesh swap (slice 3 of 6)"
-status: open
+title: "art: cardinal street piece mesh swap (slice 3 of 6) [SUPERSEDED]"
+status: superseded
 priority: 3
 issue-type: task
 created-at: "2026-05-08T23:50:52-05:00"
 ---
+
+## Status
+
+**Superseded 2026-05-09** by
+`VibeCity-port-viberacer-procedural-roads-bcee89d0.md`. The art pass
+pivoted away from per-piece Kenney mesh swaps to a port of VibeRacer's
+procedural road ribbon (sampled centerline + triangle strip) so all 13
+piece types get one uniform look. PR #202 was opened for this slice
+and closed without merging. Keeping this dot in place per ledger
+discipline.
 
 ## Description
 

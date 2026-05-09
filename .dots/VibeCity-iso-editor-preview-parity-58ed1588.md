@@ -6,6 +6,15 @@ issue-type: task
 created-at: "2026-05-08T23:50:52-05:00"
 ---
 
+## Status note (2026-05-09)
+
+The piece-sprite half of this slice (cardinal piece top-down sprites
+for the editor preview) becomes moot when the procedural road ribbon
+ships (`VibeCity-port-viberacer-procedural-roads-bcee89d0.md`); the
+editor's iso preview will need a different parity strategy for the
+ribbon. The building-sprite half stays valid. Re-scope when the
+procedural roads land.
+
 ## Description
 
 Fifth slice of the Kenney City Kit drop-in. The drive scene now renders
