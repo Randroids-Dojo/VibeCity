@@ -99,6 +99,29 @@ describe('inputFromPressedKeys', () => {
   })
 })
 
+describe('city wrapper agrees with lib physics integrator (R24)', () => {
+  it('applyDriveStep matches libApplyDriveStep called with the city VEHICLE_TUNING', async () => {
+    const lib = await import('@/lib/physics/vehicle')
+    const tuning: import('@/lib/physics/vehicle').VehicleTuning = {
+      maxSpeed: MAX_SPEED,
+      maxReverseSpeed: MAX_REVERSE_SPEED,
+      acceleration: ACCELERATION,
+      brakeDeceleration: BRAKE_DECELERATION,
+      coastDrag: COAST_DRAG,
+      steerRateAtRest: STEER_RATE_AT_REST,
+      steerRateAtMaxSpeed: STEER_RATE_AT_MAX_SPEED,
+      maxDeltaSeconds: MAX_DELTA_SECONDS,
+    }
+    const state = createVehicleState({ x: 1, z: 2, heading: Math.PI / 4 })
+    const input = { ...emptyInput(), throttle: true, steerRight: true }
+    // Stay under the dt clamp so both paths exercise the same step.
+    const dt = MAX_DELTA_SECONDS / 2
+    expect(applyDriveStep(state, input, dt)).toEqual(
+      lib.applyDriveStep(state, input, dt, tuning),
+    )
+  })
+})
+
 describe('createVehicleState', () => {
   it('returns a state at the given position with zero speed', () => {
     const state = createVehicleState({ x: 4, z: -8, heading: Math.PI / 2 })
