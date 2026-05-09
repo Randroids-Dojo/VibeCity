@@ -1,4 +1,10 @@
 import type { City, Piece, PieceFootprintCell, Rotation } from '@/lib/schemas'
+import { cellKey, type GridCellCoord } from '@/lib/render/grid'
+
+// Re-export the generic cell-coord type and stable map-key helper so
+// downstream modules that already import them from this file do not
+// have to learn the new lib path.
+export { cellKey, type GridCellCoord }
 
 /**
  * Snap-grid configuration for the editor surface (REQ-016).
@@ -24,20 +30,6 @@ import type { City, Piece, PieceFootprintCell, Rotation } from '@/lib/schemas'
 export const GRID_RADIUS = 8
 export const GRID_DIAMETER = GRID_RADIUS * 2 + 1
 export const CELL_PIXELS = 32
-
-export interface GridCellCoord {
-  row: number
-  col: number
-}
-
-/**
- * Stable map key for a cell coordinate. Mirrors VibeRacer's
- * `cellKey(row, col) = "${row},${col}"` format so any future port of
- * footprint helpers can reuse the same key shape.
- */
-export function cellKey(row: number, col: number): string {
-  return `${row},${col}`
-}
 
 /**
  * Default single-cell footprint used when a piece does not declare
