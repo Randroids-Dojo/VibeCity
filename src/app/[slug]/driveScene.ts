@@ -6,6 +6,14 @@ import type {
   PieceType,
   Rotation,
 } from '@/lib/schemas'
+import {
+  DEFAULT_AMBIENT_LIGHT_INTENSITY,
+  DEFAULT_CAMERA_FAR,
+  DEFAULT_CAMERA_FOV,
+  DEFAULT_CAMERA_NEAR,
+  DEFAULT_DIRECTIONAL_LIGHT_INTENSITY,
+  DEFAULT_DIRECTIONAL_LIGHT_POSITION,
+} from '@/lib/render/scene'
 
 /**
  * Drive-scene scaffold helpers (REQ-044, REQ-045, REQ-046).
@@ -51,27 +59,18 @@ export const SKY_COLOR = 0xbfd9e8
 export const GROUND_COLOR = 0xf2ecd9
 
 /**
- * Lighting defaults (REQ-044). Ambient keeps the unlit faces of the
- * extruded buildings from going pure black; the directional light
- * casts a noon-style key light from above and slightly south-east so
- * extrusions read with depth.
+ * Lighting + perspective-camera tunables. The generic intensity /
+ * position / FOV defaults live in `@/lib/render/scene`; the city
+ * re-exports them under the v1 names so existing call sites do not
+ * change. CAMERA_HEIGHT and CAMERA_DISTANCE stay here because they
+ * scale with the city-specific `CELL_SIZE`.
  */
-export const AMBIENT_LIGHT_INTENSITY = 0.6
-export const DIRECTIONAL_LIGHT_INTENSITY = 0.9
-export const DIRECTIONAL_LIGHT_POSITION: readonly [number, number, number] = [
-  60, 100, 40,
-]
-
-/**
- * Camera defaults for the v1 aerial / orbit view. The camera is fixed
- * (no chase, no orbit input) so this slice does not pull in the
- * VibeRacer chase rig (REQ-033) or input modules (REQ-034 / REQ-035).
- * The camera tilts down at the city center from a height proportional
- * to the cell size so a small starter city fits in frame on first load.
- */
-export const CAMERA_FOV = 50
-export const CAMERA_NEAR = 0.1
-export const CAMERA_FAR = 1000
+export const AMBIENT_LIGHT_INTENSITY = DEFAULT_AMBIENT_LIGHT_INTENSITY
+export const DIRECTIONAL_LIGHT_INTENSITY = DEFAULT_DIRECTIONAL_LIGHT_INTENSITY
+export const DIRECTIONAL_LIGHT_POSITION = DEFAULT_DIRECTIONAL_LIGHT_POSITION
+export const CAMERA_FOV = DEFAULT_CAMERA_FOV
+export const CAMERA_NEAR = DEFAULT_CAMERA_NEAR
+export const CAMERA_FAR = DEFAULT_CAMERA_FAR
 export const CAMERA_HEIGHT = CELL_SIZE * 24
 export const CAMERA_DISTANCE = CELL_SIZE * 24
 

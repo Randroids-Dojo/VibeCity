@@ -16,6 +16,17 @@ Format for each slice:
 - Followups: any new `F-NNN` entries created. Link to them.
 ```
 
+## 2026-05-09, Cleanup R25: Three.js Scene Defaults Extracted to `src/lib/render/scene.ts`
+
+- Branch: `feature/20260508-cleanup-r25-scene-helpers`
+- PR: TBD
+- Changed: Round 25 of the cleanup loop. The lighting and perspective-camera defaults that any outdoor three.js scene needs (ambient + directional intensity, key-light position, FOV, near / far) were baked into `src/app/[slug]/driveScene.ts` (REQ-044). Extracted them to `src/lib/render/scene.ts` as `DEFAULT_*` constants. The lib module deliberately does not import three.js so it stays bundleable in any context (server components, tests, future menu surfaces); the consumer instantiates the THREE.* objects and feeds the defaults in. `driveScene.ts` re-exports the constants under their existing names (`AMBIENT_LIGHT_INTENSITY`, `CAMERA_FOV`, etc.) so existing call sites do not change. `CAMERA_HEIGHT` and `CAMERA_DISTANCE` stay in the city tree because they scale with `CELL_SIZE`.
+- Adds 7 new generic-helper tests in `tests/lib/render/scene.test.ts` covering intensity ranges, the directional position tuple shape, and the FOV / near / far sanity bounds.
+- Verification: `npx tsc --noEmit` (clean), `npx vitest run` (85 files, 2416 tests, +7 new), `npm run check:dashes` (clean).
+- Assumptions: The lib defaults are starting-point values for an outdoor scene with one directional key light + ambient fill. Future games can either import them as is or pass overrides into their three.js wiring.
+- GDD coverage: No `docs/GDD_COVERAGE.json` row change.
+- Followups: None new.
+
 ## 2026-05-09, Cleanup R24: Vehicle Physics Integrator Extracted to `src/lib/physics/`
 
 - Branch: `feature/20260508-cleanup-r24-vehicle-physics`
