@@ -16,6 +16,21 @@ Format for each slice:
 - Followups: any new `F-NNN` entries created. Link to them.
 ```
 
+## 2026-05-09, Cleanup R26: `src/lib/README.md` Refresh + Wrapping-Pattern Section
+
+- Branch: `feature/20260508-cleanup-r26-readme-refresh`
+- PR: #196
+- Changed: Round 26 of the cleanup loop. R21-R25 added two new generic namespaces (`input/`, `physics/`) and several modules to existing ones (`render/scene.ts`, `render/grid.ts`, `ui/transitionCurtain.ts`); the R20 README is out of date again. Refreshed `src/lib/README.md` to:
+  - Add `input/` row (vehicleControls).
+  - Add `physics/` row (vehicle integrator).
+  - Update `render/` row to mention `scene.ts` and `grid.ts` (R22, R25).
+  - Update `ui/` row to mention `transitionCurtain.ts` (R21).
+  - New "Wrapping pattern" section that catalogues the seven city-shaped wrappers + their generic cores. The pattern was implicit across many round entries; collecting the examples in one place makes the contract obvious to a future contributor or game-port branch.
+- Verification: `npm run check:dashes` (clean). No code changes.
+- Assumptions: The README documents the lib namespace as it stands at the end of cleanup loop 3 round 26. Future loops can append rows when new generic primitives land.
+- GDD coverage: No `docs/GDD_COVERAGE.json` row change.
+- Followups: None new.
+
 ## 2026-05-09, Cleanup R25: Three.js Scene Defaults Extracted to `src/lib/render/scene.ts`
 
 - Branch: `feature/20260508-cleanup-r25-scene-helpers`
