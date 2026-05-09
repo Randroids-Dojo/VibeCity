@@ -16,6 +16,16 @@ Format for each slice:
 - Followups: any new `F-NNN` entries created. Link to them.
 ```
 
+## 2026-05-08, Cleanup R10: `src/lib/` Namespace Map Documented (Final Round)
+
+- Branch: `feature/20260508-cleanup-r10-lib-readme`
+- PR: #180
+- Changed: Final round of the 10-round cleanup. Now that R1-R9 settled the lib into a clear shape (`auth/`, `editor/`, `format/`, `render/iso/`, `render/thumbnail.ts`, `share/`, `storage/`, plus `sim/` and the city-shaped lib-root modules), this round documents the namespace map in a new `src/lib/README.md`. Two tables: one for the generic game-agnostic namespaces (each row names what lives there + the v1 examples), one for the city-specific lib-root modules (each row names what they own). A short "Adding new code" section codifies the pattern future contributors should follow: generic core under a namespace, city-shaped wrapper at lib root, mixed modules delegate from a wrapper. No code changes. The README is the bow on the 10-round cleanup loop and the entry point a future game-port branch should read first.
+- Verification: `npm run check:dashes` (clean). No code changes so no test run was required, but the project's vitest suite was last green at 2351 / 2351 after R9 merged.
+- Assumptions: Documenting the namespace in `src/lib/README.md` (rather than in `docs/`) keeps the guide colocated with the code it describes; the file appears in any directory listing under `src/lib/` and a developer reading the lib does not have to context-switch into the docs tree.
+- GDD coverage: No `docs/GDD_COVERAGE.json` row change.
+- Followups: Round 5 noted that gridViewport / snapGrid extraction was deferred (city-piece-coupled). That stays deferred as noted in the R5 entry; the new lib README does not promise it.
+
 ## 2026-05-08, Cleanup R9: Generic Bbox Thumbnail Projector Extracted
 
 - Branch: `feature/20260508-cleanup-r9-thumbnail`
