@@ -16,6 +16,19 @@ Format for each slice:
 - Followups: any new `F-NNN` entries created. Link to them.
 ```
 
+## 2026-05-08, Cleanup R12: SSR-safe localStorage + Versioned Envelope Primitives
+
+- Branch: `feature/20260508-cleanup-r12-versioned-envelope`
+- PR: TBD
+- Changed: Round 12 of the cleanup loop. Two new primitives in `src/lib/storage/`:
+  - `localStorage.ts`: `safeLocalStorageGet`, `safeLocalStorageSet`, `safeLocalStorageRemove`. SSR check + try/catch in one place so callers do not duplicate the `typeof window` guard and the quota / disabled-storage handling.
+  - `versionedEnvelope.ts`: `versionedEnvelopeSchema(payloadSchema, version)` zod helper that wraps a payload schema in a `{ version: literal, payload }` envelope. The version-bump-resets-to-defaults pattern that powers `controlsPersistence.ts` (REQ-043) is now a one-line schema construction for any future game with persisted user settings.
+  Retrofit `src/lib/controlsPersistence.ts` to use the SSR-safe localStorage helpers in `loadControls`, `saveControls`, `clearControls`, and `readPersistedPayload`. Existing `ControlsEnvelopeSchema` keeps its `controls` field name (renaming would force a breaking storage migration); the new generic envelope helper is forward-looking for future callers that adopt the canonical `payload` field. Adds 17 new tests: 11 in `tests/lib/storage/localStorage.test.ts` covering get / set / remove plus SSR fallback plus throwing-storage fallback, and 6 in `tests/lib/storage/versionedEnvelope.test.ts` covering version-literal accept / reject / payload-validity / typed shape exposure.
+- Verification: `npx tsc --noEmit` (clean), `npx vitest run` (80 files, 2374 tests, +17 new), `npm run check:dashes` (clean).
+- Assumptions: The new envelope helper uses `payload` as the field name. `controlsPersistence.ts` keeps `controls` so old persisted envelopes continue to load. A future migration that bumps `CONTROLS_STORAGE_VERSION` could collapse the field name to `payload`.
+- GDD coverage: No `docs/GDD_COVERAGE.json` row change.
+- Followups: None new.
+
 ## 2026-05-08, Cleanup R11: Anonymous-Cookie Middleware Factory Extracted
 
 - Branch: `feature/20260508-cleanup-r11-anoncookie`
