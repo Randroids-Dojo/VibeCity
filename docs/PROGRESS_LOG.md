@@ -16,6 +16,23 @@ Format for each slice:
 - Followups: any new `F-NNN` entries created. Link to them.
 ```
 
+## 2026-05-09, Cleanup R23: Vehicle Input Plumbing Extracted to `src/lib/input/`
+
+- Branch: `feature/20260508-cleanup-r23-vehicle-physics`
+- PR: TBD
+- Changed: Round 23 of the cleanup loop. The vehicle input plumbing in `src/app/[slug]/driveControls.ts` (action vocabulary, default WASD + arrow-key bindings, snapshot type, and `inputFromPressedKeys` helper) was generic — only the physics integrator constants below it depend on `CELL_SIZE`. Extracted the input plumbing to a new `src/lib/input/vehicleControls.ts` module:
+  - `DriveAction` union (`throttle | brake | steerLeft | steerRight`)
+  - `DEFAULT_KEY_BINDINGS` (WASD + arrows)
+  - `DriveInput` interface
+  - `emptyInput()`, `inputFromPressedKeys(pressed, bindings?)`
+- `src/app/[slug]/driveControls.ts` re-imports + re-exports the new lib symbols so existing call sites do not change. The vehicle physics integrator (`applyDriveStep`, `steerRateForSpeed`, the `MAX_SPEED` / `ACCELERATION` / etc. constants) stays in the app tree because the tunables are unit-size dependent. R24 will tackle that integrator separately.
+- New `src/lib/input/` namespace gives later rounds a place to land touch-input primitives (deferred from R16).
+- Adds 9 new generic-helper tests in `tests/lib/input/vehicleControls.test.ts` covering empty snapshot, default bindings, pressed-key translation, unknown-key ignore, custom binding override, and the WASD + arrow OR.
+- Verification: `npx tsc --noEmit` (clean), `npx vitest run` (83 files, 2396 tests, +9 new), `npm run check:dashes` (clean).
+- Assumptions: Re-export pattern keeps existing callers stable (DriveSceneClient, touchInput, buildingCollision, offStreetPenalty, respawn, driveHud) without forcing them to learn two import paths. Future games can import directly from `@/lib/input/vehicleControls` and ignore the city-specific re-export shim.
+- GDD coverage: No `docs/GDD_COVERAGE.json` row change.
+- Followups: None new.
+
 ## 2026-05-09, Cleanup R22: Cell-Key Primitives Extracted to `src/lib/render/grid.ts`
 
 - Branch: `feature/20260508-cleanup-r22-respawn`

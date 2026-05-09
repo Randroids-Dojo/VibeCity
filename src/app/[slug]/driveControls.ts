@@ -1,4 +1,23 @@
 import { CELL_SIZE } from './driveScene'
+import {
+  DEFAULT_KEY_BINDINGS,
+  emptyInput,
+  inputFromPressedKeys,
+  type DriveAction,
+  type DriveInput,
+} from '@/lib/input/vehicleControls'
+
+// Re-export the input plumbing primitives so existing call sites in
+// the drive app tree do not change. The vehicle physics integrator
+// (`applyDriveStep`, `steerRateForSpeed`, the speed / acceleration
+// constants) stays here because the tunables are unit-size dependent.
+export {
+  DEFAULT_KEY_BINDINGS,
+  emptyInput,
+  inputFromPressedKeys,
+  type DriveAction,
+  type DriveInput,
+}
 
 /**
  * Drive-mode keyboard controls and kinematic vehicle integration
@@ -16,35 +35,6 @@ import { CELL_SIZE } from './driveScene'
  * to a stop. Off-street penalty (REQ-054), wheel contact (REQ-032),
  * and the chase camera (REQ-033) wait for their own slices.
  */
-
-/**
- * The set of logical actions a key binding can map to. Mirrors
- * VibeRacer's `DEFAULT_KEY_BINDINGS` action vocabulary so a future
- * keybinding pane (REQ-041) can reuse this taxonomy.
- */
-export type DriveAction = 'throttle' | 'brake' | 'steerLeft' | 'steerRight'
-
-/**
- * Default key bindings (REQ-034). WASD plus arrow keys cover both
- * common keyboard layouts; the binding table is a many-to-one map so
- * a single action can be triggered by either layout. Picked to match
- * VibeRacer's default arcade scheme.
- *
- * Keys are matched against `KeyboardEvent.code` so the layout is
- * stable across QWERTY / AZERTY / Dvorak; a future locale-aware
- * rebinding pane (REQ-041) can swap the table without touching the
- * integrator.
- */
-export const DEFAULT_KEY_BINDINGS: Readonly<Record<string, DriveAction>> = {
-  KeyW: 'throttle',
-  ArrowUp: 'throttle',
-  KeyS: 'brake',
-  ArrowDown: 'brake',
-  KeyA: 'steerLeft',
-  ArrowLeft: 'steerLeft',
-  KeyD: 'steerRight',
-  ArrowRight: 'steerRight',
-}
 
 /**
  * Vehicle integration tuning (REQ-031 first slice).
@@ -86,18 +76,6 @@ export interface VehicleState {
 }
 
 /**
- * The per-frame input snapshot the integrator consumes. Each flag
- * reflects whether at least one binding for that action is currently
- * pressed. Mirrors VibeRacer's `DriveInput` shape.
- */
-export interface DriveInput {
-  throttle: boolean
-  brake: boolean
-  steerLeft: boolean
-  steerRight: boolean
-}
-
-/**
  * Build a fresh vehicle state at the spawn anchor. Heading is in
  * radians and matches the persisted rotation of the first piece (the
  * drive scene client converts the piece rotation via
@@ -116,35 +94,6 @@ export function createVehicleState(params: {
   }
 }
 
-/**
- * Build an empty input snapshot. Used by callers that want to start
- * from a clean state before merging the live keyboard set.
- */
-export function emptyInput(): DriveInput {
-  return {
-    throttle: false,
-    brake: false,
-    steerLeft: false,
-    steerRight: false,
-  }
-}
-
-/**
- * Translate the live set of pressed key codes into a `DriveInput`
- * snapshot via the binding table. Unknown keys are ignored.
- */
-export function inputFromPressedKeys(
-  pressed: ReadonlySet<string>,
-  bindings: Readonly<Record<string, DriveAction>> = DEFAULT_KEY_BINDINGS,
-): DriveInput {
-  const input = emptyInput()
-  for (const code of pressed) {
-    const action = bindings[code]
-    if (!action) continue
-    input[action] = true
-  }
-  return input
-}
 
 /**
  * Compute the steering rate (radians per second) at the given forward
