@@ -19,7 +19,7 @@ Format for each slice:
 ## 2026-05-09, Art Pass Slice 2: GLTF Mesh Cache + Building Mesh Swap
 
 - Branch: `feature/20260509-art-buildings-glb`
-- PR: TBD
+- PR: #201 (https://github.com/Randroids-Dojo/VibeCity/pull/201)
 - Changed: Second slice of the Kenney City Kit art pass. Slice 1 dropped four building meshes plus four cardinal piece meshes under `public/models/buildings/` and `public/models/pieces/` and refreshed `public/models/KENNEY-LICENSE.txt`. This slice wires the building meshes into the drive scene:
   - New `src/lib/render/gltfCache.ts`: generic `loadGltfOnce(loader, url)` that memoizes a `loader.loadAsync(url)` promise per URL. Failures resolve to `null` so callers can branch to a procedural fallback. Three.js-agnostic (the loader is parameterized) so the cache is testable without dragging `GLTFLoader` into a Node environment. Plus `clearGltfCache()` and `gltfCacheSize()` for tests.
   - New `BUILDING_MESH_URLS` map + `buildingMeshUrlFor(type)` + `buildingMeshScale()` in `src/app/[slug]/driveScene.ts`. The map points each `BuildingType` at its `.glb` under `/models/buildings/`. Scale derives from `buildingFootprintWorldSize()` so the loaded mesh matches the procedural body footprint.

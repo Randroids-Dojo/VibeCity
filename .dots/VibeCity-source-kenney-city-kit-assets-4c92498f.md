@@ -68,12 +68,18 @@ Per asset before commit:
 
 ## Affected files
 
-- `public/models/buildings/small-house.glb`, `mid-house.glb`, `shop.glb`,
-  `factory.glb`
+- `public/models/buildings/suburban/small-house.glb`,
+  `public/models/buildings/suburban/mid-house.glb`,
+  `public/models/buildings/commercial/shop.glb`,
+  `public/models/buildings/commercial/factory.glb`
 - `public/models/pieces/straight.glb`, `left90.glb`, `right90.glb`,
   `intersection.glb`
-- `public/models/Textures/colormap.png` (replace if Kenney's atlas differs;
-  preserve the car's UV mapping)
+- `public/models/buildings/suburban/Textures/colormap.png`,
+  `public/models/buildings/commercial/Textures/colormap.png`,
+  `public/models/pieces/Textures/colormap.png` (each kit ships its own
+  palette under the same `Textures/colormap.png` relative URI, so the
+  textures live in the kit's subdirectory rather than a single shared
+  `public/models/Textures/`)
 - `public/models/KENNEY-LICENSE.txt`: append the three new kit credits
 - `README.md`: art credits section refresh
 
