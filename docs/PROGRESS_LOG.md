@@ -19,7 +19,7 @@ Format for each slice:
 ## 2026-05-09, Cleanup R16: Pause Menu State Machine Hoisted to `src/lib/ui/`
 
 - Branch: `feature/20260508-cleanup-r16-touch-input`
-- PR: TBD
+- PR: #186
 - Changed: Round 16 of the cleanup loop. Originally planned to extract touch-input helpers; touchInput.ts and touchSettings.ts are heavily coupled to `DriveInput` and the city's controls layer, so a clean lift would force a substantial refactor (deferred). Pivoted to the pause-menu state machine, which is a self-contained pure module: no imports, two states (`running` / `paused`), one Esc toggle. Move `src/app/[slug]/pauseMenu.ts` -> `src/lib/ui/pauseMenu.ts`; tests follow to `tests/lib/ui/pauseMenu.test.ts`. Module docstring rewritten to describe the generic two-state contract; the city-specific drive-scene wiring (REQ-038, REQ-039) is documented as the v1 consumer. Two import sites updated: `DriveSceneClient.tsx` and the test file. New `src/lib/ui/` subdir gives later rounds a place to land more pure UI primitives.
 - Verification: `npx tsc --noEmit` (clean), `npx vitest run` (80 files, 2374 tests passing), `npm run check:dashes` (clean).
 - Assumptions: Touch input extraction is deferred because it requires substantial parameterization (the joystick-to-DriveInput mapper bakes in the city-specific action vocabulary); a future game with the same dual-stick / single-stick pattern can revisit. The pause menu is a smaller cleaner win for this round.
