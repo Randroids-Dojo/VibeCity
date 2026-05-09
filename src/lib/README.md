@@ -26,6 +26,7 @@ These live at the lib root because they are still shared across the city app sur
 | File | What it owns |
 | --- | --- |
 | `builderId.ts` | Anonymous owner id (REQ-009): VibeCity cookie name + the typed `BuilderId` wrapper around the generic `auth/uuidV4.ts` helpers. |
+| `cellSize.ts` | World-space size of one grid cell (`CELL_SIZE = 4`). Single source of truth for both the drive scene and the trackPath geometry layer; `driveScene.ts` re-exports for backward compatibility. |
 | `cityKv.ts` | `city:`-prefixed Redis key namespace + re-exports `getKv` / `hasKvConfigured` from `storage/kv.ts` for callsite ergonomics. |
 | `cityCount.ts` | Wraps `format/countLabel.ts` with city-specific singular / plural / suffix labels for the home page header cue. |
 | `cityThumbnail.ts` | Walks city pieces + buildings into placements, then delegates to `render/thumbnail.ts` for the home-page recent-card thumbnail. |

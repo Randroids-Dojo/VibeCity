@@ -16,6 +16,23 @@ Format for each slice:
 - Followups: any new `F-NNN` entries created. Link to them.
 ```
 
+## 2026-05-09, Procedural Roads Slice A: Sampled Centerline Geometry Layer
+
+- Branch: `feature/20260509-trackpath-samples`
+- PR: TBD
+- Changed: First slice of the procedural roads art pass (the dot at `.dots/VibeCity-port-viberacer-procedural-roads-bcee89d0.md`). Ports VibeRacer's sampled-centerline geometry layer into `src/lib/trackPath.ts` so the upcoming road surface ribbon (slice B) can render every piece type from one continuous strip. Specifics:
+  - New `src/lib/cellSize.ts`: lifted the `CELL_SIZE = 4` constant from `src/app/[slug]/driveScene.ts` to a city-scoped lib module so the geometry layer can read it without going through the app tree. `driveScene.ts` re-exports `CELL_SIZE` so existing import paths keep working.
+  - New `SampledPoint` interface (`{ x, z, heading }`) plus per-piece-type LOCAL sample counts (`STRAIGHT_SAMPLE_COUNT`, `CORNER_SAMPLE_COUNT`, `SCURVE_SAMPLE_COUNT`, `SWEEP_SAMPLE_COUNT`, `MEGA_SWEEP_SAMPLE_COUNT`, `HAIRPIN_SAMPLE_COUNT`).
+  - LOCAL sample sets for the eleven supported piece types: `straight`, `intersection` (pass-through arm only for v1), `left90`, `right90`, `scurve`, `scurveLeft`, `sweepRight`, `sweepLeft`, `megaSweepRight`, `megaSweepLeft`, `hairpin`. Cubic-bezier sweeps remap to equal-arc-length parameters via a 257-sample oversample so the resulting points are uniform along the centerline.
+  - `transformSample(s, transform)` rotates a LOCAL sample into world space; `pieceTransform(piece)` builds the `(x, z, theta)` triple from `(row, col, rotation)`.
+  - `sampledPointsForPiece(piece, entryDir)` resolver: returns the world-space samples for a piece, reversed and 180deg-flipped when the walker enters from the opposite end of the type's base direction (load-bearing for the chase camera).
+  - `OrderedPiece` extended with a required `samples: SampledPoint[] | null` field; the walker populates it. arc45 and diagonal land via the F-003 sister dot (`.dots/VibeCity-implement-arc45-diagonal-b4b77a2f.md`); they stay `null` until then.
+  - 18 new geometry tests in `tests/lib/trackPath.test.ts` plus three small `samples: null` fixture additions in `tests/lib/wheelContact.test.ts`.
+- Verification: `npm run check:dashes` clean. `pnpm exec tsc --noEmit` clean. `pnpm exec vitest run` 85 files / 2434 tests pass (was 2416). No browser smoke (slice A is the geometry substrate, no rendering yet).
+- Assumptions: VibeCity's piece schema only carries cardinal rotations (`0 / 90 / 180 / 270`), so `baseEntryDirAfterRotation` uses the simple `(4 + turns * 2) % 8` shift rather than VibeRacer's `cardinalTurnsOfTheta` continuous-angle path. Continuous-angle support lives in the editor backfill dot (`VibeCity-backfill-viberacer-editor-stages-5ba8696d.md`). intersection samples treat the piece as a pass-through straight on the entry-port arm; the four-arm geometry can be a follow-on once a consumer needs it.
+- GDD coverage: Eligible to flip `REQ-064` (segment-based path) status forward in `docs/GDD_COVERAGE.json`. Defer the flip to slice B when the geometry is consumed by the road surface ribbon (rendering parity is the visible "done" criterion).
+- Followups: None new. F-003 / F-004 still own the arc45 + diagonal sample sets and the wheel-contact upgrade.
+
 ## 2026-05-09, Cleanup R30: `docs/CLEANUP_LOOPS_SUMMARY.md` (Loop 3 Final Round)
 
 - Branch: `feature/20260508-cleanup-r30-loop3-final`

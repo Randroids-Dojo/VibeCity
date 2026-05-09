@@ -2,6 +2,7 @@ import {
   cellKey,
   pieceFootprintCells,
 } from '@/app/[slug]/edit/snapGrid'
+import { CELL_SIZE } from '@/lib/cellSize'
 import {
   connectorPortsOf,
   DIR_OFFSETS,
@@ -9,7 +10,7 @@ import {
   type ConnectorPort,
   type Dir,
 } from '@/lib/connectors'
-import type { City, Piece } from '@/lib/schemas'
+import type { City, Piece, PieceType } from '@/lib/schemas'
 
 /**
  * Segment-based path substrate (REQ-064).
@@ -127,6 +128,27 @@ export interface OrderedPiece {
   exitPort: ConnectorPort
   entryDir: Dir
   exitDir: Dir
+  /**
+   * Sampled centerline in world space, parameterized by `t` in `[0, 1]`
+   * from entry (`samples[0]`) to exit (`samples[last]`). Heading at each
+   * sample is the tangent direction in radians (the game convention
+   * `atan2(-dz, dx)`, so `PI/2` means north). Populated by
+   * `sampledPointsForPiece` for every supported piece type; falls back
+   * to `null` when the piece type has no wired geometry yet (arc45 and
+   * diagonal land via the F-003 sister slice).
+   */
+  samples: SampledPoint[] | null
+}
+
+/**
+ * One point along a piece's centerline. World coordinates plus a
+ * tangent heading in radians. Ported from VibeRacer's `SampledPoint`
+ * (geometry layer slice).
+ */
+export interface SampledPoint {
+  x: number
+  z: number
+  heading: number
 }
 
 /**
@@ -328,6 +350,7 @@ function walkComponent(
       exitPort,
       entryDir: entryPort.dir,
       exitDir: exitPort.dir,
+      samples: sampledPointsForPiece(current, entryPort.dir),
     })
 
     const next = findConnectedNeighbor(current, exitPort, pieces)
@@ -595,4 +618,442 @@ export function unmatchedPortCells(
     out.add(cellKey(port.cellRow, port.cellCol))
   }
   return out
+}
+
+// ---------------------------------------------------------------------------
+// Sampled centerline geometry (slice A of the procedural roads art pass).
+// Ported from VibeRacer's `src/game/trackPath.ts`. Each piece type defines a
+// LOCAL sample set in the cell-centered frame (origin at cell center, +X east,
+// +Z south, rotation 0). The walker transforms LOCAL samples by the piece's
+// rotation + position to produce the world-space `OrderedPiece.samples` array.
+//
+// Coordinate frame (matches VibeRacer):
+//
+// - +X east, +Z south, +Y up.
+// - Heading uses `atan2(-dz, dx)` so PI/2 means due north.
+// - Base entry for north-south straights and CW corners is the south edge
+//   midpoint at z = +HALF, heading north (PI/2). Other piece types declare
+//   their own base entry; the resolver normalizes via per-type `entryDir`.
+// ---------------------------------------------------------------------------
+
+const HALF = CELL_SIZE / 2
+
+/**
+ * Number of samples per piece type. Picked to keep the road ribbon smooth
+ * through the curve without wasting verts on a near-straight segment. Mirrors
+ * VibeRacer's `*_SAMPLE_COUNT` exports for the piece types VibeCity ships.
+ */
+export const STRAIGHT_SAMPLE_COUNT = 5
+export const CORNER_SAMPLE_COUNT = 13
+export const SCURVE_SAMPLE_COUNT = 49
+export const SWEEP_SAMPLE_COUNT = 33
+export const MEGA_SWEEP_SAMPLE_COUNT = 49
+export const HAIRPIN_SAMPLE_COUNT = 65
+
+const SCURVE_ARC_RADIUS = 3
+const SCURVE_BRIDGE_LENGTH = (CELL_SIZE - 4 * SCURVE_ARC_RADIUS) / 2
+const SCURVE_ARC_LENGTH = SCURVE_ARC_RADIUS * (Math.PI / 2)
+const SCURVE_TOTAL_LENGTH = 2 * SCURVE_BRIDGE_LENGTH + 4 * SCURVE_ARC_LENGTH
+
+const MEGA_SWEEP_ARC_RADIUS = 1.5 * CELL_SIZE
+const HAIRPIN_ARC_RADIUS = 1.5 * CELL_SIZE
+
+const SWEEP_OVERSAMPLE_COUNT = 257
+
+// Standard cubic-bezier coefficient for approximating a quarter circle:
+// 4*(sqrt(2)-1)/3. With this coefficient the curve's minimum curvature radius
+// stays well above the road half-width, so the extruded road ribbon never
+// folds onto itself.
+const SWEEP_BEZIER_K = (4 * (Math.SQRT2 - 1)) / 3
+
+type BezierPoint = { x: number; z: number }
+
+function cubicBezierPoint(
+  p0: BezierPoint,
+  p1: BezierPoint,
+  p2: BezierPoint,
+  p3: BezierPoint,
+  t: number,
+): BezierPoint {
+  const mt = 1 - t
+  return {
+    x:
+      mt * mt * mt * p0.x +
+      3 * mt * mt * t * p1.x +
+      3 * mt * t * t * p2.x +
+      t * t * t * p3.x,
+    z:
+      mt * mt * mt * p0.z +
+      3 * mt * mt * t * p1.z +
+      3 * mt * t * t * p2.z +
+      t * t * t * p3.z,
+  }
+}
+
+function cubicBezierDerivative(
+  p0: BezierPoint,
+  p1: BezierPoint,
+  p2: BezierPoint,
+  p3: BezierPoint,
+  t: number,
+): { dx: number; dz: number } {
+  const mt = 1 - t
+  return {
+    dx:
+      3 * mt * mt * (p1.x - p0.x) +
+      6 * mt * t * (p2.x - p1.x) +
+      3 * t * t * (p3.x - p2.x),
+    dz:
+      3 * mt * mt * (p1.z - p0.z) +
+      6 * mt * t * (p2.z - p1.z) +
+      3 * t * t * (p3.z - p2.z),
+  }
+}
+
+// Walk a high-density oversampling of a parametric curve, accumulate arc
+// length, then remap to `sampleCount` points evenly spaced by arc length.
+// Used for cubic-bezier sweeps so the resulting samples are uniform along
+// the centerline rather than along the parameter `t`.
+function equalArcLengthParameters(
+  sampleCount: number,
+  evaluator: (t: number) => BezierPoint,
+): number[] {
+  const parameters: number[] = []
+  const cumulativeLengths: number[] = []
+  let totalLength = 0
+  let previous = evaluator(0)
+  for (let i = 0; i < SWEEP_OVERSAMPLE_COUNT; i++) {
+    const t = i / (SWEEP_OVERSAMPLE_COUNT - 1)
+    const point = evaluator(t)
+    parameters.push(t)
+    if (i === 0) {
+      cumulativeLengths.push(0)
+      continue
+    }
+    totalLength += Math.hypot(point.x - previous.x, point.z - previous.z)
+    cumulativeLengths.push(totalLength)
+    previous = point
+  }
+  if (totalLength <= 0 || sampleCount <= 1) {
+    return Array.from({ length: sampleCount }, (_, i) =>
+      sampleCount <= 1 ? 0 : i / (sampleCount - 1),
+    )
+  }
+  const remapped: number[] = []
+  let segmentIndex = 1
+  for (let i = 0; i < sampleCount; i++) {
+    const targetLength = (i / (sampleCount - 1)) * totalLength
+    while (
+      segmentIndex < cumulativeLengths.length - 1 &&
+      cumulativeLengths[segmentIndex] < targetLength
+    ) {
+      segmentIndex++
+    }
+    const prevLength = cumulativeLengths[segmentIndex - 1]
+    const nextLength = cumulativeLengths[segmentIndex]
+    const span = nextLength - prevLength
+    const localT = span <= 0 ? 0 : (targetLength - prevLength) / span
+    remapped.push(
+      parameters[segmentIndex - 1] +
+        (parameters[segmentIndex] - parameters[segmentIndex - 1]) * localT,
+    )
+  }
+  return remapped
+}
+
+function sampleCubicLocal(
+  sampleCount: number,
+  p0: BezierPoint,
+  p1: BezierPoint,
+  p2: BezierPoint,
+  p3: BezierPoint,
+): SampledPoint[] {
+  const sampleParameters = equalArcLengthParameters(sampleCount, (t) =>
+    cubicBezierPoint(p0, p1, p2, p3, t),
+  )
+  const samples: SampledPoint[] = []
+  for (const t of sampleParameters) {
+    const { x, z } = cubicBezierPoint(p0, p1, p2, p3, t)
+    const { dx, dz } = cubicBezierDerivative(p0, p1, p2, p3, t)
+    samples.push({ x, z, heading: Math.atan2(-dz, dx) })
+  }
+  return samples
+}
+
+// Mirror a right-handed sample set into its left-handed counterpart across
+// the local x = 0 axis. Negate x and reflect headings via `pi - h`.
+function mirrorSweepSamples(samples: SampledPoint[]): SampledPoint[] {
+  return samples.map((s) => ({
+    x: -s.x,
+    z: s.z,
+    heading: Math.PI - s.heading,
+  }))
+}
+
+/**
+ * Apply a piece transform (world position + rotation around +Y) to a LOCAL
+ * sample. Rotation by `theta` radians (positive theta rotates +X toward +Z,
+ * i.e. compass-clockwise viewed from above with north up) maps local
+ * `(lx, lz)` to `(lx cos t - lz sin t, lx sin t + lz cos t)` in the global
+ * x/z frame. Heading (`atan2(-z, x)`) rotates by `-theta`.
+ */
+export function transformSample(
+  s: SampledPoint,
+  transform: { x: number; z: number; theta: number },
+): SampledPoint {
+  const cs = Math.cos(transform.theta)
+  const sn = Math.sin(transform.theta)
+  return {
+    x: transform.x + s.x * cs - s.z * sn,
+    z: transform.z + s.x * sn + s.z * cs,
+    heading: s.heading - transform.theta,
+  }
+}
+
+/**
+ * The world-space transform a piece's LOCAL samples need before they land
+ * at the piece's absolute position and rotation. Cell `(row, col)` maps to
+ * world `(col * CELL_SIZE, row * CELL_SIZE)`. Rotation is `piece.rotation`
+ * (degrees) converted to radians.
+ */
+export function pieceTransform(
+  piece: Pick<Piece, 'row' | 'col' | 'rotation'>,
+): { x: number; z: number; theta: number } {
+  return {
+    x: piece.col * CELL_SIZE,
+    z: piece.row * CELL_SIZE,
+    theta: ((piece.rotation as number) * Math.PI) / 180,
+  }
+}
+
+/**
+ * Discrete `Dir` value of a piece's "base entry" direction after applying
+ * its rotation. Every supported piece type's LOCAL sample set enters at
+ * the south edge midpoint (heading north). Rotating the piece by 90deg CW
+ * shifts the entry direction by 2 dir steps (S=4 -> W=6 -> N=0 -> E=2).
+ */
+function baseEntryDirAfterRotation(rotation: number): Dir {
+  const turns = Math.round(rotation / 90) | 0
+  return ((4 + turns * 2) % 8) as Dir
+}
+
+// ---- Per-piece-type LOCAL sample sets --------------------------------------
+
+// `straight` and `intersection` (pass-through arm) share one sample set: a
+// north-going line from south edge to north edge. STRAIGHT_SAMPLE_COUNT
+// points keep the road ribbon flat without wasting verts.
+function sampleStraightLocal(): SampledPoint[] {
+  const out: SampledPoint[] = []
+  for (let i = 0; i < STRAIGHT_SAMPLE_COUNT; i++) {
+    const t = i / (STRAIGHT_SAMPLE_COUNT - 1)
+    out.push({ x: 0, z: HALF - t * CELL_SIZE, heading: Math.PI / 2 })
+  }
+  return out
+}
+
+// Right 90: enters south, exits east. Quarter-circle arc with radius HALF
+// centered on the cell's SE corner (+HALF, +HALF). Sweeps math-frame angle
+// from PI (west-of-center, at the south-edge midpoint) to 3*PI/2
+// (north-of-center, at the east-edge midpoint), CCW. Heading turns from
+// north (PI/2) at entry to east (0) at exit.
+function sampleRight90Local(): SampledPoint[] {
+  const out: SampledPoint[] = []
+  for (let i = 0; i < CORNER_SAMPLE_COUNT; i++) {
+    const t = i / (CORNER_SAMPLE_COUNT - 1)
+    const a = Math.PI + t * (Math.PI / 2)
+    const x = HALF + HALF * Math.cos(a)
+    const z = HALF + HALF * Math.sin(a)
+    // Tangent for CCW motion (increasing a): (-r sin a, r cos a).
+    const tx = -Math.sin(a)
+    const tz = Math.cos(a)
+    out.push({ x, z, heading: Math.atan2(-tz, tx) })
+  }
+  return out
+}
+
+// Left 90: enters south, exits west. Quarter-circle arc with radius HALF
+// centered on the cell's SW corner (-HALF, +HALF). Mirror of right90 across
+// the local x = 0 axis.
+function sampleLeft90Local(): SampledPoint[] {
+  return mirrorSweepSamples(sampleRight90Local())
+}
+
+// S-curve (right bump). Ported analytic centerline from VibeRacer. Enters
+// south heading north, bumps east at the midpoint, exits north heading
+// north.
+function sampleScurveRightLocal(): SampledPoint[] {
+  const out: SampledPoint[] = []
+  for (let i = 0; i < SCURVE_SAMPLE_COUNT; i++) {
+    const s = (i / (SCURVE_SAMPLE_COUNT - 1)) * SCURVE_TOTAL_LENGTH
+    out.push(scurvePointAtArcLength(s))
+  }
+  return out
+}
+
+function sampleScurveLeftLocal(): SampledPoint[] {
+  return mirrorSweepSamples(sampleScurveRightLocal())
+}
+
+function scurvePointAtArcLength(input: number): SampledPoint {
+  const r = SCURVE_ARC_RADIUS
+  const halfL = HALF
+  const bridge = SCURVE_BRIDGE_LENGTH
+  const arcLen = SCURVE_ARC_LENGTH
+  let s = input
+  // Entry straight bridge.
+  if (s <= bridge) {
+    return { x: 0, z: halfL - s, heading: Math.PI / 2 }
+  }
+  s -= bridge
+  const z0 = halfL - bridge
+  // Arc 1: CCW around (r, z0) from a = PI (west of center) to a = 3PI/2.
+  if (s <= arcLen) return scurveArcSample(r, z0, Math.PI, +1, s / arcLen)
+  s -= arcLen
+  // Arc 2: CW around (r, z0 - 2r) from a = PI/2 to a = 0.
+  if (s <= arcLen) return scurveArcSample(r, z0 - 2 * r, Math.PI / 2, -1, s / arcLen)
+  s -= arcLen
+  // Arc 3: CW around the same center as arc 2 from a = 0 to a = -PI/2.
+  if (s <= arcLen) return scurveArcSample(r, z0 - 2 * r, 0, -1, s / arcLen)
+  s -= arcLen
+  // Arc 4: CCW around (r, z0 - 4r) from a = PI/2 to a = PI.
+  if (s <= arcLen) return scurveArcSample(r, z0 - 4 * r, Math.PI / 2, +1, s / arcLen)
+  s -= arcLen
+  // Exit straight bridge.
+  return { x: 0, z: z0 - 4 * r - s, heading: Math.PI / 2 }
+}
+
+function scurveArcSample(
+  cx: number,
+  cz: number,
+  startAngle: number,
+  dir: 1 | -1,
+  t: number,
+): SampledPoint {
+  const r = SCURVE_ARC_RADIUS
+  const a = startAngle + dir * t * (Math.PI / 2)
+  const x = cx + r * Math.cos(a)
+  const z = cz + r * Math.sin(a)
+  const tx = -dir * Math.sin(a)
+  const tz = dir * Math.cos(a)
+  return { x, z, heading: Math.atan2(-tz, tx) }
+}
+
+// Sweep right: smooth quarter-curve from south edge to east edge of the
+// SAME cell. Cubic bezier with anchor at (0, +HALF) and (+HALF, 0) and
+// control points scaled by SWEEP_BEZIER_K to approximate a quarter-circle.
+function sampleSweepRightLocal(): SampledPoint[] {
+  return sampleCubicLocal(
+    SWEEP_SAMPLE_COUNT,
+    { x: 0, z: HALF },
+    { x: 0, z: HALF * SWEEP_BEZIER_K },
+    { x: HALF * SWEEP_BEZIER_K, z: 0 },
+    { x: HALF, z: 0 },
+  )
+}
+
+function sampleSweepLeftLocal(): SampledPoint[] {
+  return mirrorSweepSamples(sampleSweepRightLocal())
+}
+
+// Mega sweep right: 3x3 footprint smooth bend. Wider radius than sweepRight
+// so the curve covers an entire mega-sweep block.
+function sampleMegaSweepRightLocal(): SampledPoint[] {
+  return sampleCubicLocal(
+    MEGA_SWEEP_SAMPLE_COUNT,
+    { x: 0, z: HALF },
+    { x: 0, z: HALF - MEGA_SWEEP_ARC_RADIUS },
+    { x: HALF - MEGA_SWEEP_ARC_RADIUS, z: 0 },
+    { x: HALF, z: 0 },
+  )
+}
+
+function sampleMegaSweepLeftLocal(): SampledPoint[] {
+  return mirrorSweepSamples(sampleMegaSweepRightLocal())
+}
+
+// Hairpin: 2x3 footprint U-turn. Enters at the south edge of the bottom-left
+// cell heading north, loops around, exits at the south edge of the
+// bottom-right cell heading south. Single cubic bezier with two control
+// points pulled outward to make the U.
+function sampleHairpinLocal(): SampledPoint[] {
+  return sampleCubicLocal(
+    HAIRPIN_SAMPLE_COUNT,
+    { x: -HALF, z: -CELL_SIZE },
+    { x: -HALF + HAIRPIN_ARC_RADIUS, z: -CELL_SIZE },
+    { x: -HALF + HAIRPIN_ARC_RADIUS, z: CELL_SIZE },
+    { x: -HALF, z: CELL_SIZE },
+  )
+}
+
+// Cached LOCAL sample sets so the resolver does not re-sample on every walker
+// step. Keep these `const` (not `export`) so callers go through
+// `sampledPointsForPiece`, which handles the entry-direction reversal.
+const STRAIGHT_LOCAL_SAMPLES = sampleStraightLocal()
+const RIGHT90_LOCAL_SAMPLES = sampleRight90Local()
+const LEFT90_LOCAL_SAMPLES = sampleLeft90Local()
+const SCURVE_RIGHT_LOCAL_SAMPLES = sampleScurveRightLocal()
+const SCURVE_LEFT_LOCAL_SAMPLES = sampleScurveLeftLocal()
+const SWEEP_RIGHT_LOCAL_SAMPLES = sampleSweepRightLocal()
+const SWEEP_LEFT_LOCAL_SAMPLES = sampleSweepLeftLocal()
+const MEGA_SWEEP_RIGHT_LOCAL_SAMPLES = sampleMegaSweepRightLocal()
+const MEGA_SWEEP_LEFT_LOCAL_SAMPLES = sampleMegaSweepLeftLocal()
+const HAIRPIN_LOCAL_SAMPLES = sampleHairpinLocal()
+
+function localSamplesFor(type: PieceType): SampledPoint[] | null {
+  switch (type) {
+    case 'straight':
+    case 'intersection':
+      return STRAIGHT_LOCAL_SAMPLES
+    case 'left90':
+      return LEFT90_LOCAL_SAMPLES
+    case 'right90':
+      return RIGHT90_LOCAL_SAMPLES
+    case 'scurve':
+      return SCURVE_RIGHT_LOCAL_SAMPLES
+    case 'scurveLeft':
+      return SCURVE_LEFT_LOCAL_SAMPLES
+    case 'sweepRight':
+      return SWEEP_RIGHT_LOCAL_SAMPLES
+    case 'sweepLeft':
+      return SWEEP_LEFT_LOCAL_SAMPLES
+    case 'megaSweepRight':
+      return MEGA_SWEEP_RIGHT_LOCAL_SAMPLES
+    case 'megaSweepLeft':
+      return MEGA_SWEEP_LEFT_LOCAL_SAMPLES
+    case 'hairpin':
+      return HAIRPIN_LOCAL_SAMPLES
+    case 'arc45':
+    case 'diagonal':
+      // F-003 sister slice ports these.
+      return null
+  }
+}
+
+/**
+ * Resolve the world-space sampled centerline for a piece, oriented to flow
+ * from the given entry direction. Returns `null` for piece types whose
+ * geometry has not been ported yet (`arc45`, `diagonal`).
+ *
+ * Reversal: when the walker enters a piece from the OPPOSITE end of the
+ * type's base entry, the LOCAL samples are reversed and every heading is
+ * rotated by 180deg so headings still face the direction of travel. This
+ * is the load-bearing detail without which the chase camera would look
+ * backward through every reversed segment.
+ *
+ * Returns a fresh array on each call; callers can mutate or store without
+ * coordinating with the cached LOCAL sample sets.
+ */
+export function sampledPointsForPiece(
+  piece: Piece,
+  entryDir: Dir,
+): SampledPoint[] | null {
+  const local = localSamplesFor(piece.type)
+  if (!local) return null
+  const transform = pieceTransform(piece)
+  const transformed = local.map((s) => transformSample(s, transform))
+  const baseEntry = baseEntryDirAfterRotation(piece.rotation as number)
+  const reversed = entryDir !== baseEntry
+  if (!reversed) return transformed
+  const out = transformed.slice().reverse()
+  return out.map((s) => ({ x: s.x, z: s.z, heading: s.heading + Math.PI }))
 }
