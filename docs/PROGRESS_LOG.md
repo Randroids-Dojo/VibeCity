@@ -16,6 +16,16 @@ Format for each slice:
 - Followups: any new `F-NNN` entries created. Link to them.
 ```
 
+## 2026-05-09, Cleanup R24: Vehicle Physics Integrator Extracted to `src/lib/physics/`
+
+- Branch: `feature/20260508-cleanup-r24-vehicle-physics`
+- PR: TBD
+- Changed: Round 24 of the cleanup loop. R23 extracted the input plumbing; this round extracts the integrator math itself. New `src/lib/physics/vehicle.ts` exports a `VehicleTuning` interface plus the pure helpers `createVehicleState`, `steerRateForSpeed(speed, tuning)`, `applyDriveStep(state, input, dt, tuning)`. The integrator no longer depends on any city-specific constants. `src/app/[slug]/driveControls.ts` builds a city-specific `VEHICLE_TUNING` from its `MAX_SPEED` / `ACCELERATION` / etc. constants (which are derived from `CELL_SIZE`) and re-exports thin wrappers that pre-bind the tuning, so existing call sites do not change. `VehicleState` is re-exported from the lib via `export type`. Adds 11 new generic-helper tests in `tests/lib/physics/vehicle.test.ts` covering the steering rate band, throttle / brake / coast transitions, dt clamping, speed clamping, heading direction, and the rear-axle-pivot reverse steering flip.
+- Verification: `npx tsc --noEmit` (clean), `npx vitest run` (84 files, 2408 tests, +12 new), `npm run check:dashes` (clean).
+- Assumptions: The lib `VehicleTuning` interface uses field names that match the existing constants conceptually; the city wrapper maps `MAX_SPEED -> maxSpeed` etc. at construction time. Future games with a different unit size build their own tuning from `@/lib/physics/vehicle` and skip the city wrapper.
+- GDD coverage: No `docs/GDD_COVERAGE.json` row change.
+- Followups: None new.
+
 ## 2026-05-09, Cleanup R23: Vehicle Input Plumbing Extracted to `src/lib/input/`
 
 - Branch: `feature/20260508-cleanup-r23-vehicle-physics`
