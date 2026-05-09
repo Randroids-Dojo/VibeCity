@@ -38,7 +38,7 @@ export const THUMBNAIL_MARGIN = 0.08
 export const THUMBNAIL_DOT_RADIUS = 0.05
 
 /** Distinguishes piece dots (streets) from building dots so consumers can color them differently. */
-export type ThumbnailDotKind = 'piece' | 'building'
+type ThumbnailDotKind = 'piece' | 'building'
 
 export type ThumbnailDot = NormalizedDot<ThumbnailDotKind>
 
