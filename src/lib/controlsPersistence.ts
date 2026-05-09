@@ -1,4 +1,9 @@
 import { z } from 'zod'
+import {
+  safeLocalStorageGet,
+  safeLocalStorageRemove,
+  safeLocalStorageSet,
+} from './storage/localStorage'
 
 /**
  * Controls persistence layer (REQ-043).
@@ -243,13 +248,7 @@ export function defaultControls(): Controls {
  * it.
  */
 export function loadControls(): Controls {
-  if (typeof window === 'undefined') return defaultControls()
-  let raw: string | null
-  try {
-    raw = window.localStorage.getItem(CONTROLS_STORAGE_KEY)
-  } catch {
-    return defaultControls()
-  }
+  const raw = safeLocalStorageGet(CONTROLS_STORAGE_KEY)
   if (raw === null) return defaultControls()
   let parsed: unknown
   try {
@@ -276,7 +275,6 @@ export function loadControls(): Controls {
  * to defaults call `clearControls` instead.
  */
 export function saveControls(patch: ControlsPayload): boolean {
-  if (typeof window === 'undefined') return false
   const validated = ControlsPayloadSchema.safeParse(patch)
   if (!validated.success) return false
 
@@ -289,12 +287,7 @@ export function saveControls(patch: ControlsPayload): boolean {
     version: CONTROLS_STORAGE_VERSION,
     controls: next,
   }
-  try {
-    window.localStorage.setItem(CONTROLS_STORAGE_KEY, JSON.stringify(envelope))
-    return true
-  } catch {
-    return false
-  }
+  return safeLocalStorageSet(CONTROLS_STORAGE_KEY, JSON.stringify(envelope))
 }
 
 /**
@@ -303,13 +296,7 @@ export function saveControls(patch: ControlsPayload): boolean {
  * on the server or when the storage call throws.
  */
 export function clearControls(): boolean {
-  if (typeof window === 'undefined') return false
-  try {
-    window.localStorage.removeItem(CONTROLS_STORAGE_KEY)
-    return true
-  } catch {
-    return false
-  }
+  return safeLocalStorageRemove(CONTROLS_STORAGE_KEY)
 }
 
 /**
@@ -320,13 +307,7 @@ export function clearControls(): boolean {
  * not need this for runtime reads (use `loadControls` instead).
  */
 function readPersistedPayload(): ControlsPayload {
-  if (typeof window === 'undefined') return {}
-  let raw: string | null
-  try {
-    raw = window.localStorage.getItem(CONTROLS_STORAGE_KEY)
-  } catch {
-    return {}
-  }
+  const raw = safeLocalStorageGet(CONTROLS_STORAGE_KEY)
   if (raw === null) return {}
   let parsed: unknown
   try {
