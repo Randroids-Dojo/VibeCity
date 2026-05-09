@@ -63,13 +63,18 @@ export function chaseCameraDefaults(unitSize: number): CameraRigParams {
  * factors are tuned so a 60Hz refresh produces a smooth follow
  * without lag that exceeds the width of a road piece during normal
  * driving.
+ *
+ * Each named constant pulls from `chaseCameraDefaults(CAMERA_RIG_UNIT_SIZE)`
+ * so the tuning multipliers live in exactly one place; bumping
+ * a multiplier in the factory updates the named constant too.
  */
-export const CAMERA_RIG_HEIGHT = CAMERA_RIG_UNIT_SIZE * 1.6
-export const CAMERA_RIG_DISTANCE = CAMERA_RIG_UNIT_SIZE * 3.5
-export const CAMERA_RIG_LOOK_AHEAD = CAMERA_RIG_UNIT_SIZE * 1.5
-export const CAMERA_RIG_TARGET_HEIGHT = CAMERA_RIG_UNIT_SIZE * 0.25
-export const CAMERA_RIG_POSITION_LERP = 0.12
-export const CAMERA_RIG_TARGET_LERP = 0.2
+const _BAKED_DEFAULTS = chaseCameraDefaults(CAMERA_RIG_UNIT_SIZE)
+export const CAMERA_RIG_HEIGHT = _BAKED_DEFAULTS.height
+export const CAMERA_RIG_DISTANCE = _BAKED_DEFAULTS.distance
+export const CAMERA_RIG_LOOK_AHEAD = _BAKED_DEFAULTS.lookAhead
+export const CAMERA_RIG_TARGET_HEIGHT = _BAKED_DEFAULTS.targetHeight
+export const CAMERA_RIG_POSITION_LERP = _BAKED_DEFAULTS.positionLerp
+export const CAMERA_RIG_TARGET_LERP = _BAKED_DEFAULTS.targetLerp
 
 export interface CameraRigParams {
   /** Camera height above the ground plane, in world units. */
