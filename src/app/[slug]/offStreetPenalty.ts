@@ -1,5 +1,6 @@
 import type { Piece } from '@/lib/schemas'
 import type { TrackPath } from '@/lib/trackPath'
+import { cellKey } from '@/lib/render/grid'
 import {
   pieceFootprintDistance,
   wheelContactCandidates,
@@ -70,15 +71,6 @@ export const OFF_STREET_PENALTY_MAX_REVERSE_SPEED = CELL_SIZE * 1.5
  * "I drove into a building" feel.
  */
 export const OFF_STREET_PENALTY_DRAG = CELL_SIZE * 8
-
-/**
- * Stable map key for a cell coordinate. Mirrors the `cellKey` private
- * helpers in `buildingCollision.ts` and `edit/snapGrid.ts` so a future
- * shared lookup table can use the same key format.
- */
-function cellKey(row: number, col: number): string {
-  return `${row},${col}`
-}
 
 /**
  * Build a `Set<string>` of every cell covered by a street piece in

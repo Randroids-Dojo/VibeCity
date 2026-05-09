@@ -1,6 +1,7 @@
 import type { Building } from '@/lib/schemas'
 import { CELL_SIZE } from './driveScene'
 import type { VehicleState } from './driveControls'
+import { cellKey } from '@/lib/render/grid'
 
 /**
  * Drive-mode building collision (REQ-030, Q-005 default A).
@@ -67,15 +68,6 @@ export function worldToCell(
     row: Math.round(z / CELL_SIZE),
     col: Math.round(x / CELL_SIZE),
   }
-}
-
-/**
- * Stable map key for a cell coordinate. Mirrors `cellKey` in the
- * editor's `snapGrid.ts` so a future shared lookup table can use the
- * same key format.
- */
-function cellKey(row: number, col: number): string {
-  return `${row},${col}`
 }
 
 /**
