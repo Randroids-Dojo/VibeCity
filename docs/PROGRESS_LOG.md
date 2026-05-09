@@ -19,7 +19,7 @@ Format for each slice:
 ## 2026-05-08, Cleanup R12: SSR-safe localStorage + Versioned Envelope Primitives
 
 - Branch: `feature/20260508-cleanup-r12-versioned-envelope`
-- PR: TBD
+- PR: #182
 - Changed: Round 12 of the cleanup loop. Two new primitives in `src/lib/storage/`:
   - `localStorage.ts`: `safeLocalStorageGet`, `safeLocalStorageSet`, `safeLocalStorageRemove`. SSR check + try/catch in one place so callers do not duplicate the `typeof window` guard and the quota / disabled-storage handling.
   - `versionedEnvelope.ts`: `versionedEnvelopeSchema(payloadSchema, version)` zod helper that wraps a payload schema in a `{ version: literal, payload }` envelope. The version-bump-resets-to-defaults pattern that powers `controlsPersistence.ts` (REQ-043) is now a one-line schema construction for any future game with persisted user settings.
