@@ -19,7 +19,7 @@ Format for each slice:
 ## 2026-05-09, Cleanup R26: `src/lib/README.md` Refresh + Wrapping-Pattern Section
 
 - Branch: `feature/20260508-cleanup-r26-readme-refresh`
-- PR: TBD
+- PR: #196
 - Changed: Round 26 of the cleanup loop. R21-R25 added two new generic namespaces (`input/`, `physics/`) and several modules to existing ones (`render/scene.ts`, `render/grid.ts`, `ui/transitionCurtain.ts`); the R20 README is out of date again. Refreshed `src/lib/README.md` to:
   - Add `input/` row (vehicleControls).
   - Add `physics/` row (vehicle integrator).
