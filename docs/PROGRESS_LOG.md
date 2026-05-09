@@ -19,7 +19,7 @@ Format for each slice:
 ## 2026-05-09, Cleanup R28: Second Knip Pass (Two More Unused Exports)
 
 - Branch: `feature/20260508-cleanup-r28-knip-pass2`
-- PR: TBD
+- PR: #198
 - Changed: Round 28 of the cleanup loop. Re-ran `knip` against main after R23-R25 added new modules. Two more clean wins:
   - `src/app/[slug]/driveControls.ts`: dropped the `DriveAction` re-export. The R23 wrapper re-exported it for symmetry with the other input plumbing types but no consumer actually imports it via the city wrapper; `tests/lib/input/vehicleControls.test.ts` imports it directly from the lib path. Internal use of the type alias inside `driveControls.ts` is also gone.
   - `src/lib/schemas.ts`: dropped `export` from `PieceFootprintCellSchema`. The schema is only referenced inside the same file (composed into `PieceSchema`); the `PieceFootprintCell` type alias derived from it stays exported and is used externally.
