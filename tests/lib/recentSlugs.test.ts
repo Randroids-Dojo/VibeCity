@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { FakeKv } from '../_fakeKv'
+import { FakeKv } from './storage/_fakeKv'
 import { kvKeys } from '@/lib/cityKv'
 
 const ENV_KEYS = ['KV_REST_API_URL', 'KV_REST_API_TOKEN'] as const

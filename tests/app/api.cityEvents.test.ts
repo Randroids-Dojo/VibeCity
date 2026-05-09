@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, beforeAll, vi } from 'vitest'
 import { NextRequest } from 'next/server'
-import { FakeKv } from '../_fakeKv'
+import { FakeKv } from '../lib/storage/_fakeKv'
 import { kvKeys } from '@/lib/cityKv'
 import { BUILDER_ID_COOKIE } from '@/lib/builderId'
 import type { Slug } from '@/lib/schemas'
