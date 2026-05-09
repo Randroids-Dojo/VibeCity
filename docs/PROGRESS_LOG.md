@@ -19,7 +19,7 @@ Format for each slice:
 ## 2026-05-08, Cleanup R13: Engine Audio Rig Hoisted to `src/lib/audio/`
 
 - Branch: `feature/20260508-cleanup-r13-engine-audio`
-- PR: TBD
+- PR: #183
 - Changed: Round 13 of the cleanup loop. The Web Audio engine-sound rig (REQ-068) is fully generic Web Audio synthesis. Move `src/app/[slug]/engineAudio.ts` -> `src/lib/audio/engineAudio.ts`; tests follow to `tests/lib/audio/engineAudio.test.ts`. Decoupled from the city-specific `MAX_SPEED` constant by making `maxSpeed` a required parameter on `engineFrequencyForSpeed` / `engineGainForSpeed` and a constructor argument on `EngineAudioRig` (which stores it and passes it to the helpers in `update`). `src/app/[slug]/DriveSceneClient.tsx` and `src/app/[slug]/tireScreechAudio.ts` import paths updated; the rig instantiation now passes `MAX_SPEED` from `driveControls.ts` explicitly. Test file imports flipped to the lib path; 30 single-arg helper calls and 23 `new EngineAudioRig(ctx)` calls bulk-updated to pass `MAX_SPEED` explicitly via sed.
 - Verification: `npx tsc --noEmit` (clean), `npx vitest run` (80 files, 2374 tests passing), `npm run check:dashes` (clean).
 - Assumptions: The breaking API change (helpers no longer have a default `maxSpeed`) is justified because the new lib has no game-specific dependencies. Only call sites in this repo are the rig itself and the test file, both updated in this round.
