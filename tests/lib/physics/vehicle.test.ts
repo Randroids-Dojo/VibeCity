@@ -110,13 +110,26 @@ describe('applyDriveStep throttle / brake / coast', () => {
 
   it('clamps speed to maxSpeed and -maxReverseSpeed', () => {
     const fast: VehicleState = { x: 0, z: 0, heading: 0, speed: TUNING.maxSpeed }
-    const result = applyDriveStep(
+    const fastResult = applyDriveStep(
       fast,
       { ...emptyInput(), throttle: true },
       0.05,
       TUNING,
     )
-    expect(result.speed).toBe(TUNING.maxSpeed)
+    expect(fastResult.speed).toBe(TUNING.maxSpeed)
+
+    // Reverse cap: brake from a parked state should not blow past
+    // -maxReverseSpeed even after many step accumulations.
+    let reversing: VehicleState = createVehicleState({ x: 0, z: 0, heading: 0 })
+    for (let i = 0; i < 100; i++) {
+      reversing = applyDriveStep(
+        reversing,
+        { ...emptyInput(), brake: true },
+        TUNING.maxDeltaSeconds,
+        TUNING,
+      )
+    }
+    expect(reversing.speed).toBe(-TUNING.maxReverseSpeed)
   })
 })
 
