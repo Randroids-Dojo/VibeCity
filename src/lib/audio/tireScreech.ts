@@ -1,22 +1,23 @@
 import type { EngineAudioContextLike } from '@/lib/audio/engineAudio'
 
 /**
- * Tire-screech audio rig (F-013 slice 3 audio).
+ * Tire-screech audio rig. Game-agnostic.
  *
- * The substrate (lateral-acceleration estimator + `data-screech-active`
- * scene-root mirror) shipped in PR #162. This module adds the actual
- * audio buffer: a high-frequency square-wave oscillator filtered into
- * a piercing bandpass squeal that gates on the substrate's predicate.
+ * A high-frequency square-wave oscillator filtered into a piercing
+ * bandpass squeal that gates on a per-frame `active` flag. Mirrors
+ * the `EngineAudioRig` lifecycle so the consumer wires both rigs
+ * the same way: `start()` after a user gesture, `update(active)`
+ * per frame to flip the gain, `setMuted(muted)` shares any mute
+ * toggle, `stop()` on teardown.
  *
- * The rig mirrors the `EngineAudioRig` lifecycle so the drive scene
- * client wires it the same way: `start()` after a user gesture,
- * `update(active)` per frame to flip the gain, `setMuted(muted)` shares
- * the engine mute toggle, `stop()` on unmount.
+ * VibeCity's drive scene (F-013 slice 3) is the v1 consumer; the
+ * lateral-acceleration estimator that drives the `active` flag
+ * lives in the consumer.
  *
- * Constants are tuned conservative: the screech is meant as a subtle
- * skill cue ("you took that turn hard"), not a constant assault on the
- * player's ears. Gain stays well below the engine's max so the cue
- * layers on top of the engine sound rather than drowning it.
+ * Constants are tuned conservative: the screech is a subtle skill
+ * cue ("you took that turn hard"), not a constant assault. Gain
+ * stays well below typical engine max so the cue layers on top
+ * rather than drowning it.
  */
 
 export const TIRE_SCREECH_FREQUENCY_HZ = 1200

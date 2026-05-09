@@ -161,7 +161,7 @@ import {
 } from './driveHud'
 import { RESPAWN_KEY_CODE, respawnVehicle } from './respawn'
 import { ENGINE_MUTE_KEY_CODE, EngineAudioRig } from '@/lib/audio/engineAudio'
-import { TireScreechAudioRig } from './tireScreechAudio'
+import { TireScreechAudioRig } from '@/lib/audio/tireScreech'
 import {
   SHARE_COPY_RESET_DELAY_MS,
   buildShareUrl,

@@ -6,7 +6,7 @@ import {
   TIRE_SCREECH_GAIN,
   TIRE_SCREECH_SMOOTHING_SECONDS,
   TireScreechAudioRig,
-} from '@/app/[slug]/tireScreechAudio'
+} from '@/lib/audio/tireScreech'
 import {
   ENGINE_MAX_GAIN,
   type EngineAudioContextLike,
