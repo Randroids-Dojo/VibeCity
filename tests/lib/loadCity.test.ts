@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
-import { FakeKv } from '../_fakeKv'
+import { FakeKv } from './storage/_fakeKv'
 import { EMPTY_CITY, type City, type Slug } from '@/lib/schemas'
 import { kvKeys, type CityVersionHash } from '@/lib/cityKv'
 import { hashCity } from '@/lib/hashCity'

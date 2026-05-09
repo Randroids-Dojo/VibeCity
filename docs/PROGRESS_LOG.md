@@ -16,6 +16,16 @@ Format for each slice:
 - Followups: any new `F-NNN` entries created. Link to them.
 ```
 
+## 2026-05-09, Cleanup R17: `FakeKv` Test Fake Hoisted to `tests/lib/storage/`
+
+- Branch: `feature/20260508-cleanup-r17-test-fakes`
+- PR: #187
+- Changed: Round 17 of the cleanup loop. The `FakeKv` test fake (in-memory mirror of the Upstash Redis surface VibeCity uses) was already a cross-game-portable fake (ported from VibeRacer) but lived at the test-tree root. Move `tests/_fakeKv.ts` -> `tests/lib/storage/_fakeKv.ts` so it sits next to the lib it fakes (`src/lib/storage/`). Five import sites updated: `tests/app/api.cityEvents.test.ts`, `tests/app/cityRoute.test.ts`, `tests/lib/recentSlugs.test.ts`, `tests/lib/recentVersions.test.ts`, `tests/lib/loadCity.test.ts`. The relative paths differ between app-tree and lib-tree consumers (`../lib/storage/_fakeKv` vs `./storage/_fakeKv`); both updated.
+- Verification: `npx tsc --noEmit` (clean), `npx vitest run` (80 files, 2374 tests passing), `npm run check:dashes` (clean).
+- Assumptions: Test fakes live under `tests/lib/<namespace>/` mirroring the lib they fake; future generic fakes (e.g. a fake `EngineAudioContextLike` already exists inline in `tests/lib/audio/engineAudio.test.ts`) can follow the same convention.
+- GDD coverage: No `docs/GDD_COVERAGE.json` row change.
+- Followups: None new.
+
 ## 2026-05-09, Cleanup R16: Pause Menu State Machine Hoisted to `src/lib/ui/`
 
 - Branch: `feature/20260508-cleanup-r16-touch-input`
