@@ -16,6 +16,23 @@ Format for each slice:
 - Followups: any new `F-NNN` entries created. Link to them.
 ```
 
+## 2026-05-09, Cleanup R20: `src/lib/README.md` Refresh (Second Loop Final Round)
+
+- Branch: `feature/20260508-cleanup-r20-readme-refresh`
+- PR: #190
+- Changed: Final round of the second 10-round cleanup loop. R11-R19 added three new generic namespaces (`audio/`, `ui/`) and several modules to existing ones; the R10 README named the original six namespaces and is now out of date. Refreshed `src/lib/README.md` to:
+  - Add `audio/` row (engineAudio, tireScreech) and `ui/` row (pauseMenu).
+  - Update `auth/` row to mention `anonCookie.ts` (the middleware factory from R11).
+  - Update `render/` row to mention `cameraRig.ts` and `thumbnail.ts` (R9 + R15).
+  - Update `storage/` row to mention `localStorage.ts` and `versionedEnvelope.ts` (R12).
+  - Note that `controlsPersistence.ts` now uses `storage/localStorage.ts` for its SSR-safe boundary (R12).
+  - New "Test fakes" section pointing to `tests/lib/storage/_fakeKv.ts` (R17 relocation).
+  - "Adding new code" section retained verbatim; the wrapping pattern remains the contract.
+- Verification: `npm run check:dashes` (clean). No code changes; full vitest suite was last green at 2374 / 2374 after R19 merged.
+- Assumptions: The README documents the lib namespace as it stands at the end of cleanup loop 2. Future loops can append more rows when new generic primitives land.
+- GDD coverage: No `docs/GDD_COVERAGE.json` row change.
+- Followups: None new.
+
 ## 2026-05-09, Cleanup R19: Unused Type-Alias Exports Made Internal
 
 - Branch: `feature/20260508-cleanup-r19-unused-types`
