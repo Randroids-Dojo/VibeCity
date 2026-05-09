@@ -3,7 +3,7 @@ import {
   CAMERA_RIG_TARGET_HEIGHT,
   CAMERA_RIG_TARGET_LERP,
   type CameraRigParams,
-} from './cameraRig'
+} from '@/lib/render/cameraRig'
 import {
   DEFAULT_CAMERA_TUNING,
   type CameraTuning,

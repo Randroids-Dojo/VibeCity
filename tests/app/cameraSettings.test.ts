@@ -11,7 +11,7 @@ import {
   CAMERA_RIG_POSITION_LERP,
   CAMERA_RIG_TARGET_HEIGHT,
   CAMERA_RIG_TARGET_LERP,
-} from '@/app/[slug]/cameraRig'
+} from '@/lib/render/cameraRig'
 import type { CameraTuning } from '@/lib/controlsPersistence'
 
 /**
