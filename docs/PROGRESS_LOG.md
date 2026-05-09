@@ -16,6 +16,20 @@ Format for each slice:
 - Followups: any new `F-NNN` entries created. Link to them.
 ```
 
+## 2026-05-09, Art Pass Slice 2: GLTF Mesh Cache + Building Mesh Swap
+
+- Branch: `feature/20260509-art-buildings-glb`
+- PR: TBD
+- Changed: Second slice of the Kenney City Kit art pass. Slice 1 dropped four building meshes plus four cardinal piece meshes under `public/models/buildings/` and `public/models/pieces/` and refreshed `public/models/KENNEY-LICENSE.txt`. This slice wires the building meshes into the drive scene:
+  - New `src/lib/render/gltfCache.ts`: generic `loadGltfOnce(loader, url)` that memoizes a `loader.loadAsync(url)` promise per URL. Failures resolve to `null` so callers can branch to a procedural fallback. Three.js-agnostic (the loader is parameterized) so the cache is testable without dragging `GLTFLoader` into a Node environment. Plus `clearGltfCache()` and `gltfCacheSize()` for tests.
+  - New `BUILDING_MESH_URLS` map + `buildingMeshUrlFor(type)` + `buildingMeshScale()` in `src/app/[slug]/driveScene.ts`. The map points each `BuildingType` at its `.glb` under `/models/buildings/`. Scale derives from `buildingFootprintWorldSize()` so the loaded mesh matches the procedural body footprint.
+  - `src/app/[slug]/DriveSceneClient.tsx`: per-building loop now adds the existing procedural body+roof extrusion as the immediate placeholder (marked `userData.placeholder = true`) and an empty `THREE.Group` mesh slot at the cell anchor. After the loop, one `loadGltfOnce` per unique `BuildingType` clones the resolved GLB into every slot of that type and hides the matching placeholders. Failures keep the placeholder visible so a missing or corrupt asset never blanks a city.
+- During visual verification (browser-harness driving `/art-test/drive`) the buildings rendered untextured (gray) because the Kenney City Kit GLBs reference `Textures/colormap.png` as a relative path and each kit ships a different palette under that filename. Reorganized `public/models/buildings/` into per-kit subdirs: `suburban/{small-house,mid-house}.glb` + `suburban/Textures/colormap.png`, `commercial/{shop,factory}.glb` + `commercial/Textures/colormap.png`. Updated `BUILDING_MESH_URLS` and `KENNEY-LICENSE.txt` to match. Pieces directory got its own `Textures/colormap.png` from the roads kit pre-emptively for slice 3.
+- Verification: `npm run check:dashes` clean. `pnpm exec tsc --noEmit` clean. `pnpm exec vitest run` 86 files / 2427 tests pass (was 2416). Visual smoke via browser-harness on `http://localhost:3000/art-test/drive`: all four building types render as textured Kenney meshes (commercial buildings with blue windows, suburban houses with green roofs).
+- Assumptions: Kenney City Kit pieces are designed at 1 unit per cell, so a uniform per-mesh scale of `buildingFootprintWorldSize()` lands them at parity with the procedural body. If Blender re-exports diverge, swap to a per-type scale. `gltf.scene.clone(true)` per placement is the v1 strategy; an `InstancedMesh` optimization is deferred until profiling shows a hit. Per-kit texture subdirs are the simplest fix for the relative-URI conflict; an alternative is to re-encode each GLB to inline its texture as a binary chunk via gltf-pipeline, deferred until file count grows.
+- GDD coverage: No `docs/GDD_COVERAGE.json` row change. REQ-046 stays at its current status; the visual upgrade is a polish pass on the existing primitive.
+- Followups: None new. Sister dots (`source-kenney-city-kit-assets`, `cardinal-piece-mesh-swap`, `smooth-and-advanced-piece-meshes`, `iso-editor-preview-parity`, `environment-skybox-and-ground`) track the rest of the art pass.
+
 ## 2026-05-09, Cleanup R30: `docs/CLEANUP_LOOPS_SUMMARY.md` (Loop 3 Final Round)
 
 - Branch: `feature/20260508-cleanup-r30-loop3-final`

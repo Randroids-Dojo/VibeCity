@@ -40,6 +40,8 @@ import {
   SPAWN_MARKER_LENGTH,
   SPAWN_MARKER_WIDTH,
   buildingColorFor,
+  buildingMeshScale,
+  buildingMeshUrlFor,
   buildingFootprintWorldSize,
   buildingHeightFor,
   buildingRoofColorFor,
@@ -188,6 +190,36 @@ describe('buildingColorFor / buildingHeightFor (REQ-046)', () => {
     for (const type of Object.keys(PIECE_COLORS)) {
       expect(PieceTypeSchema.options).toContain(type as PieceType)
     }
+  })
+})
+
+describe('buildingMeshUrlFor (Kenney City Kit slice 2)', () => {
+  it('returns a non-empty URL for every BuildingType in the schema', () => {
+    for (const type of BuildingTypeSchema.options) {
+      const url = buildingMeshUrlFor(type)
+      expect(typeof url).toBe('string')
+      expect(url.length).toBeGreaterThan(0)
+    }
+  })
+
+  it('every URL points under /models/buildings/ and ends in .glb', () => {
+    for (const type of BuildingTypeSchema.options) {
+      const url = buildingMeshUrlFor(type)
+      expect(url.startsWith('/models/buildings/')).toBe(true)
+      expect(url.endsWith('.glb')).toBe(true)
+    }
+  })
+
+  it('every BuildingType maps to a distinct asset URL', () => {
+    const seen = new Set<string>()
+    for (const type of BuildingTypeSchema.options) {
+      seen.add(buildingMeshUrlFor(type))
+    }
+    expect(seen.size).toBe(BuildingTypeSchema.options.length)
+  })
+
+  it('buildingMeshScale matches the body footprint world size', () => {
+    expect(buildingMeshScale()).toBeCloseTo(buildingFootprintWorldSize(), 10)
   })
 })
 

@@ -193,10 +193,49 @@ export function pieceColorFor(type: PieceType): number {
 
 /**
  * Resolve the color used to render a building. Strict map lookup; the
- * `BuildingType` enum makes the lookup total.
+ * `BuildingType` enum makes the lookup total. Still exported because
+ * the procedural fallback path (when a `.glb` fails to load) and the
+ * editor preview / thumbnail paths consume it.
  */
 export function buildingColorFor(type: BuildingType): number {
   return BUILDING_COLORS[type]
+}
+
+/**
+ * Per-`BuildingType` GLB asset URLs (slice 2 of the Kenney City Kit
+ * art pass). Each URL points at a Kenney City Kit mesh under
+ * `public/models/buildings/`. Source kit + original Kenney filename
+ * for each entry is recorded in `public/models/KENNEY-LICENSE.txt`.
+ *
+ * Loaded lazily via `loadGltfOnce` (`@/lib/render/gltfCache`) when the
+ * drive scene mounts; failures fall back to the procedural extruded-box
+ * path so a missing or corrupt asset never blanks the scene.
+ */
+export const BUILDING_MESH_URLS: Record<BuildingType, string> = {
+  'small-house': '/models/buildings/suburban/small-house.glb',
+  'mid-house': '/models/buildings/suburban/mid-house.glb',
+  shop: '/models/buildings/commercial/shop.glb',
+  factory: '/models/buildings/commercial/factory.glb',
+}
+
+/**
+ * Resolve the GLB asset URL for a building type. Strict map lookup;
+ * the `BuildingType` enum makes the lookup total.
+ */
+export function buildingMeshUrlFor(type: BuildingType): string {
+  return BUILDING_MESH_URLS[type]
+}
+
+/**
+ * World-space scale applied to a Kenney City Kit building mesh so its
+ * footprint matches the procedural body footprint (REQ-046). Kenney
+ * pieces are designed at 1 unit per cell; multiplying by the body
+ * footprint world size lands them at the same on-the-ground footprint
+ * as the procedural fallback so a per-type swap is visually neutral
+ * relative to the placeholder.
+ */
+export function buildingMeshScale(): number {
+  return buildingFootprintWorldSize()
 }
 
 /**
