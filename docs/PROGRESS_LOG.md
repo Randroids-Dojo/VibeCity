@@ -16,6 +16,16 @@ Format for each slice:
 - Followups: any new `F-NNN` entries created. Link to them.
 ```
 
+## 2026-05-09, Cleanup R29: AGENTS.md Rule 12 (`src/lib/` Organization Convention)
+
+- Branch: `feature/20260508-cleanup-r29-explore`
+- PR: #199
+- Changed: Round 29 of the cleanup loop. After 28 rounds of work that materially reorganized `src/lib/`, the convention was implicit: future contributors had to read `src/lib/README.md` to know where a new helper goes. Codified the convention as `RULE 12` in `AGENTS.md` so any agent or contributor reading the project rules sees the decision tree before writing under `src/lib/`. The new rule names the eight generic namespaces (`audio/`, `auth/`, `editor/`, `format/`, `input/`, `physics/`, `render/`, `share/`, `storage/`, `ui/`), the city-specific lib-root pattern, and the wrapping pattern (generic core + city-shaped wrapper that re-exports under the consumer's stable names).
+- Verification: `npm run check:dashes` (clean). No code changes.
+- Assumptions: Codifying the convention in AGENTS.md makes it discoverable in the project rules feed; `src/lib/README.md` stays as the source of truth for the namespace map and the running examples. Future agents reading either get the same picture.
+- GDD coverage: No `docs/GDD_COVERAGE.json` row change.
+- Followups: None new.
+
 ## 2026-05-09, Cleanup R28: Second Knip Pass (Two More Unused Exports)
 
 - Branch: `feature/20260508-cleanup-r28-knip-pass2`
