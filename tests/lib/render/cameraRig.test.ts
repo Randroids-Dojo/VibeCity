@@ -12,7 +12,7 @@ import {
   updateCameraRig,
   type CameraRigParams,
   type CameraRigState,
-} from '@/app/[slug]/cameraRig'
+} from '@/lib/render/cameraRig'
 import { CELL_SIZE } from '@/app/[slug]/driveScene'
 
 /**

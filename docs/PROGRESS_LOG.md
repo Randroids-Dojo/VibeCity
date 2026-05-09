@@ -16,6 +16,16 @@ Format for each slice:
 - Followups: any new `F-NNN` entries created. Link to them.
 ```
 
+## 2026-05-09, Cleanup R15: Chase Camera Rig Hoisted to `src/lib/render/cameraRig.ts`
+
+- Branch: `feature/20260508-cleanup-r15-camera-rig`
+- PR: #185
+- Changed: Round 15 of the cleanup loop. Pure chase-camera math (REQ-033) moved out of the city app tree: `src/app/[slug]/cameraRig.ts` -> `src/lib/render/cameraRig.ts`; tests follow to `tests/lib/render/cameraRig.test.ts`. Decoupled from the city-specific `CELL_SIZE` import (which lives in `driveScene.ts`) by introducing a local `CAMERA_RIG_UNIT_SIZE = 4` constant and a new `chaseCameraDefaults(unitSize)` factory; the existing `CAMERA_RIG_HEIGHT` / `_DISTANCE` / `_LOOK_AHEAD` / `_TARGET_HEIGHT` constants stay exported with the same values (now derived from `CAMERA_RIG_UNIT_SIZE`) so consumers do not change. Three import sites updated: `cameraSettings.ts`, `DriveSceneClient.tsx`, `tests/app/cameraSettings.test.ts`. The `cameraRig.test.ts` test file was already at `tests/lib/render/cameraRig.test.ts` after the move; its import was retargeted to `@/lib/render/cameraRig`.
+- Verification: `npx tsc --noEmit` (clean), `npx vitest run` (80 files, 2374 tests passing), `npm run check:dashes` (clean).
+- Assumptions: The pre-baked exported constants stay (no API break) so existing consumers don't change. Future games with a different unit size can call `chaseCameraDefaults(unitSize)` to build their own preset; the named constants are convenience for the v1 unit size of 4.
+- GDD coverage: No `docs/GDD_COVERAGE.json` row change.
+- Followups: None new.
+
 ## 2026-05-09, Cleanup R14: Tire Screech Audio Rig Hoisted to `src/lib/audio/`
 
 - Branch: `feature/20260508-cleanup-r14-tire-screech`

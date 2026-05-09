@@ -90,7 +90,7 @@ import {
   createVehicleState,
   inputFromPressedKeys,
 } from './driveControls'
-import { createCameraRig, updateCameraRig } from './cameraRig'
+import { createCameraRig, updateCameraRig } from '@/lib/render/cameraRig'
 import {
   CAMERA_SLIDER_BOUNDS,
   clampCameraTuning,

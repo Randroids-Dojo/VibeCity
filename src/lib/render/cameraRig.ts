@@ -1,50 +1,80 @@
-import { CELL_SIZE } from './driveScene'
-
 /**
- * Chase camera rig (REQ-033).
+ * Chase camera rig. Game-agnostic.
  *
- * Pure module: no three.js, no DOM. The drive scene client owns the
- * THREE.PerspectiveCamera and copies `position` / `target` out of the
- * rig each frame, then calls `camera.lookAt(target)` to apply the
- * orientation. Keeping the math in a pure module means the rig can be
+ * Pure math module: no three.js, no DOM. The consumer owns the
+ * camera (e.g. THREE.PerspectiveCamera), copies `position` / `target`
+ * out of the rig each frame, and calls `camera.lookAt(target)` to
+ * apply the orientation. Keeping the math here means the rig can be
  * unit-tested under a Node environment without dragging WebGL into
- * the suite.
+ * the suite. VibeCity's drive scene (REQ-033) is the v1 consumer.
  *
- * Conventions (must stay aligned with `driveControls.ts` and
- * `DriveSceneClient.tsx`):
+ * Conventions (consumer must align with these):
  *
  *   - `+x` is east.
  *   - `+z` is south.
  *   - `heading` is in radians around the world Y axis.
  *   - Forward direction at heading `h` is `(sin(h), -cos(h))` so a
- *     heading of 0 advances the car along world `-z` (matches the
+ *     heading of 0 advances the car along world `-z` (matches a
  *     placeholder car's local `-z = forward` convention).
  *
- * The chase rig sits behind the car (negative forward by `distance`)
- * at `height` and looks at a point `lookAhead` units in front of the
- * car. Both the camera position and the look target ease toward their
- * desired values via linear interpolation each frame so a sharp turn
- * does not snap the camera.
+ * The chase rig sits behind the vehicle (negative forward by
+ * `distance`) at `height` and looks at a point `lookAhead` units in
+ * front of the vehicle. Both the camera position and the look target
+ * ease toward their desired values via linear interpolation each
+ * frame so a sharp turn does not snap the camera.
  */
 
 /**
- * Tuning constants. The default preset is a chase-far view picked to
- * keep the placeholder car visible against the orbit-style ground
- * plane while still placing the camera close enough that the city
- * pieces in front of the car read.
- *
- * `lookAhead` is positive so the camera target sits ahead of the car;
- * the camera then naturally tilts down at the road in front of the
- * vehicle rather than at the car itself. Lerp factors are tuned so a
- * 60Hz refresh produces a smooth follow without lag that exceeds the
- * width of a road piece during normal driving.
+ * World-unit baseline for the v1 default preset. The defaults are
+ * tuned to a unit cell of size 4 (matches VibeCity's `CELL_SIZE`).
+ * A consumer with a different unit size should construct its own
+ * `CameraRigParams` from `chaseCameraDefaults(unitSize)` rather
+ * than the pre-baked constants.
  */
-export const CAMERA_RIG_HEIGHT = CELL_SIZE * 1.6
-export const CAMERA_RIG_DISTANCE = CELL_SIZE * 3.5
-export const CAMERA_RIG_LOOK_AHEAD = CELL_SIZE * 1.5
-export const CAMERA_RIG_TARGET_HEIGHT = CELL_SIZE * 0.25
-export const CAMERA_RIG_POSITION_LERP = 0.12
-export const CAMERA_RIG_TARGET_LERP = 0.2
+export const CAMERA_RIG_UNIT_SIZE = 4
+
+/**
+ * Build a default `CameraRigParams` preset for a given world-unit
+ * size. The default constants below are `chaseCameraDefaults(CAMERA_RIG_UNIT_SIZE)`
+ * pre-baked at module load so most callers can import the named
+ * constants directly. Future games with a different unit size should
+ * call this factory instead.
+ */
+export function chaseCameraDefaults(unitSize: number): CameraRigParams {
+  return {
+    height: unitSize * 1.6,
+    distance: unitSize * 3.5,
+    lookAhead: unitSize * 1.5,
+    targetHeight: unitSize * 0.25,
+    positionLerp: 0.12,
+    targetLerp: 0.2,
+  }
+}
+
+/**
+ * Tuning constants. The default preset is a chase-far view picked to
+ * keep the placeholder vehicle visible against the orbit-style
+ * ground plane while still placing the camera close enough that the
+ * world in front of the vehicle reads.
+ *
+ * `lookAhead` is positive so the camera target sits ahead of the
+ * vehicle; the camera then naturally tilts down at the road in
+ * front of the vehicle rather than at the vehicle itself. Lerp
+ * factors are tuned so a 60Hz refresh produces a smooth follow
+ * without lag that exceeds the width of a road piece during normal
+ * driving.
+ *
+ * Each named constant pulls from `chaseCameraDefaults(CAMERA_RIG_UNIT_SIZE)`
+ * so the tuning multipliers live in exactly one place; bumping
+ * a multiplier in the factory updates the named constant too.
+ */
+const _BAKED_DEFAULTS = chaseCameraDefaults(CAMERA_RIG_UNIT_SIZE)
+export const CAMERA_RIG_HEIGHT = _BAKED_DEFAULTS.height
+export const CAMERA_RIG_DISTANCE = _BAKED_DEFAULTS.distance
+export const CAMERA_RIG_LOOK_AHEAD = _BAKED_DEFAULTS.lookAhead
+export const CAMERA_RIG_TARGET_HEIGHT = _BAKED_DEFAULTS.targetHeight
+export const CAMERA_RIG_POSITION_LERP = _BAKED_DEFAULTS.positionLerp
+export const CAMERA_RIG_TARGET_LERP = _BAKED_DEFAULTS.targetLerp
 
 export interface CameraRigParams {
   /** Camera height above the ground plane, in world units. */
