@@ -8,12 +8,14 @@ These directories contain pure helpers that have no dependency on the city schem
 
 | Directory | What lives here | v1 examples |
 | --- | --- | --- |
-| `auth/` | UUID v4 helpers, anonymous-id primitives | `uuidV4.ts` |
+| `audio/` | Web Audio rigs (oscillator + filter + gain wiring + per-frame `update`) | `engineAudio.ts`, `tireScreech.ts` |
+| `auth/` | UUID v4 helpers, anonymous-cookie middleware factory | `uuidV4.ts`, `anonCookie.ts` |
 | `editor/` | Generic editor primitives: undo/redo stack, autosave FSM | `history.ts`, `autosaveStatus.ts` |
 | `format/` | Pure string formatters | `relativeTime.ts`, `countLabel.ts` |
-| `render/` | Pure rendering math | `iso/projection.ts`, `iso/rotation.ts`, `thumbnail.ts` |
+| `render/` | Pure rendering math (CSS transforms, chase camera, thumbnail projection) | `iso/projection.ts`, `iso/rotation.ts`, `cameraRig.ts`, `thumbnail.ts` |
 | `share/` | Slug-based share-URL composition + clipboard-copy FSM | `index.ts` |
-| `storage/` | Generic Upstash Redis client wrapper | `kv.ts` |
+| `storage/` | Generic Upstash Redis client wrapper, SSR-safe localStorage helpers, versioned-envelope schema constructor | `kv.ts`, `localStorage.ts`, `versionedEnvelope.ts` |
+| `ui/` | Pure UI state machines | `pauseMenu.ts` |
 
 ## City-specific modules
 
@@ -27,8 +29,14 @@ These live at the lib root because they are still shared across the city app sur
 | `cityThumbnail.ts` | Walks city pieces + buildings into placements, then delegates to `render/thumbnail.ts` for the home-page recent-card thumbnail. |
 | `cityVersion.ts`, `hashCity.ts`, `loadCity.ts`, `recentSlugs.ts`, `recentVersions.ts`, `schemas.ts` | City persistence, hashing, and zod schemas. |
 | `connectors.ts`, `trackPath.ts`, `wheelContact.ts` | Ports from VibeRacer's piece / track / wheel-contact substrate. |
-| `controlsPersistence.ts` | Persisted controls envelope (REQ-043). |
+| `controlsPersistence.ts` | Persisted controls envelope (REQ-043). Uses `storage/localStorage.ts` for the SSR-safe boundary. |
 | `sim/` | Sim engine, solvers, schemas. City-coupled. |
+
+## Test fakes
+
+Test fakes live alongside the lib they fake under `tests/lib/<namespace>/`. The cross-game-portable fakes:
+
+- `tests/lib/storage/_fakeKv.ts`: in-memory mirror of the Upstash Redis surface used by route-handler tests.
 
 ## Adding new code
 
