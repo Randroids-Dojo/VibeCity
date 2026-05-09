@@ -174,6 +174,26 @@ If you find yourself about to run `vercel env add KV_REST_API_URL` with a value 
 
 ---
 
+## RULE 12: `src/lib/` namespace organization
+
+Code under `src/lib/` is split between game-agnostic generic namespaces and city-specific lib-root modules. The namespace map and the wrapping pattern are documented in `src/lib/README.md`. Read it before adding a new file under `src/lib/`.
+
+Decision tree when you write a new helper:
+
+- **No city dependency** (no `City`, `Piece`, `BuildingType`, `SimState`, etc.): drop it into the appropriate generic namespace (`audio/`, `auth/`, `editor/`, `format/`, `input/`, `physics/`, `render/`, `share/`, `storage/`, `ui/`). Add a row to `src/lib/README.md` if you create a new namespace.
+- **City-specific**: keep it at the lib root. Examples: `cityKv.ts`, `cityCount.ts`, `cityThumbnail.ts`, `controlsPersistence.ts`.
+- **Mixed (generic core + city-shaped wrapper)**: follow the wrapping pattern in `src/lib/README.md` (`cityCount.ts -> format/countLabel.ts`, `cityThumbnail.ts -> render/thumbnail.ts`, `app/[slug]/driveControls.ts -> input/vehicleControls.ts + physics/vehicle.ts`, etc.). Generic core lives in a generic namespace; city wrapper supplies the schema, labels, or unit-size and re-exports the helpers under the consumer's stable names.
+
+Why:
+
+- A future game-port branch only has to look at the lib-root files to understand what is city-specific.
+- The generic namespaces stay portable so a sister project can adopt them without dragging the city schema along.
+- New contributors find existing primitives in the obvious places instead of re-deriving them.
+
+When you add a file under a new generic namespace, add or refresh the relevant table row in `src/lib/README.md` and the matching `tests/lib/<namespace>/` test directory.
+
+---
+
 ## Quick pre-commit checklist
 
 1. No em-dashes. Run `grep -rnP '[\x{2014}\x{2013}]' .` (checks for U+2014 em-dash and U+2013 en-dash). Must return nothing.
