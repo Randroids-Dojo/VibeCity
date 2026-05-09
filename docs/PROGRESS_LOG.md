@@ -19,7 +19,7 @@ Format for each slice:
 ## 2026-05-09, Cleanup R30: `docs/CLEANUP_LOOPS_SUMMARY.md` (Loop 3 Final Round)
 
 - Branch: `feature/20260508-cleanup-r30-loop3-final`
-- PR: TBD
+- PR: #200
 - Changed: Final round of the third 10-round cleanup loop. Wrote `docs/CLEANUP_LOOPS_SUMMARY.md` as a single-page index of all 30 rounds across the three loops. The summary includes:
   - Three tables, one per 10-round loop, each row naming the round, PR, and net effect.
   - "Final lib namespace" section listing the ten generic namespaces shipped (`audio/`, `auth/`, `editor/`, `format/`, `input/`, `physics/`, `render/`, `share/`, `storage/`, `ui/`) with a one-line description of each.
