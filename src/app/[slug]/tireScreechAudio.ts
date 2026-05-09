@@ -1,4 +1,4 @@
-import type { EngineAudioContextLike } from './engineAudio'
+import type { EngineAudioContextLike } from '@/lib/audio/engineAudio'
 
 /**
  * Tire-screech audio rig (F-013 slice 3 audio).

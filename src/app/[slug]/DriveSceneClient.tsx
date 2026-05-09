@@ -160,7 +160,7 @@ import {
   surfaceState,
 } from './driveHud'
 import { RESPAWN_KEY_CODE, respawnVehicle } from './respawn'
-import { ENGINE_MUTE_KEY_CODE, EngineAudioRig } from './engineAudio'
+import { ENGINE_MUTE_KEY_CODE, EngineAudioRig } from '@/lib/audio/engineAudio'
 import { TireScreechAudioRig } from './tireScreechAudio'
 import {
   SHARE_COPY_RESET_DELAY_MS,
@@ -1440,7 +1440,7 @@ export function DriveSceneClient({
         // the screech-rig constructor does not leave the engine ref
         // set with the screech ref null (the next call to
         // `ensureEngineAudio` short-circuits on the engine ref alone).
-        const rig = new EngineAudioRig(ctx)
+        const rig = new EngineAudioRig(ctx, MAX_SPEED)
         const screechRig = new TireScreechAudioRig(ctx)
         engineRigRef.current = rig
         tireScreechRigRef.current = screechRig

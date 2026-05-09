@@ -11,7 +11,7 @@ import {
   type EngineAudioContextLike,
   engineFrequencyForSpeed,
   engineGainForSpeed,
-} from '@/app/[slug]/engineAudio'
+} from '@/lib/audio/engineAudio'
 import { DEFAULT_KEY_BINDINGS, MAX_SPEED } from '@/app/[slug]/driveControls'
 import { PAUSE_KEY_CODE } from '@/app/[slug]/pauseMenu'
 import { RESPAWN_KEY_CODE } from '@/app/[slug]/respawn'
@@ -68,27 +68,27 @@ describe('ENGINE_MUTE_KEY_CODE', () => {
 
 describe('engineFrequencyForSpeed', () => {
   it('returns the idle frequency at rest', () => {
-    expect(engineFrequencyForSpeed(0)).toBe(ENGINE_IDLE_FREQUENCY_HZ)
+    expect(engineFrequencyForSpeed(0, MAX_SPEED)).toBe(ENGINE_IDLE_FREQUENCY_HZ)
   })
 
   it('returns the peak frequency at MAX_SPEED', () => {
-    expect(engineFrequencyForSpeed(MAX_SPEED)).toBe(ENGINE_MAX_FREQUENCY_HZ)
+    expect(engineFrequencyForSpeed(MAX_SPEED, MAX_SPEED)).toBe(ENGINE_MAX_FREQUENCY_HZ)
   })
 
   it('clamps to the peak frequency above MAX_SPEED', () => {
-    expect(engineFrequencyForSpeed(MAX_SPEED * 2)).toBe(ENGINE_MAX_FREQUENCY_HZ)
+    expect(engineFrequencyForSpeed(MAX_SPEED * 2, MAX_SPEED)).toBe(ENGINE_MAX_FREQUENCY_HZ)
   })
 
   it('uses the speed magnitude for reverse so reverse pitches up too', () => {
-    expect(engineFrequencyForSpeed(-MAX_SPEED / 2)).toBeCloseTo(
+    expect(engineFrequencyForSpeed(-MAX_SPEED / 2, MAX_SPEED)).toBeCloseTo(
       (ENGINE_IDLE_FREQUENCY_HZ + ENGINE_MAX_FREQUENCY_HZ) / 2,
       6,
     )
-    expect(engineFrequencyForSpeed(-MAX_SPEED)).toBe(ENGINE_MAX_FREQUENCY_HZ)
+    expect(engineFrequencyForSpeed(-MAX_SPEED, MAX_SPEED)).toBe(ENGINE_MAX_FREQUENCY_HZ)
   })
 
   it('interpolates linearly between idle and peak', () => {
-    expect(engineFrequencyForSpeed(MAX_SPEED / 4)).toBeCloseTo(
+    expect(engineFrequencyForSpeed(MAX_SPEED / 4, MAX_SPEED)).toBeCloseTo(
       ENGINE_IDLE_FREQUENCY_HZ +
         (ENGINE_MAX_FREQUENCY_HZ - ENGINE_IDLE_FREQUENCY_HZ) * 0.25,
       6,
@@ -96,11 +96,11 @@ describe('engineFrequencyForSpeed', () => {
   })
 
   it('returns the idle frequency for non-finite speed inputs', () => {
-    expect(engineFrequencyForSpeed(Number.NaN)).toBe(ENGINE_IDLE_FREQUENCY_HZ)
-    expect(engineFrequencyForSpeed(Number.POSITIVE_INFINITY)).toBe(
+    expect(engineFrequencyForSpeed(Number.NaN, MAX_SPEED)).toBe(ENGINE_IDLE_FREQUENCY_HZ)
+    expect(engineFrequencyForSpeed(Number.POSITIVE_INFINITY, MAX_SPEED)).toBe(
       ENGINE_IDLE_FREQUENCY_HZ,
     )
-    expect(engineFrequencyForSpeed(Number.NEGATIVE_INFINITY)).toBe(
+    expect(engineFrequencyForSpeed(Number.NEGATIVE_INFINITY, MAX_SPEED)).toBe(
       ENGINE_IDLE_FREQUENCY_HZ,
     )
   })
@@ -125,28 +125,28 @@ describe('engineFrequencyForSpeed', () => {
 
 describe('engineGainForSpeed', () => {
   it('returns the idle gain at rest', () => {
-    expect(engineGainForSpeed(0)).toBe(ENGINE_IDLE_GAIN)
+    expect(engineGainForSpeed(0, MAX_SPEED)).toBe(ENGINE_IDLE_GAIN)
   })
 
   it('returns the peak gain at MAX_SPEED', () => {
-    expect(engineGainForSpeed(MAX_SPEED)).toBe(ENGINE_MAX_GAIN)
+    expect(engineGainForSpeed(MAX_SPEED, MAX_SPEED)).toBe(ENGINE_MAX_GAIN)
   })
 
   it('clamps to the peak gain above MAX_SPEED', () => {
-    expect(engineGainForSpeed(MAX_SPEED * 2)).toBe(ENGINE_MAX_GAIN)
+    expect(engineGainForSpeed(MAX_SPEED * 2, MAX_SPEED)).toBe(ENGINE_MAX_GAIN)
   })
 
   it('uses the magnitude for reverse so the gain climbs in both directions', () => {
-    expect(engineGainForSpeed(-MAX_SPEED / 2)).toBeCloseTo(
+    expect(engineGainForSpeed(-MAX_SPEED / 2, MAX_SPEED)).toBeCloseTo(
       (ENGINE_IDLE_GAIN + ENGINE_MAX_GAIN) / 2,
       6,
     )
-    expect(engineGainForSpeed(-MAX_SPEED)).toBe(ENGINE_MAX_GAIN)
+    expect(engineGainForSpeed(-MAX_SPEED, MAX_SPEED)).toBe(ENGINE_MAX_GAIN)
   })
 
   it('returns the idle gain for non-finite speed inputs', () => {
-    expect(engineGainForSpeed(Number.NaN)).toBe(ENGINE_IDLE_GAIN)
-    expect(engineGainForSpeed(Number.POSITIVE_INFINITY)).toBe(ENGINE_IDLE_GAIN)
+    expect(engineGainForSpeed(Number.NaN, MAX_SPEED)).toBe(ENGINE_IDLE_GAIN)
+    expect(engineGainForSpeed(Number.POSITIVE_INFINITY, MAX_SPEED)).toBe(ENGINE_IDLE_GAIN)
   })
 
   it('returns the idle gain when the maxSpeed override is non-positive or non-finite', () => {
@@ -264,7 +264,7 @@ function makeFakeContext(state: AudioContextState = 'running'): FakeContext {
 describe('EngineAudioRig construction', () => {
   it('builds the oscillator at the idle frequency with sawtooth shape', () => {
     const ctx = makeFakeContext()
-    new EngineAudioRig(ctx)
+    new EngineAudioRig(ctx, MAX_SPEED)
     expect(ctx.oscillators).toHaveLength(1)
     expect(ctx.oscillators[0].type).toBe('sawtooth')
     expect(ctx.oscillators[0].frequency.value).toBe(ENGINE_IDLE_FREQUENCY_HZ)
@@ -272,7 +272,7 @@ describe('EngineAudioRig construction', () => {
 
   it('builds the filter as a lowpass at the cutoff frequency', () => {
     const ctx = makeFakeContext()
-    new EngineAudioRig(ctx)
+    new EngineAudioRig(ctx, MAX_SPEED)
     expect(ctx.filters).toHaveLength(1)
     expect(ctx.filters[0].type).toBe('lowpass')
     expect(ctx.filters[0].frequency.value).toBe(ENGINE_FILTER_CUTOFF_HZ)
@@ -280,14 +280,14 @@ describe('EngineAudioRig construction', () => {
 
   it('starts the gain at zero so the resume ramp does not click', () => {
     const ctx = makeFakeContext()
-    new EngineAudioRig(ctx)
+    new EngineAudioRig(ctx, MAX_SPEED)
     expect(ctx.gains).toHaveLength(1)
     expect(ctx.gains[0].gain.value).toBe(0)
   })
 
   it('connects the chain oscillator -> filter -> gain -> destination', () => {
     const ctx = makeFakeContext()
-    new EngineAudioRig(ctx)
+    new EngineAudioRig(ctx, MAX_SPEED)
     expect(ctx.oscillators[0].connect).toHaveBeenCalledWith(ctx.filters[0])
     expect(ctx.filters[0].connect).toHaveBeenCalledWith(ctx.gains[0])
     expect(ctx.gains[0].connect).toHaveBeenCalledWith(ctx.destination)
@@ -295,13 +295,13 @@ describe('EngineAudioRig construction', () => {
 
   it('does not start the oscillator at construction (browsers require a user gesture)', () => {
     const ctx = makeFakeContext()
-    new EngineAudioRig(ctx)
+    new EngineAudioRig(ctx, MAX_SPEED)
     expect(ctx.oscillators[0].start).not.toHaveBeenCalled()
   })
 
   it('reports not-started before start() runs', () => {
     const ctx = makeFakeContext()
-    const rig = new EngineAudioRig(ctx)
+    const rig = new EngineAudioRig(ctx, MAX_SPEED)
     expect(rig.isStarted()).toBe(false)
     expect(rig.isMuted()).toBe(false)
   })
@@ -310,7 +310,7 @@ describe('EngineAudioRig construction', () => {
 describe('EngineAudioRig.start', () => {
   it('starts the oscillator and ramps the gain to the idle level', async () => {
     const ctx = makeFakeContext()
-    const rig = new EngineAudioRig(ctx)
+    const rig = new EngineAudioRig(ctx, MAX_SPEED)
     await rig.start()
     expect(ctx.oscillators[0].start).toHaveBeenCalledTimes(1)
     expect(ctx.gains[0].gain.setTargetAtTime).toHaveBeenCalled()
@@ -320,7 +320,7 @@ describe('EngineAudioRig.start', () => {
 
   it('resumes a suspended audio context before starting the oscillator', async () => {
     const ctx = makeFakeContext('suspended')
-    const rig = new EngineAudioRig(ctx)
+    const rig = new EngineAudioRig(ctx, MAX_SPEED)
     await rig.start()
     expect(ctx.resumeCalls).toBe(1)
     expect(ctx.state).toBe('running')
@@ -329,14 +329,14 @@ describe('EngineAudioRig.start', () => {
 
   it('does not call resume on an already-running context', async () => {
     const ctx = makeFakeContext('running')
-    const rig = new EngineAudioRig(ctx)
+    const rig = new EngineAudioRig(ctx, MAX_SPEED)
     await rig.start()
     expect(ctx.resumeCalls).toBe(0)
   })
 
   it('is idempotent so a second start() is a no-op', async () => {
     const ctx = makeFakeContext()
-    const rig = new EngineAudioRig(ctx)
+    const rig = new EngineAudioRig(ctx, MAX_SPEED)
     await rig.start()
     await rig.start()
     expect(ctx.oscillators[0].start).toHaveBeenCalledTimes(1)
@@ -346,22 +346,22 @@ describe('EngineAudioRig.start', () => {
 describe('EngineAudioRig.update', () => {
   it('updates the oscillator frequency and the gain to track the live speed', async () => {
     const ctx = makeFakeContext()
-    const rig = new EngineAudioRig(ctx)
+    const rig = new EngineAudioRig(ctx, MAX_SPEED)
     await rig.start()
     rig.update(MAX_SPEED / 2)
     expect(ctx.oscillators[0].frequency.value).toBeCloseTo(
-      engineFrequencyForSpeed(MAX_SPEED / 2),
+      engineFrequencyForSpeed(MAX_SPEED / 2, MAX_SPEED),
       6,
     )
     expect(ctx.gains[0].gain.value).toBeCloseTo(
-      engineGainForSpeed(MAX_SPEED / 2),
+      engineGainForSpeed(MAX_SPEED / 2, MAX_SPEED),
       6,
     )
   })
 
   it('clamps to the peak frequency and gain at MAX_SPEED', async () => {
     const ctx = makeFakeContext()
-    const rig = new EngineAudioRig(ctx)
+    const rig = new EngineAudioRig(ctx, MAX_SPEED)
     await rig.start()
     rig.update(MAX_SPEED * 2)
     expect(ctx.oscillators[0].frequency.value).toBe(ENGINE_MAX_FREQUENCY_HZ)
@@ -370,25 +370,25 @@ describe('EngineAudioRig.update', () => {
 
   it('uses the speed magnitude for reverse so reverse climbs the same way', async () => {
     const ctx = makeFakeContext()
-    const rig = new EngineAudioRig(ctx)
+    const rig = new EngineAudioRig(ctx, MAX_SPEED)
     await rig.start()
     rig.update(-MAX_SPEED / 2)
     expect(ctx.oscillators[0].frequency.value).toBeCloseTo(
-      engineFrequencyForSpeed(MAX_SPEED / 2),
+      engineFrequencyForSpeed(MAX_SPEED / 2, MAX_SPEED),
       6,
     )
   })
 
   it('is a no-op before start() so the integration loop can call it unconditionally', () => {
     const ctx = makeFakeContext()
-    const rig = new EngineAudioRig(ctx)
+    const rig = new EngineAudioRig(ctx, MAX_SPEED)
     rig.update(MAX_SPEED / 2)
     expect(ctx.oscillators[0].frequency.setTargetAtTime).not.toHaveBeenCalled()
   })
 
   it('is a no-op while muted so a muted rig stays silent across speed changes', async () => {
     const ctx = makeFakeContext()
-    const rig = new EngineAudioRig(ctx)
+    const rig = new EngineAudioRig(ctx, MAX_SPEED)
     await rig.start()
     rig.setMuted(true)
     const callsBefore = ctx.gains[0].gain.setTargetAtTime.mock.calls.length
@@ -405,7 +405,7 @@ describe('EngineAudioRig.update', () => {
 describe('EngineAudioRig.setMuted', () => {
   it('ramps the gain to zero on mute', async () => {
     const ctx = makeFakeContext()
-    const rig = new EngineAudioRig(ctx)
+    const rig = new EngineAudioRig(ctx, MAX_SPEED)
     await rig.start()
     rig.setMuted(true)
     expect(ctx.gains[0].gain.value).toBe(0)
@@ -414,7 +414,7 @@ describe('EngineAudioRig.setMuted', () => {
 
   it('ramps the gain back to idle on unmute (so the next update restores speed)', async () => {
     const ctx = makeFakeContext()
-    const rig = new EngineAudioRig(ctx)
+    const rig = new EngineAudioRig(ctx, MAX_SPEED)
     await rig.start()
     rig.setMuted(true)
     rig.setMuted(false)
@@ -424,7 +424,7 @@ describe('EngineAudioRig.setMuted', () => {
 
   it('does not start the oscillator when unmuting before start()', () => {
     const ctx = makeFakeContext()
-    const rig = new EngineAudioRig(ctx)
+    const rig = new EngineAudioRig(ctx, MAX_SPEED)
     rig.setMuted(false)
     expect(ctx.oscillators[0].start).not.toHaveBeenCalled()
     expect(rig.isStarted()).toBe(false)
@@ -434,7 +434,7 @@ describe('EngineAudioRig.setMuted', () => {
 describe('EngineAudioRig.stop', () => {
   it('stops the oscillator and disconnects the chain', async () => {
     const ctx = makeFakeContext()
-    const rig = new EngineAudioRig(ctx)
+    const rig = new EngineAudioRig(ctx, MAX_SPEED)
     await rig.start()
     rig.stop()
     expect(ctx.oscillators[0].stop).toHaveBeenCalledTimes(1)
@@ -446,7 +446,7 @@ describe('EngineAudioRig.stop', () => {
 
   it('ramps the gain to zero on stop so the cut does not click', async () => {
     const ctx = makeFakeContext()
-    const rig = new EngineAudioRig(ctx)
+    const rig = new EngineAudioRig(ctx, MAX_SPEED)
     await rig.start()
     rig.stop()
     expect(ctx.gains[0].gain.value).toBe(0)
@@ -454,7 +454,7 @@ describe('EngineAudioRig.stop', () => {
 
   it('is idempotent so a second stop() is a no-op', async () => {
     const ctx = makeFakeContext()
-    const rig = new EngineAudioRig(ctx)
+    const rig = new EngineAudioRig(ctx, MAX_SPEED)
     await rig.start()
     rig.stop()
     rig.stop()
@@ -463,14 +463,14 @@ describe('EngineAudioRig.stop', () => {
 
   it('is a no-op before start() so an unmount cleanup before any user gesture stays safe', () => {
     const ctx = makeFakeContext()
-    const rig = new EngineAudioRig(ctx)
+    const rig = new EngineAudioRig(ctx, MAX_SPEED)
     rig.stop()
     expect(ctx.oscillators[0].stop).not.toHaveBeenCalled()
   })
 
   it('swallows an OscillatorNode.stop() throw (Safari double-stop guard)', async () => {
     const ctx = makeFakeContext()
-    const rig = new EngineAudioRig(ctx)
+    const rig = new EngineAudioRig(ctx, MAX_SPEED)
     await rig.start()
     ctx.oscillators[0].stop = vi.fn(() => {
       throw new Error('already stopped')
