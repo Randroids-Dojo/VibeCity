@@ -91,11 +91,11 @@
       "gddRef": "docs/gdd/03-persistence.md",
       "status": "done",
       "implementationRefs": [
-        "src/lib/kv.ts",
+        "src/lib/cityKv.ts",
         "package.json"
       ],
       "testRefs": [
-        "tests/lib/kv.test.ts"
+        "tests/lib/cityKv.test.ts"
       ],
       "followupRefs": []
     },
@@ -200,13 +200,13 @@
       "status": "done",
       "implementationRefs": [
         "src/lib/recentSlugs.ts",
-        "src/lib/relativeTime.ts",
+        "src/lib/format/relativeTime.ts",
         "src/app/page.tsx",
         "src/lib/cityCount.ts"
       ],
       "testRefs": [
         "tests/lib/recentSlugs.test.ts",
-        "tests/lib/relativeTime.test.ts",
+        "tests/lib/format/relativeTime.test.ts",
         "e2e/home.spec.ts",
         "tests/lib/cityCount.test.ts"
       ],
@@ -245,11 +245,11 @@
       "status": "done",
       "implementationRefs": [
         "src/app/api/city/[slug]/route.ts",
-        "src/lib/kv.ts"
+        "src/lib/cityKv.ts"
       ],
       "testRefs": [
         "tests/app/cityRoute.test.ts",
-        "tests/lib/kv.test.ts"
+        "tests/lib/cityKv.test.ts"
       ],
       "followupRefs": []
     },
@@ -579,12 +579,12 @@
       "gddRef": "docs/gdd/07-editor.md",
       "status": "done",
       "implementationRefs": [
-        "src/app/[slug]/edit/editorHistory.ts",
+        "src/lib/editor/history.ts",
         "src/app/[slug]/edit/EditorClient.tsx",
         "src/app/[slug]/edit/page.tsx"
       ],
       "testRefs": [
-        "tests/app/editorHistory.test.ts",
+        "tests/lib/editor/history.test.ts",
         "e2e/editor.spec.ts"
       ],
       "followupRefs": []
@@ -614,12 +614,12 @@
       "status": "done",
       "implementationRefs": [
         "src/middleware.ts",
-        "src/app/[slug]/edit/autosaveStatus.ts",
+        "src/app/[slug]/edit/cityAutosave.ts",
         "src/app/[slug]/edit/EditorClient.tsx",
         "src/app/[slug]/edit/page.tsx"
       ],
       "testRefs": [
-        "tests/app/autosaveStatus.test.ts",
+        "tests/app/cityAutosave.test.ts",
         "tests/app/middleware.test.ts",
         "e2e/editor.spec.ts"
       ],
@@ -754,11 +754,11 @@
       "gddRef": "docs/gdd/09-drive-mode.md",
       "status": "done",
       "implementationRefs": [
-        "src/app/[slug]/cameraRig.ts",
+        "src/lib/render/cameraRig.ts",
         "src/app/[slug]/DriveSceneClient.tsx"
       ],
       "testRefs": [
-        "tests/app/cameraRig.test.ts",
+        "tests/lib/render/cameraRig.test.ts",
         "e2e/drive.spec.ts"
       ],
       "followupRefs": []
@@ -837,11 +837,11 @@
       "gddRef": "docs/gdd/09-drive-mode.md",
       "status": "done",
       "implementationRefs": [
-        "src/app/[slug]/pauseMenu.ts",
+        "src/lib/ui/pauseMenu.ts",
         "src/app/[slug]/DriveSceneClient.tsx"
       ],
       "testRefs": [
-        "tests/app/pauseMenu.test.ts",
+        "tests/lib/ui/pauseMenu.test.ts",
         "e2e/drive.spec.ts"
       ],
       "followupRefs": []
@@ -852,11 +852,11 @@
       "gddRef": "docs/gdd/09-drive-mode.md",
       "status": "done",
       "implementationRefs": [
-        "src/app/[slug]/pauseMenu.ts",
+        "src/lib/ui/pauseMenu.ts",
         "src/app/[slug]/DriveSceneClient.tsx"
       ],
       "testRefs": [
-        "tests/app/pauseMenu.test.ts",
+        "tests/lib/ui/pauseMenu.test.ts",
         "e2e/drive.spec.ts"
       ],
       "followupRefs": []
@@ -1026,12 +1026,12 @@
         "src/app/page.tsx",
         "src/app/HomeCreateForm.tsx",
         "src/lib/recentSlugs.ts",
-        "src/lib/relativeTime.ts",
+        "src/lib/format/relativeTime.ts",
         "src/lib/cityCount.ts"
       ],
       "testRefs": [
         "tests/lib/recentSlugs.test.ts",
-        "tests/lib/relativeTime.test.ts",
+        "tests/lib/format/relativeTime.test.ts",
         "e2e/home.spec.ts",
         "tests/lib/cityCount.test.ts"
       ],
@@ -1060,7 +1060,7 @@
       "implementationRefs": [
         "src/lib/recentVersions.ts",
         "src/app/api/city/[slug]/route.ts",
-        "src/lib/kv.ts"
+        "src/lib/cityKv.ts"
       ],
       "testRefs": [
         "tests/lib/recentVersions.test.ts",
@@ -1184,11 +1184,11 @@
       "gddRef": "docs/gdd/09-drive-mode.md",
       "status": "done",
       "implementationRefs": [
-        "src/app/[slug]/engineAudio.ts",
+        "src/lib/audio/engineAudio.ts",
         "src/app/[slug]/DriveSceneClient.tsx"
       ],
       "testRefs": [
-        "tests/app/engineAudio.test.ts",
+        "tests/lib/audio/engineAudio.test.ts",
         "e2e/drive.spec.ts"
       ],
       "followupRefs": [
@@ -1224,10 +1224,10 @@
         "src/lib/sim/snapshot.ts",
         "src/lib/sim/useSimEngine.ts",
         "src/lib/schemas.ts",
-        "src/lib/kv.ts",
+        "src/lib/cityKv.ts",
         "src/app/api/city/[slug]/events/route.ts",
         "src/app/[slug]/sim/page.tsx",
-        "src/app/[slug]/sim/SimViewClient.tsx",
+        "src/app/[slug]/edit/EditorClient.tsx",
         "src/middleware.ts"
       ],
       "testRefs": [
@@ -1267,8 +1267,8 @@
       "implementationRefs": [
         "src/lib/sim/state.ts",
         "src/lib/sim/events.ts",
-        "src/app/[slug]/sim/SimGridView.tsx",
-        "src/app/[slug]/sim/SimViewClient.tsx"
+        "src/app/[slug]/edit/SnapGridView.tsx",
+        "src/app/[slug]/edit/EditorClient.tsx"
       ],
       "testRefs": [
         "tests/lib/sim/state.test.ts",
