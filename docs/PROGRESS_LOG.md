@@ -19,7 +19,7 @@ Format for each slice:
 ## 2026-05-09, Cleanup R27: `docs/GDD_COVERAGE.json` Path Audit
 
 - Branch: `feature/20260508-cleanup-r27-gdd-paths`
-- PR: TBD
+- PR: #197
 - Changed: Round 27 of the cleanup loop. R1-R25 moved many lib + test files but the per-requirement `implementationRefs` / `testRefs` arrays in `docs/GDD_COVERAGE.json` still pointed at the old locations. Audited every reference; 13 stale paths updated:
   - `src/app/[slug]/cameraRig.ts` -> `src/lib/render/cameraRig.ts` (R15)
   - `src/app/[slug]/pauseMenu.ts` -> `src/lib/ui/pauseMenu.ts` (R16)
