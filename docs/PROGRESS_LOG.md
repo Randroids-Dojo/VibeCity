@@ -19,7 +19,7 @@ Format for each slice:
 ## 2026-05-09, Cleanup R14: Tire Screech Audio Rig Hoisted to `src/lib/audio/`
 
 - Branch: `feature/20260508-cleanup-r14-tire-screech`
-- PR: TBD
+- PR: #184
 - Changed: Round 14 of the cleanup loop. The tire-screech audio rig (F-013) is generic Web Audio: a high-frequency square-wave oscillator + bandpass filter gated on a per-frame `active` flag. Move `src/app/[slug]/tireScreechAudio.ts` -> `src/lib/audio/tireScreech.ts` (renamed file shorter since the directory already names the audio space); tests follow to `tests/lib/audio/tireScreech.test.ts`. Module docstring rewritten to describe the generic API; the lateral-acceleration estimator that drives the `active` flag stays in the consumer (drive scene). `src/app/[slug]/DriveSceneClient.tsx` import path updated to `@/lib/audio/tireScreech`.
 - Verification: `npx tsc --noEmit` (clean), `npx vitest run` (80 files, 2374 tests passing), `npm run check:dashes` (clean).
 - Assumptions: Renamed the file from `tireScreechAudio.ts` to `tireScreech.ts` because the new `audio/` subdir already names the audio space; the doubled `Audio` suffix is redundant. The class name `TireScreechAudioRig` keeps its existing name.
