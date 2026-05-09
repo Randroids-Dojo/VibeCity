@@ -16,6 +16,30 @@ Format for each slice:
 - Followups: any new `F-NNN` entries created. Link to them.
 ```
 
+## 2026-05-09, Cleanup R27: `docs/GDD_COVERAGE.json` Path Audit
+
+- Branch: `feature/20260508-cleanup-r27-gdd-paths`
+- PR: #197
+- Changed: Round 27 of the cleanup loop. R1-R25 moved many lib + test files but the per-requirement `implementationRefs` / `testRefs` arrays in `docs/GDD_COVERAGE.json` still pointed at the old locations. Audited every reference; 13 stale paths updated:
+  - `src/app/[slug]/cameraRig.ts` -> `src/lib/render/cameraRig.ts` (R15)
+  - `src/app/[slug]/pauseMenu.ts` -> `src/lib/ui/pauseMenu.ts` (R16)
+  - `src/app/[slug]/engineAudio.ts` -> `src/lib/audio/engineAudio.ts` (R13)
+  - `src/app/[slug]/tireScreechAudio.ts` -> `src/lib/audio/tireScreech.ts` (R14)
+  - `src/app/[slug]/edit/autosaveStatus.ts` -> `src/app/[slug]/edit/cityAutosave.ts` (R3 split)
+  - `src/app/[slug]/edit/editorHistory.ts` -> `src/lib/editor/history.ts` (R2)
+  - `src/app/[slug]/edit/isoProjection.ts` -> `src/lib/render/iso/projection.ts` (R1)
+  - `src/app/[slug]/edit/isoRotation.ts` -> `src/lib/render/iso/rotation.ts` (R1)
+  - `src/lib/kv.ts` -> `src/lib/cityKv.ts` (R6 split)
+  - `src/lib/relativeTime.ts` -> `src/lib/format/relativeTime.ts` (R5)
+  - `src/app/[slug]/sim/SimViewClient.tsx` -> `src/app/[slug]/edit/EditorClient.tsx` (slice B route swap absorbed sim view into editor)
+  - `src/app/[slug]/sim/SimGridView.tsx` -> `src/app/[slug]/edit/SnapGridView.tsx` (same)
+  - All matching test paths under `tests/`.
+- Verified every `implementationRefs` / `testRefs` value resolves to a real file via a Python script that walks the JSON and stats each path. No code changes; the audit only touches `docs/GDD_COVERAGE.json`.
+- Verification: `npx tsc --noEmit` (clean), `npx vitest run` (85 files, 2416 tests passing), `npm run check:dashes` (clean).
+- Assumptions: The two SimViewClient / SimGridView references were retargeted at the editor surfaces that absorbed them per slice B; future slices that re-introduce dedicated sim files can re-add specific refs.
+- GDD coverage: `docs/GDD_COVERAGE.json` cleanup; no row status changes.
+- Followups: None new.
+
 ## 2026-05-09, Cleanup R26: `src/lib/README.md` Refresh + Wrapping-Pattern Section
 
 - Branch: `feature/20260508-cleanup-r26-readme-refresh`
