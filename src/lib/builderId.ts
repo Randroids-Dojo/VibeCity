@@ -1,4 +1,3 @@
-import { cookies } from 'next/headers'
 import type { BuilderId } from './schemas'
 import { isValidUuidV4, mintUuidV4 } from './auth/uuidV4'
 
@@ -12,7 +11,7 @@ import { isValidUuidV4, mintUuidV4 } from './auth/uuidV4'
  *
  * Lifecycle:
  *   - First visit: caller issues `newBuilderId()` and sets the cookie.
- *   - Subsequent visits: caller reads via `readBuilderId()`.
+ *   - Subsequent visits: server components read via `cookies()` directly.
  *   - Cookie is long-lived (1 year) so a builder keeps ownership of cities
  *     they create across visits without sign-up.
  *
@@ -20,21 +19,6 @@ import { isValidUuidV4, mintUuidV4 } from './auth/uuidV4'
  */
 export const BUILDER_ID_COOKIE = 'vibecity.builderId'
 export const BUILDER_ID_COOKIE_MAX_AGE_SEC = 60 * 60 * 24 * 365
-
-/**
- * Reads the builder id from the request cookie jar.
- * Returns `null` when the cookie is missing.
- *
- * Caller is responsible for validating the value (e.g. via `BuilderIdSchema`)
- * before trusting it for ownership checks (REQ-014). A spoofed or stale
- * cookie value is not authoritative; persistence-layer writes still verify
- * the id matches the city's recorded `createdByBuilderId`.
- */
-export async function readBuilderId(): Promise<BuilderId | null> {
-  const jar = await cookies()
-  const v = jar.get(BUILDER_ID_COOKIE)?.value
-  return v ?? null
-}
 
 /**
  * UUID v4 shape check for a builder id. Delegates to the generic
