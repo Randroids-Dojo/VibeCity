@@ -15,9 +15,9 @@ surface is a clean colored strip. That reads "racetrack" more than
 the Kenney City Kit buildings:
 
 - **Sidewalks**: a slightly-raised strip running parallel to the road
-  edge on both sides. Could be a second triangle strip offset outward
-  from the road surface, or a per-cell quad anchored to the building
-  side of the cell.
+  edge on both sides. Two candidate approaches: a second triangle strip
+  offset outward from the road surface, or a per-cell quad anchored to
+  the building side of the cell. The exploration picks one.
 - **Intersection details**: crosswalk markings (parallel white stripes
   at intersection arms), stop lines, optionally a traffic-light pole.
 - **Signage**: street-name signs, stop signs at intersection arms,

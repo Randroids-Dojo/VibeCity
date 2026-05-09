@@ -23,9 +23,11 @@ Blocked-by: slice 1 (`source kenney city kit assets`).
 
 ## Approach
 
-1. Extract a generic `loadGltfOnce(url): Promise<GLTF>` cache. Keep the same
-   error semantics as the current car loader (catch + log + return null on
-   failure so the scene can fall back to procedural). Live in
+1. Extract a generic `loadGltfOnce(loader, url): Promise<GLTF | null>` cache.
+   Loader is parameterized so the module stays three.js-agnostic (testable
+   without dragging `GLTFLoader` into a Node test env). Errors are caught,
+   logged once, and resolved as `null` so callers must handle a `null`
+   return to fall back to procedural geometry. Lives in
    `src/lib/render/gltfCache.ts` so future games can reuse it (Rule 12: no
    city dependency, drop into `render/`).
 2. Add a `BuildingType -> mesh URL` map next to `buildingColorFor` in

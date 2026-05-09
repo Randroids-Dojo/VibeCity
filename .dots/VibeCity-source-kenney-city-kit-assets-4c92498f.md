@@ -62,9 +62,14 @@ Per asset before commit:
 - +Z forward for street pieces (so rotation 0 means "extending along the world
   +Z axis"). Match the existing piece-frame convention used by `editorPreview`.
 - Single mesh per `.glb` file. No animations, no extra cameras, no lights.
-- Strip Kenney's bundled textures down to the shared color atlas
-  (`Textures/colormap.png`, already in repo). Re-export with that texture
-  reference so we ship one texture for everything.
+- Keep each kit's `Textures/colormap.png` alongside its exported GLBs in
+  the kit's own subdirectory. Each Kenney City Kit ships a different
+  palette under the same relative `Textures/colormap.png` URI, so they
+  cannot share one folder. The car kit's existing
+  `public/models/Textures/colormap.png` stays where it is for the car;
+  the new kit textures land at
+  `public/models/buildings/{suburban,commercial}/Textures/colormap.png`
+  and `public/models/pieces/Textures/colormap.png`.
 
 ## Affected files
 

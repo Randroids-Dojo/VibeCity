@@ -874,7 +874,7 @@ export function DriveSceneClient({
     const bodyFootprint = buildingFootprintWorldSize()
     const meshSlotsByType = new Map<
       BuildingType,
-      { meshSlot: THREE.Group; placeholders: THREE.Object3D[]; headingY: number }[]
+      { meshSlot: THREE.Group; placeholders: THREE.Object3D[] }[]
     >()
     for (const building of city.buildings) {
       const height = buildingHeightFor(building.type)
@@ -937,7 +937,7 @@ export function DriveSceneClient({
       scene.add(meshSlot)
 
       const bucket = meshSlotsByType.get(building.type) ?? []
-      bucket.push({ meshSlot, placeholders: [bodyMesh, roofMesh], headingY })
+      bucket.push({ meshSlot, placeholders: [bodyMesh, roofMesh] })
       meshSlotsByType.set(building.type, bucket)
     }
 
