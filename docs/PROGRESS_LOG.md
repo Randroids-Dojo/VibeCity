@@ -19,7 +19,7 @@ Format for each slice:
 ## 2026-05-09, Cleanup R19: Unused Type-Alias Exports Made Internal
 
 - Branch: `feature/20260508-cleanup-r19-unused-types`
-- PR: TBD
+- PR: #189
 - Changed: Round 19 of the cleanup loop. Continuation of R18's dead-code audit, focused on type aliases that knip flagged as unused. Verified each by grep against `src/` and `tests/`; the types below were referenced only inside their defining file. Dropped `export` from:
   - `src/lib/controlsPersistence.ts`: `ControlsEnvelope`
   - `src/lib/cityThumbnail.ts`: `ThumbnailDotKind` (the `ThumbnailDot` alias that uses it stays exported)
