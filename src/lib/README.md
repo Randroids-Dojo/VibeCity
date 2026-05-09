@@ -1,4 +1,4 @@
-# `src/lib/` — shared library code
+# `src/lib/` shared library code
 
 Code under `src/lib/` is project-internal but reused across surfaces. The namespace is organized so new generic primitives have an obvious home and city-specific code stays out of the way of future-game ports.
 
