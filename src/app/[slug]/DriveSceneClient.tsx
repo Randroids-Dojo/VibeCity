@@ -962,6 +962,13 @@ export function DriveSceneClient({
             placeholder.visible = false
           }
         }
+        // No-car cities (buildings only, no street pieces) skip the
+        // RAF loop and render once on mount via the empty-state
+        // scaffold. Without this re-render the mesh swap is invisible
+        // until the next interaction (resize). When `car` is set the
+        // RAF loop is already running and the next frame picks up the
+        // change for free.
+        if (!car) renderer.render(scene, camera)
       })
     }
 

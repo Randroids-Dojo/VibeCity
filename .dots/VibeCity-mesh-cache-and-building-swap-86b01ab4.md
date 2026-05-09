@@ -59,8 +59,9 @@ Blocked-by: slice 1 (`source kenney city kit assets`).
 
 - [ ] Drive any saved city. All four building types render as Kenney meshes.
 - [ ] Loading the same scene twice does not re-fetch the .glb (cache hits).
-- [ ] If you delete `public/models/buildings/factory.glb` and rebuild, factory
-      tiles fall back to the colored box without crashing the scene.
+- [ ] If you delete `public/models/buildings/commercial/factory.glb` and
+      rebuild, factory tiles fall back to the colored box without crashing
+      the scene.
 - [ ] Iso editor preview is unaffected (still procedural top-down) since
       slice 5 owns the editor-side parity.
 - [ ] No regression in `tests/app/driveScene.test.ts` color helpers.
