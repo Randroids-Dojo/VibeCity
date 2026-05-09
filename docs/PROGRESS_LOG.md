@@ -16,6 +16,22 @@ Format for each slice:
 - Followups: any new `F-NNN` entries created. Link to them.
 ```
 
+## 2026-05-09, Cleanup R30: `docs/CLEANUP_LOOPS_SUMMARY.md` (Loop 3 Final Round)
+
+- Branch: `feature/20260508-cleanup-r30-loop3-final`
+- PR: TBD
+- Changed: Final round of the third 10-round cleanup loop. Wrote `docs/CLEANUP_LOOPS_SUMMARY.md` as a single-page index of all 30 rounds across the three loops. The summary includes:
+  - Three tables, one per 10-round loop, each row naming the round, PR, and net effect.
+  - "Final lib namespace" section listing the ten generic namespaces shipped (`audio/`, `auth/`, `editor/`, `format/`, `input/`, `physics/`, `render/`, `share/`, `storage/`, `ui/`) with a one-line description of each.
+  - Test-count delta (2310 -> 2416, +106).
+  - "What stayed deferred" section noting the four substantial extractions that are too coupled to the city schema for a clean lift (gridViewport, touch input, drive-scene piece / building rendering, sim engine).
+  - "Open knip findings (false-positive suppressions)" section pointing at the four classes of suppressions left for a future maintenance pass.
+- The summary is the entry point a future contributor (or a game-port branch) should read first when surveying the lib reorg.
+- Verification: `npm run check:dashes` (clean). No code changes.
+- Assumptions: The summary doc is a one-time index; future cleanup work should append entries to `docs/PROGRESS_LOG.md` and refresh `src/lib/README.md` rather than re-editing this file.
+- GDD coverage: No `docs/GDD_COVERAGE.json` row change.
+- Followups: None new.
+
 ## 2026-05-09, Cleanup R29: AGENTS.md Rule 12 (`src/lib/` Organization Convention)
 
 - Branch: `feature/20260508-cleanup-r29-explore`
