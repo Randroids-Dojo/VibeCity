@@ -3,7 +3,6 @@ import {
   DEFAULT_KEY_BINDINGS,
   emptyInput,
   inputFromPressedKeys,
-  type DriveAction,
   type DriveInput,
 } from '@/lib/input/vehicleControls'
 import {
@@ -20,7 +19,6 @@ export {
   DEFAULT_KEY_BINDINGS,
   emptyInput,
   inputFromPressedKeys,
-  type DriveAction,
   type DriveInput,
 }
 

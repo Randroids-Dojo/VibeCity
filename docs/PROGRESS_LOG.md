@@ -16,6 +16,23 @@ Format for each slice:
 - Followups: any new `F-NNN` entries created. Link to them.
 ```
 
+## 2026-05-09, Cleanup R28: Second Knip Pass (Two More Unused Exports)
+
+- Branch: `feature/20260508-cleanup-r28-knip-pass2`
+- PR: TBD
+- Changed: Round 28 of the cleanup loop. Re-ran `knip` against main after R23-R25 added new modules. Two more clean wins:
+  - `src/app/[slug]/driveControls.ts`: dropped the `DriveAction` re-export. The R23 wrapper re-exported it for symmetry with the other input plumbing types but no consumer actually imports it via the city wrapper; `tests/lib/input/vehicleControls.test.ts` imports it directly from the lib path. Internal use of the type alias inside `driveControls.ts` is also gone.
+  - `src/lib/schemas.ts`: dropped `export` from `PieceFootprintCellSchema`. The schema is only referenced inside the same file (composed into `PieceSchema`); the `PieceFootprintCell` type alias derived from it stays exported and is used externally.
+- Other knip findings stay open intentionally:
+  - `chaseCameraDefaults` and `CAMERA_RIG_UNIT_SIZE` are R15 forward-looking exports for future games with a different unit size.
+  - sim event schemas + `*Panel` `DEFAULT_*` constants are zod composition / dynamic-import false positives.
+  - `eslint`, `eslint-config-next` devDeps are used by `next lint`.
+  - `MAX_RECENT_VERSIONS_LIMIT` is imported via `await import(...)` in a test (R18 revert).
+- Verification: `npx tsc --noEmit` (clean), `npx vitest run` (85 files, 2416 tests passing), `npm run check:dashes` (clean).
+- Assumptions: Same conservative bar as R18: only drop exports that no test or production code references via static or dynamic import. Future rounds can revisit if the false-positive suppressions become a maintenance issue.
+- GDD coverage: No `docs/GDD_COVERAGE.json` row change.
+- Followups: None new.
+
 ## 2026-05-09, Cleanup R27: `docs/GDD_COVERAGE.json` Path Audit
 
 - Branch: `feature/20260508-cleanup-r27-gdd-paths`

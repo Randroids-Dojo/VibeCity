@@ -87,7 +87,7 @@ export type Rotation = z.infer<typeof RotationSchema>
  * Multi-cell footprint cell offset (REQ-059). When omitted, callers
  * treat the piece as a single-cell footprint at `(row, col)`.
  */
-export const PieceFootprintCellSchema = z
+const PieceFootprintCellSchema = z
   .object({
     dr: z.number().int(),
     dc: z.number().int(),
