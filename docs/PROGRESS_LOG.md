@@ -16,6 +16,21 @@ Format for each slice:
 - Followups: any new `F-NNN` entries created. Link to them.
 ```
 
+## 2026-05-09, Cleanup R19: Unused Type-Alias Exports Made Internal
+
+- Branch: `feature/20260508-cleanup-r19-unused-types`
+- PR: #189
+- Changed: Round 19 of the cleanup loop. Continuation of R18's dead-code audit, focused on type aliases that knip flagged as unused. Verified each by grep against `src/` and `tests/`; the types below were referenced only inside their defining file. Dropped `export` from:
+  - `src/lib/controlsPersistence.ts`: `ControlsEnvelope`
+  - `src/lib/cityThumbnail.ts`: `ThumbnailDotKind` (the `ThumbnailDot` alias that uses it stays exported)
+  - `src/lib/sim/events.ts`: `EraseSewageTreatmentPlantEvent`
+  - `src/lib/trackPath.ts`: `PathSegment`
+  - `src/app/[slug]/edit/connectorGlyphs.ts`: `ConnectorGlyphKind`, `ConnectorMatchStatus`
+- Verification: `npx tsc --noEmit` (clean), `npx vitest run` (80 files, 2374 tests passing), `npm run check:dashes` (clean).
+- Assumptions: These are all string-literal unions / inferred-from-zod types used only inside their defining modules. Downgrading to internal narrows the public lib surface without changing any runtime behavior. Future rounds can revisit if a future game needs to import any of them.
+- GDD coverage: No `docs/GDD_COVERAGE.json` row change.
+- Followups: None new.
+
 ## 2026-05-09, Cleanup R18: Dead-Code / Unused-Export Audit
 
 - Branch: `feature/20260508-cleanup-r18-unused-exports`

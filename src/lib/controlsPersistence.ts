@@ -200,7 +200,7 @@ export const ControlsEnvelopeSchema = z.object({
   controls: ControlsPayloadSchema,
 })
 
-export type ControlsEnvelope = z.infer<typeof ControlsEnvelopeSchema>
+type ControlsEnvelope = z.infer<typeof ControlsEnvelopeSchema>
 
 /**
  * Build the fully-resolved controls shape by merging a partial payload

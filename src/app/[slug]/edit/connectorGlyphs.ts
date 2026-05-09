@@ -51,7 +51,7 @@ export const GLYPH_RADIUS_PIXELS = CELL_PIXELS / 6
  * edge midpoint of their footprint cell; corner connectors face the
  * four diagonals and live at the cell corner.
  */
-export type ConnectorGlyphKind = 'cardinal' | 'corner'
+type ConnectorGlyphKind = 'cardinal' | 'corner'
 
 /**
  * Cross-piece connector match status (REQ-019, REQ-063).
@@ -70,7 +70,7 @@ export type ConnectorGlyphKind = 'cardinal' | 'corner'
  * editor just paints matched glyphs with a sage-green stroke so the
  * author can predict link behavior at a glance.
  */
-export type ConnectorMatchStatus = 'matched' | 'open'
+type ConnectorMatchStatus = 'matched' | 'open'
 
 export interface ConnectorGlyph {
   /** Pixel x position of the glyph center inside the SVG viewBox. */

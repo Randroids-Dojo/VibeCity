@@ -151,7 +151,7 @@ export interface PathLocator {
  * (multiple segments through one piece) is still deferred to its own
  * slice when the editor surface needs it (REQ-019).
  */
-export interface PathSegment {
+interface PathSegment {
   id: string
   order: OrderedPiece[]
   closesLoop: boolean

@@ -379,7 +379,7 @@ export const EraseSewageTreatmentPlantEventSchema = EventMetaSchema.extend({
     })
     .strict(),
 }).strict()
-export type EraseSewageTreatmentPlantEvent = z.infer<
+type EraseSewageTreatmentPlantEvent = z.infer<
   typeof EraseSewageTreatmentPlantEventSchema
 >
 
