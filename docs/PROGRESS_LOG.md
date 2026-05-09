@@ -19,7 +19,7 @@ Format for each slice:
 ## 2026-05-09, Cleanup R22: Cell-Key Primitives Extracted to `src/lib/render/grid.ts`
 
 - Branch: `feature/20260508-cleanup-r22-respawn`
-- PR: TBD
+- PR: #192
 - Changed: Round 22 of the cleanup loop. The `cellKey(row, col)` function and the `GridCellCoord` interface were duplicated across `src/app/[slug]/edit/snapGrid.ts`, `src/app/[slug]/buildingCollision.ts` (private), and `src/app/[slug]/offStreetPenalty.ts` (private). Each duplicate's docstring even acknowledged "Mirrors `cellKey` ... so a future shared lookup table can use the same key format." Extracted the canonical implementation to `src/lib/render/grid.ts`. `snapGrid.ts` re-exports the lib symbols so its downstream consumers (rejectionFlash, editorPreview, connectorGlyphs, etc.) do not change. `buildingCollision.ts` and `offStreetPenalty.ts` drop their private duplicates and import from the lib. Adds 6 new generic-helper tests in `tests/lib/render/grid.test.ts`. R22 originally targeted `respawn.ts` / `driveAntiFeatures.ts`, but both are too city-coupled to extract cleanly; pivoted to this DRY win.
 - Verification: `npx tsc --noEmit` (clean), `npx vitest run` (82 files, 2387 tests, +6 new), `npm run check:dashes` (clean).
 - Assumptions: The lib `cellKey` returns `${row},${col}` matching the existing format; downstream consumers that build composite keys like `${cellKey(r,c)}:${dir}` continue to work unchanged.
