@@ -5,7 +5,13 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import * as THREE from 'three'
 import { GLTFLoader, type GLTF } from 'three/examples/jsm/loaders/GLTFLoader.js'
 import { loadGltfOnce } from '@/lib/render/gltfCache'
-import type { BuilderId, BuildingType, City, Slug } from '@/lib/schemas'
+import type {
+  BuilderId,
+  BuildingType,
+  City,
+  PieceType,
+  Slug,
+} from '@/lib/schemas'
 import { useSimEngine } from '@/lib/sim/useSimEngine'
 import { solvePowerStatus, type CellPowerStatus } from '@/lib/sim/powerSolver'
 import {
@@ -71,6 +77,9 @@ import {
   cityWorldBounds,
   pieceColorFor,
   pieceFootprintWorldCells,
+  pieceMeshExtraYaw,
+  pieceMeshScale,
+  pieceMeshUrlFor,
   rotationToRadians,
   spawnAnchor,
 } from './driveScene'
@@ -803,8 +812,17 @@ export function DriveSceneClient({
     // rotated quad reads identically to the unrotated quad and the
     // sampled-centerline visuals (F-003) that need per-cell rotation
     // will land in the same iteration when the runtime port arrives.
+    // Single shared GLTFLoader for every Kenney City Kit asset
+    // (pieces + buildings). One loader instance is fine; the per-URL
+    // memoization happens in `loadGltfOnce` (`@/lib/render/gltfCache`).
+    const sharedGltfLoader = new GLTFLoader()
+
     const pieceGeometry = new THREE.PlaneGeometry(CELL_SIZE, CELL_SIZE)
     pieceGeometry.rotateX(-Math.PI / 2)
+    const pieceMeshSlotsByType = new Map<
+      PieceType,
+      { meshSlot: THREE.Group; placeholder: THREE.Object3D }[]
+    >()
     for (const piece of city.pieces) {
       const material = new THREE.MeshLambertMaterial({
         color: pieceColorFor(piece.type),
@@ -814,8 +832,52 @@ export function DriveSceneClient({
         const mesh = new THREE.Mesh(pieceGeometry, material)
         mesh.position.set(cell.x, PIECE_GROUND_LIFT, cell.z)
         mesh.rotation.y = headingY
+        mesh.userData = {
+          type: 'piece-quad',
+          pieceType: piece.type,
+          placeholder: pieceMeshUrlFor(piece.type) !== null,
+        }
         scene.add(mesh)
+
+        // Cardinal pieces (single-cell types with a wired GLB) get a
+        // mesh slot at the cell anchor. Multi-cell pieces and types
+        // without a wired GLB skip the slot and stay on the procedural
+        // colored quad.
+        if (pieceMeshUrlFor(piece.type) !== null) {
+          const meshSlot = new THREE.Group()
+          meshSlot.position.set(cell.x, 0, cell.z)
+          meshSlot.rotation.y = headingY + pieceMeshExtraYaw(piece.type)
+          meshSlot.userData = {
+            type: 'piece-mesh-slot',
+            pieceType: piece.type,
+          }
+          scene.add(meshSlot)
+          const bucket = pieceMeshSlotsByType.get(piece.type) ?? []
+          bucket.push({ meshSlot, placeholder: mesh })
+          pieceMeshSlotsByType.set(piece.type, bucket)
+        }
       }
+    }
+
+    // Per-`PieceType` Kenney City Kit GLB load (slice 3). Mirrors the
+    // building swap pattern: cache by URL via `loadGltfOnce`, clone
+    // the resolved scene into every slot of that type, hide the
+    // placeholder quads on success. Failures keep the placeholder
+    // visible.
+    const pieceMeshScaleValue = pieceMeshScale()
+    for (const [type, bucket] of pieceMeshSlotsByType) {
+      const url = pieceMeshUrlFor(type)
+      if (!url) continue
+      void loadGltfOnce<GLTF>(sharedGltfLoader, url).then((gltf) => {
+        if (cancelled || !gltf) return
+        for (const { meshSlot, placeholder } of bucket) {
+          const inner = gltf.scene.clone(true)
+          inner.scale.setScalar(pieceMeshScaleValue)
+          inner.userData = { type: 'piece-glb', pieceType: type }
+          meshSlot.add(inner)
+          placeholder.visible = false
+        }
+      })
     }
 
     // Streetlamps at intersection cells (lit-window slice). v1 lights
@@ -947,7 +1009,6 @@ export function DriveSceneClient({
     // the mesh into its slot and the placeholder body+roof are hidden.
     // On failure (`null`), the placeholder stays visible so the cell
     // is never empty.
-    const sharedGltfLoader = new GLTFLoader()
     const meshScale = buildingMeshScale()
     for (const [type, bucket] of meshSlotsByType) {
       const url = buildingMeshUrlFor(type)

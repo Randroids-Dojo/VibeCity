@@ -185,10 +185,76 @@ export const PIECE_COLORS: Partial<Record<PieceType, number>> = {
 /**
  * Resolve the color used to render a piece. Falls back to the default
  * asphalt color so any piece type added to the schema in a later slice
- * still renders without a code change here.
+ * still renders without a code change here. Still exported because the
+ * procedural fallback (when a `.glb` fails or no mesh is wired yet for
+ * a piece type) consumes it.
  */
 export function pieceColorFor(type: PieceType): number {
   return PIECE_COLORS[type] ?? DEFAULT_PIECE_COLOR
+}
+
+/**
+ * Per-`PieceType` GLB asset URLs (slice 3 of the Kenney City Kit art
+ * pass). Cardinal piece types (`straight`, `left90`, `right90`,
+ * `intersection`) point at meshes under `public/models/pieces/`; the
+ * smooth and advanced types (scurves, sweeps, mega sweeps, hairpin,
+ * arc45, diagonal) are not yet wired and return `null` so the
+ * procedural colored-quad path keeps rendering them.
+ *
+ * `left90.glb` and `right90.glb` are physically the same Kenney
+ * `road-curve.glb` mesh; the visual mirror falls out of the per-type
+ * yaw offset (`pieceMeshExtraYaw`) so a `right90` faces the
+ * opposite corner pair from a `left90` at the same persisted rotation.
+ */
+const PIECE_MESH_URLS: Partial<Record<PieceType, string>> = {
+  straight: '/models/pieces/straight.glb',
+  left90: '/models/pieces/left90.glb',
+  right90: '/models/pieces/right90.glb',
+  intersection: '/models/pieces/intersection.glb',
+}
+
+/**
+ * Resolve the GLB asset URL for a piece type. Returns `null` when the
+ * type does not yet have a mesh wired (smooth and advanced pieces);
+ * callers fall back to the procedural colored-quad path for those.
+ */
+export function pieceMeshUrlFor(type: PieceType): string | null {
+  return PIECE_MESH_URLS[type] ?? null
+}
+
+/**
+ * Per-`PieceType` extra yaw offset applied to the loaded GLB on top of
+ * the piece's persisted `rotation`. Used to align Kenney's mesh
+ * orientation with the city's piece-frame convention (and to flip the
+ * shared `road-curve.glb` so `right90` mirrors `left90` without
+ * shipping a second mesh).
+ *
+ * Tuning is empirical: the defaults here are zero for the symmetric
+ * pieces and `Math.PI / 2` for `right90` because the shared curve
+ * mesh has 4-fold symmetry around the cell center and a quarter-turn
+ * yaw lands the curve on the opposite corner pair. Adjust per-type if
+ * a future Blender re-export shifts the natural orientation.
+ */
+const PIECE_MESH_EXTRA_YAW: Partial<Record<PieceType, number>> = {
+  straight: 0,
+  left90: 0,
+  right90: Math.PI / 2,
+  intersection: 0,
+}
+
+export function pieceMeshExtraYaw(type: PieceType): number {
+  return PIECE_MESH_EXTRA_YAW[type] ?? 0
+}
+
+/**
+ * World-space scale applied to a Kenney City Kit road piece mesh so
+ * its footprint matches one cell (`CELL_SIZE`). Kenney pieces are
+ * designed at 1 unit per cell; multiplying by `CELL_SIZE` lands them
+ * at the same on-the-ground footprint as the procedural quad so the
+ * swap is visually neutral relative to the placeholder.
+ */
+export function pieceMeshScale(): number {
+  return CELL_SIZE
 }
 
 /**

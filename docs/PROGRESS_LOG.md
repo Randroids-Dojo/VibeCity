@@ -16,6 +16,19 @@ Format for each slice:
 - Followups: any new `F-NNN` entries created. Link to them.
 ```
 
+## 2026-05-09, Art Pass Slice 3: Cardinal Street Piece Mesh Swap
+
+- Branch: `feature/20260509-art-cardinal-pieces`
+- PR: TBD
+- Changed: Third slice of the Kenney City Kit art pass. Swaps the four cardinal street piece types (`straight`, `left90`, `right90`, `intersection`) from `BoxGeometry`-based flat colored quads to Kenney City Kit road meshes. The smooth + advanced piece types (scurves, sweeps, mega sweeps, hairpin, arc45, diagonal) stay on the procedural quad path until slice 4.
+  - New `pieceMeshUrlFor(type)`, `pieceMeshExtraYaw(type)`, `pieceMeshScale()` in `src/app/[slug]/driveScene.ts`. URL map is `Partial<Record<PieceType, string>>` returning `null` for unwired types so the iterator can branch cleanly.
+  - `left90.glb` and `right90.glb` are physically the same Kenney `road-curve.glb` mesh; the visual mirror is delivered via `pieceMeshExtraYaw('right90') === Math.PI / 2` rather than a second asset, leaning on the curve mesh's 4-fold symmetry around the cell center.
+  - `src/app/[slug]/DriveSceneClient.tsx`: per-piece loop now adds the existing colored quad as a placeholder (marked `userData.placeholder = true` only when a mesh is wired) plus an empty `THREE.Group` mesh slot. After the loop, one `loadGltfOnce` per unique cardinal type clones the resolved GLB into every slot of that type and hides the matching placeholders. The shared `GLTFLoader` instance also moves up to be hoisted above both the piece and building loops.
+- Verification: `npm run check:dashes` clean. `pnpm exec tsc --noEmit` clean. `pnpm exec vitest run tests/app/driveScene.test.ts` passes 128 cases (was 122; +6 for the new helpers). Visual smoke via browser-harness on `http://localhost:3000/art-test/drive` with a city containing all four cardinal piece types: straights show Kenney curbs and asphalt, intersection has crosswalk markings, the curve mesh reads correctly under both `left90` and `right90` placements (the per-type yaw flips the mirror).
+- Assumptions: Kenney's `road-curve.glb` is symmetric enough that a quarter-turn yaw lands `right90` on the opposite corner pair without a dedicated mirrored asset. If a future Kenney re-export breaks the symmetry, the fallback is to ship a second mesh and drop the yaw offset. The existing streetlamp code at intersection cells (lit-window slice) still draws on top of the Kenney intersection mesh; the lamp post sits above the mesh so they coexist visually.
+- GDD coverage: No `docs/GDD_COVERAGE.json` row change. REQ-045 stays at its current status.
+- Followups: None new. Sister dots track the rest of the art pass.
+
 ## 2026-05-09, Art Pass Slice 2: GLTF Mesh Cache + Building Mesh Swap
 
 - Branch: `feature/20260509-art-buildings-glb`

@@ -42,6 +42,9 @@ import {
   buildingColorFor,
   buildingMeshScale,
   buildingMeshUrlFor,
+  pieceMeshExtraYaw,
+  pieceMeshScale,
+  pieceMeshUrlFor,
   buildingFootprintWorldSize,
   buildingHeightFor,
   buildingRoofColorFor,
@@ -220,6 +223,53 @@ describe('buildingMeshUrlFor (Kenney City Kit slice 2)', () => {
 
   it('buildingMeshScale matches the body footprint world size', () => {
     expect(buildingMeshScale()).toBeCloseTo(buildingFootprintWorldSize(), 10)
+  })
+})
+
+describe('pieceMeshUrlFor (Kenney City Kit slice 3, cardinals only)', () => {
+  const CARDINAL_TYPES: PieceType[] = [
+    'straight',
+    'left90',
+    'right90',
+    'intersection',
+  ]
+
+  it('returns a URL for every cardinal piece type', () => {
+    for (const type of CARDINAL_TYPES) {
+      const url = pieceMeshUrlFor(type)
+      expect(typeof url).toBe('string')
+      expect(url).toMatch(/^\/models\/pieces\/.+\.glb$/)
+    }
+  })
+
+  it('returns null for every smooth + advanced piece type (slice 4 territory)', () => {
+    for (const type of PieceTypeSchema.options) {
+      if (CARDINAL_TYPES.includes(type)) continue
+      expect(pieceMeshUrlFor(type)).toBeNull()
+    }
+  })
+
+  it('left90 and right90 share the same physical asset URL (mirror via yaw)', () => {
+    expect(pieceMeshUrlFor('left90')).toBe('/models/pieces/left90.glb')
+    expect(pieceMeshUrlFor('right90')).toBe('/models/pieces/right90.glb')
+  })
+
+  it('pieceMeshExtraYaw is zero for symmetric cardinals and quarter-turn for right90', () => {
+    expect(pieceMeshExtraYaw('straight')).toBe(0)
+    expect(pieceMeshExtraYaw('intersection')).toBe(0)
+    expect(pieceMeshExtraYaw('left90')).toBe(0)
+    expect(pieceMeshExtraYaw('right90')).toBeCloseTo(Math.PI / 2, 10)
+  })
+
+  it('pieceMeshExtraYaw is zero for piece types without a wired mesh', () => {
+    for (const type of PieceTypeSchema.options) {
+      if (CARDINAL_TYPES.includes(type)) continue
+      expect(pieceMeshExtraYaw(type)).toBe(0)
+    }
+  })
+
+  it('pieceMeshScale equals CELL_SIZE so a Kenney 1-unit-per-cell mesh fills the cell', () => {
+    expect(pieceMeshScale()).toBe(CELL_SIZE)
   })
 })
 
