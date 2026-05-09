@@ -1,10 +1,49 @@
-	
 
 	Car Kit (3.1)
 
 	Created/distributed by Kenney (www.kenney.nl)
 	Creation date: 02-04-2026 14:03
-	
+
+	Used by: public/models/car.glb
+
+			------------------------------
+
+	City Kit (Suburban) 2.0
+
+	Created/distributed by Kenney (www.kenney.nl)
+	Source: https://kenney.nl/assets/city-kit-suburban
+
+	Used by:
+	  public/models/buildings/suburban/small-house.glb (building-type-a.glb)
+	  public/models/buildings/suburban/mid-house.glb   (building-type-c.glb)
+	  public/models/buildings/suburban/Textures/colormap.png (kit colormap)
+
+			------------------------------
+
+	City Kit (Commercial) 2.1
+
+	Created/distributed by Kenney (www.kenney.nl)
+	Source: https://kenney.nl/assets/city-kit-commercial
+
+	Used by:
+	  public/models/buildings/commercial/shop.glb    (building-a.glb)
+	  public/models/buildings/commercial/factory.glb (low-detail-building-wide-a.glb)
+	  public/models/buildings/commercial/Textures/colormap.png (kit colormap)
+
+			------------------------------
+
+	City Kit (Roads)
+
+	Created/distributed by Kenney (www.kenney.nl)
+	Source: https://kenney.nl/assets/city-kit-roads
+
+	Used by:
+	  public/models/pieces/straight.glb     (road-straight.glb)
+	  public/models/pieces/left90.glb       (road-curve.glb, runtime-mirrored)
+	  public/models/pieces/right90.glb      (road-curve.glb, runtime-mirrored)
+	  public/models/pieces/intersection.glb (road-crossroad.glb)
+	  public/models/pieces/Textures/colormap.png (kit colormap)
+
 			------------------------------
 
 	License: (Creative Commons Zero, CC0)
@@ -16,13 +55,6 @@
 
 			------------------------------
 
-	• Website : www.kenney.nl
-	• Donate  : www.kenney.nl/donate
-
-	• Patreon : patreon.com/kenney
-	
-	Follow on social media for updates:
-
-	• Twitter:	 twitter.com/KenneyNL
-	• BlueSky:	 kenney.bsky.social
-	• Instagram: instagram.com/kenney_nl
+	Website : www.kenney.nl
+	Donate  : www.kenney.nl/donate
+	Patreon : patreon.com/kenney
