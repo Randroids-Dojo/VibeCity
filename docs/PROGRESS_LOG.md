@@ -19,7 +19,7 @@ Format for each slice:
 ## 2026-05-09, Cleanup R23: Vehicle Input Plumbing Extracted to `src/lib/input/`
 
 - Branch: `feature/20260508-cleanup-r23-vehicle-physics`
-- PR: TBD
+- PR: #193
 - Changed: Round 23 of the cleanup loop. The vehicle input plumbing in `src/app/[slug]/driveControls.ts` (action vocabulary, default WASD + arrow-key bindings, snapshot type, and `inputFromPressedKeys` helper) was generic — only the physics integrator constants below it depend on `CELL_SIZE`. Extracted the input plumbing to a new `src/lib/input/vehicleControls.ts` module:
   - `DriveAction` union (`throttle | brake | steerLeft | steerRight`)
   - `DEFAULT_KEY_BINDINGS` (WASD + arrows)
