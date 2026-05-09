@@ -33,6 +33,7 @@ Before each implementation slice, read:
 - `docs/OPEN_QUESTIONS.md`
 - `docs/FOLLOWUPS.md`
 - `docs/GDD_COVERAGE.json`
+- `docs/DEPENDENCY_LEDGER.md` (and run the Dependency Upgrade Gate from `docs/IMPLEMENTATION_PLAN.md`)
 - `docs/PLAYTEST.md` and `docs/FUN_FACTOR_AUDIT.md` when coverage is ≥80% done
 - the current task backlog (Dots or equivalent)
 
