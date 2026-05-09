@@ -19,7 +19,7 @@ Format for each slice:
 ## 2026-05-09, Cleanup R20: `src/lib/README.md` Refresh (Second Loop Final Round)
 
 - Branch: `feature/20260508-cleanup-r20-readme-refresh`
-- PR: TBD
+- PR: #190
 - Changed: Final round of the second 10-round cleanup loop. R11-R19 added three new generic namespaces (`audio/`, `ui/`) and several modules to existing ones; the R10 README named the original six namespaces and is now out of date. Refreshed `src/lib/README.md` to:
   - Add `audio/` row (engineAudio, tireScreech) and `ui/` row (pauseMenu).
   - Update `auth/` row to mention `anonCookie.ts` (the middleware factory from R11).
