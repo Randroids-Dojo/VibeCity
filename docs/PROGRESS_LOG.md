@@ -16,6 +16,16 @@ Format for each slice:
 - Followups: any new `F-NNN` entries created. Link to them.
 ```
 
+## 2026-05-08, Cleanup R11: Anonymous-Cookie Middleware Factory Extracted
+
+- Branch: `feature/20260508-cleanup-r11-anoncookie`
+- PR: TBD
+- Changed: First round of the second 10-round cleanup loop. R8 considered extracting an anonymous-cookie middleware factory and deferred the call. With the generic `auth/uuidV4.ts` helpers now in place (R8), the factory is the natural follow-on. New `src/lib/auth/anonCookie.ts` exports `createAnonCookieMiddleware({ cookieName, maxAgeSec, isValid, mintId, secure?, sameSite? })` that returns a Next.js middleware function with the propagation logic baked in: read existing cookie, validate with the supplied shape check, mint on miss, write to BOTH request cookies (so a same-request server component reads the value via `cookies()`) and response cookies (so the browser keeps it). `src/middleware.ts` rewritten as a 5-line thin wiring (cookie name + max age + validator + minter) that delegates to the factory. The integration test (`tests/app/middleware.test.ts`) keeps passing unchanged. Adds 6 new factory-contract tests in `tests/lib/auth/anonCookie.test.ts` covering mint-on-empty, mint-on-invalid, no-write-on-valid, default cookie attributes, the `secure: true` override, and the `sameSite: 'strict'` override.
+- Verification: `npx tsc --noEmit` (clean), `npx vitest run` (78 files, 2357 tests, +6 new), `npm run check:dashes` (clean).
+- Assumptions: Default `secure: false` so local dev (HTTP) works; production traffic is HTTPS at the Vercel edge, so the cookie is still transported securely there. Callers can opt into `secure: true` when a deployment needs to enforce HTTPS at the cookie layer.
+- GDD coverage: No `docs/GDD_COVERAGE.json` row change.
+- Followups: None new.
+
 ## 2026-05-08, Cleanup R10: `src/lib/` Namespace Map Documented (Final Round)
 
 - Branch: `feature/20260508-cleanup-r10-lib-readme`
