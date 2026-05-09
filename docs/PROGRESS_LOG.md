@@ -16,6 +16,19 @@ Format for each slice:
 - Followups: any new `F-NNN` entries created. Link to them.
 ```
 
+## 2026-05-09, Cleanup R18: Dead-Code / Unused-Export Audit
+
+- Branch: `feature/20260508-cleanup-r18-unused-exports`
+- PR: #188
+- Changed: Round 18 of the cleanup loop. Ran `npx knip` to surface unused exports across the lib + app trees. The full report flagged ~50 candidates but most are false positives: zod schemas accessed via `vi.mock` / dynamic import (`tests/lib/recentVersions.test.ts` imports `MAX_RECENT_VERSIONS_LIMIT` via `await import(...)` which knip cannot trace), schema composition (sim event schemas referenced through union types), or recently-added forward-looking exports (the R15 `chaseCameraDefaults` / `CAMERA_RIG_UNIT_SIZE`). Two clean safe wins kept:
+  - `src/lib/builderId.ts`: removed the unused `readBuilderId()` helper plus its `cookies` import from `next/headers`. Server components that need the cookie call `cookies()` directly; the helper added a layer that no caller used.
+  - `src/lib/recentSlugs.ts`: dropped `export` from `DEFAULT_RECENT_SLUGS_LIMIT` (used only as a default-arg value within the file; no external consumer).
+- One revert: dropping `export` from `MAX_RECENT_VERSIONS_LIMIT` failed type-check; the test imports it via `await import(...)`. Re-exported and added to mental note: knip false-positives on dynamic imports.
+- Verification: `npx tsc --noEmit` (clean), `npx vitest run` (80 files, 2374 tests passing), `npm run check:dashes` (clean).
+- Assumptions: Conservative pass; the broader knip report is left to a future round once the dynamic-import false positives are filtered. The two changes here are pure dead-code removals with no behavior change.
+- GDD coverage: No `docs/GDD_COVERAGE.json` row change.
+- Followups: None new.
+
 ## 2026-05-09, Cleanup R17: `FakeKv` Test Fake Hoisted to `tests/lib/storage/`
 
 - Branch: `feature/20260508-cleanup-r17-test-fakes`

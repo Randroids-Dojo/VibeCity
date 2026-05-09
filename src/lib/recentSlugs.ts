@@ -7,7 +7,7 @@ import { getKv, hasKvConfigured, kvKeys } from './cityKv'
  * viewport without paying for a large KV read; the home page can pass
  * a larger limit if a future slice adds pagination.
  */
-export const DEFAULT_RECENT_SLUGS_LIMIT = 12
+const DEFAULT_RECENT_SLUGS_LIMIT = 12
 
 /**
  * Cap on the limit a caller may request. Mirrors a defensive bound so a
