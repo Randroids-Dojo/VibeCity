@@ -1,12 +1,14 @@
-import { MAX_SPEED } from './driveControls'
-
 /**
- * Drive-mode engine audio synthesis (REQ-068 Web Audio engine sound).
+ * Engine audio synthesis. Game-agnostic.
  *
- * Pure module: no React, no DOM, no `AudioContext` (the live runtime
- * lives in `EngineAudioRig` below). The drive scene client owns the
- * audio context and the per-frame `update(speed)` call; the math here
- * keeps the frequency / gain mapping fully unit-testable.
+ * A simple Web Audio rig that maps a scalar `speed` to engine pitch
+ * + gain so any game with a vehicle-like motion model can emit a
+ * familiar low-rumble-to-revving-pitch engine sound. VibeCity's
+ * drive scene (REQ-068) is the v1 consumer.
+ *
+ * Pure helpers (frequency / gain mapping) live alongside the runtime
+ * rig class; the consumer owns the audio context and the per-frame
+ * `update(speed)` call. The math is fully unit-testable.
  *
  * The v1 engine sound is a single sawtooth oscillator whose frequency
  * tracks the speed magnitude with an idle floor so a parked car still
@@ -76,7 +78,7 @@ export const ENGINE_SMOOTHING_SECONDS = 0.08
  */
 export function engineFrequencyForSpeed(
   speed: number,
-  maxSpeed: number = MAX_SPEED,
+  maxSpeed: number,
 ): number {
   if (!Number.isFinite(speed)) return ENGINE_IDLE_FREQUENCY_HZ
   if (!Number.isFinite(maxSpeed) || maxSpeed <= 0) {
@@ -98,7 +100,7 @@ export function engineFrequencyForSpeed(
  */
 export function engineGainForSpeed(
   speed: number,
-  maxSpeed: number = MAX_SPEED,
+  maxSpeed: number,
 ): number {
   if (!Number.isFinite(speed)) return ENGINE_IDLE_GAIN
   if (!Number.isFinite(maxSpeed) || maxSpeed <= 0) {
@@ -154,14 +156,23 @@ export interface EngineAudioContextLike {
  */
 export class EngineAudioRig {
   private readonly context: EngineAudioContextLike
+  private readonly maxSpeed: number
   private readonly oscillator: OscillatorNode
   private readonly filter: BiquadFilterNode
   private readonly gain: GainNode
   private started = false
   private muted = false
 
-  constructor(context: EngineAudioContextLike) {
+  /**
+   * @param context Web Audio context (or compatible test fake).
+   * @param maxSpeed The speed magnitude the consumer treats as the
+   *   peak (peak frequency / peak gain). The rig clamps speeds above
+   *   this to the peak so a tuning bug above the design ceiling does
+   *   not blow out the gain.
+   */
+  constructor(context: EngineAudioContextLike, maxSpeed: number) {
     this.context = context
+    this.maxSpeed = maxSpeed
     this.oscillator = context.createOscillator()
     this.oscillator.type = 'sawtooth'
     this.oscillator.frequency.value = ENGINE_IDLE_FREQUENCY_HZ
@@ -204,8 +215,8 @@ export class EngineAudioRig {
    */
   update(speed: number): void {
     if (!this.started || this.muted) return
-    const targetFreq = engineFrequencyForSpeed(speed)
-    const targetGain = engineGainForSpeed(speed)
+    const targetFreq = engineFrequencyForSpeed(speed, this.maxSpeed)
+    const targetGain = engineGainForSpeed(speed, this.maxSpeed)
     this.oscillator.frequency.setTargetAtTime(
       targetFreq,
       this.context.currentTime,

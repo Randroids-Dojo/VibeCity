@@ -10,7 +10,7 @@ import {
 import {
   ENGINE_MAX_GAIN,
   type EngineAudioContextLike,
-} from '@/app/[slug]/engineAudio'
+} from '@/lib/audio/engineAudio'
 
 interface FakeAudioParam {
   value: number
