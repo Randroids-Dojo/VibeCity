@@ -54,8 +54,12 @@ describe('buildingCollision constants (REQ-030)', () => {
   })
 
   it('penalty caps scale with CELL_SIZE so they track the world unit', () => {
-    expect(BUILDING_PENALTY_MAX_SPEED % CELL_SIZE).toBe(0)
-    expect(BUILDING_PENALTY_MAX_REVERSE_SPEED % CELL_SIZE).toBe(0)
+    // Constants are expressed as `CELL_SIZE * <fraction>` so the value
+    // stays parametric in the world unit. The fraction need not be a
+    // whole number after the VibeRacer-tuning port (the scaled cap
+    // sits at 0.3 cells / sec).
+    expect(BUILDING_PENALTY_MAX_SPEED / CELL_SIZE).toBeGreaterThan(0)
+    expect(BUILDING_PENALTY_MAX_REVERSE_SPEED / CELL_SIZE).toBeGreaterThan(0)
   })
 })
 

@@ -40,6 +40,15 @@ export interface VehicleTuning {
   steerRateAtRest: number
   /** Steering rate (rad/sec) at peak speed. Lower value damps high-speed swerve. */
   steerRateAtMaxSpeed: number
+  /**
+   * Minimum |speed| (world units / sec) below which steering input is
+   * ignored. Mirrors VibeRacer's `minSpeedForSteering` so a stationary
+   * tap on left / right does not pivot the heading; pressing the key
+   * while moving still rotates as before. Set to 0 to keep the legacy
+   * "pivot in place" behavior. Optional so tunings predating this field
+   * stay valid.
+   */
+  minSpeedForSteering?: number
   /** Frame-delta clamp (seconds). Caps a long pause-then-resume so the vehicle does not teleport. */
   maxDeltaSeconds: number
 }
@@ -143,13 +152,20 @@ export function applyDriveStep(
 
   let heading = state.heading
   if (input.steerLeft !== input.steerRight) {
-    const rate = steerRateForSpeed(speed, tuning)
-    // Reverse flips the steer direction so the vehicle pivots from the
-    // rear axle. A parked vehicle (speed === 0) still pivots so the
-    // driver can re-aim before driving.
-    const sign = speed < 0 ? -1 : 1
-    const direction = input.steerLeft ? -1 : 1
-    heading += direction * sign * rate * step
+    // Mirror VibeRacer: ignore steering input below a small speed
+    // threshold so a stationary tap on left / right does not pivot the
+    // heading (which would whip the chase camera around a parked car).
+    // Tunings predating this field default to 0 so the legacy
+    // pivot-in-place behavior is preserved.
+    const minSpeed = tuning.minSpeedForSteering ?? 0
+    if (Math.abs(speed) >= minSpeed) {
+      const rate = steerRateForSpeed(speed, tuning)
+      // Reverse flips the steer direction so the vehicle pivots from
+      // the rear axle, matching driver intuition.
+      const sign = speed < 0 ? -1 : 1
+      const direction = input.steerLeft ? -1 : 1
+      heading += direction * sign * rate * step
+    }
   }
 
   // Advance position along the heading. Forward (+ speed) moves the

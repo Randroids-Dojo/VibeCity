@@ -36,14 +36,14 @@ import { cellKey } from '@/lib/render/grid'
  * without locking the car so hard that a brushing pass through a corner
  * cell bounces the player into a wall feel.
  */
-export const BUILDING_PENALTY_MAX_SPEED = CELL_SIZE * 2
+export const BUILDING_PENALTY_MAX_SPEED = CELL_SIZE * 0.3
 
 /**
  * Maximum reverse speed allowed while on a building cell. Reverse caps
  * proportionally so a player who clipped a building cannot rocket out
  * of it backward.
  */
-export const BUILDING_PENALTY_MAX_REVERSE_SPEED = CELL_SIZE * 1
+export const BUILDING_PENALTY_MAX_REVERSE_SPEED = CELL_SIZE * 0.15
 
 /**
  * Extra drag applied per second while the car is on a building cell.
