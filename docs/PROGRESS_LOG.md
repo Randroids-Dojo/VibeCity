@@ -19,7 +19,7 @@ Format for each slice:
 ## 2026-05-09, Procedural Roads Slice A: Sampled Centerline Geometry Layer
 
 - Branch: `feature/20260509-trackpath-samples`
-- PR: TBD
+- PR: [#204](https://github.com/Randroids-Dojo/VibeCity/pull/204)
 - Changed: First slice of the procedural roads art pass (the dot at `.dots/VibeCity-port-viberacer-procedural-roads-bcee89d0.md`). Ports VibeRacer's sampled-centerline geometry layer into `src/lib/trackPath.ts` so the upcoming road surface ribbon (slice B) can render every piece type from one continuous strip. Specifics:
   - New `src/lib/cellSize.ts`: lifted the `CELL_SIZE = 4` constant from `src/app/[slug]/driveScene.ts` to a city-scoped lib module so the geometry layer can read it without going through the app tree. `driveScene.ts` re-exports `CELL_SIZE` so existing import paths keep working.
   - New `SampledPoint` interface (`{ x, z, heading }`) plus per-piece-type LOCAL sample counts (`STRAIGHT_SAMPLE_COUNT`, `CORNER_SAMPLE_COUNT`, `SCURVE_SAMPLE_COUNT`, `SWEEP_SAMPLE_COUNT`, `MEGA_SWEEP_SAMPLE_COUNT`, `HAIRPIN_SAMPLE_COUNT`).
