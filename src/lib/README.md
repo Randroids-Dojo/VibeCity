@@ -14,7 +14,7 @@ These directories contain pure helpers that have no dependency on the city schem
 | `format/` | Pure string formatters | `relativeTime.ts`, `countLabel.ts` |
 | `input/` | Generic vehicle input plumbing: action vocabulary, default WASD/arrow bindings, key-set to input snapshot translator | `vehicleControls.ts` |
 | `physics/` | Pure planar arcade vehicle integrator parameterized via `VehicleTuning` | `vehicle.ts` |
-| `render/` | Pure rendering math (CSS transforms, chase camera, thumbnail projection, three.js defaults, cell-grid helpers) | `iso/projection.ts`, `iso/rotation.ts`, `cameraRig.ts`, `thumbnail.ts`, `scene.ts`, `grid.ts` |
+| `render/` | Pure rendering math (CSS transforms, chase camera, thumbnail projection, three.js defaults, cell-grid helpers, GLB load cache) | `iso/projection.ts`, `iso/rotation.ts`, `cameraRig.ts`, `thumbnail.ts`, `scene.ts`, `grid.ts`, `gltfCache.ts` |
 | `share/` | Slug-based share-URL composition + clipboard-copy FSM | `index.ts` |
 | `storage/` | Generic Upstash Redis client wrapper, SSR-safe localStorage helpers, versioned-envelope schema constructor | `kv.ts`, `localStorage.ts`, `versionedEnvelope.ts` |
 | `ui/` | Pure UI state machines + visual constants | `pauseMenu.ts`, `transitionCurtain.ts` |
