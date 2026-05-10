@@ -383,8 +383,10 @@ test('clicking any piece-palette button while in erase mode auto-exits erase', a
   await expect(grid).toHaveAttribute('data-cursor-mode', 'place')
 
   // Sanity: clicking a piece while NOT in erase mode does not change the
-  // tool mode (regression guard).
-  await straight.click()
+  // tool mode (regression guard). Use a building tool here because the
+  // category switch above unmounted the street palette.
+  const smallHouse = palette.locator('[data-building-type="small-house"]')
+  await smallHouse.click()
   await expect(grid).toHaveAttribute('data-cursor-mode', 'place')
 })
 
