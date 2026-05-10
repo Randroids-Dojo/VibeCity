@@ -16,6 +16,16 @@ Format for each slice:
 - Followups: any new `F-NNN` entries created. Link to them.
 ```
 
+## 2026-05-10, Editor Erase Mode Auto-Exits on Palette Click
+
+- Branch: `feature/20260510-editor-erase-autoexit`
+- PR: [#206](https://github.com/Randroids-Dojo/VibeCity/pull/206)
+- Changed: Second slice of the editor UX cleanup. Clicking ANY piece-tool button (street, building, zone, power, services, water, disaster) auto-exits erase mode and arms the new tool in place mode. Switching palette categories does NOT exit erase, because the existing erase-across-layers flow (erase a street piece, switch to buildings, erase a building, switch back) is exercised by `e2e/editor.spec.ts:718` and is a real authoring path. The dedicated erase button and the `E` keyboard shortcut still toggle erase explicitly. Wired by adding `setToolMode('place')` to all seven palette `onClick` handlers in `src/app/[slug]/edit/EditorClient.tsx`. New Playwright spec asserts: erase exits on different-piece click and on same-piece retap; category switches preserve erase; clicking a piece in place mode does not flip the mode.
+- Verification: `npm run check:dashes` clean. `npm run type-check` clean. `npm test` 86 files / 2449 tests pass (unchanged unit-test count; the new Playwright spec runs in the E2E suite).
+- Assumptions: The user's mental model is "picking a piece means I want to place," so any piece-tool click is a strong signal that erase should exit. Category switches stay erase-preserving because builders sometimes want to erase across layers in one go. The explicit erase button and `E` key remain the way to opt back into erase mode.
+- GDD coverage: REQ-022 (erase tool) gains the auto-exit affordance; status stays `done`. No row flip.
+- Followups: Slice 3 (ghost piece glyph + armed-piece rotation preview) is the last of the editor UX trio; dot at `.dots/VibeCity-editor-ghost-piece-1ce9ce10.md`.
+
 ## 2026-05-10, Editor Palette Retap-to-Cycle Rotation
 
 - Branch: `feature/20260510-editor-rotation-retap`
