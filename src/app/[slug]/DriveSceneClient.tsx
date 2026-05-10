@@ -3,8 +3,9 @@
 import Link from 'next/link'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import * as THREE from 'three'
-import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js'
-import type { BuilderId, City, Slug } from '@/lib/schemas'
+import { GLTFLoader, type GLTF } from 'three/examples/jsm/loaders/GLTFLoader.js'
+import { loadGltfOnce } from '@/lib/render/gltfCache'
+import type { BuilderId, BuildingType, City, Slug } from '@/lib/schemas'
 import { useSimEngine } from '@/lib/sim/useSimEngine'
 import { solvePowerStatus, type CellPowerStatus } from '@/lib/sim/powerSolver'
 import {
@@ -54,6 +55,8 @@ import {
   buildingColorFor,
   buildingFootprintWorldSize,
   buildingHeightFor,
+  buildingMeshScale,
+  buildingMeshUrlFor,
   buildingRoofColorFor,
   buildingRoofFootprintFor,
   buildingRoofHeightFor,
@@ -861,15 +864,18 @@ export function DriveSceneClient({
       scene.add(bulbMesh)
     }
 
-    // Buildings (REQ-046). Extruded boxes sized to the cell footprint
-    // with per-type heights and colors so the four placeholder
-    // primitives form a visible silhouette vocabulary from the orbit
-    // view. A second roof-cap mesh stacks on top of each body so the
-    // four building types read with distinct silhouettes (small / mid
-    // house get a peaked cap, shop gets a flat parapet, factory gets a
-    // smokestack-style thin tall cap). Boxes are anchored at the cell
-    // center on the ground plane and rotated by the persisted rotation.
+    // Buildings (REQ-046, Kenney City Kit slice 2). Each placement
+    // gets a procedural body+roof extrusion as the immediate
+    // placeholder so the scene reads while the per-type GLB asynchronously
+    // loads. When the GLB resolves, the placeholder body+roof are
+    // hidden and a cloned mesh instance takes their place at the same
+    // cell anchor and rotation. If the GLB load fails the placeholder
+    // stays visible so a missing or corrupt asset never blanks a city.
     const bodyFootprint = buildingFootprintWorldSize()
+    const meshSlotsByType = new Map<
+      BuildingType,
+      { meshSlot: THREE.Group; placeholders: THREE.Object3D[] }[]
+    >()
     for (const building of city.buildings) {
       const height = buildingHeightFor(building.type)
       const { x, z } = cellToWorld(building.row, building.col)
@@ -894,6 +900,7 @@ export function DriveSceneClient({
         type: 'building-body',
         buildingType: building.type,
         litAtNight: timeOfDay === 'night',
+        placeholder: true,
       }
       scene.add(bodyMesh)
 
@@ -915,7 +922,54 @@ export function DriveSceneClient({
       const roofMesh = new THREE.Mesh(roofGeometry, roofMaterial)
       roofMesh.position.set(x, buildingRoofY(building.type), z)
       roofMesh.rotation.y = headingY
+      roofMesh.userData = { placeholder: true }
       scene.add(roofMesh)
+
+      // Empty slot at the cell anchor; the cloned GLB lands here when
+      // the per-type promise resolves.
+      const meshSlot = new THREE.Group()
+      meshSlot.position.set(x, 0, z)
+      meshSlot.rotation.y = headingY
+      meshSlot.userData = {
+        type: 'building-mesh-slot',
+        buildingType: building.type,
+      }
+      scene.add(meshSlot)
+
+      const bucket = meshSlotsByType.get(building.type) ?? []
+      bucket.push({ meshSlot, placeholders: [bodyMesh, roofMesh] })
+      meshSlotsByType.set(building.type, bucket)
+    }
+
+    // Per-`BuildingType` Kenney City Kit GLB load. The cache memoizes
+    // by URL (`@/lib/render/gltfCache`) so a second city visit reuses
+    // the parsed mesh. On success, every placement of that type clones
+    // the mesh into its slot and the placeholder body+roof are hidden.
+    // On failure (`null`), the placeholder stays visible so the cell
+    // is never empty.
+    const sharedGltfLoader = new GLTFLoader()
+    const meshScale = buildingMeshScale()
+    for (const [type, bucket] of meshSlotsByType) {
+      const url = buildingMeshUrlFor(type)
+      void loadGltfOnce<GLTF>(sharedGltfLoader, url).then((gltf) => {
+        if (cancelled || !gltf) return
+        for (const { meshSlot, placeholders } of bucket) {
+          const inner = gltf.scene.clone(true)
+          inner.scale.setScalar(meshScale)
+          inner.userData = { type: 'building-glb', buildingType: type }
+          meshSlot.add(inner)
+          for (const placeholder of placeholders) {
+            placeholder.visible = false
+          }
+        }
+        // No-car cities (buildings only, no street pieces) skip the
+        // RAF loop and render once on mount via the empty-state
+        // scaffold. Without this re-render the mesh swap is invisible
+        // until the next interaction (resize). When `car` is set the
+        // RAF loop is already running and the next frame picks up the
+        // change for free.
+        if (!car) renderer.render(scene, camera)
+      })
     }
 
     // Water towers + sewage treatment plants (REQ-094). Underground
