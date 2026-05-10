@@ -28,6 +28,10 @@ const nextConfig = {
   env: {
     NEXT_PUBLIC_APP_VERSION: resolveAppVersion(),
   },
+  // The kit ships TypeScript source (no compiled `dist/`) so Next has
+  // to run it through swc. Without this the webpack loader rejects
+  // the kit's `export type ...` syntax inside `node_modules`.
+  transpilePackages: ['@randroids-dojo/vibekit'],
 }
 
 export default nextConfig
