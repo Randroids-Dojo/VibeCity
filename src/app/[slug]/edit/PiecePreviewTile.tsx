@@ -71,7 +71,7 @@ export function PiecePreviewTile({
   return (
     <svg
       data-testid="editor-armed-piece-preview"
-      data-piece-type={type}
+      data-armed-piece-type={type}
       data-rotation={rotation}
       width={sizePx}
       height={sizePx}

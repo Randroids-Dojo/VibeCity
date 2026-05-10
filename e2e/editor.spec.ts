@@ -357,12 +357,12 @@ test('armed-piece preview tile reflects the active piece type and rotation', asy
   const hairpin = palette.locator('[data-piece-type="hairpin"]')
 
   // Initial state: straight at 0deg.
-  await expect(preview).toHaveAttribute('data-piece-type', 'straight')
+  await expect(preview).toHaveAttribute('data-armed-piece-type', 'straight')
   await expect(preview).toHaveAttribute('data-rotation', '0')
 
   // Pick left90: tile updates to the new piece.
   await left90.click()
-  await expect(preview).toHaveAttribute('data-piece-type', 'left90')
+  await expect(preview).toHaveAttribute('data-armed-piece-type', 'left90')
   await expect(preview).toHaveAttribute('data-rotation', '0')
 
   // Cycle rotation via the Rotate button: tile updates.
@@ -376,7 +376,7 @@ test('armed-piece preview tile reflects the active piece type and rotation', asy
   // Switch to hairpin: tile renders the multi-cell shape (rotation
   // preserved per slice 1's contract).
   await hairpin.click()
-  await expect(preview).toHaveAttribute('data-piece-type', 'hairpin')
+  await expect(preview).toHaveAttribute('data-armed-piece-type', 'hairpin')
   await expect(preview).toHaveAttribute('data-rotation', '180')
 })
 
