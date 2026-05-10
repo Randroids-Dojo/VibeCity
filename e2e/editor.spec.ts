@@ -344,6 +344,48 @@ test('erase tool removes pieces and toggles via button and E key', async ({
   await expect(eraseButton).toHaveAttribute('aria-pressed', 'false')
 })
 
+test('armed-piece preview tile reflects the active piece type and rotation', async ({
+  page,
+}) => {
+  const response = await page.goto('/playtest-city/edit')
+  expect(response?.status()).toBe(200)
+
+  const palette = page.getByTestId('editor-palette')
+  const preview = page.getByTestId('editor-armed-piece-preview')
+  const rotateButton = page.getByTestId('editor-rotate')
+  const left90 = palette.locator('[data-piece-type="left90"]')
+  const hairpin = palette.locator('[data-piece-type="hairpin"]')
+
+  // Initial state: straight at 0deg.
+  await expect(preview).toHaveAttribute('data-armed-piece-type', 'straight')
+  await expect(preview).toHaveAttribute('data-rotation', '0')
+
+  // Street-only contract: preview unmounts in non-street categories.
+  await page.getByTestId('editor-palette-category-building').click()
+  await expect(preview).toHaveCount(0)
+  await page.getByTestId('editor-palette-category-street').click()
+  await expect(preview).toHaveCount(1)
+
+  // Pick left90: tile updates to the new piece.
+  await left90.click()
+  await expect(preview).toHaveAttribute('data-armed-piece-type', 'left90')
+  await expect(preview).toHaveAttribute('data-rotation', '0')
+
+  // Cycle rotation via the Rotate button: tile updates.
+  await rotateButton.click()
+  await expect(preview).toHaveAttribute('data-rotation', '90')
+
+  // Cycle rotation via piece retap (slice 1): tile keeps in lockstep.
+  await left90.click()
+  await expect(preview).toHaveAttribute('data-rotation', '180')
+
+  // Switch to hairpin: tile renders the multi-cell shape (rotation
+  // preserved per slice 1's contract).
+  await hairpin.click()
+  await expect(preview).toHaveAttribute('data-armed-piece-type', 'hairpin')
+  await expect(preview).toHaveAttribute('data-rotation', '180')
+})
+
 test('clicking any piece-palette button while in erase mode auto-exits erase', async ({
   page,
 }) => {
