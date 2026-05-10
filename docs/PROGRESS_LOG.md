@@ -16,6 +16,16 @@ Format for each slice:
 - Followups: any new `F-NNN` entries created. Link to them.
 ```
 
+## 2026-05-10, Editor Piece Glyphs Ported From VibeRacer
+
+- Branch: `feature/20260510-editor-piece-glyphs`
+- PR: TBD
+- Changed: Ports VibeRacer's `PieceGlyph` SVG component (`../VibeRacer/src/components/TrackEditor.tsx:3292`) into VibeCity. Each placed track piece now renders its actual road shape (gray fill `#4a5a70` + dashed yellow stripe `#ffd36b` centerline) instead of just a colored cell tile with connector dots. Covers all 13 v1 piece types: `straight`, `left90`, `right90`, `scurve`, `scurveLeft`, `sweepRight`, `sweepLeft`, `megaSweepRight`, `megaSweepLeft`, `hairpin`, `arc45`, `diagonal`, `intersection`. The intersection glyph is a VibeCity-original cross since VibeRacer doesn't ship one. New file `src/app/[slug]/edit/PieceGlyph.tsx`. Wired in three places: (1) placed pieces on the snap grid via a new render loop in `SnapGridView.tsx`; (2) hover ghost piece via a new optional `previewGlyphPiece` prop, faded at opacity 0.45; (3) the armed-piece preview tile in the toolbar (`PiecePreviewTile.tsx` rewritten to delegate to `<PieceGlyph />`). The slice 3b connector-dot ghost stays in place underneath the new piece-shape ghost so the matched/unmatched port status is still legible at a glance.
+- Verification: `npm run check:dashes` clean. `npm run type-check` clean. `npm test` 86 files / 2449 tests pass.
+- Assumptions: VibeRacer's path data uses a parametric `CELL` constant; plugging in VibeCity's `CELL_PIXELS = 32` (vs VibeRacer's `56`) scales the geometry correctly. Multi-cell pieces (mega sweep, hairpin) intentionally draw paths that extend beyond the anchor cell; the SVG root in `SnapGridView` does not clip so the curve crosses cell boundaries exactly as it does in VibeRacer. The intersection cross is a VibeCity-original since VibeRacer's editor has no equivalent piece.
+- GDD coverage: REQ-016 (snap grid) + REQ-024 (place piece on hover ghost) get a visual upgrade. No row flip; both stay `done`.
+- Followups: Building palette glyphs are a separate slice (currently still rendered as a colored cell). The connector-dot layer can be removed entirely once the user confirms the matched/unmatched status is still readable from the road shape alone; deferred until visual feedback comes back.
+
 ## 2026-05-10, Editor Hover Ghost Connector Glyphs (slice 3b)
 
 - Branch: `feature/20260510-editor-hover-ghost-glyph`

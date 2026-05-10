@@ -1,29 +1,22 @@
 import type { PieceType, Rotation } from '@/lib/schemas'
-import {
-  CELL_HALF_PIXELS,
-  GLYPH_RADIUS_PIXELS,
-  pieceConnectorGlyphs,
-} from './connectorGlyphs'
-import { CELL_PIXELS, GRID_RADIUS, defaultFootprintForPiece } from './snapGrid'
+import { CELL_PIXELS, defaultFootprintForPiece } from './snapGrid'
+import { PieceGlyph } from './PieceGlyph'
 
 /**
  * Small SVG preview of an armed piece at its current rotation.
  *
- * Renders the piece's footprint cells as faint outlines plus its
- * connector glyphs (cardinal vs corner) so a builder picking from the
- * palette sees the actual shape and orientation of the piece they have
- * armed before they hover or click anywhere on the grid.
+ * Renders the piece's actual gray-road SVG glyph (via `<PieceGlyph />`)
+ * scaled into a fixed `sizePx` square so a builder picking from the
+ * palette sees the real piece shape and orientation before they hover
+ * or click anywhere on the grid. Multi-cell pieces (mega sweep,
+ * hairpin) grow the viewBox to cover the canonical footprint so the
+ * shape fits the tile at the same scale as the snap-grid placement
+ * render.
  *
  * Pure presentational: takes a piece type + rotation, computes a
- * bounding-box viewBox from `pieceConnectorGlyphs` plus the canonical
- * footprint, and renders. Reuses the same connector geometry as the
- * snap-grid so the preview stays in lockstep with the placement
- * rendering.
- *
- * Multi-cell pieces (mega sweep, hairpin) read at the same scale as
- * single-cell pieces because the viewBox grows with the footprint;
- * the consuming `<svg width=... height=...>` attributes pin the
- * on-screen size.
+ * footprint-driven viewBox, and delegates to `<PieceGlyph />` for the
+ * actual path data. Reusing `<PieceGlyph />` keeps the tile in
+ * lockstep with the snap-grid rendering.
  */
 export interface PiecePreviewTileProps {
   type: PieceType
@@ -41,32 +34,24 @@ export function PiecePreviewTile({
 }: PiecePreviewTileProps) {
   const piece = { type, rotation, row: 0, col: 0 }
   const footprint = defaultFootprintForPiece(piece)
-  const glyphs = pieceConnectorGlyphs(piece, -1)
 
-  const cellPixelCenters = footprint.map((cell) => ({
-    x: (cell.dc + 0) * CELL_PIXELS + CELL_HALF_PIXELS,
-    y: (cell.dr + 0) * CELL_PIXELS + CELL_HALF_PIXELS,
-  }))
+  // ViewBox covers the bounding box of the canonical footprint cells
+  // (each cell is CELL_PIXELS x CELL_PIXELS at the cell's top-left).
+  // Multi-cell pieces grow the box; single-cell pieces stay at one
+  // CELL_PIXELS box. A small margin lets paths that overshoot the
+  // anchor cell (e.g. mega-sweep control points) render without clip.
+  const drs = footprint.map((cell) => cell.dr)
+  const dcs = footprint.map((cell) => cell.dc)
+  const minDr = Math.min(...drs)
+  const maxDr = Math.max(...drs)
+  const minDc = Math.min(...dcs)
+  const maxDc = Math.max(...dcs)
 
-  // Translate `pieceConnectorGlyphs` output into the same local frame
-  // (it adds `GRID_RADIUS * CELL_PIXELS` because it expects to live on
-  // the snap grid; the preview tile lives on its own).
-  const GRID_OFFSET_PX = -(GRID_RADIUS * CELL_PIXELS)
-  const glyphPoints = glyphs.map((glyph) => ({
-    x: glyph.x + GRID_OFFSET_PX,
-    y: glyph.y + GRID_OFFSET_PX,
-    kind: glyph.kind,
-  }))
-
-  const points = [...cellPixelCenters, ...glyphPoints]
-  const xs = points.map((p) => p.x)
-  const ys = points.map((p) => p.y)
-  const minX = Math.min(...xs) - CELL_HALF_PIXELS
-  const minY = Math.min(...ys) - CELL_HALF_PIXELS
-  const maxX = Math.max(...xs) + CELL_HALF_PIXELS
-  const maxY = Math.max(...ys) + CELL_HALF_PIXELS
-  const w = maxX - minX
-  const h = maxY - minY
+  const margin = CELL_PIXELS * 0.25
+  const minX = minDc * CELL_PIXELS - margin
+  const minY = minDr * CELL_PIXELS - margin
+  const w = (maxDc - minDc + 1) * CELL_PIXELS + margin * 2
+  const h = (maxDr - minDr + 1) * CELL_PIXELS + margin * 2
 
   return (
     <svg
@@ -80,30 +65,7 @@ export function PiecePreviewTile({
       aria-label={`Armed piece: ${type} at ${rotation} degrees`}
       style={{ display: 'block' }}
     >
-      {cellPixelCenters.map((cell, i) => (
-        <rect
-          key={`cell-${i}`}
-          x={cell.x - CELL_HALF_PIXELS}
-          y={cell.y - CELL_HALF_PIXELS}
-          width={CELL_PIXELS}
-          height={CELL_PIXELS}
-          fill="#f5deb3"
-          fillOpacity={0.35}
-          stroke="#5a4a2a"
-          strokeWidth={1}
-        />
-      ))}
-      {glyphPoints.map((glyph, i) => (
-        <circle
-          key={`glyph-${i}`}
-          cx={glyph.x}
-          cy={glyph.y}
-          r={GLYPH_RADIUS_PIXELS}
-          fill={glyph.kind === 'cardinal' ? '#f5deb3' : '#ffe4b5'}
-          stroke="#5a4a2a"
-          strokeWidth={1.5}
-        />
-      ))}
+      <PieceGlyph type={type} rotation={rotation} />
     </svg>
   )
 }
