@@ -61,7 +61,7 @@ plus the implementation slice(s) it spawns.
   starts:
   - `road-side.glb`, `road-bend-sidewalk.glb`,
     `road-curve-pavement.glb` (sidewalk variants of the road meshes)
-  - `light-curved.glb`, `light-square.glb` (street lamps with arms)
+  - `light-curved.glb`, `light-square.glb` (streetlights with arms)
   - the Roads kit ships various traffic signs / cones
 
 ## Deliverable

@@ -86,7 +86,7 @@ Per asset before commit:
   textures live in the kit's subdirectory rather than a single shared
   `public/models/Textures/`)
 - `public/models/KENNEY-LICENSE.txt`: append the three new kit credits
-- `README.md`: art credits section refresh
+- `src/lib/README.md`: art credits section refresh
 
 ## Verify
 
