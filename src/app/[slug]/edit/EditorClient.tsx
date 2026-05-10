@@ -382,6 +382,19 @@ export function EditorClient({
         )
       : null
 
+  // Hover ghost piece-glyph (slice 4): full SVG shape of the candidate
+  // piece (gray road + dashed centerline) at the hover cell. Same gate
+  // as `previewGlyphs`. Renders faded so it reads as a preview.
+  const previewGlyphPiece =
+    hoverCell && paletteCategory === 'street' && toolMode === 'place'
+      ? {
+          row: hoverCell.row,
+          col: hoverCell.col,
+          type: selectedType,
+          rotation,
+        }
+      : null
+
   const handleCellEnter = useCallback((row: number, col: number) => {
     setHoverCell({ row, col })
   }, [])
@@ -2092,6 +2105,7 @@ export function EditorClient({
         previewCell={previewCell}
         previewCells={previewCells}
         previewGlyphs={previewGlyphs}
+        previewGlyphPiece={previewGlyphPiece}
         rejectionFlash={rejectionFlash}
         cursorMode={toolMode}
         viewport={viewport}

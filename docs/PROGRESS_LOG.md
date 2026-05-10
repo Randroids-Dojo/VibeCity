@@ -27,7 +27,17 @@ Format for each slice:
 - Verification: `npm run check:dashes` clean. `npm run type-check` clean. `npm test` 86 files / 2449 tests pass after updating two penalty-scaling tests, the lib-agreement test (now includes `minSpeedForSteering` in the rebuilt tuning), and the parked-car-rotates test (renamed to assert the new contract: a parked car does NOT pivot under steering input).
 - Assumptions: VibeRacer's stock-car feel is the target; if a future slice wants a sportier or burlier handling, layering `controlSettings.ts`-style per-player tuning is a separate slice. The `4 / 20` linear-scale factor matches the `CELL_SIZE` ratio between the two projects so the cells-per-second metric stays consistent. The dedicated rotate-in-place affordance is the editor's rotate tool (and the in-cell rotation cycle from PR #205); the drive scene no longer doubles as one.
 - GDD coverage: REQ-031 (vehicle physics) tuning shifts to the VibeRacer baseline; status stays `done`. REQ-033 (chase camera) implicit improvement (the camera was always correct; the steering rate was driving the perceived "camera spin").
-- Followups: None new. Track-piece glyph rendering is in flight at PR #209.
+- Followups: None new. Track-piece glyph rendering shipped in PR #209.
+
+## 2026-05-10, Editor Piece Glyphs Ported From VibeRacer
+
+- Branch: `feature/20260510-editor-piece-glyphs`
+- PR: [#209](https://github.com/Randroids-Dojo/VibeCity/pull/209)
+- Changed: Ports VibeRacer's `PieceGlyph` SVG component (`../VibeRacer/src/components/TrackEditor.tsx:3292`) into VibeCity. Each placed track piece now renders its actual road shape (gray fill `#4a5a70` + dashed yellow stripe `#ffd36b` centerline) instead of just a colored cell tile with connector dots. Covers all 13 v1 piece types: `straight`, `left90`, `right90`, `scurve`, `scurveLeft`, `sweepRight`, `sweepLeft`, `megaSweepRight`, `megaSweepLeft`, `hairpin`, `arc45`, `diagonal`, `intersection`. The intersection glyph is a VibeCity-original cross since VibeRacer doesn't ship one. New file `src/app/[slug]/edit/PieceGlyph.tsx`. Wired in three places: (1) placed pieces on the snap grid via a new render loop in `SnapGridView.tsx`; (2) hover ghost piece via a new optional `previewGlyphPiece` prop, faded at opacity 0.45; (3) the armed-piece preview tile in the toolbar (`PiecePreviewTile.tsx` rewritten to delegate to `<PieceGlyph />`). The slice 3b connector-dot ghost stays in place underneath the new piece-shape ghost so the matched/unmatched port status is still legible at a glance.
+- Verification: `npm run check:dashes` clean. `npm run type-check` clean. `npm test` 86 files / 2449 tests pass.
+- Assumptions: VibeRacer's path data uses a parametric `CELL` constant; plugging in VibeCity's `CELL_PIXELS = 32` (vs VibeRacer's `56`) scales the geometry correctly. Multi-cell pieces (mega sweep, hairpin) intentionally draw paths that extend beyond the anchor cell; the SVG root in `SnapGridView` does not clip so the curve crosses cell boundaries exactly as it does in VibeRacer. The intersection cross is a VibeCity-original since VibeRacer's editor has no equivalent piece.
+- GDD coverage: REQ-016 (snap grid) + REQ-024 (place piece on hover ghost) get a visual upgrade. No row flip; both stay `done`.
+- Followups: Building palette glyphs are a separate slice (currently still rendered as a colored cell). The connector-dot layer can be removed entirely once the user confirms the matched/unmatched status is still readable from the road shape alone; deferred until visual feedback comes back.
 
 ## 2026-05-10, Editor Hover Ghost Connector Glyphs (slice 3b)
 

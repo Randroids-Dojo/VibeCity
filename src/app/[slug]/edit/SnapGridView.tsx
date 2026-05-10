@@ -1,5 +1,5 @@
 import type { PointerEvent as ReactPointerEvent, WheelEvent as ReactWheelEvent } from 'react'
-import type { City } from '@/lib/schemas'
+import type { City, PieceType, Rotation } from '@/lib/schemas'
 import type {
   DisastersBucket,
   PowerBucket,
@@ -183,6 +183,7 @@ import {
   type ConnectorGlyph,
   type OpenEndArrowGlyph,
 } from './connectorGlyphs'
+import { PieceGlyph } from './PieceGlyph'
 import type { SpawnAnchorMarker } from './spawnMarker'
 
 /**
@@ -291,6 +292,7 @@ export function SnapGrid({
   previewCell,
   previewCells,
   previewGlyphs,
+  previewGlyphPiece,
   rejectionFlash,
   cursorMode = 'place',
   viewport = DEFAULT_VIEWPORT,
@@ -322,6 +324,19 @@ export function SnapGrid({
    * `pieceConnectorGlyphs` against a virtual piece at the hover cell.
    */
   previewGlyphs?: readonly ConnectorGlyph[] | null
+  /**
+   * Optional ghost piece-glyph for the hover cell. Renders the
+   * candidate piece's full SVG shape (gray road + dashed centerline)
+   * at reduced opacity so the builder sees what the piece will look
+   * like at the hovered cell at the active rotation. Computed in
+   * `EditorClient` only when in the street palette + place mode.
+   */
+  previewGlyphPiece?: {
+    row: number
+    col: number
+    type: PieceType
+    rotation: Rotation
+  } | null
   rejectionFlash?: RejectionFlash | null
   cursorMode?: 'place' | 'erase'
   viewport?: Viewport
@@ -488,8 +503,13 @@ export function SnapGrid({
         const isPiece = occupiedPieces.has(key)
         const isBuilding = occupiedBuildings.has(key)
         const zone = zones?.cells[key]
+        // Piece cells now render their actual road shape via
+        // `<PieceGlyph />` below; the brown slab tile is dropped so the
+        // gray road reads cleanly without a colored backdrop. Building
+        // cells keep their olive fill until a future slice gives
+        // buildings a 3D-style glyph too.
         const fill = isPiece
-          ? '#7d6b4a'
+          ? 'transparent'
           : isBuilding
             ? '#6b7d4a'
             : isOrigin
@@ -889,6 +909,39 @@ export function SnapGrid({
               />
             )
           })
+        : null}
+      {city.pieces.map((piece, index) => {
+        const { x, y } = cellToPixel({ row: piece.row, col: piece.col })
+        return (
+          <g
+            key={`piece-glyph-${index}-${piece.row}-${piece.col}`}
+            transform={`translate(${x} ${y})`}
+            data-testid="editor-piece-glyph"
+            data-piece-glyph-type={piece.type}
+            data-piece-glyph-rotation={piece.rotation}
+            pointerEvents="none"
+          >
+            <PieceGlyph type={piece.type} rotation={piece.rotation} />
+          </g>
+        )
+      })}
+      {previewGlyphPiece
+        ? (() => {
+            const { x, y } = cellToPixel(previewGlyphPiece)
+            return (
+              <g
+                transform={`translate(${x} ${y})`}
+                data-testid="editor-preview-piece-glyph"
+                pointerEvents="none"
+              >
+                <PieceGlyph
+                  type={previewGlyphPiece.type}
+                  rotation={previewGlyphPiece.rotation}
+                  opacity={0.45}
+                />
+              </g>
+            )
+          })()
         : null}
       {connectorGlyphs.map((glyph, index) => (
         <circle
