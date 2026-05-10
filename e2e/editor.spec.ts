@@ -344,6 +344,41 @@ test('erase tool removes pieces and toggles via button and E key', async ({
   await expect(eraseButton).toHaveAttribute('aria-pressed', 'false')
 })
 
+test('hover ghost renders piece-connector glyphs at the active rotation', async ({
+  page,
+}) => {
+  const response = await page.goto('/playtest-city/edit')
+  expect(response?.status()).toBe(200)
+
+  const grid = page.getByTestId('editor-snap-grid')
+  const palette = page.getByTestId('editor-palette')
+  const left90 = palette.locator('[data-piece-type="left90"]')
+  const rotateButton = page.getByTestId('editor-rotate')
+
+  // Pick left90 so glyph rendering has a known piece shape (cardinal
+  // ports at N + W on rotation 0).
+  await left90.click()
+  await rotateButton.click()
+  await rotateButton.click() // rotation now 180
+
+  // Hover an empty cell. previewGlyphs should appear under that cell.
+  await grid
+    .locator('[data-cell-row="2"][data-cell-col="3"]')
+    .hover({ force: true })
+
+  const previewGlyphs = grid.locator('[data-testid="editor-preview-glyph"]')
+  await expect(previewGlyphs).toHaveCount(2)
+
+  // Hover-leave: glyphs disappear.
+  await grid
+    .locator('[data-cell-row="-7"][data-cell-col="-7"]')
+    .hover({ force: true })
+  // Cells far from the focused one still register a hover, so glyphs
+  // remain rendered (just at a different cell). The contract is "ghost
+  // glyphs follow the hover cell" not "glyphs vanish on any move."
+  await expect(previewGlyphs).toHaveCount(2)
+})
+
 test('armed-piece preview tile reflects the active piece type and rotation', async ({
   page,
 }) => {

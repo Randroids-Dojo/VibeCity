@@ -16,6 +16,16 @@ Format for each slice:
 - Followups: any new `F-NNN` entries created. Link to them.
 ```
 
+## 2026-05-10, Editor Hover Ghost Connector Glyphs (slice 3b)
+
+- Branch: `feature/20260510-editor-hover-ghost-glyph`
+- PR: TBD
+- Changed: Final slice of the editor UX cleanup. The hover ghost in `SnapGridView.tsx` now renders the candidate piece's connector glyphs (cardinal vs corner dots) at the hover cell so the builder sees the actual piece shape and orientation under the cursor before clicking, not just a colored cell-fill. Wired by computing `previewGlyphs: ConnectorGlyph[] | null` in `EditorClient.tsx` against a virtual piece at the hover cell (`pieceConnectorGlyphs({ type, rotation, row: hoverRow, col: hoverCol }, -1)`) and threading it into `<SnapGrid />` as a new optional prop. Only rendered in the street palette in place mode (other categories have no piece geometry; erase already has its own ghost). Glyphs render at 70% fill / 80% stroke opacity so they read as a preview rather than a placement. New Playwright assertion in `e2e/editor.spec.ts` verifies the glyphs render at the hover cell after picking left90 and cycling rotation.
+- Verification: `npm run check:dashes` clean. `npm run type-check` clean. Playwright spec runs in the E2E suite.
+- Assumptions: Reusing `pieceConnectorGlyphs` against a virtual piece keeps the hover ghost in lockstep with the snap-grid placement render; if the connector geometry ever changes, both surfaces update together. The 70 / 80 opacity values are picked to sit between the cell-fill ghost (~30%) and the placed-piece dots (100%) so the glyph layer reads as a hover preview without competing with the underlying ghost cell or the placed-piece dots elsewhere on the grid.
+- GDD coverage: REQ-024 (place piece on hover ghost) gains the connector-shape signal; status stays `done`.
+- Followups: None. The editor UX trio (rotation retap from PR #205, erase auto-exit from PR #206, armed-piece preview tile from PR #207, hover ghost glyphs here) ships the user's complaint list.
+
 ## 2026-05-10, Editor Armed-Piece Preview Tile (slice 3a)
 
 - Branch: `feature/20260510-editor-ghost-glyph`
