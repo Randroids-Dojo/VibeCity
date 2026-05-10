@@ -928,7 +928,6 @@ export function EditorClient({
 
   const handleSelectCategory = useCallback((next: PaletteCategory) => {
     setPaletteCategory(next)
-    setToolMode('place')
   }, [])
 
   // Resolve every connector glyph once per render so the toolbar

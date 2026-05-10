@@ -376,15 +376,16 @@ test('clicking any piece-palette button while in erase mode auto-exits erase', a
   await expect(eraseButton).toHaveAttribute('aria-pressed', 'false')
   await expect(grid).toHaveAttribute('data-cursor-mode', 'place')
 
-  // Switching palette categories also exits erase (consistent rule).
+  // Switching palette categories does NOT exit erase: deliberate erase
+  // across layers (street -> buildings -> back) is a real flow other
+  // tests rely on. Erase exits only on piece-button clicks.
   await eraseButton.click()
   await expect(grid).toHaveAttribute('data-cursor-mode', 'erase')
   await page.getByTestId('editor-palette-category-building').click()
-  await expect(grid).toHaveAttribute('data-cursor-mode', 'place')
+  await expect(grid).toHaveAttribute('data-cursor-mode', 'erase')
 
-  // Sanity: clicking a piece while NOT in erase mode does not change the
-  // tool mode (regression guard). Use a building tool here because the
-  // category switch above unmounted the street palette.
+  // Clicking a building piece in the new category exits erase (same
+  // rule as street pieces).
   const smallHouse = palette.locator('[data-building-type="small-house"]')
   await smallHouse.click()
   await expect(grid).toHaveAttribute('data-cursor-mode', 'place')
