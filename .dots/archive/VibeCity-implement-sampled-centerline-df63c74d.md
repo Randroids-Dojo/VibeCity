@@ -1,9 +1,11 @@
 ---
 title: "implement: sampled centerline geometry layer for trackPath"
-status: open
+status: closed
 priority: 4
 issue-type: task
-created-at: "2026-05-05T21:21:54.350863-05:00"
+created-at: "\"2026-05-05T21:21:54.350863-05:00\""
+closed-at: "2026-05-10T17:48:36.328473-05:00"
+close-reason: "Slice A shipped in PR #204; slice B (this drive-scene wiring) consumes the OrderedPiece.samples it lands."
 ---
 
 ## Description
