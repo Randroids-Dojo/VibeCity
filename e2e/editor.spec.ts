@@ -344,6 +344,50 @@ test('erase tool removes pieces and toggles via button and E key', async ({
   await expect(eraseButton).toHaveAttribute('aria-pressed', 'false')
 })
 
+test('clicking any piece-palette button while in erase mode auto-exits erase', async ({
+  page,
+}) => {
+  const response = await page.goto('/playtest-city/edit')
+  expect(response?.status()).toBe(200)
+
+  const grid = page.getByTestId('editor-snap-grid')
+  const palette = page.getByTestId('editor-palette')
+  const eraseButton = page.getByTestId('editor-erase')
+  const straight = palette.locator('[data-piece-type="straight"]')
+  const left90 = palette.locator('[data-piece-type="left90"]')
+
+  // Toggle erase on, confirm.
+  await eraseButton.click()
+  await expect(eraseButton).toHaveAttribute('aria-pressed', 'true')
+  await expect(grid).toHaveAttribute('data-cursor-mode', 'erase')
+
+  // Clicking a different piece tool exits erase and arms the new piece.
+  await left90.click()
+  await expect(eraseButton).toHaveAttribute('aria-pressed', 'false')
+  await expect(grid).toHaveAttribute('data-cursor-mode', 'place')
+  await expect(left90).toHaveAttribute('aria-pressed', 'true')
+
+  // Toggle erase on again, click the SAME piece tool that is already
+  // armed; erase still exits (rotation cycles per slice 1, but the mode
+  // is what we are asserting here).
+  await eraseButton.click()
+  await expect(grid).toHaveAttribute('data-cursor-mode', 'erase')
+  await left90.click()
+  await expect(eraseButton).toHaveAttribute('aria-pressed', 'false')
+  await expect(grid).toHaveAttribute('data-cursor-mode', 'place')
+
+  // Switching palette categories also exits erase (consistent rule).
+  await eraseButton.click()
+  await expect(grid).toHaveAttribute('data-cursor-mode', 'erase')
+  await page.getByTestId('editor-palette-category-building').click()
+  await expect(grid).toHaveAttribute('data-cursor-mode', 'place')
+
+  // Sanity: clicking a piece while NOT in erase mode does not change the
+  // tool mode (regression guard).
+  await straight.click()
+  await expect(grid).toHaveAttribute('data-cursor-mode', 'place')
+})
+
 test('undo and redo walk the history stack via toolbar buttons and keyboard shortcuts (REQ-023)', async ({
   page,
 }) => {

@@ -16,6 +16,16 @@ Format for each slice:
 - Followups: any new `F-NNN` entries created. Link to them.
 ```
 
+## 2026-05-10, Editor Erase Mode Auto-Exits on Palette Click
+
+- Branch: `feature/20260510-editor-erase-autoexit`
+- PR: TBD
+- Changed: Second slice of the editor UX cleanup. Clicking ANY palette button (street, building, zone, power, services, water, disaster) auto-exits erase mode and arms the new tool in place mode. Switching palette categories does the same. The dedicated erase button and the `E` keyboard shortcut still toggle erase explicitly. Wired by adding `setToolMode('place')` to all six piece-palette `onClick` handlers in `src/app/[slug]/edit/EditorClient.tsx` plus `handleSelectCategory`. New Playwright spec in `e2e/editor.spec.ts` asserts: erase exits on different-piece click, on same-piece retap, and on category switch; clicking a piece while in place mode does not flip the mode.
+- Verification: `npm run check:dashes` clean. `npm run type-check` clean. `npm test` 86 files / 2449 tests pass (unchanged unit-test count; the new Playwright spec runs in the E2E suite).
+- Assumptions: The user's mental model is "picking a piece means I want to place," so any palette interaction is a strong signal that erase should exit. The explicit erase button and `E` key remain the way to opt back into erase mode. Applies the same rule to category switches even though the user only complained about piece-tool clicks; consistent rule across all palette interactions per AGENTS.md RULE 7.
+- GDD coverage: REQ-022 (erase tool) gains the auto-exit affordance; status stays `done`. No row flip.
+- Followups: Slice 3 (ghost piece glyph + armed-piece rotation preview) is the last of the editor UX trio; dot at `.dots/VibeCity-editor-ghost-piece-1ce9ce10.md`.
+
 ## 2026-05-10, Editor Palette Retap-to-Cycle Rotation
 
 - Branch: `feature/20260510-editor-rotation-retap`

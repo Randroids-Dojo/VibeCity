@@ -928,6 +928,7 @@ export function EditorClient({
 
   const handleSelectCategory = useCallback((next: PaletteCategory) => {
     setPaletteCategory(next)
+    setToolMode('place')
   }, [])
 
   // Resolve every connector glyph once per render so the toolbar
@@ -1513,6 +1514,7 @@ export function EditorClient({
                     })
                     setSelectedType(next.type)
                     setRotation(next.rotation)
+                    setToolMode('place')
                   }}
                   style={{
                     padding: '8px 14px',
@@ -1541,6 +1543,7 @@ export function EditorClient({
                     data-selected={isSelected ? 'true' : 'false'}
                     onClick={() => {
                       setSelectedBuildingType(entry.type)
+                      setToolMode('place')
                     }}
                     style={{
                       padding: '8px 14px',
@@ -1575,6 +1578,7 @@ export function EditorClient({
                       data-selected={isSelected ? 'true' : 'false'}
                       onClick={() => {
                         setSelectedZoneType(entry.type)
+                        setToolMode('place')
                       }}
                       style={{
                         padding: '8px 14px',
@@ -1609,6 +1613,7 @@ export function EditorClient({
                         data-selected={isSelected ? 'true' : 'false'}
                         onClick={() => {
                           setSelectedPowerTool(entry.type)
+                          setToolMode('place')
                         }}
                         style={{
                           padding: '8px 14px',
@@ -1650,6 +1655,7 @@ export function EditorClient({
                           data-selected={isSelected ? 'true' : 'false'}
                           onClick={() => {
                             setSelectedServiceTool(entry.type)
+                            setToolMode('place')
                           }}
                           style={{
                             padding: '8px 14px',
@@ -1688,6 +1694,7 @@ export function EditorClient({
                             data-selected={isSelected ? 'true' : 'false'}
                             onClick={() => {
                               setSelectedWaterTool(entry.type)
+                              setToolMode('place')
                             }}
                             style={{
                               padding: '8px 14px',
@@ -1725,6 +1732,7 @@ export function EditorClient({
                             data-selected={isSelected ? 'true' : 'false'}
                             onClick={() => {
                               setSelectedDisasterTool(entry.type)
+                              setToolMode('place')
                             }}
                             style={{
                               padding: '8px 14px',
