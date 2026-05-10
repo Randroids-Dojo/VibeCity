@@ -1,9 +1,11 @@
 ---
 title: "art: port VibeRacer procedural road surface (replaces per-piece mesh swap)"
-status: open
+status: closed
 priority: 3
 issue-type: task
-created-at: "2026-05-09T11:39:35-05:00"
+created-at: "\"2026-05-09T11:39:35-05:00\""
+closed-at: "2026-05-10T17:48:36.323713-05:00"
+close-reason: "shipped in PR (TBD): drive scene now renders one mesh per TrackPath segment via trackSurfaceGeometry; legacy per-piece quad loop dropped; arc45+diagonal deferred to F-003/F-004 as expected."
 ---
 
 ## Description

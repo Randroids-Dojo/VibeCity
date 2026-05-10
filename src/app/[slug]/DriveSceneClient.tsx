@@ -5,6 +5,10 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import * as THREE from 'three'
 import { GLTFLoader, type GLTF } from 'three/examples/jsm/loaders/GLTFLoader.js'
 import { loadGltfOnce } from '@/lib/render/gltfCache'
+import {
+  continuousTrackSamples,
+  trackSurfaceGeometry,
+} from '@/lib/render/trackSurface'
 import type { BuilderId, BuildingType, City, Slug } from '@/lib/schemas'
 import { useSimEngine } from '@/lib/sim/useSimEngine'
 import { solvePowerStatus, type CellPowerStatus } from '@/lib/sim/powerSolver'
@@ -69,7 +73,6 @@ import {
   carWheelOffsets,
   cellToWorld,
   cityWorldBounds,
-  pieceColorFor,
   pieceFootprintWorldCells,
   rotationToRadians,
   spawnAnchor,
@@ -811,19 +814,36 @@ export function DriveSceneClient({
     // rotated quad reads identically to the unrotated quad and the
     // sampled-centerline visuals (F-003) that need per-cell rotation
     // will land in the same iteration when the runtime port arrives.
-    const pieceGeometry = new THREE.PlaneGeometry(CELL_SIZE, CELL_SIZE)
-    pieceGeometry.rotateX(-Math.PI / 2)
-    for (const piece of city.pieces) {
-      const material = new THREE.MeshLambertMaterial({
-        color: pieceColorFor(piece.type),
-      })
-      const headingY = rotationToRadians(piece.rotation)
-      for (const cell of pieceFootprintWorldCells(piece)) {
-        const mesh = new THREE.Mesh(pieceGeometry, material)
-        mesh.position.set(cell.x, PIECE_GROUND_LIFT, cell.z)
-        mesh.rotation.y = headingY
-        scene.add(mesh)
-      }
+    // Procedural road surface (port of VibeRacer's `trackSurfaceGeometry`).
+    // Walks the trackPath's sampled centerline into one continuous
+    // triangle-strip ribbon at the per-piece half-width, replacing the
+    // legacy one-quad-per-cell rendering. The ribbon spans cardinal
+    // pieces, smooth curves, sweeps, the mega sweep pair, and the
+    // hairpin in one mesh; arc45 / diagonal samples land via F-003 and
+    // F-004 (until then those pieces fall through with `samples === null`
+    // and contribute zero triangles). Color and material mirror
+    // VibeRacer's asphalt look so the drive scene matches the editor's
+    // `PieceGlyph` road tone (#4a5a70).
+    // Build one mesh per `TrackPath` segment so disconnected branches
+    // (a stray straight piece next to the main loop) do not draw a
+    // bridge triangle between segments. The shared material is reused
+    // across meshes to keep the draw call count low when most cities
+    // have just the `main` segment.
+    const trackHalfWidth = CELL_SIZE * 0.4
+    const trackMaterial = new THREE.MeshStandardMaterial({
+      // 0x4a5a70 mirrors the editor PieceGlyph road tone so the two
+      // surfaces look like the same material.
+      color: 0x4a5a70,
+      roughness: 0.9,
+    })
+    for (const segment of trackPath.segments) {
+      const samples = continuousTrackSamples(segment.order)
+      if (samples.length < 2) continue
+      const trackGeom = trackSurfaceGeometry(samples, () => trackHalfWidth)
+      const trackMesh = new THREE.Mesh(trackGeom, trackMaterial)
+      trackMesh.position.y = PIECE_GROUND_LIFT
+      trackMesh.userData = { type: 'track-surface', segmentId: segment.id }
+      scene.add(trackMesh)
     }
 
     // Streetlamps at intersection cells (lit-window slice). v1 lights
