@@ -180,6 +180,7 @@ import {
   GLYPH_RADIUS_PIXELS,
   cityConnectorGlyphs,
   countMatchedGlyphs,
+  type ConnectorGlyph,
   type OpenEndArrowGlyph,
 } from './connectorGlyphs'
 import type { SpawnAnchorMarker } from './spawnMarker'
@@ -289,6 +290,7 @@ export function SnapGrid({
   onCellLeave,
   previewCell,
   previewCells,
+  previewGlyphs,
   rejectionFlash,
   cursorMode = 'place',
   viewport = DEFAULT_VIEWPORT,
@@ -312,6 +314,14 @@ export function SnapGrid({
   onCellLeave?: (row: number, col: number) => void
   previewCell?: PreviewCell | null
   previewCells?: readonly PreviewCell[] | null
+  /**
+   * Optional connector glyphs for the candidate piece at the hovered
+   * cell. Renders faded so the builder sees the piece's actual shape
+   * (cardinal vs corner ports) at the active rotation before clicking,
+   * not just the cell-fill ghost. Computed in `EditorClient` from
+   * `pieceConnectorGlyphs` against a virtual piece at the hover cell.
+   */
+  previewGlyphs?: readonly ConnectorGlyph[] | null
   rejectionFlash?: RejectionFlash | null
   cursorMode?: 'place' | 'erase'
   viewport?: Viewport
@@ -918,6 +928,25 @@ export function SnapGrid({
           pointerEvents="none"
         />
       ))}
+      {previewGlyphs
+        ? previewGlyphs.map((glyph, index) => (
+            <circle
+              key={`preview-glyph-${index}`}
+              data-testid="editor-preview-glyph"
+              data-preview-glyph-kind={glyph.kind}
+              data-preview-glyph-dir={CONNECTOR_DIR_LABEL[glyph.dir]}
+              cx={glyph.x}
+              cy={glyph.y}
+              r={GLYPH_RADIUS_PIXELS}
+              fill={glyph.kind === 'cardinal' ? '#f5deb3' : '#ffe4b5'}
+              fillOpacity={0.7}
+              stroke="#5a4a2a"
+              strokeOpacity={0.8}
+              strokeWidth={1.5}
+              pointerEvents="none"
+            />
+          ))
+        : null}
       {rejectionFlash ? (
         <rect
           // The id-based key forces React to remount the rect whenever a

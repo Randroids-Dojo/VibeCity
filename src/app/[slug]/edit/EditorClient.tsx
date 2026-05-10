@@ -117,6 +117,8 @@ import {
 } from '@/lib/render/iso'
 import {
   cityConnectorGlyphs,
+  pieceConnectorGlyphs,
+  type ConnectorGlyph,
   countMatchedGlyphs,
   unmatchedPortGlyphs,
 } from './connectorGlyphs'
@@ -361,6 +363,24 @@ export function EditorClient({
         activeRotation: rotation,
       })
     : null
+
+  // Hover ghost glyphs (slice 3b): render the candidate street piece's
+  // connector dots at the hover cell so the builder sees the actual
+  // piece shape and orientation before clicking. Only computed in the
+  // street category in place mode; building / zone / power / etc. don't
+  // have connector geometry, and erase mode already has its own ghost.
+  const previewGlyphs: readonly ConnectorGlyph[] | null =
+    hoverCell && paletteCategory === 'street' && toolMode === 'place'
+      ? pieceConnectorGlyphs(
+          {
+            type: selectedType,
+            rotation,
+            row: hoverCell.row,
+            col: hoverCell.col,
+          },
+          -1,
+        )
+      : null
 
   const handleCellEnter = useCallback((row: number, col: number) => {
     setHoverCell({ row, col })
@@ -2071,6 +2091,7 @@ export function EditorClient({
         onCellLeave={handleCellLeave}
         previewCell={previewCell}
         previewCells={previewCells}
+        previewGlyphs={previewGlyphs}
         rejectionFlash={rejectionFlash}
         cursorMode={toolMode}
         viewport={viewport}
