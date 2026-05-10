@@ -60,12 +60,13 @@ describe('offStreetPenalty constants (REQ-054)', () => {
   it('penalty caps scale with CELL_SIZE so they track the world unit', () => {
     // Constants are expressed as `CELL_SIZE * <fraction>` so the value
     // stays parametric in the world unit. After the VibeRacer-tuning
-    // port the fractions are 0.75 and 0.3, which are no longer whole
-    // multiples of CELL_SIZE.
-    expect(OFF_STREET_PENALTY_MAX_SPEED / CELL_SIZE).toBeGreaterThan(0)
+    // port the fractions are 0.75 (forward) and 0.3 (reverse). Locking
+    // the ratios catches a regression that flips the constant to a
+    // hardcoded literal or a wrong scaling factor.
+    expect(OFF_STREET_PENALTY_MAX_SPEED / CELL_SIZE).toBeCloseTo(0.75, 6)
     expect(
       OFF_STREET_PENALTY_MAX_REVERSE_SPEED / CELL_SIZE,
-    ).toBeGreaterThan(0)
+    ).toBeCloseTo(0.3, 6)
   })
 })
 
