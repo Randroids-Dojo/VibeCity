@@ -122,24 +122,39 @@ export function trackSurfaceGeometry(
 
 /**
  * Flatten the per-piece sample arrays in an `OrderedPiece[]` order
- * into one continuous sample stream, skipping the duplicate sample at
- * each piece-to-piece boundary so the ribbon is gap-free. Mirrors
- * VibeRacer's `continuousTrackSamples`. Returns an empty array if no
- * piece in the order has samples.
+ * into one or more continuous sample runs, skipping the duplicate
+ * sample at each piece-to-piece boundary so each run is gap-free.
+ * Mirrors VibeRacer's `continuousTrackSamples` but returns an array of
+ * runs instead of a single array so a null-sample piece (arc45 /
+ * diagonal pre-F-003 / F-004) splits the ribbon rather than letting
+ * the strip bridge across the unrendered piece.
+ *
+ * Returns an empty outer array when no piece in the order has samples.
+ * Each inner array always has length >= 1 (callers commonly filter for
+ * `>= 2` before building a strip geometry).
  *
  * The shape `{ samples: SampledPoint[] | null }` matches the v1
- * `OrderedPiece` from `src/lib/trackPath.ts`; pieces with `samples ===
- * null` (arc45 / diagonal pre-F-003 / F-004) are skipped so the
- * ribbon spans the supported piece types without a hole.
+ * `OrderedPiece` from `src/lib/trackPath.ts`.
  */
 export function continuousTrackSamples(
   ordered: readonly { samples: TrackSurfaceSample[] | null }[],
-): TrackSurfaceSample[] {
-  const out: TrackSurfaceSample[] = []
+): TrackSurfaceSample[][] {
+  const runs: TrackSurfaceSample[][] = []
+  let current: TrackSurfaceSample[] = []
   for (const op of ordered) {
-    if (op.samples === null) continue
+    if (op.samples === null) {
+      // Hit an unrendered piece. Close the current run so the next
+      // piece's samples start a fresh strip; the consumer renders one
+      // mesh per run and the gap reads as "no road yet" instead of a
+      // bridge triangle across the missing geometry.
+      if (current.length > 0) {
+        runs.push(current)
+        current = []
+      }
+      continue
+    }
     for (const sample of op.samples) {
-      const prev = out[out.length - 1]
+      const prev = current[current.length - 1]
       if (
         prev &&
         Math.abs(prev.x - sample.x) < 1e-7 &&
@@ -147,8 +162,11 @@ export function continuousTrackSamples(
       ) {
         continue
       }
-      out.push(sample)
+      current.push(sample)
     }
   }
-  return out
+  if (current.length > 0) {
+    runs.push(current)
+  }
+  return runs
 }

@@ -13,7 +13,7 @@ import {
  */
 
 describe('continuousTrackSamples', () => {
-  it('returns an empty array when every piece carries null samples', () => {
+  it('returns an empty outer array when every piece carries null samples', () => {
     const out = continuousTrackSamples([
       { samples: null },
       { samples: null },
@@ -21,7 +21,7 @@ describe('continuousTrackSamples', () => {
     expect(out).toEqual([])
   })
 
-  it('flattens samples in order across pieces', () => {
+  it('returns one run when every piece has samples', () => {
     const out = continuousTrackSamples([
       {
         samples: [
@@ -37,10 +37,12 @@ describe('continuousTrackSamples', () => {
       },
     ])
     expect(out).toEqual([
-      { x: 0, z: 0, heading: 0 },
-      { x: 1, z: 0, heading: 0 },
-      { x: 2, z: 0, heading: 0 },
-      { x: 3, z: 0, heading: 0 },
+      [
+        { x: 0, z: 0, heading: 0 },
+        { x: 1, z: 0, heading: 0 },
+        { x: 2, z: 0, heading: 0 },
+        { x: 3, z: 0, heading: 0 },
+      ],
     ])
   })
 
@@ -65,13 +67,15 @@ describe('continuousTrackSamples', () => {
       },
     ])
     expect(out).toEqual([
-      { x: 0, z: 0, heading: 0 },
-      shared,
-      { x: 2, z: 0, heading: 0 },
+      [
+        { x: 0, z: 0, heading: 0 },
+        shared,
+        { x: 2, z: 0, heading: 0 },
+      ],
     ])
   })
 
-  it('skips pieces with null samples without breaking the stream', () => {
+  it('splits the run at a null-sample piece so the ribbon does not bridge the gap', () => {
     const out = continuousTrackSamples([
       {
         samples: [
@@ -79,6 +83,8 @@ describe('continuousTrackSamples', () => {
           { x: 1, z: 0, heading: 0 },
         ],
       },
+      // arc45 / diagonal land here pre-F-003 / F-004. The strip closes
+      // and the next piece starts a fresh run.
       { samples: null },
       {
         samples: [
@@ -88,10 +94,33 @@ describe('continuousTrackSamples', () => {
       },
     ])
     expect(out).toEqual([
-      { x: 0, z: 0, heading: 0 },
-      { x: 1, z: 0, heading: 0 },
-      { x: 2, z: 0, heading: 0 },
-      { x: 3, z: 0, heading: 0 },
+      [
+        { x: 0, z: 0, heading: 0 },
+        { x: 1, z: 0, heading: 0 },
+      ],
+      [
+        { x: 2, z: 0, heading: 0 },
+        { x: 3, z: 0, heading: 0 },
+      ],
+    ])
+  })
+
+  it('drops a leading or trailing null without emitting an empty run', () => {
+    const out = continuousTrackSamples([
+      { samples: null },
+      {
+        samples: [
+          { x: 0, z: 0, heading: 0 },
+          { x: 1, z: 0, heading: 0 },
+        ],
+      },
+      { samples: null },
+    ])
+    expect(out).toEqual([
+      [
+        { x: 0, z: 0, heading: 0 },
+        { x: 1, z: 0, heading: 0 },
+      ],
     ])
   })
 })

@@ -837,13 +837,24 @@ export function DriveSceneClient({
       roughness: 0.9,
     })
     for (const segment of trackPath.segments) {
-      const samples = continuousTrackSamples(segment.order)
-      if (samples.length < 2) continue
-      const trackGeom = trackSurfaceGeometry(samples, () => trackHalfWidth)
-      const trackMesh = new THREE.Mesh(trackGeom, trackMaterial)
-      trackMesh.position.y = PIECE_GROUND_LIFT
-      trackMesh.userData = { type: 'track-surface', segmentId: segment.id }
-      scene.add(trackMesh)
+      // `continuousTrackSamples` returns one run per contiguous block
+      // of pieces with `samples !== null`; arc45 / diagonal (still
+      // null) split the strip so the ribbon does not bridge across the
+      // unrendered geometry. Each run renders as its own mesh.
+      const runs = continuousTrackSamples(segment.order)
+      for (let runIndex = 0; runIndex < runs.length; runIndex++) {
+        const samples = runs[runIndex]
+        if (samples.length < 2) continue
+        const trackGeom = trackSurfaceGeometry(samples, () => trackHalfWidth)
+        const trackMesh = new THREE.Mesh(trackGeom, trackMaterial)
+        trackMesh.position.y = PIECE_GROUND_LIFT
+        trackMesh.userData = {
+          type: 'track-surface',
+          segmentId: segment.id,
+          runIndex,
+        }
+        scene.add(trackMesh)
+      }
     }
 
     // Streetlamps at intersection cells (lit-window slice). v1 lights
