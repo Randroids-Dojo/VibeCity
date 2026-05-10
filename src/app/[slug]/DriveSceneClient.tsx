@@ -126,7 +126,6 @@ import {
   type TouchMode,
 } from '@/lib/controlsPersistence'
 import {
-  DEFAULT_PAUSE_STATE,
   PAUSE_KEY_CODE,
   closePauseMenu,
   isPaused,
@@ -351,8 +350,17 @@ export function DriveSceneClient({
   // rendering and the data-paused attribute. The two are kept in sync
   // in a single effect so a setState always updates the ref before the
   // next animation frame runs.
-  const [pauseState, setPauseState] = useState<PauseState>(DEFAULT_PAUSE_STATE)
-  const pauseStateRef = useRef<PauseState>(DEFAULT_PAUSE_STATE)
+  //
+  // The drive scene boots in `'paused'` (overriding the generic
+  // `DEFAULT_PAUSE_STATE = 'running'`) so the player sees the city
+  // before being thrown into motion. The pause-menu overlay (rendered
+  // for `hasVehicle && isPaused(pauseState)`) doubles as a press-to-
+  // start screen; the empty-state path keeps its own overlay and never
+  // shows the pause menu because `hasVehicle === false` there.
+  const initialPauseState: PauseState =
+    city.pieces.length > 0 ? 'paused' : 'running'
+  const [pauseState, setPauseState] = useState<PauseState>(initialPauseState)
+  const pauseStateRef = useRef<PauseState>(initialPauseState)
   useEffect(() => {
     pauseStateRef.current = pauseState
   }, [pauseState])

@@ -16,6 +16,16 @@ Format for each slice:
 - Followups: any new `F-NNN` entries created. Link to them.
 ```
 
+## 2026-05-10, Drive Scene Boots Paused For Non-Empty Cities
+
+- Branch: `feature/20260510-start-paused`
+- PR: [#211](https://github.com/Randroids-Dojo/VibeCity/pull/211)
+- Changed: User-requested "game should start out paused." `DriveSceneClient` now initializes `pauseState` to `'paused'` when `city.pieces.length > 0` and `'running'` when the city is empty. The existing pause-menu overlay (already shown for `hasVehicle && isPaused(pauseState)`) doubles as a press-to-start screen, so no new UI is needed; the player clicks Resume or presses Esc to start driving. Empty cities stay at `'running'` because the pause-menu listener is gated on `hasVehicle === city.pieces.length > 0`, and an empty grid has its own empty-state overlay. Drops the now-unused `DEFAULT_PAUSE_STATE` import. Closes `.dots/VibeCity-game-should-start-9054896a.md`.
+- Verification: `npm run check:dashes` clean. `npm run type-check` clean. `npm test` 86 files / 2450 tests pass. The Playwright suite ran green on CI. E2E specs in `e2e/drive.spec.ts` that assert `data-pause-state === 'running'` were all written against the empty-city path (no KV in the webServer, so `loadCity` returns `EMPTY_CITY`); the new contract preserves that branch unchanged. A non-empty-city e2e for the paused-on-load contract would need a KV fixture which the playwright config does not provide; the populated path is left to the deployed preview smoke (manual check on `/<slug>/drive` for a city with pieces).
+- Assumptions: A player who lands on `/<slug>/drive` for a non-empty city wants to see the city before being thrown into motion. The pause menu's existing "Resume" button (and the Esc key) are the press-to-start affordance. An empty city has no car, so the pause overlay never renders there regardless of the boot state; keeping empty cities at `'running'` preserves the existing e2e assertions and the data-attribute contract on the root.
+- GDD coverage: REQ-039 (pause menu) gains the paused-on-load entry mode; status stays `done`.
+- Followups: None new. The next slice picks up the drive-scene procedural roads port (`port-viberacer-procedural-roads` dot).
+
 ## 2026-05-10, Drive Vehicle Tuning Ported From VibeRacer
 
 - Branch: `feature/20260510-drive-vehicle-controls`
