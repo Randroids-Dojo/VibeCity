@@ -963,3 +963,230 @@ describe('summarizeTrackPath (REQ-019, REQ-064)', () => {
     })
   })
 })
+
+import {
+  CORNER_SAMPLE_COUNT,
+  HAIRPIN_SAMPLE_COUNT,
+  MEGA_SWEEP_SAMPLE_COUNT,
+  SCURVE_SAMPLE_COUNT,
+  STRAIGHT_SAMPLE_COUNT,
+  SWEEP_SAMPLE_COUNT,
+  pieceTransform,
+  sampledPointsForPiece,
+  transformSample,
+  type SampledPoint,
+} from '@/lib/trackPath'
+import { CELL_SIZE } from '@/lib/cellSize'
+import { PieceTypeSchema } from '@/lib/schemas'
+
+describe('sampled centerline geometry (slice A)', () => {
+  const SUPPORTED_TYPES = [
+    'straight',
+    'left90',
+    'right90',
+    'scurve',
+    'scurveLeft',
+    'sweepRight',
+    'sweepLeft',
+    'megaSweepRight',
+    'megaSweepLeft',
+    'hairpin',
+    'intersection',
+  ] as const
+
+  const DEFERRED_TYPES = ['arc45', 'diagonal'] as const
+
+  describe('per-type sample counts', () => {
+    it('STRAIGHT_SAMPLE_COUNT, CORNER_SAMPLE_COUNT, etc are positive integers', () => {
+      for (const n of [
+        STRAIGHT_SAMPLE_COUNT,
+        CORNER_SAMPLE_COUNT,
+        SCURVE_SAMPLE_COUNT,
+        SWEEP_SAMPLE_COUNT,
+        MEGA_SWEEP_SAMPLE_COUNT,
+        HAIRPIN_SAMPLE_COUNT,
+      ]) {
+        expect(Number.isInteger(n)).toBe(true)
+        expect(n).toBeGreaterThanOrEqual(2)
+      }
+    })
+  })
+
+  describe('sampledPointsForPiece', () => {
+    it('returns null for piece types without wired geometry (arc45, diagonal)', () => {
+      for (const type of DEFERRED_TYPES) {
+        const p = piece(type, 0, 0, 0)
+        expect(sampledPointsForPiece(p, DIR_S)).toBeNull()
+      }
+    })
+
+    it('returns a non-empty array for every supported piece type', () => {
+      for (const type of SUPPORTED_TYPES) {
+        const p = piece(type, 0, 0, 0)
+        const samples = sampledPointsForPiece(p, DIR_S)
+        expect(samples).not.toBeNull()
+        expect(samples!.length).toBeGreaterThan(1)
+      }
+    })
+
+    it('every sample has finite x, z, heading', () => {
+      for (const type of SUPPORTED_TYPES) {
+        const samples = sampledPointsForPiece(piece(type, 0, 0, 0), DIR_S)
+        for (const s of samples!) {
+          expect(Number.isFinite(s.x)).toBe(true)
+          expect(Number.isFinite(s.z)).toBe(true)
+          expect(Number.isFinite(s.heading)).toBe(true)
+        }
+      }
+    })
+
+    it('returns a fresh array per call (callers can mutate)', () => {
+      const a = sampledPointsForPiece(piece('straight', 0, 0, 0), DIR_S)!
+      const b = sampledPointsForPiece(piece('straight', 0, 0, 0), DIR_S)!
+      expect(a).not.toBe(b)
+      a[0].x = 999
+      expect(b[0].x).not.toBe(999)
+    })
+
+    it('straight at origin runs from (0, +HALF) south to (0, -HALF) north', () => {
+      const samples = sampledPointsForPiece(piece('straight', 0, 0, 0), DIR_S)!
+      const first = samples[0]
+      const last = samples[samples.length - 1]
+      expect(first.x).toBeCloseTo(0, 6)
+      expect(first.z).toBeCloseTo(CELL_SIZE / 2, 6)
+      expect(last.x).toBeCloseTo(0, 6)
+      expect(last.z).toBeCloseTo(-CELL_SIZE / 2, 6)
+    })
+
+    it('straight at (row=2, col=3) translates to world (3*CELL_SIZE, 2*CELL_SIZE)', () => {
+      const samples = sampledPointsForPiece(piece('straight', 2, 3, 0), DIR_S)!
+      const first = samples[0]
+      const last = samples[samples.length - 1]
+      expect(first.x).toBeCloseTo(3 * CELL_SIZE, 6)
+      expect(first.z).toBeCloseTo(2 * CELL_SIZE + CELL_SIZE / 2, 6)
+      expect(last.x).toBeCloseTo(3 * CELL_SIZE, 6)
+      expect(last.z).toBeCloseTo(2 * CELL_SIZE - CELL_SIZE / 2, 6)
+    })
+
+    it('reversal flips sample order and rotates headings by 180deg', () => {
+      // entryDir = north (0) on an unrotated straight reverses the path.
+      const fwd = sampledPointsForPiece(piece('straight', 0, 0, 0), DIR_S)!
+      const rev = sampledPointsForPiece(piece('straight', 0, 0, 0), DIR_N)!
+      expect(rev[0].x).toBeCloseTo(fwd[fwd.length - 1].x, 6)
+      expect(rev[0].z).toBeCloseTo(fwd[fwd.length - 1].z, 6)
+      // Forward heading is PI/2 (north); reversed heading should be PI/2 + PI
+      // mod 2PI which lands at -PI/2 (south).
+      const fwdHeading = fwd[0].heading
+      const revHeading = rev[rev.length - 1].heading
+      const diff = (((revHeading - fwdHeading) % (2 * Math.PI)) + 2 * Math.PI) %
+        (2 * Math.PI)
+      expect(diff).toBeCloseTo(Math.PI, 6)
+    })
+
+    it('right90 enters south and exits east at the cell edge', () => {
+      const samples = sampledPointsForPiece(piece('right90', 0, 0, 0), DIR_S)!
+      const first = samples[0]
+      const last = samples[samples.length - 1]
+      expect(first.x).toBeCloseTo(0, 6)
+      expect(first.z).toBeCloseTo(CELL_SIZE / 2, 6)
+      expect(last.x).toBeCloseTo(CELL_SIZE / 2, 6)
+      expect(last.z).toBeCloseTo(0, 6)
+    })
+
+    it('left90 enters south and exits west at the cell edge', () => {
+      const samples = sampledPointsForPiece(piece('left90', 0, 0, 0), DIR_S)!
+      const first = samples[0]
+      const last = samples[samples.length - 1]
+      expect(first.x).toBeCloseTo(0, 6)
+      expect(first.z).toBeCloseTo(CELL_SIZE / 2, 6)
+      expect(last.x).toBeCloseTo(-CELL_SIZE / 2, 6)
+      expect(last.z).toBeCloseTo(0, 6)
+    })
+
+    it('rotation 90 rotates the entry/exit by one cardinal step', () => {
+      // straight at rotation 90: base entry S becomes W, base exit N becomes E.
+      const samples = sampledPointsForPiece(piece('straight', 0, 0, 90), DIR_W)!
+      const first = samples[0]
+      const last = samples[samples.length - 1]
+      // Entry was at local (0, +HALF) heading north; rotated 90 CW it lands
+      // at world (-HALF, 0) heading east.
+      expect(first.x).toBeCloseTo(-CELL_SIZE / 2, 6)
+      expect(first.z).toBeCloseTo(0, 6)
+      expect(last.x).toBeCloseTo(CELL_SIZE / 2, 6)
+      expect(last.z).toBeCloseTo(0, 6)
+    })
+
+    it('left90 and right90 are mirror images across the local x axis', () => {
+      const right = sampledPointsForPiece(piece('right90', 0, 0, 0), DIR_S)!
+      const left = sampledPointsForPiece(piece('left90', 0, 0, 0), DIR_S)!
+      expect(left.length).toBe(right.length)
+      for (let i = 0; i < right.length; i++) {
+        expect(left[i].x).toBeCloseTo(-right[i].x, 6)
+        expect(left[i].z).toBeCloseTo(right[i].z, 6)
+      }
+    })
+
+    it('PieceTypeSchema is fully covered by SUPPORTED + DEFERRED partition', () => {
+      const supported = new Set<string>(SUPPORTED_TYPES)
+      const deferred = new Set<string>(DEFERRED_TYPES)
+      for (const type of PieceTypeSchema.options) {
+        const inOne = supported.has(type) || deferred.has(type)
+        expect(inOne).toBe(true)
+      }
+    })
+  })
+
+  describe('transformSample + pieceTransform', () => {
+    it('pieceTransform converts (row, col, rotation) to (world x, z, theta)', () => {
+      const t = pieceTransform({ row: 2, col: 3, rotation: 90 })
+      expect(t.x).toBeCloseTo(3 * CELL_SIZE, 6)
+      expect(t.z).toBeCloseTo(2 * CELL_SIZE, 6)
+      expect(t.theta).toBeCloseTo(Math.PI / 2, 6)
+    })
+
+    it('transformSample with theta = 0 only translates', () => {
+      const s: SampledPoint = { x: 1, z: 2, heading: Math.PI / 4 }
+      const out = transformSample(s, { x: 10, z: 20, theta: 0 })
+      expect(out.x).toBeCloseTo(11, 6)
+      expect(out.z).toBeCloseTo(22, 6)
+      expect(out.heading).toBeCloseTo(Math.PI / 4, 6)
+    })
+
+    it('transformSample rotates a +Z (south) tangent by theta = PI / 2 to +X (east)', () => {
+      const s: SampledPoint = { x: 0, z: 1, heading: -Math.PI / 2 }
+      const out = transformSample(s, { x: 0, z: 0, theta: Math.PI / 2 })
+      // Local +Z rotates 90 CW (compass) to world -X.
+      expect(out.x).toBeCloseTo(-1, 6)
+      expect(out.z).toBeCloseTo(0, 6)
+      // Heading rotates by -theta, so -PI/2 becomes -PI which is equivalent
+      // to PI mod 2PI.
+      const wrapped = ((out.heading + 3 * Math.PI) % (2 * Math.PI)) - Math.PI
+      expect(Math.abs(Math.abs(wrapped) - Math.PI)).toBeLessThan(1e-6)
+    })
+  })
+
+  describe('walker populates OrderedPiece.samples', () => {
+    it('every walked piece gets a non-null samples array for supported types', () => {
+      const path = buildTrackPath({
+        pieces: [
+          piece('straight', 0, 0, 0),
+          piece('straight', -1, 0, 0),
+          piece('straight', -2, 0, 0),
+        ],
+      })
+      const ordered = path.segments[0].order
+      expect(ordered.length).toBe(3)
+      for (const op of ordered) {
+        expect(op.samples).not.toBeNull()
+        expect(op.samples!.length).toBeGreaterThan(1)
+      }
+    })
+
+    it('arc45 / diagonal pieces leave samples null until F-003 lands', () => {
+      const path = buildTrackPath({
+        pieces: [piece('arc45', 0, 0, 0)],
+      })
+      expect(path.segments[0].order[0].samples).toBeNull()
+    })
+  })
+})

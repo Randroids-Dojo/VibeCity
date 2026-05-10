@@ -79,6 +79,7 @@ describe('pieceAnchorDistance (REQ-065)', () => {
       exitPort: { dr: 0, dc: 0, dir: 4 },
       entryDir: 0,
       exitDir: 4,
+      samples: null,
     }
   }
 
@@ -398,6 +399,7 @@ describe('wheelContactCandidates (REQ-065)', () => {
       exitPort: { dr: 0, dc: 0, dir: 4 },
       entryDir: 0,
       exitDir: 4,
+      samples: null,
     }
     const path = {
       segments: [
@@ -455,6 +457,7 @@ describe('pickClosestWheelContact (REQ-065)', () => {
         exitPort: { dr: 0, dc: 0, dir: 4 },
         entryDir: 0,
         exitDir: 4,
+        samples: null,
       },
     }
   }

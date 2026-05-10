@@ -33,15 +33,14 @@ import {
  */
 
 /**
- * World-space size of one grid cell in three.js units. Editor pixel
- * sizing (`CELL_PIXELS = 32`) is decoupled from this so the editor
- * can size cells for screen comfort without coupling to physics units.
- *
- * 4 units matches VibeRacer's `CELL_SIZE` so a future port of physics
- * (REQ-031) and wheel contact (REQ-032) inherits the same world-space
- * unit and a saved city is reusable across both projects.
+ * Re-export `CELL_SIZE` from the city-scoped lib module so existing
+ * `from './driveScene'` consumers keep working while new consumers
+ * (e.g. `src/lib/trackPath.ts`'s sampled-centerline geometry) can
+ * import directly from `@/lib/cellSize` without going through the app
+ * tree. The single source of truth lives in `src/lib/cellSize.ts`.
  */
-export const CELL_SIZE = 4
+export { CELL_SIZE } from '@/lib/cellSize'
+import { CELL_SIZE } from '@/lib/cellSize'
 
 /**
  * Sky-color clear used by the renderer. A muted blue noon palette
