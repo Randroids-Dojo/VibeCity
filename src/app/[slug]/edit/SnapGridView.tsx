@@ -503,8 +503,13 @@ export function SnapGrid({
         const isPiece = occupiedPieces.has(key)
         const isBuilding = occupiedBuildings.has(key)
         const zone = zones?.cells[key]
+        // Piece cells now render their actual road shape via
+        // `<PieceGlyph />` below; the brown slab tile is dropped so the
+        // gray road reads cleanly without a colored backdrop. Building
+        // cells keep their olive fill until a future slice gives
+        // buildings a 3D-style glyph too.
         const fill = isPiece
-          ? '#7d6b4a'
+          ? 'transparent'
           : isBuilding
             ? '#6b7d4a'
             : isOrigin
@@ -914,6 +919,7 @@ export function SnapGrid({
             data-testid="editor-piece-glyph"
             data-piece-glyph-type={piece.type}
             data-piece-glyph-rotation={piece.rotation}
+            pointerEvents="none"
           >
             <PieceGlyph type={piece.type} rotation={piece.rotation} />
           </g>
@@ -926,6 +932,7 @@ export function SnapGrid({
               <g
                 transform={`translate(${x} ${y})`}
                 data-testid="editor-preview-piece-glyph"
+                pointerEvents="none"
               >
                 <PieceGlyph
                   type={previewGlyphPiece.type}
