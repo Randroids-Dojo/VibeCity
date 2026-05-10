@@ -388,6 +388,8 @@ test('clicking any piece-palette button while in erase mode auto-exits erase', a
   // rule as street pieces).
   const smallHouse = palette.locator('[data-building-type="small-house"]')
   await smallHouse.click()
+  await expect(eraseButton).toHaveAttribute('aria-pressed', 'false')
+  await expect(smallHouse).toHaveAttribute('aria-pressed', 'true')
   await expect(grid).toHaveAttribute('data-cursor-mode', 'place')
 })
 
