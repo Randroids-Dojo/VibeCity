@@ -195,6 +195,46 @@ export function nextRotation(current: Rotation): Rotation {
 }
 
 /**
+ * Result of clicking a piece-palette entry. Ports VibeRacer's
+ * `selectTool` retap-to-cycle pattern (`../VibeRacer/src/components/TrackEditor.tsx`
+ * `selectTool`) so a single button does double duty: pick the piece on
+ * first tap, advance its rotation on each subsequent tap. Pure so the
+ * React handler stays a thin call site.
+ *
+ * Contract:
+ * - `nextType !== currentType`: switch the selected type. Rotation is
+ *   preserved so a builder who has dialed in a 90deg orientation keeps
+ *   it across piece picks.
+ * - `nextType === currentType`: cycle the rotation via `nextRotation`.
+ *   The selected type stays the same; the active rotation advances.
+ *
+ * `BuildingType` does not have rotational variants in the v1 palette
+ * (the building footprint is rotation-agnostic for the procedural body
+ * and the Kenney meshes are uniformly scaled), so the building palette
+ * does not need this helper. If a future slice gives buildings
+ * rotations, port the contract symmetrically.
+ */
+export interface PaletteRetapResult {
+  type: PieceType
+  rotation: Rotation
+}
+
+export function selectStreetPaletteEntry({
+  currentType,
+  currentRotation,
+  nextType,
+}: {
+  currentType: PieceType
+  currentRotation: Rotation
+  nextType: PieceType
+}): PaletteRetapResult {
+  if (nextType === currentType) {
+    return { type: currentType, rotation: nextRotation(currentRotation) }
+  }
+  return { type: nextType, rotation: currentRotation }
+}
+
+/**
  * Place a piece on the grid (REQ-020).
  *
  * Returns a fresh `City` with the new piece appended at `(row, col)`

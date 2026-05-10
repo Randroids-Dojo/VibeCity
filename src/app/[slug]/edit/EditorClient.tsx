@@ -44,6 +44,7 @@ import {
   nextRotation,
   placeBuilding,
   placePiece,
+  selectStreetPaletteEntry,
 } from './editorState'
 import { useSimEngine } from '@/lib/sim/useSimEngine'
 import type {
@@ -1505,7 +1506,13 @@ export function EditorClient({
                   data-piece-type={entry.type}
                   data-selected={isSelected ? 'true' : 'false'}
                   onClick={() => {
-                    setSelectedType(entry.type)
+                    const next = selectStreetPaletteEntry({
+                      currentType: selectedType,
+                      currentRotation: rotation,
+                      nextType: entry.type,
+                    })
+                    setSelectedType(next.type)
+                    setRotation(next.rotation)
                   }}
                   style={{
                     padding: '8px 14px',

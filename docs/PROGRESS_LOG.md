@@ -16,6 +16,16 @@ Format for each slice:
 - Followups: any new `F-NNN` entries created. Link to them.
 ```
 
+## 2026-05-10, Editor Palette Retap-to-Cycle Rotation
+
+- Branch: `feature/20260510-editor-rotation-retap`
+- PR: TBD
+- Changed: First slice of the editor UX cleanup. Ports VibeRacer's `selectTool` retap pattern (`../VibeRacer/src/components/TrackEditor.tsx:721` calling `nextRotation` from `../VibeRacer/src/game/editor.ts:28`) so a piece-tool button does double duty: pick the piece on first tap, advance its rotation 0 -> 90 -> 180 -> 270 -> 0 on each subsequent tap. Switching to a different piece type preserves the active rotation so a builder who has dialed in 90deg keeps it across piece picks. Added `selectStreetPaletteEntry({ currentType, currentRotation, nextType }) -> { type, rotation }` to `src/app/[slug]/edit/editorState.ts` (pure helper) and wired the street palette button `onClick` in `EditorClient.tsx` to call it. Building palette unaffected; v1 buildings have no rotational variants. The R keyboard binding (already wired) and the dedicated Rotate button stay as redundant entry points so muscle memory is preserved.
+- Verification: `npm run check:dashes` clean. `npm run type-check` clean. `npx vitest run tests/app/editorState.test.ts` 114 tests pass (was 110, +4 retap-cycle cases).
+- Assumptions: Builders re-tapping a selected piece overwhelmingly intend to cycle rotation rather than confirm the same selection (the latter is a no-op). The fallback path (Rotate button + R key) covers the rare case where a builder wants to rotate without re-clicking a palette item. Switching pieces preserves rotation under the same logic VibeRacer uses; the alternative (reset to 0 on type change) would force builders to re-rotate after every piece pick.
+- GDD coverage: REQ-021 (rotate tool) gains the retap entry point; status stays `done`. No row flip.
+- Followups: Slice 2 (erase auto-exits on piece-tool click) and slice 3 (ghost piece glyph + armed-piece rotation preview) ship next; dots filed under `.dots/VibeCity-editor-erase-mode-72d257ad.md` and `.dots/VibeCity-editor-ghost-piece-1ce9ce10.md`.
+
 ## 2026-05-09, Procedural Roads Slice A: Sampled Centerline Geometry Layer
 
 - Branch: `feature/20260509-trackpath-samples`

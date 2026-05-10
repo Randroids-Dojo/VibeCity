@@ -13,6 +13,8 @@ import {
   nextRotation,
   placeBuilding,
   placePiece,
+  selectStreetPaletteEntry,
+  type PaletteRetapResult,
 } from '@/app/[slug]/edit/editorState'
 import {
   CitySchema,
@@ -643,6 +645,50 @@ describe('nextRotation (REQ-021)', () => {
       const next = nextRotation(start)
       expect(() => RotationSchema.parse(next)).not.toThrow()
     }
+  })
+})
+
+describe('selectStreetPaletteEntry (palette retap-to-cycle, ports VibeRacer selectTool)', () => {
+  it('cycles the rotation when the same piece type is re-tapped', () => {
+    const result = selectStreetPaletteEntry({
+      currentType: 'straight',
+      currentRotation: 0,
+      nextType: 'straight',
+    })
+    expect(result).toEqual({ type: 'straight', rotation: 90 })
+  })
+
+  it('wraps rotation past 270 back to 0 on retap', () => {
+    const result = selectStreetPaletteEntry({
+      currentType: 'left90',
+      currentRotation: 270,
+      nextType: 'left90',
+    })
+    expect(result).toEqual({ type: 'left90', rotation: 0 })
+  })
+
+  it('switches the type and preserves rotation when a different piece is picked', () => {
+    const result = selectStreetPaletteEntry({
+      currentType: 'straight',
+      currentRotation: 90,
+      nextType: 'hairpin',
+    })
+    expect(result).toEqual({ type: 'hairpin', rotation: 90 })
+  })
+
+  it('four consecutive retaps return the original rotation (full cycle)', () => {
+    let result: PaletteRetapResult = {
+      type: 'megaSweepRight',
+      rotation: 0,
+    }
+    for (let i = 0; i < 4; i++) {
+      result = selectStreetPaletteEntry({
+        currentType: result.type,
+        currentRotation: result.rotation,
+        nextType: 'megaSweepRight',
+      })
+    }
+    expect(result).toEqual({ type: 'megaSweepRight', rotation: 0 })
   })
 })
 
