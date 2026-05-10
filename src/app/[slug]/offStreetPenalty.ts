@@ -53,14 +53,14 @@ import type { VehicleState } from './driveControls'
  * like a wall. Stays slightly above the building-cell cap so a player
  * who drives off-road but not into a building still has more headroom.
  */
-export const OFF_STREET_PENALTY_MAX_SPEED = CELL_SIZE * 3
+export const OFF_STREET_PENALTY_MAX_SPEED = CELL_SIZE * 0.75
 
 /**
  * Maximum reverse speed allowed while off-street. Reverse caps
  * proportionally so a player who reversed off the road cannot rocket
  * backward across the grid.
  */
-export const OFF_STREET_PENALTY_MAX_REVERSE_SPEED = CELL_SIZE * 1.5
+export const OFF_STREET_PENALTY_MAX_REVERSE_SPEED = CELL_SIZE * 0.3
 
 /**
  * Extra drag applied per second while the car is off-street. Pulls the

@@ -10,6 +10,7 @@ import {
   wheelOnStreet,
   wheelWorldPosition,
 } from '@/app/[slug]/offStreetPenalty'
+import { BUILDING_PENALTY_MAX_SPEED } from '@/app/[slug]/buildingCollision'
 import {
   MAX_REVERSE_SPEED,
   MAX_SPEED,
@@ -57,9 +58,15 @@ describe('offStreetPenalty constants (REQ-054)', () => {
   })
 
   it('penalty caps scale with CELL_SIZE so they track the world unit', () => {
-    expect(OFF_STREET_PENALTY_MAX_SPEED % CELL_SIZE).toBe(0)
-    // Reverse cap is 1.5 * CELL_SIZE so the modulo is half a cell.
-    expect((OFF_STREET_PENALTY_MAX_REVERSE_SPEED * 2) % CELL_SIZE).toBe(0)
+    // Constants are expressed as `CELL_SIZE * <fraction>` so the value
+    // stays parametric in the world unit. After the VibeRacer-tuning
+    // port the fractions are 0.75 (forward) and 0.3 (reverse). Locking
+    // the ratios catches a regression that flips the constant to a
+    // hardcoded literal or a wrong scaling factor.
+    expect(OFF_STREET_PENALTY_MAX_SPEED / CELL_SIZE).toBeCloseTo(0.75, 6)
+    expect(
+      OFF_STREET_PENALTY_MAX_REVERSE_SPEED / CELL_SIZE,
+    ).toBeCloseTo(0.3, 6)
   })
 })
 
@@ -267,10 +274,13 @@ describe('applyOffStreetPenalty (REQ-054)', () => {
   })
 
   it('off-street cap is more permissive than the building cap so off-road feels lighter', () => {
-    // The building penalty caps at CELL_SIZE * 2; off-street caps at
-    // CELL_SIZE * 3 so a player who drove off the road but not into a
-    // building still has more headroom than one who clipped a building.
-    expect(OFF_STREET_PENALTY_MAX_SPEED).toBeGreaterThan(CELL_SIZE * 2)
+    // A player who drove off the road but not into a building should
+    // have more headroom than one who clipped a building. Compare
+    // directly against the building cap so the test tracks the live
+    // constant when tuning shifts.
+    expect(OFF_STREET_PENALTY_MAX_SPEED).toBeGreaterThan(
+      BUILDING_PENALTY_MAX_SPEED,
+    )
   })
 })
 

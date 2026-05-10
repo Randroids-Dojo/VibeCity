@@ -7,6 +7,7 @@ import {
   MAX_DELTA_SECONDS,
   MAX_REVERSE_SPEED,
   MAX_SPEED,
+  MIN_SPEED_FOR_STEERING,
   STEER_RATE_AT_MAX_SPEED,
   STEER_RATE_AT_REST,
   applyDriveStep,
@@ -110,6 +111,7 @@ describe('city wrapper agrees with lib physics integrator (R24)', () => {
       coastDrag: COAST_DRAG,
       steerRateAtRest: STEER_RATE_AT_REST,
       steerRateAtMaxSpeed: STEER_RATE_AT_MAX_SPEED,
+      minSpeedForSteering: MIN_SPEED_FOR_STEERING,
       maxDeltaSeconds: MAX_DELTA_SECONDS,
     }
     const state = createVehicleState({ x: 1, z: 2, heading: Math.PI / 4 })
@@ -406,13 +408,39 @@ describe('applyDriveStep steering (REQ-031)', () => {
     expect(reverse.heading).toBeLessThan(0)
   })
 
-  it('still rotates a parked car so the builder can re-aim before driving', () => {
+  it('does NOT rotate a parked car (mirrors VibeRacer minSpeedForSteering)', () => {
+    // Slice ports VibeRacer's `minSpeedForSteering` to stop a stationary
+    // tap on left / right from whipping the chase camera around a parked
+    // car. The dedicated rotate-in-place affordance is the editor's
+    // rotate tool, not the drive scene.
     const next = applyDriveStep(
       createVehicleState({ x: 0, z: 0, heading: 0 }),
       { throttle: false, brake: false, steerLeft: true, steerRight: false },
       0.05,
     )
-    expect(next.heading).toBeLessThan(0)
+    expect(next.heading).toBe(0)
     expect(next.speed).toBe(0)
+  })
+
+  it('gates steering on the post-update speed crossing MIN_SPEED_FOR_STEERING', () => {
+    // The integrator applies throttle / brake / coast drag BEFORE
+    // evaluating the steering gate, so the gate runs against the
+    // post-update speed (the direction the integrator is actually
+    // steering, which is what the chase camera tracks). Pick seeds well
+    // below and well above the threshold so coast drag and accel jitter
+    // do not flip the comparison across the boundary.
+    const wellBelow = applyDriveStep(
+      { x: 0, z: 0, heading: 0, speed: MIN_SPEED_FOR_STEERING / 4 },
+      { throttle: false, brake: false, steerLeft: true, steerRight: false },
+      0.05,
+    )
+    expect(wellBelow.heading).toBe(0)
+
+    const wellAbove = applyDriveStep(
+      { x: 0, z: 0, heading: 0, speed: MIN_SPEED_FOR_STEERING * 4 },
+      { throttle: false, brake: false, steerLeft: true, steerRight: false },
+      0.05,
+    )
+    expect(wellAbove.heading).toBeLessThan(0)
   })
 })

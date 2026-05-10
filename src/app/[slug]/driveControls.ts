@@ -43,22 +43,36 @@ export type { VehicleState }
  */
 
 /**
- * Vehicle integration tuning (REQ-031 first slice).
+ * Vehicle integration tuning (REQ-031).
  *
- * All values are in world units per second (or radians per second for
- * angular). `MAX_SPEED` is bounded so the integrator stays inside the
- * scene; `STEER_RATE_AT_MAX_SPEED` plus `STEER_RATE_AT_REST` define
- * the linear interpolation used by `applyDriveStep` to scale steering
- * rate by current speed. Reverse caps at half forward speed so the
- * car cannot rocket backward through buildings.
+ * Ported from VibeRacer's stock `CAR_PARAMS`
+ * (`../VibeRacer/src/lib/derbyVehicles.ts:48`) so the driving feel
+ * matches the sister project. VibeRacer uses `CELL_SIZE = 20`; VibeCity
+ * uses `CELL_SIZE = 4`, so the linear-velocity values scale by `4 / 20`
+ * to keep the cells-per-second feel consistent. Angular values
+ * (`steerRate*`) carry over unchanged because they are
+ * scene-scale-independent (radians/sec).
+ *
+ * Cells/sec ratios after scaling:
+ * - `MAX_SPEED = 4.8` world units/sec = 1.2 cells/sec (matches
+ *   VibeRacer's stock `24 / 20 = 1.2`).
+ * - `STEER_RATE_AT_REST = 2.4 rad/s` and `STEER_RATE_AT_MAX_SPEED =
+ *   2.0 rad/s` ported verbatim from VibeRacer.
+ *
+ * `MIN_SPEED_FOR_STEERING` mirrors VibeRacer's `minSpeedForSteering`
+ * so a stationary tap on left / right does not pivot the heading
+ * (which would whip the chase camera around a parked car). The
+ * dedicated rotate-in-place affordance is the editor's rotate tool,
+ * not the drive scene.
  */
-export const MAX_SPEED = CELL_SIZE * 8
-export const MAX_REVERSE_SPEED = CELL_SIZE * 4
-export const ACCELERATION = CELL_SIZE * 6
-export const BRAKE_DECELERATION = CELL_SIZE * 12
-export const COAST_DRAG = CELL_SIZE * 3
-export const STEER_RATE_AT_REST = Math.PI * 1.6
-export const STEER_RATE_AT_MAX_SPEED = Math.PI * 0.8
+export const MAX_SPEED = CELL_SIZE * 1.2
+export const MAX_REVERSE_SPEED = CELL_SIZE * 0.45
+export const ACCELERATION = CELL_SIZE * 0.8
+export const BRAKE_DECELERATION = CELL_SIZE * 1.6
+export const COAST_DRAG = CELL_SIZE * 0.2
+export const STEER_RATE_AT_REST = 2.4
+export const STEER_RATE_AT_MAX_SPEED = 2.0
+export const MIN_SPEED_FOR_STEERING = CELL_SIZE * 0.03
 
 /**
  * Maximum frame delta the integrator accepts (in seconds). A long
@@ -82,6 +96,7 @@ const VEHICLE_TUNING: VehicleTuning = {
   coastDrag: COAST_DRAG,
   steerRateAtRest: STEER_RATE_AT_REST,
   steerRateAtMaxSpeed: STEER_RATE_AT_MAX_SPEED,
+  minSpeedForSteering: MIN_SPEED_FOR_STEERING,
   maxDeltaSeconds: MAX_DELTA_SECONDS,
 }
 

@@ -16,6 +16,19 @@ Format for each slice:
 - Followups: any new `F-NNN` entries created. Link to them.
 ```
 
+## 2026-05-10, Drive Vehicle Tuning Ported From VibeRacer
+
+- Branch: `feature/20260510-drive-vehicle-controls`
+- PR: [#210](https://github.com/Randroids-Dojo/VibeCity/pull/210)
+- Changed: Tuning port to fix the user-reported "turning rotates the camera, not the vehicle" feel. VibeCity's drive scene was running with steering rates 2-3x faster than VibeRacer's stock car (`STEER_RATE_AT_REST` was `Math.PI * 1.6 ~= 5.03` rad/s, vs VibeRacer's `2.4` rad/s) and a max speed 6-7x faster in cells/sec, so the chase camera snapped around so quickly that the visual reading was "the world is spinning" rather than "the vehicle is turning." Three concrete changes:
+  - `src/app/[slug]/driveControls.ts`: ported VibeRacer's stock `CAR_PARAMS` (`../VibeRacer/src/lib/derbyVehicles.ts:48`). Linear values (`MAX_SPEED`, `MAX_REVERSE_SPEED`, `ACCELERATION`, `BRAKE_DECELERATION`, `COAST_DRAG`) scaled by `4 / 20 = 0.2` so VibeCity's `CELL_SIZE = 4` ends up at the same cells-per-second feel as VibeRacer's `CELL_SIZE = 20`. Steering rates carry over unchanged (radians/sec is scene-scale-independent).
+  - `src/lib/physics/vehicle.ts`: added optional `minSpeedForSteering` to `VehicleTuning` and gated the steering integration on `Math.abs(speed) >= minSpeedForSteering`. Mirrors VibeRacer's `minSpeedForSteering` so a stationary tap on left / right does not pivot the heading (which was whipping the chase camera around a parked car). Tunings predating this field default to 0 so legacy "pivot in place" behavior is preserved for any consumer that wants it.
+  - `src/app/[slug]/buildingCollision.ts` + `src/app/[slug]/offStreetPenalty.ts`: rescaled penalty caps to track the new on-street top speed (building cap is now ~25% of `MAX_SPEED`, off-street cap is ~62%, mirroring the prior ratios).
+- Verification: `npm run check:dashes` clean. `npm run type-check` clean. `npm test` 86 files / 2449 tests pass after updating two penalty-scaling tests, the lib-agreement test (now includes `minSpeedForSteering` in the rebuilt tuning), and the parked-car-rotates test (renamed to assert the new contract: a parked car does NOT pivot under steering input).
+- Assumptions: VibeRacer's stock-car feel is the target; if a future slice wants a sportier or burlier handling, layering `controlSettings.ts`-style per-player tuning is a separate slice. The `4 / 20` linear-scale factor matches the `CELL_SIZE` ratio between the two projects so the cells-per-second metric stays consistent. The dedicated rotate-in-place affordance is the editor's rotate tool (and the in-cell rotation cycle from PR #205); the drive scene no longer doubles as one.
+- GDD coverage: REQ-031 (vehicle physics) tuning shifts to the VibeRacer baseline; status stays `done`. REQ-033 (chase camera) implicit improvement (the camera was always correct; the steering rate was driving the perceived "camera spin").
+- Followups: None new. Track-piece glyph rendering shipped in PR #209.
+
 ## 2026-05-10, Editor Piece Glyphs Ported From VibeRacer
 
 - Branch: `feature/20260510-editor-piece-glyphs`
