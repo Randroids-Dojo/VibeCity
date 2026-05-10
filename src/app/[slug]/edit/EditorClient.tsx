@@ -46,6 +46,7 @@ import {
   placePiece,
   selectStreetPaletteEntry,
 } from './editorState'
+import { PiecePreviewTile } from './PiecePreviewTile'
 import { useSimEngine } from '@/lib/sim/useSimEngine'
 import type {
   EraseLineEvent,
@@ -1748,6 +1749,21 @@ export function EditorClient({
                           </button>
                         )
                       })}
+        {paletteCategory === 'street' ? (
+          <span
+            data-testid="editor-armed-piece-preview-wrapper"
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              padding: 4,
+              border: '1px solid #d6cfbf',
+              borderRadius: 4,
+              background: '#fdfaf2',
+            }}
+          >
+            <PiecePreviewTile type={selectedType} rotation={rotation} />
+          </span>
+        ) : null}
         <button
           type="button"
           data-testid="editor-rotate"

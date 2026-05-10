@@ -16,6 +16,16 @@ Format for each slice:
 - Followups: any new `F-NNN` entries created. Link to them.
 ```
 
+## 2026-05-10, Editor Armed-Piece Preview Tile (slice 3a)
+
+- Branch: `feature/20260510-editor-ghost-glyph`
+- PR: TBD
+- Changed: Third slice of the editor UX cleanup, part A. Adds a small SVG preview tile next to the Rotate button that renders the actively-armed street piece at its current rotation: footprint cells outlined plus connector glyphs (cardinal vs corner) so the builder sees both the piece shape and which directions it connects from before they hover or click anywhere on the grid. Reuses `pieceConnectorGlyphs` and `defaultFootprintForPiece` so the preview stays in lockstep with the snap-grid rendering. New file `src/app/[slug]/edit/PiecePreviewTile.tsx`. Wired in `EditorClient.tsx` only for the `street` palette category (buildings have no rotational variants in v1; zone / power / services / water / disaster are not piece-shaped). New Playwright assertion in `e2e/editor.spec.ts` covers the tile updating on piece-pick, rotate-button click, palette retap (from slice 1), and switching to a multi-cell piece (hairpin).
+- Verification: `npm run check:dashes` clean. `npm run type-check` clean. Playwright spec runs in the E2E suite.
+- Assumptions: For the v1 toolbar, a 56x56 px tile is large enough to read the piece shape but small enough to fit alongside Rotate / Erase / Undo / Redo. Multi-cell pieces grow the viewBox; the on-screen size stays pinned by the `width`/`height` attributes so a hairpin still fits in the same toolbar slot. Slice 3b will extend the same `pieceConnectorGlyphs` call into the hover ghost so the cell-fill preview also carries connector dots.
+- GDD coverage: REQ-021 (rotation tool) gains a visual feedback affordance. REQ-024 (palette UX) implicit improvement. No row flip; both stay `done`.
+- Followups: Slice 3b (extend ghost cells in `SnapGridView` to render piece glyphs at hover) is the last of the editor UX trio.
+
 ## 2026-05-10, Editor Erase Mode Auto-Exits on Palette Click
 
 - Branch: `feature/20260510-editor-erase-autoexit`
