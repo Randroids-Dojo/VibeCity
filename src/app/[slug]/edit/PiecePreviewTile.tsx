@@ -4,7 +4,7 @@ import {
   GLYPH_RADIUS_PIXELS,
   pieceConnectorGlyphs,
 } from './connectorGlyphs'
-import { CELL_PIXELS, defaultFootprintForPiece } from './snapGrid'
+import { CELL_PIXELS, GRID_RADIUS, defaultFootprintForPiece } from './snapGrid'
 
 /**
  * Small SVG preview of an armed piece at its current rotation.
@@ -51,7 +51,7 @@ export function PiecePreviewTile({
   // Translate `pieceConnectorGlyphs` output into the same local frame
   // (it adds `GRID_RADIUS * CELL_PIXELS` because it expects to live on
   // the snap grid; the preview tile lives on its own).
-  const GRID_OFFSET_PX = -((0 + 8) * CELL_PIXELS) // GRID_RADIUS = 8
+  const GRID_OFFSET_PX = -(GRID_RADIUS * CELL_PIXELS)
   const glyphPoints = glyphs.map((glyph) => ({
     x: glyph.x + GRID_OFFSET_PX,
     y: glyph.y + GRID_OFFSET_PX,

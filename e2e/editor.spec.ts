@@ -360,6 +360,12 @@ test('armed-piece preview tile reflects the active piece type and rotation', asy
   await expect(preview).toHaveAttribute('data-armed-piece-type', 'straight')
   await expect(preview).toHaveAttribute('data-rotation', '0')
 
+  // Street-only contract: preview unmounts in non-street categories.
+  await page.getByTestId('editor-palette-category-building').click()
+  await expect(preview).toHaveCount(0)
+  await page.getByTestId('editor-palette-category-street').click()
+  await expect(preview).toHaveCount(1)
+
   // Pick left90: tile updates to the new piece.
   await left90.click()
   await expect(preview).toHaveAttribute('data-armed-piece-type', 'left90')
