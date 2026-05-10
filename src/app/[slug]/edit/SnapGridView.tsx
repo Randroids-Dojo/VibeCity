@@ -919,18 +919,23 @@ export function SnapGrid({
           </g>
         )
       })}
-      {previewGlyphPiece ? (
-        <g
-          transform={`translate(${cellToPixel(previewGlyphPiece).x} ${cellToPixel(previewGlyphPiece).y})`}
-          data-testid="editor-preview-piece-glyph"
-        >
-          <PieceGlyph
-            type={previewGlyphPiece.type}
-            rotation={previewGlyphPiece.rotation}
-            opacity={0.45}
-          />
-        </g>
-      ) : null}
+      {previewGlyphPiece
+        ? (() => {
+            const { x, y } = cellToPixel(previewGlyphPiece)
+            return (
+              <g
+                transform={`translate(${x} ${y})`}
+                data-testid="editor-preview-piece-glyph"
+              >
+                <PieceGlyph
+                  type={previewGlyphPiece.type}
+                  rotation={previewGlyphPiece.rotation}
+                  opacity={0.45}
+                />
+              </g>
+            )
+          })()
+        : null}
       {connectorGlyphs.map((glyph, index) => (
         <circle
           key={`connector-${glyph.pieceIndex}-${index}`}
