@@ -53,6 +53,7 @@ import {
   CELL_SIZE,
   DIRECTIONAL_LIGHT_INTENSITY,
   DIRECTIONAL_LIGHT_POSITION,
+  FOG_DENSITY,
   GROUND_COLOR,
   PIECE_GROUND_LIFT,
   SKY_COLOR,
@@ -491,6 +492,7 @@ export function DriveSceneClient({
   const ambientLightRef = useRef<THREE.AmbientLight | null>(null)
   const directionalLightRef = useRef<THREE.DirectionalLight | null>(null)
   const groundMaterialRef = useRef<THREE.MeshLambertMaterial | null>(null)
+  const fogRef = useRef<THREE.FogExp2 | null>(null)
   // Touch mode state (REQ-042). Loaded from localStorage on the same
   // first-mount effect as the camera tuning so a returning player sees
   // the same touch layout choice across visits. The runtime touch
@@ -684,9 +686,16 @@ export function DriveSceneClient({
     const todPalette = TIME_OF_DAY_PALETTE[timeOfDay]
     const scene = new THREE.Scene()
     sceneRef.current = scene
-    scene.background = new THREE.Color(
-      timeOfDay === 'night' ? todPalette.skyHex : SKY_COLOR,
-    )
+    const initialSkyHex =
+      timeOfDay === 'night' ? todPalette.skyHex : SKY_COLOR
+    scene.background = new THREE.Color(initialSkyHex)
+    // Distance fog colored to match the sky so the horizon blends into
+    // the background instead of revealing the ground-plane edge. Density
+    // tuned in `src/lib/render/scene.ts`; the cycle effect below updates
+    // the color when the time of day flips so dusk / night stay coherent.
+    const fog = new THREE.FogExp2(initialSkyHex, FOG_DENSITY)
+    scene.fog = fog
+    fogRef.current = fog
 
     // Camera FOV reads the persisted tuning at mount time (REQ-040) so
     // a returning player whose tuning differs from the defaults sees
@@ -2437,6 +2446,11 @@ export function DriveSceneClient({
     if (groundMaterialRef.current) {
       groundMaterialRef.current.color = new THREE.Color(
         cycleResolvedTimeOfDay === 'night' ? palette.groundHex : GROUND_COLOR,
+      )
+    }
+    if (fogRef.current) {
+      fogRef.current.color.setHex(
+        cycleResolvedTimeOfDay === 'night' ? palette.skyHex : SKY_COLOR,
       )
     }
   }, [cycleResolvedTimeOfDay])

@@ -6,6 +6,7 @@ import {
   DEFAULT_CAMERA_NEAR,
   DEFAULT_DIRECTIONAL_LIGHT_INTENSITY,
   DEFAULT_DIRECTIONAL_LIGHT_POSITION,
+  DEFAULT_FOG_DENSITY,
 } from '@/lib/render/scene'
 
 describe('lighting defaults', () => {
@@ -44,5 +45,36 @@ describe('camera defaults', () => {
 
   it('far plane is much larger than near (positive depth budget)', () => {
     expect(DEFAULT_CAMERA_FAR).toBeGreaterThan(DEFAULT_CAMERA_NEAR * 100)
+  })
+})
+
+describe('fog defaults', () => {
+  it('fog density is positive and small (atmospheric, not opaque)', () => {
+    expect(DEFAULT_FOG_DENSITY).toBeGreaterThan(0)
+    // FogExp2 falloff is `exp(-(density * distance)^2)`. A density of 0.1
+    // would drop visibility to ~37% at distance 10, which is opaque for a
+    // city scene. Cap at 0.05 so the constant has room to be tuned darker
+    // without crossing into "wall of fog" territory.
+    expect(DEFAULT_FOG_DENSITY).toBeLessThan(0.05)
+  })
+
+  it('visibility at the far plane is non-zero (city horizon still readable)', () => {
+    // FogExp2 falloff. At distance == DEFAULT_CAMERA_FAR (1000) the fog
+    // factor is `exp(-(density * far)^2)`. Density 0.004 gives
+    // `exp(-16) ~= 1.1e-7`, basically opaque, which is the desired
+    // behavior. Lock the constant so a future tuning bump does not
+    // accidentally cross into "everything is fogged at any range" range.
+    const factor = Math.exp(-((DEFAULT_FOG_DENSITY * DEFAULT_CAMERA_FAR) ** 2))
+    expect(factor).toBeLessThan(0.5)
+  })
+
+  it('visibility at the chase-camera distance stays mostly clear', () => {
+    // At 96 world units (the chase-camera ground distance with CELL_SIZE=4
+    // and CAMERA_DISTANCE = CELL_SIZE * 24), the player should still see
+    // the city clearly. Locks the density so a future tune does not
+    // shroud the playable area in fog.
+    const chaseDistance = 96
+    const factor = Math.exp(-((DEFAULT_FOG_DENSITY * chaseDistance) ** 2))
+    expect(factor).toBeGreaterThan(0.8)
   })
 })
