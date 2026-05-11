@@ -52,3 +52,12 @@ export const DEFAULT_CAMERA_NEAR = 0.1
  * starter scene with room to grow.
  */
 export const DEFAULT_CAMERA_FAR = 1000
+
+/**
+ * Exponential fog density. Picked so visibility drops to roughly half
+ * at distance ~170 world units, blending the horizon into the sky
+ * background without occluding the playable city. Pair with a fog
+ * color that matches the scene background so the transition reads as
+ * atmospheric depth rather than a wall.
+ */
+export const DEFAULT_FOG_DENSITY = 0.004

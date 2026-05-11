@@ -16,6 +16,16 @@ Format for each slice:
 - Followups: any new `F-NNN` entries created. Link to them.
 ```
 
+## 2026-05-10, Drive Scene Distance Fog (environment polish slice 1)
+
+- Branch: `feature/20260510-drive-scene-fog`
+- PR: TBD
+- Changed: First slice of the environment polish dot (`.dots/VibeCity-environment-skybox-and-ground-d6d471ef.md`). Adds exponential distance fog to the drive scene so the horizon blends into the sky color instead of revealing the ground-plane edge. New generic constant `DEFAULT_FOG_DENSITY = 0.004` in `src/lib/render/scene.ts`; re-exported via `src/app/[slug]/driveScene.ts` as `FOG_DENSITY` to match the existing pattern. `DriveSceneClient.tsx` instantiates `THREE.FogExp2` with the current sky color at mount, stores a ref, and updates `fog.color` from the time-of-day cycle effect right next to the existing ambient / directional / ground updates so dusk and night stay coherent. Density tuned so visibility at the chase-camera ground distance (CELL_SIZE * 24 = 96) stays mostly clear (factor ~0.86), while the far plane (1000) is fully fogged so the playable city reads cleanly against the blended horizon. No new dependencies; FogExp2 is core three.js. Skybox asset and ground tint retune deferred to follow-on slices in the same dot (asset sourcing requires a separate Kenney license review). Defers optional Kenney tree / lamp post cell decorations (the dot's optional bullet).
+- Verification: `npm run check:dashes` clean. `npm run type-check` clean. `npx vitest run tests/lib/render/scene.test.ts tests/app/driveScene.test.ts` 132 tests pass (+3 new fog cases: density bound, far-plane fully fogged, chase-camera stays clear).
+- Assumptions: Exponential fog density of 0.004 is the simplest dial that satisfies the GDD's "horizon blends, playable area clear" intent. A linear `THREE.Fog(near, far)` could let us pin start / end distances precisely but couples more tightly to CAMERA_FAR; the exponential variant scales cleanly with any camera-tuning change a future slice introduces. Fog color tracks the sky color exactly (no warm-tinted fog at dusk, no greenish ground reflection); the time-of-day palette already encodes the sky shift, so reusing `skyHex` keeps the cycle deterministic. Skybox / ground-tint follow-on slices can override either color independently.
+- GDD coverage: REQ-044 (drive-scene lighting / sky / ground) gains the fog layer; row stays `done`. `docs/gdd/11-scene.md` gets a Build log entry.
+- Followups: None new. The skybox-asset and optional Kenney prop sprinkles stay tracked under the existing environment-polish dot.
+
 ## 2026-05-10, Ambient AI Traffic v1 (TrackPath followers)
 
 - Branch: `feature/20260510-ambient-traffic`

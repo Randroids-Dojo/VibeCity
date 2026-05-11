@@ -13,6 +13,7 @@ import {
   DEFAULT_CAMERA_NEAR,
   DEFAULT_DIRECTIONAL_LIGHT_INTENSITY,
   DEFAULT_DIRECTIONAL_LIGHT_POSITION,
+  DEFAULT_FOG_DENSITY,
 } from '@/lib/render/scene'
 
 /**
@@ -72,6 +73,14 @@ export const CAMERA_NEAR = DEFAULT_CAMERA_NEAR
 export const CAMERA_FAR = DEFAULT_CAMERA_FAR
 export const CAMERA_HEIGHT = CELL_SIZE * 24
 export const CAMERA_DISTANCE = CELL_SIZE * 24
+
+/**
+ * Exponential fog density. Blends the horizon into the sky color so
+ * the playable city does not pop against an abrupt scene edge. Re-exports
+ * the generic scene default; consumers update `scene.fog.color` when the
+ * sky color changes (day vs night cycle).
+ */
+export const FOG_DENSITY = DEFAULT_FOG_DENSITY
 
 /**
  * Vertical lift used when rendering pieces on the ground plane. The
