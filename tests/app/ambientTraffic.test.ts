@@ -12,6 +12,7 @@ import {
   type AmbientCar,
 } from '@/app/[slug]/ambientTraffic'
 import type { SampledPoint } from '@/lib/trackPath'
+import { MAX_SPEED } from '@/app/[slug]/driveControls'
 
 const STRAIGHT_SAMPLES: SampledPoint[] = [
   { x: 0, z: 0, heading: 0 },
@@ -37,6 +38,7 @@ describe('module constants', () => {
     // Ambient cars must read as slower than the player to keep the
     // player feeling fast.
     expect(AMBIENT_TRAFFIC_SPEED).toBeGreaterThan(0)
+    expect(AMBIENT_TRAFFIC_SPEED).toBeLessThan(MAX_SPEED)
   })
 
   it('respawn jitter is positive', () => {

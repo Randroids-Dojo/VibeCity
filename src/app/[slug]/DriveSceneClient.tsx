@@ -1306,7 +1306,17 @@ export function DriveSceneClient({
       // dedup. v1 picks the first contiguous run so the cars stick to
       // a single visible path even when arc45 / diagonal splits the
       // segment (those pieces still carry `samples === null`).
-      const runs = continuousTrackSamples(mainSegment.order)
+      // Only treat `runs[0]` as the segment start when the segment's
+      // first piece actually carries samples. If the first piece is
+      // null-sampled (arc45 / diagonal pre F-003 / F-004), `runs[0]`
+      // would be a later supported chunk, so cars would spawn in the
+      // middle of the segment instead of at its start. v1 falls back
+      // to "no ambient traffic" in that case.
+      const firstPieceSampled =
+        mainSegment.order.length > 0 && mainSegment.order[0].samples !== null
+      const runs = firstPieceSampled
+        ? continuousTrackSamples(mainSegment.order)
+        : []
       const stream = runs.length > 0 ? runs[0] : []
       if (stream.length >= 2) {
         ambientSegmentSamples = stream

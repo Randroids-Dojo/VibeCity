@@ -101,20 +101,48 @@ export function ambientCarWorldPose(
 ): AmbientPose | null {
   if (samples.length < 2) return null
   const tClamped = car.t < 0 ? 0 : car.t > 1 ? 1 : car.t
-  const lastIdx = samples.length - 1
-  const scaled = tClamped * lastIdx
-  const i0 = Math.floor(scaled)
-  const i1 = Math.min(i0 + 1, lastIdx)
-  const localT = scaled - i0
+  // Map `t` (fraction of total arc length per `advanceAmbientCar`)
+  // through cumulative segment lengths so a car at constant speed reads
+  // as constant speed even when the sample spacing is non-uniform
+  // (cubic beziers concentrate samples near tight curvature).
+  let total = 0
+  for (let i = 1; i < samples.length; i++) {
+    total += Math.hypot(
+      samples[i].x - samples[i - 1].x,
+      samples[i].z - samples[i - 1].z,
+    )
+  }
+  if (total <= 0) {
+    return { x: samples[0].x, z: samples[0].z, heading: samples[0].heading }
+  }
+  const target = tClamped * total
+  let i0 = 0
+  let segStart = 0
+  for (let i = 1; i < samples.length; i++) {
+    const segLen = Math.hypot(
+      samples[i].x - samples[i - 1].x,
+      samples[i].z - samples[i - 1].z,
+    )
+    if (segStart + segLen >= target || i === samples.length - 1) {
+      i0 = i - 1
+      break
+    }
+    segStart += segLen
+  }
+  const i1 = Math.min(i0 + 1, samples.length - 1)
   const a = samples[i0]
   const b = samples[i1]
-  // Lerp position and heading. Heading wrap is fine for v1 because
-  // segments are smooth and adjacent samples never differ by more
-  // than a handful of degrees.
+  const segLength = Math.hypot(b.x - a.x, b.z - a.z)
+  const localT = segLength > 0 ? (target - segStart) / segLength : 0
+  // Shortest-arc heading interp so wrapping at `+/- pi` does not spin
+  // the car the long way around. `delta` is wrapped to `(-pi, pi]`.
+  let delta = b.heading - a.heading
+  delta = ((delta + Math.PI) % (Math.PI * 2)) - Math.PI
+  if (delta <= -Math.PI) delta += Math.PI * 2
   return {
     x: a.x + (b.x - a.x) * localT,
     z: a.z + (b.z - a.z) * localT,
-    heading: a.heading + (b.heading - a.heading) * localT,
+    heading: a.heading + delta * localT,
   }
 }
 
