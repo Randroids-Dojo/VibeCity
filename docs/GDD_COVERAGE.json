@@ -422,12 +422,14 @@
       "implementationRefs": [
         "src/lib/schemas.ts",
         "src/app/[slug]/edit/editorState.ts",
-        "src/app/[slug]/edit/EditorClient.tsx"
+        "src/app/[slug]/edit/EditorClient.tsx",
+        "src/lib/trackPath.ts"
       ],
       "testRefs": [
         "tests/lib/schemas.test.ts",
         "tests/app/editorState.test.ts",
-        "e2e/editor.spec.ts"
+        "e2e/editor.spec.ts",
+        "tests/lib/trackPath.test.ts"
       ],
       "followupRefs": [
         "F-002",
@@ -445,12 +447,14 @@
       "implementationRefs": [
         "src/lib/schemas.ts",
         "src/app/[slug]/edit/editorState.ts",
-        "src/app/[slug]/edit/EditorClient.tsx"
+        "src/app/[slug]/edit/EditorClient.tsx",
+        "src/lib/trackPath.ts"
       ],
       "testRefs": [
         "tests/lib/schemas.test.ts",
         "tests/app/editorState.test.ts",
-        "e2e/editor.spec.ts"
+        "e2e/editor.spec.ts",
+        "tests/lib/trackPath.test.ts"
       ],
       "followupRefs": [
         "F-002",

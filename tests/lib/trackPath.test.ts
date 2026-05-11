@@ -4,6 +4,7 @@ import {
   DIR_N,
   DIR_NE,
   DIR_S,
+  DIR_SW,
   DIR_W,
   connectorPortsOf,
 } from '@/lib/connectors'
@@ -965,7 +966,9 @@ describe('summarizeTrackPath (REQ-019, REQ-064)', () => {
 })
 
 import {
+  ARC45_SAMPLE_COUNT,
   CORNER_SAMPLE_COUNT,
+  DIAGONAL_SAMPLE_COUNT,
   HAIRPIN_SAMPLE_COUNT,
   MEGA_SWEEP_SAMPLE_COUNT,
   SCURVE_SAMPLE_COUNT,
@@ -992,9 +995,11 @@ describe('sampled centerline geometry (slice A)', () => {
     'megaSweepLeft',
     'hairpin',
     'intersection',
+    'arc45',
+    'diagonal',
   ] as const
 
-  const DEFERRED_TYPES = ['arc45', 'diagonal'] as const
+  const DEFERRED_TYPES: readonly string[] = []
 
   describe('per-type sample counts', () => {
     it('STRAIGHT_SAMPLE_COUNT, CORNER_SAMPLE_COUNT, etc are positive integers', () => {
@@ -1005,6 +1010,8 @@ describe('sampled centerline geometry (slice A)', () => {
         SWEEP_SAMPLE_COUNT,
         MEGA_SWEEP_SAMPLE_COUNT,
         HAIRPIN_SAMPLE_COUNT,
+        ARC45_SAMPLE_COUNT,
+        DIAGONAL_SAMPLE_COUNT,
       ]) {
         expect(Number.isInteger(n)).toBe(true)
         expect(n).toBeGreaterThanOrEqual(2)
@@ -1013,17 +1020,11 @@ describe('sampled centerline geometry (slice A)', () => {
   })
 
   describe('sampledPointsForPiece', () => {
-    it('returns null for piece types without wired geometry (arc45, diagonal)', () => {
-      for (const type of DEFERRED_TYPES) {
-        const p = piece(type, 0, 0, 0)
-        expect(sampledPointsForPiece(p, DIR_S)).toBeNull()
-      }
-    })
-
     it('returns a non-empty array for every supported piece type', () => {
       for (const type of SUPPORTED_TYPES) {
         const p = piece(type, 0, 0, 0)
-        const samples = sampledPointsForPiece(p, DIR_S)
+        const entry = type === 'diagonal' ? DIR_SW : DIR_S
+        const samples = sampledPointsForPiece(p, entry)
         expect(samples).not.toBeNull()
         expect(samples!.length).toBeGreaterThan(1)
       }
@@ -1031,7 +1032,8 @@ describe('sampled centerline geometry (slice A)', () => {
 
     it('every sample has finite x, z, heading', () => {
       for (const type of SUPPORTED_TYPES) {
-        const samples = sampledPointsForPiece(piece(type, 0, 0, 0), DIR_S)
+        const entry = type === 'diagonal' ? DIR_SW : DIR_S
+        const samples = sampledPointsForPiece(piece(type, 0, 0, 0), entry)
         for (const s of samples!) {
           expect(Number.isFinite(s.x)).toBe(true)
           expect(Number.isFinite(s.z)).toBe(true)
@@ -1134,6 +1136,90 @@ describe('sampled centerline geometry (slice A)', () => {
         expect(inOne).toBe(true)
       }
     })
+
+    it('arc45 enters south heading north and exits at the NE corner heading northeast', () => {
+      const samples = sampledPointsForPiece(piece('arc45', 0, 0, 0), DIR_S)!
+      expect(samples.length).toBe(ARC45_SAMPLE_COUNT)
+      const first = samples[0]
+      const last = samples[samples.length - 1]
+      expect(first.x).toBeCloseTo(0, 6)
+      expect(first.z).toBeCloseTo(CELL_SIZE / 2, 6)
+      expect(first.heading).toBeCloseTo(Math.PI / 2, 6)
+      expect(last.x).toBeCloseTo(CELL_SIZE / 2, 6)
+      expect(last.z).toBeCloseTo(-CELL_SIZE / 2, 6)
+      // Exit heading at the NE corner is northeast (PI/4) because the bezier
+      // arrives at p3 with a tangent that bisects north and east.
+      expect(last.heading).toBeCloseTo(Math.PI / 4, 2)
+    })
+
+    it('arc45 reverses entry direction on 180deg flip', () => {
+      // Entering arc45 from its NE port (DIR_NE) is the OPPOSITE end of the
+      // base entry (DIR_S), so the sample order reverses and headings rotate
+      // by 180 degrees.
+      const fwd = sampledPointsForPiece(piece('arc45', 0, 0, 0), DIR_S)!
+      const rev = sampledPointsForPiece(piece('arc45', 0, 0, 0), DIR_NE)!
+      expect(rev.length).toBe(fwd.length)
+      expect(rev[0].x).toBeCloseTo(fwd[fwd.length - 1].x, 6)
+      expect(rev[0].z).toBeCloseTo(fwd[fwd.length - 1].z, 6)
+      const fwdHeading = fwd[0].heading
+      const revHeading = rev[rev.length - 1].heading
+      const diff = (((revHeading - fwdHeading) % (2 * Math.PI)) + 2 * Math.PI) %
+        (2 * Math.PI)
+      expect(diff).toBeCloseTo(Math.PI, 6)
+    })
+
+    it('diagonal runs from SW corner to NE corner along a 45deg line', () => {
+      const samples = sampledPointsForPiece(
+        piece('diagonal', 0, 0, 0),
+        DIR_SW,
+      )!
+      expect(samples.length).toBe(DIAGONAL_SAMPLE_COUNT)
+      const first = samples[0]
+      const last = samples[samples.length - 1]
+      expect(first.x).toBeCloseTo(-CELL_SIZE / 2, 6)
+      expect(first.z).toBeCloseTo(CELL_SIZE / 2, 6)
+      expect(last.x).toBeCloseTo(CELL_SIZE / 2, 6)
+      expect(last.z).toBeCloseTo(-CELL_SIZE / 2, 6)
+      for (const s of samples) {
+        expect(s.heading).toBeCloseTo(Math.PI / 4, 6)
+      }
+    })
+
+    it('diagonal reverses entry direction on 180deg flip', () => {
+      // diagonal at rotation 0 has SW (5) and NE (1) ports. Entering from NE
+      // is the OPPOSITE end so the sample order reverses and headings flip
+      // by 180deg (PI/4 -> -3PI/4 which is equivalent to PI/4 + PI mod 2PI).
+      const fwd = sampledPointsForPiece(piece('diagonal', 0, 0, 0), DIR_SW)!
+      const rev = sampledPointsForPiece(piece('diagonal', 0, 0, 0), DIR_NE)!
+      expect(rev.length).toBe(fwd.length)
+      expect(rev[0].x).toBeCloseTo(fwd[fwd.length - 1].x, 6)
+      expect(rev[0].z).toBeCloseTo(fwd[fwd.length - 1].z, 6)
+      const fwdHeading = fwd[0].heading
+      const revHeading = rev[rev.length - 1].heading
+      const diff = (((revHeading - fwdHeading) % (2 * Math.PI)) + 2 * Math.PI) %
+        (2 * Math.PI)
+      expect(diff).toBeCloseTo(Math.PI, 6)
+    })
+
+    it('arc45 at (row=2, col=3) translates into world space by piece anchor', () => {
+      const samples = sampledPointsForPiece(piece('arc45', 2, 3, 0), DIR_S)!
+      const first = samples[0]
+      expect(first.x).toBeCloseTo(3 * CELL_SIZE, 6)
+      expect(first.z).toBeCloseTo(2 * CELL_SIZE + CELL_SIZE / 2, 6)
+    })
+
+    it('diagonal at (row=2, col=3) translates into world space by piece anchor', () => {
+      const samples = sampledPointsForPiece(
+        piece('diagonal', 2, 3, 0),
+        DIR_SW,
+      )!
+      const first = samples[0]
+      const last = samples[samples.length - 1]
+      expect(first.x).toBeCloseTo(3 * CELL_SIZE - CELL_SIZE / 2, 6)
+      expect(first.z).toBeCloseTo(2 * CELL_SIZE + CELL_SIZE / 2, 6)
+      expect(last.x).toBeCloseTo(3 * CELL_SIZE + CELL_SIZE / 2, 6)
+      expect(last.z).toBeCloseTo(2 * CELL_SIZE - CELL_SIZE / 2, 6)
+    })
   })
 
   describe('transformSample + pieceTransform', () => {
@@ -1182,11 +1268,16 @@ describe('sampled centerline geometry (slice A)', () => {
       }
     })
 
-    it('arc45 / diagonal pieces leave samples null until F-003 lands', () => {
-      const path = buildTrackPath({
-        pieces: [piece('arc45', 0, 0, 0)],
-      })
-      expect(path.segments[0].order[0].samples).toBeNull()
+    it('arc45 / diagonal pieces produce a sampled centerline once F-003 lands', () => {
+      const arcPath = buildTrackPath({ pieces: [piece('arc45', 0, 0, 0)] })
+      const arcSamples = arcPath.segments[0].order[0].samples
+      expect(arcSamples).not.toBeNull()
+      expect(arcSamples!.length).toBe(ARC45_SAMPLE_COUNT)
+
+      const diagPath = buildTrackPath({ pieces: [piece('diagonal', 0, 0, 0)] })
+      const diagSamples = diagPath.segments[0].order[0].samples
+      expect(diagSamples).not.toBeNull()
+      expect(diagSamples!.length).toBe(DIAGONAL_SAMPLE_COUNT)
     })
   })
 })
