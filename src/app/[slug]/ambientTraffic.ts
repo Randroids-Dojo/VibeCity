@@ -16,10 +16,12 @@ import type { SampledPoint } from '@/lib/trackPath'
  * mesh group lifecycle and reads `{ x, z, heading }` per car each
  * frame via `ambientCarWorldPose`.
  *
- * v1 explicitly skips the demand-driven population coupling that the
- * citizens layer (REQ-075) will eventually provide; spawn count is a
- * constant 3 (capped at 6). The demand-driven angle lands as a
- * follow-on slice once REQ-070 / REQ-075 are in.
+ * Spawn count is population-coupled (REQ-077 lite): the fleet size
+ * scales with `totalPopulation` through `ambientCarCountForPopulation`,
+ * with a floor of 3 cars so a roaded-but-unpopulated city still reads
+ * as inhabited and a hard cap of 6 (the perf guard from
+ * `AMBIENT_TRAFFIC_MAX_COUNT`). The full per-trip-demand spawn (one
+ * car per trip event from the citizens layer) lands when REQ-078 ships.
  */
 
 export interface AmbientCar {
@@ -38,8 +40,10 @@ export interface AmbientCar {
 }
 
 /**
- * Default ambient car count for v1 (no population coupling). 3 cars
- * read as "a few cars on the streets" without dominating the scene.
+ * Default / floor ambient car count. `ambientCarCountForPopulation`
+ * returns this for zero-residents cities (roads placed, no zoning
+ * grown yet) and never drops below it, so a freshly-built grid still
+ * reads as "a few cars on the streets" without dominating the scene.
  */
 export const AMBIENT_TRAFFIC_DEFAULT_COUNT = 3
 
