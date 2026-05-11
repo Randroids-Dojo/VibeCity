@@ -16,6 +16,16 @@ Format for each slice:
 - Followups: any new `F-NNN` entries created. Link to them.
 ```
 
+## 2026-05-10, Archive Stale Art Dots (post procedural-roads / post fog)
+
+- Branch: `feature/20260510-archive-stale-art-dots`
+- PR: TBD
+- Changed: Closes and moves two `.dots/` entries whose premise no longer holds after recent procedural-ribbon and fog slices. `VibeCity-iso-editor-preview-parity-58ed1588.md` (slice 5 of 6) wanted the editor to render Kenney mesh-derived top-down sprites for cardinal pieces + buildings. The mesh-based drive scene it wanted parity with was abandoned in favor of the procedural road ribbon (PR #212) and the SVG `PieceGlyph` editor preview (PR #209); drive + editor now share the same road color (`#4a5a70`) and piece shape vocabulary so the street half of "visual parity" is already in place. The building-extrusion-vs-2D-slab gap is real but small enough to defer; a narrower follow-on dot can pick that up if playtest flags it. `VibeCity-environment-skybox-and-ground-d6d471ef.md` (slice 6 of 6) bundled four pieces: skybox + ground tint + fog + optional decorations. Fog shipped in PR #217. Ground was already cream from the original drive-scene scaffold (the dot's premise that it read as "default three.js gray" was stale). Skybox + decorations need asset sourcing / Kenney license review and stand alone better in a tighter follow-on dot. Both moved to `.dots/archive/` with `close-reason` notes explaining the supersession path so a future contributor reading the archived dot understands why it closed. No code, schema, or test changes; pure backlog hygiene.
+- Verification: `npm run check:dashes` clean. `git diff --check` clean. No code touched, so type-check + test suites would only re-run unchanged. Skipped.
+- Assumptions: The two dots had no remaining tractable scope at their original granularity; reopening at a tighter scope (specific asset, specific quality bar) is cheaper than mining the old description for what still applies. Slice discipline favors closing decisively over leaving zombie dots open.
+- GDD coverage: No row flips. No build log entries because no GDD-tracked feature changed.
+- Followups: None new. A future "drive-vs-editor building visual parity" or "skybox asset sourcing" dot can be filed when the work is actually ready to start.
+
 ## 2026-05-10, Bump @randroids-dojo/vibekit v0.1.0 to v0.2.0
 
 - Branch: `feature/20260510-bump-vibekit-v0-2-0`

@@ -1,9 +1,11 @@
 ---
 title: "art: environment polish (skybox, ground tint, fog) (slice 6 of 6)"
-status: open
+status: closed
 priority: 4
 issue-type: task
 created-at: "2026-05-08T23:50:52-05:00"
+closed-at: "2026-05-10T23:30:00-05:00"
+close-reason: "fog shipped in PR #217; ground was already cream from the original drive-scene scaffold (premise that it read as default three.js gray was stale); skybox + optional Kenney decorations need asset sourcing / license review and remain deferred. The originally-bundled scope is no longer a single coherent dot. Reopen with a tighter scope (specific asset, specific quality bar) when ready."
 ---
 
 ## Description
