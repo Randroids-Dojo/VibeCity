@@ -1,9 +1,11 @@
 ---
 title: "art: iso editor preview parity with mesh-based drive scene (slice 5 of 6)"
-status: open
+status: closed
 priority: 3
 issue-type: task
 created-at: "2026-05-08T23:50:52-05:00"
+closed-at: "2026-05-10T23:30:00-05:00"
+close-reason: "premise obsolete. The mesh-based drive scene this dot wanted parity with was abandoned in favor of the procedural road ribbon (PR #212) and the SVG PieceGlyph editor preview (PR #209). Drive + editor now share the same road color (#4a5a70) and piece shape vocabulary; visual identity parity is already in place for streets. A separate, narrower building-sprite parity dot can be filed later if the BoxGeometry-vs-2D-slab gap proves bothersome in playtest."
 ---
 
 ## Status note (2026-05-09)
