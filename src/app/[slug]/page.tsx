@@ -82,6 +82,8 @@ export default async function SlugSimPage({
 
   return (
     <main
+      data-view="sim"
+      data-route="sim"
       style={{
         minHeight: '100vh',
         display: 'flex',
