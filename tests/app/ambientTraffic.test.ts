@@ -1,238 +1,272 @@
 import { describe, it, expect } from 'vitest'
 import {
-  AMBIENT_CAR_COLORS,
-  AMBIENT_CAR_COUNT,
-  AMBIENT_CAR_SPEED,
-  ambientCarCountForPopulation,
-  dirToHeadingY,
-  dirToVector,
-  RESIDENTS_PER_AMBIENT_CAR,
-  spawnAmbientCar,
+  AMBIENT_TRAFFIC_COLORS,
+  AMBIENT_TRAFFIC_DEFAULT_COUNT,
+  AMBIENT_TRAFFIC_MAX_COUNT,
+  AMBIENT_TRAFFIC_RESPAWN_JITTER_MS,
+  AMBIENT_TRAFFIC_SPEED,
+  advanceAmbientCar,
+  ambientCarWorldPose,
+  sampleStreamLength,
   spawnAmbientFleet,
-  stepAmbientCar,
-  type AmbientBounds,
   type AmbientCar,
-  type Rng,
 } from '@/app/[slug]/ambientTraffic'
+import type { SampledPoint } from '@/lib/trackPath'
+import { MAX_SPEED } from '@/app/[slug]/driveControls'
 
-const STREET = [
-  { x: 0, z: 0 },
-  { x: 10, z: 0 },
-  { x: 0, z: 10 },
-  { x: 10, z: 10 },
+const STRAIGHT_SAMPLES: SampledPoint[] = [
+  { x: 0, z: 0, heading: 0 },
+  { x: 10, z: 0, heading: 0 },
+  { x: 20, z: 0, heading: 0 },
+  { x: 30, z: 0, heading: 0 },
+  { x: 40, z: 0, heading: 0 },
 ]
 
-const BOUNDS: AmbientBounds = {
-  minX: -50,
-  maxX: 50,
-  minZ: -50,
-  maxZ: 50,
-}
+const STRAIGHT_LENGTH = 40
 
-function seqRng(values: number[]): Rng {
-  let i = 0
-  return () => values[i++ % values.length]
-}
-
-describe('AMBIENT_CAR_COUNT and AMBIENT_CAR_SPEED', () => {
-  it('count is positive', () => {
-    expect(AMBIENT_CAR_COUNT).toBeGreaterThan(0)
+describe('module constants', () => {
+  it('default count is 3 (v1 design default)', () => {
+    expect(AMBIENT_TRAFFIC_DEFAULT_COUNT).toBe(3)
   })
 
-  it('speed is positive', () => {
-    expect(AMBIENT_CAR_SPEED).toBeGreaterThan(0)
+  it('max count caps at 6 (perf guard)', () => {
+    expect(AMBIENT_TRAFFIC_MAX_COUNT).toBe(6)
   })
 
-  it('colors palette has at least one entry', () => {
-    expect(AMBIENT_CAR_COLORS.length).toBeGreaterThan(0)
-  })
-})
-
-describe('ambientCarCountForPopulation', () => {
-  it('returns 0 for an empty city', () => {
-    expect(ambientCarCountForPopulation(0)).toBe(0)
+  it('speed is positive and below the player MAX_SPEED', () => {
+    // Player car MAX_SPEED = CELL_SIZE * 1.2 (driveControls.ts).
+    // Ambient cars must read as slower than the player to keep the
+    // player feeling fast.
+    expect(AMBIENT_TRAFFIC_SPEED).toBeGreaterThan(0)
+    expect(AMBIENT_TRAFFIC_SPEED).toBeLessThan(MAX_SPEED)
   })
 
-  it('returns 0 for a negative population (defensive)', () => {
-    expect(ambientCarCountForPopulation(-5)).toBe(0)
+  it('respawn jitter is positive', () => {
+    expect(AMBIENT_TRAFFIC_RESPAWN_JITTER_MS).toBeGreaterThan(0)
   })
 
-  it('returns 0 for non-finite inputs (NaN / Infinity)', () => {
-    expect(ambientCarCountForPopulation(Number.NaN)).toBe(0)
-    expect(ambientCarCountForPopulation(Number.POSITIVE_INFINITY)).toBe(0)
-    expect(ambientCarCountForPopulation(Number.NEGATIVE_INFINITY)).toBe(0)
-  })
-
-  it('one ambient car per RESIDENTS_PER_AMBIENT_CAR threshold (ceil semantics)', () => {
-    expect(ambientCarCountForPopulation(1)).toBe(1)
-    expect(ambientCarCountForPopulation(RESIDENTS_PER_AMBIENT_CAR)).toBe(1)
-    expect(ambientCarCountForPopulation(RESIDENTS_PER_AMBIENT_CAR + 1)).toBe(2)
-  })
-
-  it('caps at AMBIENT_CAR_COUNT regardless of how large population gets', () => {
-    expect(ambientCarCountForPopulation(10_000)).toBe(AMBIENT_CAR_COUNT)
-  })
-
-  it('one small house (4 residents) yields 1 car under default RESIDENTS_PER_AMBIENT_CAR=8', () => {
-    expect(ambientCarCountForPopulation(4)).toBe(1)
-  })
-
-  it('one apartment (40 residents) yields 5 cars under default', () => {
-    expect(ambientCarCountForPopulation(40)).toBe(5)
+  it('color palette is non-empty', () => {
+    expect(AMBIENT_TRAFFIC_COLORS.length).toBeGreaterThan(0)
   })
 })
 
-describe('dirToVector', () => {
-  it('east heads +x', () => {
-    expect(dirToVector('east')).toEqual({ dx: 1, dz: 0 })
+describe('sampleStreamLength', () => {
+  it('returns 0 for an empty stream', () => {
+    expect(sampleStreamLength([])).toBe(0)
   })
 
-  it('west heads -x', () => {
-    expect(dirToVector('west')).toEqual({ dx: -1, dz: 0 })
+  it('returns 0 for a single-sample stream', () => {
+    expect(sampleStreamLength([{ x: 0, z: 0, heading: 0 }])).toBe(0)
   })
 
-  it('north heads -z', () => {
-    expect(dirToVector('north')).toEqual({ dx: 0, dz: -1 })
+  it('sums polyline segment lengths', () => {
+    expect(sampleStreamLength(STRAIGHT_SAMPLES)).toBe(STRAIGHT_LENGTH)
   })
 
-  it('south heads +z', () => {
-    expect(dirToVector('south')).toEqual({ dx: 0, dz: 1 })
-  })
-})
-
-describe('dirToHeadingY', () => {
-  it('east is 0', () => {
-    expect(dirToHeadingY('east')).toBe(0)
-  })
-
-  it('south is +pi/2', () => {
-    expect(dirToHeadingY('south')).toBeCloseTo(Math.PI / 2, 5)
-  })
-
-  it('west is pi', () => {
-    expect(dirToHeadingY('west')).toBeCloseTo(Math.PI, 5)
-  })
-
-  it('north is -pi/2', () => {
-    expect(dirToHeadingY('north')).toBeCloseTo(-Math.PI / 2, 5)
+  it('handles diagonal segments', () => {
+    const s: SampledPoint[] = [
+      { x: 0, z: 0, heading: 0 },
+      { x: 3, z: 4, heading: 0 },
+    ]
+    expect(sampleStreamLength(s)).toBe(5)
   })
 })
 
-describe('spawnAmbientCar', () => {
-  it('returns null when no street cells exist', () => {
-    expect(spawnAmbientCar([], () => 0, 0xffffff)).toBeNull()
+describe('ambientCarWorldPose', () => {
+  it('returns null for fewer than two samples', () => {
+    const car: AmbientCar = {
+      t: 0,
+      segmentIndex: 0,
+      color: 0,
+      respawnDelayMs: 0,
+    }
+    expect(ambientCarWorldPose(car, [])).toBeNull()
+    expect(
+      ambientCarWorldPose(car, [{ x: 0, z: 0, heading: 0 }]),
+    ).toBeNull()
   })
 
-  it('places the car at one of the supplied street cells', () => {
-    const car = spawnAmbientCar(STREET, () => 0, 0xff0000)
-    expect(car).not.toBeNull()
-    const matchedCell = STREET.find(
-      (c) => c.x === car!.x && c.z === car!.z,
+  it('returns the first sample at t = 0', () => {
+    const car: AmbientCar = {
+      t: 0,
+      segmentIndex: 0,
+      color: 0,
+      respawnDelayMs: 0,
+    }
+    const pose = ambientCarWorldPose(car, STRAIGHT_SAMPLES)
+    expect(pose).toEqual({ x: 0, z: 0, heading: 0 })
+  })
+
+  it('returns the last sample at t = 1', () => {
+    const car: AmbientCar = {
+      t: 1,
+      segmentIndex: 0,
+      color: 0,
+      respawnDelayMs: 0,
+    }
+    const pose = ambientCarWorldPose(car, STRAIGHT_SAMPLES)
+    expect(pose).toEqual({ x: 40, z: 0, heading: 0 })
+  })
+
+  it('lerps between adjacent samples at intermediate t', () => {
+    const car: AmbientCar = {
+      t: 0.5,
+      segmentIndex: 0,
+      color: 0,
+      respawnDelayMs: 0,
+    }
+    const pose = ambientCarWorldPose(car, STRAIGHT_SAMPLES)
+    expect(pose).toEqual({ x: 20, z: 0, heading: 0 })
+  })
+
+  it('clamps out-of-range t (defensive)', () => {
+    const car: AmbientCar = {
+      t: 1.5,
+      segmentIndex: 0,
+      color: 0,
+      respawnDelayMs: 0,
+    }
+    expect(ambientCarWorldPose(car, STRAIGHT_SAMPLES)).toEqual({
+      x: 40,
+      z: 0,
+      heading: 0,
+    })
+  })
+})
+
+describe('advanceAmbientCar', () => {
+  it('advances t by speed * dt / segmentLength', () => {
+    const car: AmbientCar = {
+      t: 0,
+      segmentIndex: 0,
+      color: 0xff0000,
+      respawnDelayMs: 0,
+    }
+    const dt = 1
+    const next = advanceAmbientCar(car, dt, STRAIGHT_LENGTH, () => 0)
+    expect(next.t).toBeCloseTo(
+      (AMBIENT_TRAFFIC_SPEED * dt) / STRAIGHT_LENGTH,
+      6,
     )
-    expect(matchedCell).toBeDefined()
+    expect(next.respawnDelayMs).toBe(0)
   })
 
-  it('uses the supplied rng deterministically', () => {
-    // rng -> [0.0, 0.0] picks index 0 cell + index 0 dir
-    const a = spawnAmbientCar(STREET, seqRng([0, 0]), 0xff0000)
-    const b = spawnAmbientCar(STREET, seqRng([0, 0]), 0xff0000)
-    expect(a).toEqual(b)
-  })
-
-  it('honors the supplied color', () => {
-    const car = spawnAmbientCar(STREET, () => 0, 0xabcdef)
-    expect(car!.colorHex).toBe(0xabcdef)
-  })
-})
-
-describe('stepAmbientCar', () => {
-  it('advances east by speed * dt', () => {
+  it('preserves color and segmentIndex through advancement', () => {
     const car: AmbientCar = {
-      x: 0,
-      z: 0,
-      dir: 'east',
-      speed: AMBIENT_CAR_SPEED,
-      colorHex: 0xff0000,
+      t: 0.1,
+      segmentIndex: 0,
+      color: 0xabcdef,
+      respawnDelayMs: 0,
     }
-    const next = stepAmbientCar(car, 1, BOUNDS, STREET, () => 0)
-    expect(next.x).toBe(AMBIENT_CAR_SPEED)
-    expect(next.z).toBe(0)
-    expect(next.dir).toBe('east')
+    const next = advanceAmbientCar(car, 0.01, STRAIGHT_LENGTH, () => 0)
+    expect(next.color).toBe(0xabcdef)
+    expect(next.segmentIndex).toBe(0)
   })
 
-  it('respawns when leaving bounds via +x', () => {
+  it('triggers respawn delay when reaching segment end', () => {
     const car: AmbientCar = {
-      x: BOUNDS.maxX,
-      z: 0,
-      dir: 'east',
-      speed: 1000,
-      colorHex: 0xff0000,
+      t: 0.99,
+      segmentIndex: 0,
+      color: 0xff0000,
+      respawnDelayMs: 0,
     }
-    // rng -> picks cell index 0 and dir index 0
-    const next = stepAmbientCar(car, 1, BOUNDS, STREET, seqRng([0, 0]))
-    // Respawn at STREET[0] = (0, 0) with east direction
-    expect(next.x).toBe(0)
-    expect(next.z).toBe(0)
+    // dt large enough to push past t = 1
+    const next = advanceAmbientCar(car, 100, STRAIGHT_LENGTH, () => 0.5)
+    expect(next.t).toBe(0)
+    expect(next.respawnDelayMs).toBeCloseTo(
+      0.5 * AMBIENT_TRAFFIC_RESPAWN_JITTER_MS,
+      5,
+    )
   })
 
-  it('respawn uses the supplied rng deterministically', () => {
+  it('respawn delay uses rng to jitter so two cars rarely collide', () => {
     const car: AmbientCar = {
-      x: BOUNDS.maxX,
-      z: 0,
-      dir: 'east',
-      speed: 1000,
-      colorHex: 0xff0000,
+      t: 0.99,
+      segmentIndex: 0,
+      color: 0xff0000,
+      respawnDelayMs: 0,
     }
-    const a = stepAmbientCar(car, 1, BOUNDS, STREET, seqRng([0.5, 0.5]))
-    const b = stepAmbientCar(car, 1, BOUNDS, STREET, seqRng([0.5, 0.5]))
-    expect(a).toEqual(b)
+    const a = advanceAmbientCar(car, 100, STRAIGHT_LENGTH, () => 0.25)
+    const b = advanceAmbientCar(car, 100, STRAIGHT_LENGTH, () => 0.75)
+    expect(a.respawnDelayMs).not.toBe(b.respawnDelayMs)
   })
 
-  it('preserves colorHex through respawn', () => {
+  it('counts down respawn delay by dt while waiting, does not advance t', () => {
     const car: AmbientCar = {
-      x: BOUNDS.maxX + 1,
-      z: 0,
-      dir: 'east',
-      speed: 1,
-      colorHex: 0xabcdef,
+      t: 0,
+      segmentIndex: 0,
+      color: 0xff0000,
+      respawnDelayMs: 1000,
     }
-    const next = stepAmbientCar(car, 1, BOUNDS, STREET, seqRng([0, 0]))
-    expect(next.colorHex).toBe(0xabcdef)
+    const next = advanceAmbientCar(car, 0.4, STRAIGHT_LENGTH, () => 0)
+    expect(next.respawnDelayMs).toBeCloseTo(600, 5)
+    expect(next.t).toBe(0)
   })
 
-  it('returns the same car when bounds are exited but no street cells exist', () => {
+  it('clamps respawn delay to zero when it would go negative', () => {
     const car: AmbientCar = {
-      x: BOUNDS.maxX + 1,
-      z: 0,
-      dir: 'east',
-      speed: 1,
-      colorHex: 0xff0000,
+      t: 0,
+      segmentIndex: 0,
+      color: 0xff0000,
+      respawnDelayMs: 100,
     }
-    const next = stepAmbientCar(car, 1, BOUNDS, [], () => 0)
+    const next = advanceAmbientCar(car, 10, STRAIGHT_LENGTH, () => 0)
+    expect(next.respawnDelayMs).toBe(0)
+    expect(next.t).toBe(0)
+  })
+
+  it('does not mutate state when segmentLength is zero', () => {
+    const car: AmbientCar = {
+      t: 0.5,
+      segmentIndex: 0,
+      color: 0xff0000,
+      respawnDelayMs: 0,
+    }
+    const next = advanceAmbientCar(car, 1, 0, () => 0)
     expect(next).toBe(car)
   })
 })
 
 describe('spawnAmbientFleet', () => {
-  it('returns an empty fleet when there are no street cells', () => {
-    expect(spawnAmbientFleet([], 5, () => 0)).toEqual([])
+  it('returns an empty fleet for count 0', () => {
+    expect(spawnAmbientFleet(0)).toEqual([])
   })
 
-  it('returns the requested count when street cells exist', () => {
-    const fleet = spawnAmbientFleet(STREET, 7, () => 0)
-    expect(fleet).toHaveLength(7)
+  it('returns a fleet of the requested count', () => {
+    expect(spawnAmbientFleet(AMBIENT_TRAFFIC_DEFAULT_COUNT)).toHaveLength(
+      AMBIENT_TRAFFIC_DEFAULT_COUNT,
+    )
   })
 
-  it('cycles through AMBIENT_CAR_COLORS so the first color is used first', () => {
-    const fleet = spawnAmbientFleet(STREET, 3, () => 0)
-    expect(fleet[0].colorHex).toBe(AMBIENT_CAR_COLORS[0])
-    expect(fleet[1].colorHex).toBe(AMBIENT_CAR_COLORS[1])
-    expect(fleet[2].colorHex).toBe(AMBIENT_CAR_COLORS[2])
+  it('caps fleet size at AMBIENT_TRAFFIC_MAX_COUNT', () => {
+    const fleet = spawnAmbientFleet(999)
+    expect(fleet).toHaveLength(AMBIENT_TRAFFIC_MAX_COUNT)
   })
 
-  it('two fleets built with the same rng sequence are identical', () => {
-    const a = spawnAmbientFleet(STREET, 5, seqRng([0.1, 0.2, 0.3, 0.4, 0.5]))
-    const b = spawnAmbientFleet(STREET, 5, seqRng([0.1, 0.2, 0.3, 0.4, 0.5]))
-    expect(a).toEqual(b)
+  it('all cars start on segment 0 with respawnDelayMs = 0 (fresh-state contract)', () => {
+    const fleet = spawnAmbientFleet(AMBIENT_TRAFFIC_DEFAULT_COUNT)
+    for (const car of fleet) {
+      expect(car.segmentIndex).toBe(0)
+      expect(car.respawnDelayMs).toBe(0)
+      expect(car.t).toBeGreaterThanOrEqual(0)
+      expect(car.t).toBeLessThan(1)
+    }
+  })
+
+  it('cycles color palette so consecutive cars look varied', () => {
+    const fleet = spawnAmbientFleet(3)
+    expect(fleet[0].color).toBe(AMBIENT_TRAFFIC_COLORS[0])
+    expect(fleet[1].color).toBe(AMBIENT_TRAFFIC_COLORS[1])
+    expect(fleet[2].color).toBe(AMBIENT_TRAFFIC_COLORS[2])
+  })
+
+  it('spreads cars across the segment so the fleet looks like an existing flow', () => {
+    const fleet = spawnAmbientFleet(3)
+    const ts = fleet.map((c) => c.t)
+    expect(ts).toEqual([0, 1 / 3, 2 / 3])
+  })
+
+  it('clamps a negative count to 0', () => {
+    expect(spawnAmbientFleet(-5)).toEqual([])
   })
 })

@@ -84,18 +84,17 @@ import {
   windowMeshesForBuilding,
 } from './cityLighting'
 import {
-  ambientCarCountForPopulation,
-  dirToHeadingY,
+  AMBIENT_TRAFFIC_DEFAULT_COUNT,
+  advanceAmbientCar,
+  ambientCarWorldPose,
+  sampleStreamLength,
   spawnAmbientFleet,
-  stepAmbientCar,
-  streetCellWorldCenters,
   type AmbientCar,
 } from './ambientTraffic'
 import {
   pedestrianAnchors,
   pedestrianOffsetWithinCell,
 } from './ambientPedestrians'
-import { pieceFootprintCells } from './edit/snapGrid'
 import {
   MAX_SPEED,
   applyDriveStep,
@@ -152,7 +151,11 @@ import {
   wheelOnStreet,
   type ClosestStreetPiece,
 } from './offStreetPenalty'
-import { buildTrackPath, validateConnections } from '@/lib/trackPath'
+import {
+  buildTrackPath,
+  validateConnections,
+  type SampledPoint,
+} from '@/lib/trackPath'
 import {
   HUD_BRAKE_COLOR,
   HUD_BRAKE_LABEL,
@@ -1277,69 +1280,98 @@ export function DriveSceneClient({
       }
     }
 
-    // Ambient AI traffic (drive-mode visual fun). N small NPC cars
-    // pick random street cells + cardinal directions and drive in
-    // straight lines at constant speed. When one leaves the grid
-    // bounds it respawns elsewhere. The pure step / spawn logic
-    // lives in `ambientTraffic.ts` so the math is unit-testable
-    // without three.js. v1 keeps each car as a flat 4-wheeled box;
-    // future polish: turning at intersections, collision, slowing
-    // for the player.
+    // Ambient AI traffic v1 (drive-mode visual fun). N small NPC
+    // cars cruise the sampled centerline of `TrackPath.segments[0]`
+    // at a constant world-units-per-second rate, despawning at the
+    // segment end and respawning at the start after a jitter delay.
+    // The pure step / spawn logic lives in `ambientTraffic.ts` so
+    // the math is unit-testable without three.js. v1 keeps each car
+    // as a small `BoxGeometry` body so the per-frame cost stays
+    // bounded (capped at `AMBIENT_TRAFFIC_MAX_COUNT`); collision and
+    // demand-driven spawn counts (REQ-075 / REQ-077) ride on
+    // follow-on slices.
     let ambientCars: AmbientCar[] = []
     const ambientCarMeshes: THREE.Group[] = []
-    if (city.pieces.length > 0 && bounds) {
-      const ambientStreetCells = streetCellWorldCenters(
-        city.pieces,
-        pieceFootprintCells,
-        cellToWorld,
-      )
-      ambientCars = spawnAmbientFleet(
-        ambientStreetCells,
-        ambientCarCountForPopulation(simState.population.totalPopulation),
-        Math.random,
-      )
-      const ambientBodyGeometry = new THREE.BoxGeometry(
-        CELL_SIZE * 0.18,
-        CELL_SIZE * 0.1,
-        CELL_SIZE * 0.36,
-      )
-      const ambientWheelGeometry = new THREE.CylinderGeometry(
-        CELL_SIZE * 0.04,
-        CELL_SIZE * 0.04,
-        CELL_SIZE * 0.04,
-        10,
-      )
-      ambientWheelGeometry.rotateZ(Math.PI / 2)
-      const ambientWheelMaterial = new THREE.MeshLambertMaterial({
-        color: 0x222222,
-      })
-      for (const ambient of ambientCars) {
-        const group = new THREE.Group()
-        group.name = 'ambient-car'
-        group.position.set(ambient.x, CELL_SIZE * 0.05, ambient.z)
-        group.rotation.y = dirToHeadingY(ambient.dir)
-        const bodyMaterial = new THREE.MeshLambertMaterial({
-          color: ambient.colorHex,
+    // Flattened sample stream for the segment the ambient fleet rides
+    // on (always `trackPath.segments[0]` in v1). Captured at spawn so
+    // the per-frame integration does not rebuild the stream on every
+    // tick; the city is immutable while drive scene is mounted, so
+    // the stream is stable across the lifetime of this effect.
+    let ambientSegmentSamples: SampledPoint[] = []
+    let ambientSegmentLength = 0
+    if (city.pieces.length > 0 && trackPath.segments.length > 0) {
+      const mainSegment = trackPath.segments[0]
+      // `continuousTrackSamples` walks the segment's per-piece
+      // sample arrays into one stitched stream with adjacent-duplicate
+      // dedup. v1 picks the first contiguous run so the cars stick to
+      // a single visible path even when arc45 / diagonal splits the
+      // segment (those pieces still carry `samples === null`).
+      // Only treat `runs[0]` as the segment start when the segment's
+      // first piece actually carries samples. If the first piece is
+      // null-sampled (arc45 / diagonal pre F-003 / F-004), `runs[0]`
+      // would be a later supported chunk, so cars would spawn in the
+      // middle of the segment instead of at its start. v1 falls back
+      // to "no ambient traffic" in that case.
+      const firstPieceSampled =
+        mainSegment.order.length > 0 && mainSegment.order[0].samples !== null
+      const runs = firstPieceSampled
+        ? continuousTrackSamples(mainSegment.order)
+        : []
+      const stream = runs.length > 0 ? runs[0] : []
+      if (stream.length >= 2) {
+        ambientSegmentSamples = stream
+        ambientSegmentLength = sampleStreamLength(stream)
+        ambientCars = spawnAmbientFleet(AMBIENT_TRAFFIC_DEFAULT_COUNT)
+        const ambientBodyGeometry = new THREE.BoxGeometry(
+          CELL_SIZE * 0.18,
+          CELL_SIZE * 0.1,
+          CELL_SIZE * 0.36,
+        )
+        const ambientWheelGeometry = new THREE.CylinderGeometry(
+          CELL_SIZE * 0.04,
+          CELL_SIZE * 0.04,
+          CELL_SIZE * 0.04,
+          10,
+        )
+        ambientWheelGeometry.rotateZ(Math.PI / 2)
+        const ambientWheelMaterial = new THREE.MeshLambertMaterial({
+          color: 0x222222,
         })
-        const bodyMesh = new THREE.Mesh(ambientBodyGeometry, bodyMaterial)
-        bodyMesh.position.set(0, CELL_SIZE * 0.05, 0)
-        group.add(bodyMesh)
-        for (const wheelOffset of [
-          { x: -CELL_SIZE * 0.07, z: -CELL_SIZE * 0.12 },
-          { x: CELL_SIZE * 0.07, z: -CELL_SIZE * 0.12 },
-          { x: -CELL_SIZE * 0.07, z: CELL_SIZE * 0.12 },
-          { x: CELL_SIZE * 0.07, z: CELL_SIZE * 0.12 },
-        ]) {
-          const wheel = new THREE.Mesh(
-            ambientWheelGeometry,
-            ambientWheelMaterial,
-          )
-          wheel.position.set(wheelOffset.x, CELL_SIZE * 0.02, wheelOffset.z)
-          group.add(wheel)
+        for (const ambient of ambientCars) {
+          const group = new THREE.Group()
+          group.name = 'ambient-car'
+          const pose = ambientCarWorldPose(ambient, ambientSegmentSamples)
+          if (pose) {
+            group.position.set(pose.x, CELL_SIZE * 0.05, pose.z)
+            // Match the player car's heading convention:
+            // sample heading uses atan2(-dz, dx) so PI/2 means north,
+            // while three.js rotation.y rotates counter-clockwise
+            // around +Y. The relation is rotation.y = heading - PI/2.
+            group.rotation.y = pose.heading - Math.PI / 2
+          }
+          const bodyMaterial = new THREE.MeshLambertMaterial({
+            color: ambient.color,
+          })
+          const bodyMesh = new THREE.Mesh(ambientBodyGeometry, bodyMaterial)
+          bodyMesh.position.set(0, CELL_SIZE * 0.05, 0)
+          group.add(bodyMesh)
+          for (const wheelOffset of [
+            { x: -CELL_SIZE * 0.07, z: -CELL_SIZE * 0.12 },
+            { x: CELL_SIZE * 0.07, z: -CELL_SIZE * 0.12 },
+            { x: -CELL_SIZE * 0.07, z: CELL_SIZE * 0.12 },
+            { x: CELL_SIZE * 0.07, z: CELL_SIZE * 0.12 },
+          ]) {
+            const wheel = new THREE.Mesh(
+              ambientWheelGeometry,
+              ambientWheelMaterial,
+            )
+            wheel.position.set(wheelOffset.x, CELL_SIZE * 0.02, wheelOffset.z)
+            group.add(wheel)
+          }
+          group.userData = { type: 'ambient-car' }
+          ambientCarMeshes.push(group)
+          scene.add(group)
         }
-        group.userData = { type: 'ambient-car' }
-        ambientCarMeshes.push(group)
-        scene.add(group)
       }
     }
 
@@ -2239,29 +2271,34 @@ export function DriveSceneClient({
         applyChaseCamera()
         updateCameraAttrs()
       }
-      // Ambient traffic step. Mirrors the per-frame integration; the
-      // pure helper handles bounds + respawn so the loop here just
-      // forwards each car through `stepAmbientCar` and copies the
-      // result onto the matching mesh.
-      if (ambientCars.length > 0 && bounds) {
-        const ambientStreetCells = streetCellWorldCenters(
-          city.pieces,
-          pieceFootprintCells,
-          cellToWorld,
-        )
+      // Ambient traffic step. The pure helper advances each car's
+      // parametric `t` along the captured segment sample stream and
+      // handles the respawn-delay state machine; the loop here just
+      // forwards each car through `advanceAmbientCar`, reads its
+      // world pose from the sample stream, and copies the pose onto
+      // the matching mesh. Hidden while respawning so the body does
+      // not stack on top of itself at the segment start.
+      if (ambientCars.length > 0 && ambientSegmentSamples.length >= 2) {
         for (let i = 0; i < ambientCars.length; i++) {
-          const next = stepAmbientCar(
+          const next = advanceAmbientCar(
             ambientCars[i],
             dt,
-            bounds,
-            ambientStreetCells,
+            ambientSegmentLength,
             Math.random,
           )
           ambientCars[i] = next
           const mesh = ambientCarMeshes[i]
-          mesh.position.x = next.x
-          mesh.position.z = next.z
-          mesh.rotation.y = dirToHeadingY(next.dir)
+          if (next.respawnDelayMs > 0) {
+            mesh.visible = false
+            continue
+          }
+          mesh.visible = true
+          const pose = ambientCarWorldPose(next, ambientSegmentSamples)
+          if (pose) {
+            mesh.position.x = pose.x
+            mesh.position.z = pose.z
+            mesh.rotation.y = pose.heading - Math.PI / 2
+          }
         }
       }
       // Ambient pedestrian bob (F-014). Per-mesh phase keeps the
