@@ -133,9 +133,9 @@ export interface OrderedPiece {
    * from entry (`samples[0]`) to exit (`samples[last]`). Heading at each
    * sample is the tangent direction in radians (the game convention
    * `atan2(-dz, dx)`, so `PI/2` means north). Populated by
-   * `sampledPointsForPiece` for every supported piece type; falls back
-   * to `null` when the piece type has no wired geometry yet (arc45 and
-   * diagonal land via the F-003 sister slice).
+   * `sampledPointsForPiece` for every supported piece type (`null` is
+   * reserved for a hypothetical future piece type whose geometry is not
+   * yet wired).
    */
   samples: SampledPoint[] | null
 }
@@ -649,6 +649,8 @@ export const SCURVE_SAMPLE_COUNT = 49
 export const SWEEP_SAMPLE_COUNT = 33
 export const MEGA_SWEEP_SAMPLE_COUNT = 49
 export const HAIRPIN_SAMPLE_COUNT = 65
+export const ARC45_SAMPLE_COUNT = 25
+export const DIAGONAL_SAMPLE_COUNT = 17
 
 const SCURVE_ARC_RADIUS = 3
 const SCURVE_BRIDGE_LENGTH = (CELL_SIZE - 4 * SCURVE_ARC_RADIUS) / 2
@@ -827,14 +829,26 @@ export function pieceTransform(
 }
 
 /**
- * Discrete `Dir` value of a piece's "base entry" direction after applying
- * its rotation. Every supported piece type's LOCAL sample set enters at
- * the south edge midpoint (heading north). Rotating the piece by 90deg CW
- * shifts the entry direction by 2 dir steps (S=4 -> W=6 -> N=0 -> E=2).
+ * Discrete `Dir` value of a piece's "base entry" direction at rotation 0.
+ *
+ * Most piece types enter at the south edge midpoint (Dir S = 4) because
+ * their LOCAL sample set starts at `(0, +HALF)` heading north. Diagonal
+ * is the exception: its LOCAL sample set starts at the SW corner
+ * `(-HALF, +HALF)` heading northeast, so its base entry is `DIR_SW = 5`.
  */
-function baseEntryDirAfterRotation(rotation: number): Dir {
+function baseEntryDir(type: PieceType): Dir {
+  if (type === 'diagonal') return 5
+  return 4
+}
+
+/**
+ * Discrete `Dir` value of a piece's base entry after applying its rotation.
+ * Rotating a piece by 90deg CW shifts every direction by 2 dir steps on the
+ * 8-direction wheel (N -> E -> S -> W and NE -> SE -> SW -> NW).
+ */
+function baseEntryDirAfterRotation(type: PieceType, rotation: number): Dir {
   const turns = Math.round(rotation / 90) | 0
-  return ((4 + turns * 2) % 8) as Dir
+  return ((baseEntryDir(type) + turns * 2) % 8) as Dir
 }
 
 // ---- Per-piece-type LOCAL sample sets --------------------------------------
@@ -985,6 +999,35 @@ function sampleHairpinLocal(): SampledPoint[] {
   )
 }
 
+// Arc 45: cardinal-to-corner bridge. Enters at the south edge midpoint
+// heading north and exits at the NE corner heading northeast. Ported from
+// VibeRacer's `sampleArc45Local`; every control point scales with CELL_SIZE
+// so the same recipe lands on VibeCity's 4-unit grid without re-tuning.
+function sampleArc45Local(): SampledPoint[] {
+  return sampleCubicLocal(
+    ARC45_SAMPLE_COUNT,
+    { x: 0, z: HALF },
+    { x: 0, z: HALF - CELL_SIZE * 0.55 },
+    { x: HALF - CELL_SIZE * 0.55, z: -HALF + CELL_SIZE * 0.55 },
+    { x: HALF, z: -HALF },
+  )
+}
+
+// Diagonal: corner-to-corner 45deg line across the cell. Enters at the SW
+// corner heading northeast (PI/4), exits at the NE corner. The centerline
+// is a straight line so no oversample / arc-length remap is needed; the
+// heading is constant.
+function sampleDiagonalLocal(): SampledPoint[] {
+  return Array.from({ length: DIAGONAL_SAMPLE_COUNT }, (_, i) => {
+    const t = i / (DIAGONAL_SAMPLE_COUNT - 1)
+    return {
+      x: -HALF + CELL_SIZE * t,
+      z: HALF - CELL_SIZE * t,
+      heading: Math.PI / 4,
+    }
+  })
+}
+
 // Cached LOCAL sample sets so the resolver does not re-sample on every walker
 // step. Keep these `const` (not `export`) so callers go through
 // `sampledPointsForPiece`, which handles the entry-direction reversal.
@@ -998,6 +1041,8 @@ const SWEEP_LEFT_LOCAL_SAMPLES = sampleSweepLeftLocal()
 const MEGA_SWEEP_RIGHT_LOCAL_SAMPLES = sampleMegaSweepRightLocal()
 const MEGA_SWEEP_LEFT_LOCAL_SAMPLES = sampleMegaSweepLeftLocal()
 const HAIRPIN_LOCAL_SAMPLES = sampleHairpinLocal()
+const ARC45_LOCAL_SAMPLES = sampleArc45Local()
+const DIAGONAL_LOCAL_SAMPLES = sampleDiagonalLocal()
 
 function localSamplesFor(type: PieceType): SampledPoint[] | null {
   switch (type) {
@@ -1023,16 +1068,17 @@ function localSamplesFor(type: PieceType): SampledPoint[] | null {
     case 'hairpin':
       return HAIRPIN_LOCAL_SAMPLES
     case 'arc45':
+      return ARC45_LOCAL_SAMPLES
     case 'diagonal':
-      // F-003 sister slice ports these.
-      return null
+      return DIAGONAL_LOCAL_SAMPLES
   }
 }
 
 /**
  * Resolve the world-space sampled centerline for a piece, oriented to flow
- * from the given entry direction. Returns `null` for piece types whose
- * geometry has not been ported yet (`arc45`, `diagonal`).
+ * from the given entry direction. Returns `null` only for a hypothetical
+ * future piece type whose LOCAL sample set has not been wired; every type
+ * the schema ships with today resolves to a sample array.
  *
  * Reversal: when the walker enters a piece from the OPPOSITE end of the
  * type's base entry, the LOCAL samples are reversed and every heading is
@@ -1051,7 +1097,7 @@ export function sampledPointsForPiece(
   if (!local) return null
   const transform = pieceTransform(piece)
   const transformed = local.map((s) => transformSample(s, transform))
-  const baseEntry = baseEntryDirAfterRotation(piece.rotation as number)
+  const baseEntry = baseEntryDirAfterRotation(piece.type, piece.rotation as number)
   const reversed = entryDir !== baseEntry
   if (!reversed) return transformed
   const out = transformed.slice().reverse()
