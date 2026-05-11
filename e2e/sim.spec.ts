@@ -49,6 +49,30 @@ test('legacy /<slug>/sim redirects to /<slug> (REQ-110 slice B)', async ({ page 
   expect(page.url()).toMatch(/\/sim-redirect-spec(?:[?#].*)?$/)
 })
 
+test('sim view: bare-slug route exposes data-view="sim" discriminator (REQ-110 scaffold)', async ({
+  page,
+}) => {
+  // The canonical sim view at /<slug> stamps the page <main> with
+  // data-view="sim" / data-route="sim" so e2e (and the future
+  // sim / drive view toggle for REQ-114) has a stable hook to assert
+  // identity, independent of which client component renders below.
+  await page.goto('/sim-view-marker-spec')
+  const main = page.locator('main[data-view="sim"]')
+  await expect(main).toBeVisible()
+  await expect(main).toHaveAttribute('data-route', 'sim')
+})
+
+test('sim view: legacy /<slug>/sim redirect lands on the data-view="sim" page', async ({
+  page,
+}) => {
+  // Confirms the redirect target is the canonical sim view (not a
+  // 200-but-wrong-page), pairing the URL check above with a DOM
+  // identity check.
+  await page.goto('/sim-view-marker-redirect-spec/sim')
+  const main = page.locator('main[data-view="sim"]')
+  await expect(main).toBeVisible()
+})
+
 test('sim view: rotate buttons surface iso camera rotation (REQ-111)', async ({
   page,
 }) => {
