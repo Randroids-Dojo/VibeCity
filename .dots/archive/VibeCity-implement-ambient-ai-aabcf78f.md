@@ -1,9 +1,11 @@
 ---
 title: "implement: ambient AI traffic - cars driving the placed streets"
-status: open
+status: closed
 priority: 3
 issue-type: task
-created-at: "2026-05-05T21:22:12.501514-05:00"
+created-at: "\"2026-05-05T21:22:12.501514-05:00\""
+closed-at: "2026-05-10T19:06:48.045672-05:00"
+close-reason: "shipped v1: TrackPath-based ambient cars on segment 0, BoxGeometry bodies, constant-rate spawner (3 default, 6 cap), respawn jitter; demand-driven spawn count deferred to citizens-layer follow-on"
 ---
 
 ## Description
