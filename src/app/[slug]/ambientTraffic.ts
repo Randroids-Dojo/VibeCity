@@ -52,6 +52,35 @@ export const AMBIENT_TRAFFIC_DEFAULT_COUNT = 3
 export const AMBIENT_TRAFFIC_MAX_COUNT = 6
 
 /**
+ * Residents per ambient car. The fleet scales with `totalPopulation`
+ * so a freshly-zoned city reads as a quiet town while a packed grid
+ * reads as a bustling network without paying for population-tier UI.
+ * Mirrors the pre-PR-#216 `RESIDENTS_PER_AMBIENT_CAR = 8` tuning under
+ * the new perf cap. The cap (6) hits at 48 residents (six small houses
+ * or four mid-houses), which reads as "the city has filled in."
+ */
+export const RESIDENTS_PER_AMBIENT_CAR = 8
+
+/**
+ * Population-scaled spawn count (REQ-077 lite). Cities with roads but
+ * zero residents still get the default fleet so the streets never read
+ * as empty when the player has just placed pieces; once residents
+ * arrive the count scales linearly with population, capped at
+ * `AMBIENT_TRAFFIC_MAX_COUNT`. Non-finite or negative inputs collapse
+ * to the default so a NaN leak does not freeze the spawn.
+ */
+export function ambientCarCountForPopulation(totalPopulation: number): number {
+  if (!Number.isFinite(totalPopulation) || totalPopulation <= 0) {
+    return AMBIENT_TRAFFIC_DEFAULT_COUNT
+  }
+  const scaled = Math.ceil(totalPopulation / RESIDENTS_PER_AMBIENT_CAR)
+  return Math.min(
+    AMBIENT_TRAFFIC_MAX_COUNT,
+    Math.max(AMBIENT_TRAFFIC_DEFAULT_COUNT, scaled),
+  )
+}
+
+/**
  * Cruising speed in world units per second. Picked at ~0.8 cells/sec
  * so ambient cars look measured against the player car's
  * `MAX_SPEED = CELL_SIZE * 1.2` (post-PR-#210 tuning): the player is

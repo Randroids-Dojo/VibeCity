@@ -5,7 +5,9 @@ import {
   AMBIENT_TRAFFIC_MAX_COUNT,
   AMBIENT_TRAFFIC_RESPAWN_JITTER_MS,
   AMBIENT_TRAFFIC_SPEED,
+  RESIDENTS_PER_AMBIENT_CAR,
   advanceAmbientCar,
+  ambientCarCountForPopulation,
   ambientCarWorldPose,
   sampleStreamLength,
   spawnAmbientFleet,
@@ -268,5 +270,57 @@ describe('spawnAmbientFleet', () => {
 
   it('clamps a negative count to 0', () => {
     expect(spawnAmbientFleet(-5)).toEqual([])
+  })
+})
+
+describe('ambientCarCountForPopulation', () => {
+  it('returns the default fleet size for an empty city (zero residents)', () => {
+    expect(ambientCarCountForPopulation(0)).toBe(AMBIENT_TRAFFIC_DEFAULT_COUNT)
+  })
+
+  it('returns the default for negative inputs (defensive NaN-leak guard)', () => {
+    expect(ambientCarCountForPopulation(-1)).toBe(
+      AMBIENT_TRAFFIC_DEFAULT_COUNT,
+    )
+  })
+
+  it('returns the default for non-finite inputs', () => {
+    expect(ambientCarCountForPopulation(Number.NaN)).toBe(
+      AMBIENT_TRAFFIC_DEFAULT_COUNT,
+    )
+    expect(ambientCarCountForPopulation(Number.POSITIVE_INFINITY)).toBe(
+      AMBIENT_TRAFFIC_DEFAULT_COUNT,
+    )
+  })
+
+  it('stays at the default while population is below the first scaling step', () => {
+    expect(ambientCarCountForPopulation(1)).toBe(AMBIENT_TRAFFIC_DEFAULT_COUNT)
+    expect(
+      ambientCarCountForPopulation(
+        AMBIENT_TRAFFIC_DEFAULT_COUNT * RESIDENTS_PER_AMBIENT_CAR,
+      ),
+    ).toBe(AMBIENT_TRAFFIC_DEFAULT_COUNT)
+  })
+
+  it('scales linearly above the default floor', () => {
+    // 25 residents -> ceil(25 / 8) = 4 cars (past the default-3 floor).
+    expect(ambientCarCountForPopulation(25)).toBe(4)
+    // 33 residents -> ceil(33 / 8) = 5 cars.
+    expect(ambientCarCountForPopulation(33)).toBe(5)
+  })
+
+  it('caps at AMBIENT_TRAFFIC_MAX_COUNT for a packed city', () => {
+    // Cap hits at 48 residents (6 * 8) and stays capped past it.
+    expect(ambientCarCountForPopulation(48)).toBe(AMBIENT_TRAFFIC_MAX_COUNT)
+    expect(ambientCarCountForPopulation(999)).toBe(AMBIENT_TRAFFIC_MAX_COUNT)
+  })
+
+  it('output is always an integer in [DEFAULT, MAX]', () => {
+    for (const pop of [0, 1, 7, 8, 17, 47, 48, 96]) {
+      const count = ambientCarCountForPopulation(pop)
+      expect(Number.isInteger(count)).toBe(true)
+      expect(count).toBeGreaterThanOrEqual(AMBIENT_TRAFFIC_DEFAULT_COUNT)
+      expect(count).toBeLessThanOrEqual(AMBIENT_TRAFFIC_MAX_COUNT)
+    }
   })
 })
