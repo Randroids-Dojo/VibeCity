@@ -138,6 +138,28 @@ export const BuildingSchema = z
 export type Building = z.infer<typeof BuildingSchema>
 
 /**
+ * Allowed `CityMood.timeOfDay` values (REQ-088 lit-window slice).
+ *
+ *   - `'day'`: the v1 baseline palette.
+ *   - `'night'`: lit-window / streetlamp render layer in the drive
+ *     scene.
+ *   - `'dusk'`: reserved for a future palette slice; consumers that
+ *     do not recognize it fall back to 'day' via `resolveTimeOfDay`
+ *     in `src/app/[slug]/timeOfDay.ts`.
+ *   - `'auto'`: the day-night cycle resolver (`resolveTimeOfDay`)
+ *     phase-shifts between day and night across `DAY_NIGHT_CYCLE_TICKS`.
+ *     Already in production via the mass-appeal slice.
+ *
+ * An undefined `timeOfDay` field stays undefined on the parsed object;
+ * the runtime resolver collapses undefined to `'day'` so a city without
+ * any mood reads as day mode. Pre-existing cities authored before this
+ * tightening landed do not carry a `timeOfDay` field at all, so they
+ * parse identically to before.
+ */
+export const TimeOfDaySchema = z.enum(['day', 'night', 'dusk', 'auto'])
+export type TimeOfDayMood = z.infer<typeof TimeOfDaySchema>
+
+/**
  * Optional per-city author "preferred mood": a time-of-day and / or
  * weather preset baked into the saved city version. Both fields are
  * optional so a city author can pick one, both, or neither. Mood is
@@ -145,14 +167,14 @@ export type Building = z.infer<typeof BuildingSchema>
  * the mood on an existing city keeps every prior version reference
  * intact.
  *
- * The actual TimeOfDay / Weather enums live in their own slice when
- * the lighting module is ported. v1 treats them as opaque short
- * strings to keep the schema landing now without dragging the
- * lighting port forward.
+ * `timeOfDay` is a literal union (`TimeOfDaySchema`); the lighting
+ * module in `src/app/[slug]/timeOfDay.ts` is the canonical consumer.
+ * `weather` stays an opaque short string because the weather palette
+ * has not yet shipped; that field tightens in its own slice.
  */
 export const CityMoodSchema = z
   .object({
-    timeOfDay: z.string().min(1).max(32).optional(),
+    timeOfDay: TimeOfDaySchema.optional(),
     weather: z.string().min(1).max(32).optional(),
   })
   .strict()

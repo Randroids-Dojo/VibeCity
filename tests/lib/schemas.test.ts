@@ -293,8 +293,28 @@ describe('CityMoodSchema', () => {
     expect(CityMoodSchema.safeParse({}).success).toBe(true)
   })
 
-  it('accepts a mood with only timeOfDay', () => {
-    expect(CityMoodSchema.safeParse({ timeOfDay: 'noon' }).success).toBe(true)
+  it('accepts a mood with only timeOfDay = day', () => {
+    expect(CityMoodSchema.safeParse({ timeOfDay: 'day' }).success).toBe(true)
+  })
+
+  it('accepts a mood with timeOfDay = night', () => {
+    expect(CityMoodSchema.safeParse({ timeOfDay: 'night' }).success).toBe(true)
+  })
+
+  it('accepts a mood with timeOfDay = dusk', () => {
+    expect(CityMoodSchema.safeParse({ timeOfDay: 'dusk' }).success).toBe(true)
+  })
+
+  it('accepts a mood with timeOfDay = auto (day-night cycle)', () => {
+    expect(CityMoodSchema.safeParse({ timeOfDay: 'auto' }).success).toBe(true)
+  })
+
+  it('rejects an unknown timeOfDay value', () => {
+    expect(CityMoodSchema.safeParse({ timeOfDay: 'noon' }).success).toBe(false)
+  })
+
+  it('rejects a non-string timeOfDay value', () => {
+    expect(CityMoodSchema.safeParse({ timeOfDay: 42 }).success).toBe(false)
   })
 
   it('accepts a mood with only weather', () => {
@@ -303,14 +323,19 @@ describe('CityMoodSchema', () => {
 
   it('accepts a mood with both fields', () => {
     expect(
-      CityMoodSchema.safeParse({ timeOfDay: 'noon', weather: 'clear' }).success,
+      CityMoodSchema.safeParse({ timeOfDay: 'day', weather: 'clear' }).success,
     ).toBe(true)
   })
 
   it('rejects unknown fields', () => {
     expect(
-      CityMoodSchema.safeParse({ timeOfDay: 'noon', wind: 'high' }).success,
+      CityMoodSchema.safeParse({ timeOfDay: 'day', wind: 'high' }).success,
     ).toBe(false)
+  })
+
+  it('leaves an omitted timeOfDay as undefined (resolver defaults it to day)', () => {
+    const parsed = CityMoodSchema.parse({})
+    expect(parsed.timeOfDay).toBeUndefined()
   })
 })
 
@@ -335,7 +360,7 @@ describe('CitySchema', () => {
     const city = {
       pieces: [],
       buildings: [],
-      mood: { timeOfDay: 'noon' },
+      mood: { timeOfDay: 'night' },
     }
     expect(CitySchema.safeParse(city).success).toBe(true)
   })

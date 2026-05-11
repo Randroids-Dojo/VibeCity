@@ -78,6 +78,12 @@ import {
   spawnAnchor,
 } from './driveScene'
 import {
+  WINDOW_GLOW_COLOR,
+  streetLampForIntersection,
+  streetLampIntersections,
+  windowMeshesForBuilding,
+} from './cityLighting'
+import {
   ambientCarCountForPopulation,
   dirToHeadingY,
   spawnAmbientFleet,
@@ -903,6 +909,33 @@ export function DriveSceneClient({
       scene.add(bulbMesh)
     }
 
+    // Street-lamp point lights (lit-window slice). A real
+    // `THREE.PointLight` per intersection casts a soft pool of warm
+    // light on the surrounding road / buildings so the night palette
+    // reads as a lit city rather than a dim ambient bump. Capped at
+    // `MAX_STREET_LAMPS` (8) by `streetLampIntersections` so the
+    // per-frame GPU cost stays affordable on integrated GPUs; cities
+    // with more intersections still get the emissive-bulb mesh on
+    // every intersection (see the loop above) so the silhouette stays
+    // consistent across the grid.
+    if (timeOfDay === 'night') {
+      for (const piece of streetLampIntersections(city.pieces)) {
+        const lampDesc = streetLampForIntersection(piece)
+        const pointLight = new THREE.PointLight(
+          lampDesc.color,
+          lampDesc.intensity,
+          lampDesc.distance,
+        )
+        pointLight.position.set(lampDesc.x, lampDesc.y, lampDesc.z)
+        pointLight.userData = {
+          type: 'streetlamp-point-light',
+          row: piece.row,
+          col: piece.col,
+        }
+        scene.add(pointLight)
+      }
+    }
+
     // Buildings (REQ-046, Kenney City Kit slice 2). Each placement
     // gets a procedural body+roof extrusion as the immediate
     // placeholder so the scene reads while the per-type GLB asynchronously
@@ -963,6 +996,35 @@ export function DriveSceneClient({
       roofMesh.rotation.y = headingY
       roofMesh.userData = { placeholder: true }
       scene.add(roofMesh)
+
+      // Lit-window quads at night (lit-window slice). One emissive
+      // `MeshBasicMaterial` plane per window panel on each of the
+      // building's four faces. Uses `MeshBasicMaterial` (not a real
+      // light) so the per-frame GPU cost stays flat regardless of
+      // how many buildings the city has. The existing whole-body
+      // emissive baseline (`BUILDING_LIT_WINDOW_HEX_NIGHT` applied to
+      // `bodyMaterial.emissive`) carries the underlying wall glow;
+      // these quads sit on top of it and read as the lit panels.
+      if (timeOfDay === 'night') {
+        const windows = windowMeshesForBuilding(building)
+        for (const w of windows) {
+          const windowGeometry = new THREE.PlaneGeometry(w.width, w.height)
+          const windowMaterial = new THREE.MeshBasicMaterial({
+            color: WINDOW_GLOW_COLOR,
+            side: THREE.DoubleSide,
+          })
+          const windowMesh = new THREE.Mesh(windowGeometry, windowMaterial)
+          windowMesh.position.set(w.x, w.y, w.z)
+          windowMesh.rotation.y = w.rotationY
+          windowMesh.userData = {
+            type: 'building-window',
+            buildingType: building.type,
+            face: w.face,
+            litAtNight: true,
+          }
+          scene.add(windowMesh)
+        }
+      }
 
       // Empty slot at the cell anchor; the cloned GLB lands here when
       // the per-type promise resolves.
