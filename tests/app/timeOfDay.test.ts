@@ -39,7 +39,12 @@ describe('resolveTimeOfDay (REQ-088 slice 2)', () => {
   })
 
   it('falls back to day on an unknown timeOfDay value', () => {
-    expect(resolveTimeOfDay({ timeOfDay: 'tuesday' })).toBe('day')
+    // `CityMood.timeOfDay` is now a literal union; this cast simulates
+    // a forward-compat scenario where a future schema value reaches
+    // the resolver before it learns the new mode.
+    expect(
+      resolveTimeOfDay({ timeOfDay: 'tuesday' as CityMood['timeOfDay'] }),
+    ).toBe('day')
   })
 
   describe('auto cycle (mass-appeal slice 3)', () => {

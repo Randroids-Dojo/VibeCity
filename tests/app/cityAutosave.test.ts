@@ -120,7 +120,7 @@ describe('isCityContentEqual (REQ-025)', () => {
   })
 
   it('returns true when both cities have the same mood', () => {
-    const mood = { timeOfDay: 'night', weather: 'rain' }
+    const mood: City['mood'] = { timeOfDay: 'night', weather: 'rain' }
     const a: City = { pieces: [], buildings: [], mood }
     const b: City = { pieces: [], buildings: [], mood: { ...mood } }
     expect(isCityContentEqual(a, b)).toBe(true)

@@ -63,7 +63,7 @@ describe('hashCity', () => {
 
   it('is invariant to mood presence', () => {
     const base: City = { pieces: [straight(0, 0)], buildings: [shop(0, 1)] }
-    const moody: City = { ...base, mood: { timeOfDay: 'noon' } }
+    const moody: City = { ...base, mood: { timeOfDay: 'night' } }
     const moodier: City = { ...base, mood: { timeOfDay: 'dusk', weather: 'rain' } }
     expect(hashCity(base)).toBe(hashCity(moody))
     expect(hashCity(base)).toBe(hashCity(moodier))
