@@ -85,8 +85,8 @@ import {
   windowMeshesForBuilding,
 } from './cityLighting'
 import {
-  AMBIENT_TRAFFIC_DEFAULT_COUNT,
   advanceAmbientCar,
+  ambientCarCountForPopulation,
   ambientCarWorldPose,
   sampleStreamLength,
   spawnAmbientFleet,
@@ -1330,7 +1330,9 @@ export function DriveSceneClient({
       if (stream.length >= 2) {
         ambientSegmentSamples = stream
         ambientSegmentLength = sampleStreamLength(stream)
-        ambientCars = spawnAmbientFleet(AMBIENT_TRAFFIC_DEFAULT_COUNT)
+        ambientCars = spawnAmbientFleet(
+          ambientCarCountForPopulation(simState.population.totalPopulation),
+        )
         const ambientBodyGeometry = new THREE.BoxGeometry(
           CELL_SIZE * 0.18,
           CELL_SIZE * 0.1,

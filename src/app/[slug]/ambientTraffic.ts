@@ -16,10 +16,12 @@ import type { SampledPoint } from '@/lib/trackPath'
  * mesh group lifecycle and reads `{ x, z, heading }` per car each
  * frame via `ambientCarWorldPose`.
  *
- * v1 explicitly skips the demand-driven population coupling that the
- * citizens layer (REQ-075) will eventually provide; spawn count is a
- * constant 3 (capped at 6). The demand-driven angle lands as a
- * follow-on slice once REQ-070 / REQ-075 are in.
+ * Spawn count is population-coupled (REQ-077 lite): the fleet size
+ * scales with `totalPopulation` through `ambientCarCountForPopulation`,
+ * with a floor of 3 cars so a roaded-but-unpopulated city still reads
+ * as inhabited and a hard cap of 6 (the perf guard from
+ * `AMBIENT_TRAFFIC_MAX_COUNT`). The full per-trip-demand spawn (one
+ * car per trip event from the citizens layer) lands when REQ-078 ships.
  */
 
 export interface AmbientCar {
@@ -38,8 +40,10 @@ export interface AmbientCar {
 }
 
 /**
- * Default ambient car count for v1 (no population coupling). 3 cars
- * read as "a few cars on the streets" without dominating the scene.
+ * Default / floor ambient car count. `ambientCarCountForPopulation`
+ * returns this for zero-residents cities (roads placed, no zoning
+ * grown yet) and never drops below it, so a freshly-built grid still
+ * reads as "a few cars on the streets" without dominating the scene.
  */
 export const AMBIENT_TRAFFIC_DEFAULT_COUNT = 3
 
@@ -50,6 +54,35 @@ export const AMBIENT_TRAFFIC_DEFAULT_COUNT = 3
  * the per-frame integration is cheap.
  */
 export const AMBIENT_TRAFFIC_MAX_COUNT = 6
+
+/**
+ * Residents per ambient car. The fleet scales with `totalPopulation`
+ * so a freshly-zoned city reads as a quiet town while a packed grid
+ * reads as a bustling network without paying for population-tier UI.
+ * Mirrors the pre-PR-#216 `RESIDENTS_PER_AMBIENT_CAR = 8` tuning under
+ * the new perf cap. The cap (6) hits at 48 residents (six small houses
+ * or four mid-houses), which reads as "the city has filled in."
+ */
+export const RESIDENTS_PER_AMBIENT_CAR = 8
+
+/**
+ * Population-scaled spawn count (REQ-077 lite). Cities with roads but
+ * zero residents still get the default fleet so the streets never read
+ * as empty when the player has just placed pieces; once residents
+ * arrive the count scales linearly with population, capped at
+ * `AMBIENT_TRAFFIC_MAX_COUNT`. Non-finite or negative inputs collapse
+ * to the default so a NaN leak does not freeze the spawn.
+ */
+export function ambientCarCountForPopulation(totalPopulation: number): number {
+  if (!Number.isFinite(totalPopulation) || totalPopulation <= 0) {
+    return AMBIENT_TRAFFIC_DEFAULT_COUNT
+  }
+  const scaled = Math.ceil(totalPopulation / RESIDENTS_PER_AMBIENT_CAR)
+  return Math.min(
+    AMBIENT_TRAFFIC_MAX_COUNT,
+    Math.max(AMBIENT_TRAFFIC_DEFAULT_COUNT, scaled),
+  )
+}
 
 /**
  * Cruising speed in world units per second. Picked at ~0.8 cells/sec

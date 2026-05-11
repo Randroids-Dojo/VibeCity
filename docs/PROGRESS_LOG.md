@@ -16,6 +16,16 @@ Format for each slice:
 - Followups: any new `F-NNN` entries created. Link to them.
 ```
 
+## 2026-05-10, Ambient Traffic Population Scaling (REQ-077 lite restored)
+
+- Branch: `feature/20260510-ambient-traffic-population-scale`
+- PR: [#218](https://github.com/Randroids-Dojo/VibeCity/pull/218)
+- Changed: Restores REQ-077 lite (population-scaled ambient car count) on top of the TrackPath-based ambient traffic v1 shipped in PR #216. PR #216 deliberately dropped the prior `ambientCarCountForPopulation` coupling and spawned a constant `AMBIENT_TRAFFIC_DEFAULT_COUNT = 3` while the new pose / advance math settled. This slice re-wires the coupling: new `RESIDENTS_PER_AMBIENT_CAR = 8` constant + `ambientCarCountForPopulation(totalPopulation)` helper in `src/app/[slug]/ambientTraffic.ts` returns the default fleet (3) for cities with roads but no residents so a freshly-zoned grid never reads empty, then scales linearly with population at one car per 8 residents, capped at `AMBIENT_TRAFFIC_MAX_COUNT = 6` (cap hits at 48 residents). Non-finite or negative inputs collapse to the default so a NaN leak does not freeze the spawn. `DriveSceneClient.tsx` swaps the constant in the spawn call for `ambientCarCountForPopulation(simState.population.totalPopulation)`; the enclosing integration effect already depends on `simState.population` so a population step that crosses a scaling threshold re-runs the effect and respawns the fleet at the new size. The `AMBIENT_TRAFFIC_DEFAULT_COUNT` import is dropped (it is now reached via the helper).
+- Verification: `npm run check:dashes` clean. `npm run type-check` clean. `npx vitest run tests/app/ambientTraffic.test.ts` 35 tests pass (+7 new `ambientCarCountForPopulation` cases: zero-residents default, negative defensive default, non-finite (NaN / Infinity) defaults, below-floor (1, 24) stays at default, linear scaling (25 / 33), cap at 48 and beyond, integer-in-bounds invariant).
+- Assumptions: 8 residents per car matches the pre-PR-#216 tuning so a returning player who saw the old fleet sizes does not notice a behavior shift past the v1 visual cap. The default-floor of 3 cars preserves visual life on a roaded-but-unpopulated city (the prior REQ-077 lite returned 0 for empty cities; the new TrackPath-based fleet already gates spawn on `stream.length >= 2` so this default never produces cars on a city without geometry, and reading 3 cars on a freshly-built one-house city is preferred over 1). The cap (6) is the perf guard inherited from PR #216 and bites the same way as the pre-PR-#216 cap of 12 did against the smaller geometry budget; bumping it later is a one-line change.
+- GDD coverage: REQ-077 (NPC vehicle traffic / population coupling) flips back from the v1 regression introduced in PR #216 to "lite-coupled" again; the GDD row status stays `partial` because the full per-trip-demand spawn (REQ-078 trip demand drain) is still pending its own slice. `docs/gdd/14-citizens.md` gains a Build log entry.
+- Followups: None new. The full demand-driven angle is still tracked under the existing citizens-layer scope (REQ-078 trip demand drain).
+
 ## 2026-05-10, Drive Scene Distance Fog (environment polish slice 1)
 
 - Branch: `feature/20260510-drive-scene-fog`
