@@ -54,10 +54,12 @@ export const DEFAULT_CAMERA_NEAR = 0.1
 export const DEFAULT_CAMERA_FAR = 1000
 
 /**
- * Exponential fog density. Picked so visibility drops to roughly half
- * at distance ~170 world units, blending the horizon into the sky
- * background without occluding the playable city. Pair with a fog
- * color that matches the scene background so the transition reads as
- * atmospheric depth rather than a wall.
+ * Exponential fog density. FogExp2 falloff is `exp(-(density * d)^2)`,
+ * so visibility drops to 50% at `d = sqrt(ln 2) / density`. At 0.004
+ * that is roughly 208 world units, blending the horizon into the sky
+ * background without occluding the playable city (the chase-camera
+ * ground distance sits well below that). Pair with a fog color that
+ * matches the scene background so the transition reads as atmospheric
+ * depth rather than a wall.
  */
 export const DEFAULT_FOG_DENSITY = 0.004
