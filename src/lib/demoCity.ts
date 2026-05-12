@@ -205,15 +205,59 @@ export const DEMO_CITY: City = {
       },
     },
     water: {
-      // Water tower west of the loop, sewage treatment east. v1 pipes
-      // empty for the same reason as power lines: connectivity solver
-      // wiring lands in its own slice.
+      // Water-tower pair anchors the north suburb (row 0 cols 3 and 7,
+      // 4-adjacent to row-1 zones), pump-station pair anchors the
+      // south belt (row 10 cols 3 and 7, 4-adjacent to row-9 zones).
+      // Two water pipes per row fill the cell gap so the middle zone
+      // on each strip is also adjacent to transmission and the entire
+      // row reads 'served'. Sources and pipes share row cells with the
+      // power lines / plants from round 2 because the data layer treats
+      // each utility as its own transmission graph; visually the editor
+      // renders one overlay per layer so the co-located cells read as
+      // a utilities corridor instead of conflicting placements.
       sources: [
-        { kind: 'water-tower', row: 5, col: 0 },
-        { kind: 'pump-station', row: 5, col: 11 },
+        { kind: 'water-tower', row: 0, col: 3 },
+        { kind: 'water-tower', row: 0, col: 7 },
+        { kind: 'pump-station', row: 10, col: 3 },
+        { kind: 'pump-station', row: 10, col: 7 },
       ],
-      pipes: {},
-      treatmentPlants: [{ row: 0, col: 0 }],
+      pipes: {
+        // Water pipes fill the row-0 / row-10 gaps between source
+        // cells so the middle outskirts column is also adjacent to a
+        // transmission cell.
+        '0,4': 'water',
+        '0,5': 'water',
+        '0,6': 'water',
+        '10,4': 'water',
+        '10,5': 'water',
+        '10,6': 'water',
+        // Sewage pipes co-locate with the outskirts zone cells
+        // themselves. `pipes` is keyed per cell with a single kind, so
+        // sewage cannot share cell keys with the row-0 / row-10 water
+        // pipes; the row-1 / row-9 strip is the only set of cells
+        // 4-adjacent to multiple outskirts zones without re-using the
+        // water layer. The data layer treats zones and sewage pipes
+        // as distinct layers on the same cell key, so the editor's
+        // overlay renderer paints both without a conflict.
+        '1,3': 'sewage',
+        '1,4': 'sewage',
+        '1,5': 'sewage',
+        '1,6': 'sewage',
+        '1,7': 'sewage',
+        '9,3': 'sewage',
+        '9,4': 'sewage',
+        '9,5': 'sewage',
+        '9,6': 'sewage',
+        '9,7': 'sewage',
+      },
+      // Treatment plants anchor each sewage strip so the sewage solver
+      // marks adjacent zones 'drained' (a strip with pipes but no
+      // treatment plant reads 'unmanaged'). One plant per strip is
+      // enough; the solver only needs reachability.
+      treatmentPlants: [
+        { row: 1, col: 2 },
+        { row: 9, col: 2 },
+      ],
       wasteAccumulation: {},
     },
     economy: {
