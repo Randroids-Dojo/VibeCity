@@ -1212,7 +1212,7 @@ describe('applySimEvent', () => {
           '0,1': { kind: 'commercial' as const, density: 0 as const },
         },
       }
-      const next = maybeGrowZones(zones, 20, 10)
+      const next = maybeGrowZones(zones, 20, 10, {})
       expect(next).toBe(zones)
     })
 
@@ -1286,6 +1286,162 @@ describe('applySimEvent', () => {
       const a = applyMany(EMPTY_SIM_STATE, events)
       const b = applyMany(EMPTY_SIM_STATE, events)
       expect(a).toEqual(b)
+    })
+  })
+
+  describe('per-tick zone growth power gating (REQ-081 power gate)', () => {
+    function tickN(times: number, start: SimState): SimState {
+      let s = start
+      for (let i = 0; i < times; i++) {
+        s = applySimEvent(s, {
+          type: 'tick',
+          payload: { deltaMs: 250 },
+          clientCreatedAt: i,
+          authorBuilderId: A_BUILDER,
+        })
+      }
+      return s
+    }
+
+    function placeZone(
+      kind: 'residential' | 'commercial' | 'industrial',
+      row: number,
+      col: number,
+    ): SimEvent {
+      return {
+        type: 'placeZone',
+        payload: { kind, row, col },
+        clientCreatedAt: 0,
+        authorBuilderId: A_BUILDER,
+      }
+    }
+
+    function placePlant(
+      kind: 'coal' | 'solar',
+      row: number,
+      col: number,
+    ): SimEvent {
+      return {
+        type: 'placePowerPlant',
+        payload: { kind, row, col },
+        clientCreatedAt: 0,
+        authorBuilderId: A_BUILDER,
+      }
+    }
+
+    function runLine(row: number, col: number): SimEvent {
+      return {
+        type: 'runPowerLine',
+        payload: { row, col },
+        clientCreatedAt: 0,
+        authorBuilderId: A_BUILDER,
+      }
+    }
+
+    function eraseLineEvent(row: number, col: number): SimEvent {
+      return {
+        type: 'eraseLine',
+        payload: { row, col },
+        clientCreatedAt: 1,
+        authorBuilderId: A_BUILDER,
+      }
+    }
+
+    it('city with no power infrastructure grows normally (back-compat)', () => {
+      // Pre-electrical city: no plants, no lines. The call site
+      // short-circuits the solve so `maybeGrowZones` sees an empty
+      // `{}` powerStatus map; `undefined` is treated as no gate.
+      let s = applySimEvent(EMPTY_SIM_STATE, placeZone('residential', 0, 0))
+      s = tickN(20, s)
+      expect(s.zones.cells['0,0']?.density).toBe(1)
+    })
+
+    it('powered residential cell advances; unpowered residential stalls', () => {
+      let s = applySimEvent(EMPTY_SIM_STATE, placeZone('residential', 0, 0))
+      // Drop a plant at (0,1). The 4-adjacent (0,0) cell becomes
+      // 'powered'.
+      s = applySimEvent(s, placePlant('coal', 0, 1))
+      // Place a second zoned cell far from the plant (distance > 1
+      // in 4-adjacency). It reads 'unpowered' from the solver.
+      s = applySimEvent(s, placeZone('residential', 5, 5))
+      s = tickN(20, s)
+      expect(s.zones.cells['0,0']?.density).toBe(1)
+      expect(s.zones.cells['5,5']?.density).toBe(0)
+    })
+
+    it('cutting power mid-game stalls a previously-growing cell', () => {
+      // Plant is too far for direct 4-adjacency. A single power
+      // line at (0,1) bridges the gap. Erasing that line takes
+      // (0,0) back to 'unpowered'.
+      let s = applySimEvent(EMPTY_SIM_STATE, placeZone('residential', 0, 0))
+      s = applySimEvent(s, placePlant('coal', 0, 3))
+      s = applySimEvent(s, runLine(0, 1))
+      s = applySimEvent(s, runLine(0, 2))
+      s = tickN(40, s)
+      expect(s.zones.cells['0,0']?.density).toBe(2)
+      s = applySimEvent(s, eraseLineEvent(0, 1))
+      s = tickN(20, s)
+      // Density holds at 2; no decline because cityHappiness stays
+      // in the stagnant or happy band (no severe penalty cascade).
+      expect(s.zones.cells['0,0']?.density).toBe(2)
+    })
+
+    it('restoring power resumes a stalled cell', () => {
+      let s = applySimEvent(EMPTY_SIM_STATE, placeZone('residential', 0, 0))
+      // Plant out of reach; (0,0) starts unpowered.
+      s = applySimEvent(s, placePlant('coal', 5, 5))
+      s = tickN(20, s)
+      expect(s.zones.cells['0,0']?.density).toBe(0)
+      // Drop a plant adjacent to (0,0). The next growth tick advances.
+      s = applySimEvent(s, placePlant('coal', 0, 1))
+      s = tickN(20, s)
+      expect(s.zones.cells['0,0']?.density).toBe(1)
+    })
+
+    it('miserable-band decline ignores power status (direct unit call)', () => {
+      // Direct unit test of `maybeGrowZones` in the miserable band
+      // with an 'unpowered' cell. The decline branch reads
+      // cityHappiness, not powerStatus, so the cell still steps
+      // down from density 1 to 0 even though it would be blocked
+      // by the power gate in the growth branch.
+      const zones = {
+        cells: {
+          '0,0': { kind: 'residential' as const, density: 1 as const },
+        },
+      }
+      const powerStatus = { '0,0': 'unpowered' as const }
+      const next = maybeGrowZones(zones, 20, 10, powerStatus)
+      expect(next.cells['0,0']?.density).toBe(0)
+    })
+
+    it('happy band: powered cell grows; unpowered same-bucket cell stalls', () => {
+      // Direct unit test of `maybeGrowZones` in the happy band
+      // (cityHappiness 100) with a mixed-power bucket. Confirms the
+      // gate operates per-cell, not bucket-wide.
+      const zones = {
+        cells: {
+          '0,0': { kind: 'residential' as const, density: 1 as const },
+          '5,5': { kind: 'residential' as const, density: 1 as const },
+        },
+      }
+      const powerStatus = {
+        '0,0': 'powered' as const,
+        '5,5': 'unpowered' as const,
+      }
+      const next = maybeGrowZones(zones, 20, 100, powerStatus)
+      expect(next.cells['0,0']?.density).toBe(2)
+      expect(next.cells['5,5']?.density).toBe(1)
+    })
+
+    it('brownout status blocks growth same as unpowered', () => {
+      const zones = {
+        cells: {
+          '0,0': { kind: 'residential' as const, density: 1 as const },
+        },
+      }
+      const powerStatus = { '0,0': 'brownout' as const }
+      const next = maybeGrowZones(zones, 20, 100, powerStatus)
+      expect(next).toBe(zones)
     })
   })
 

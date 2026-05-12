@@ -16,6 +16,16 @@ Format for each slice:
 - Followups: any new `F-NNN` entries created. Link to them.
 ```
 
+## 2026-05-12, REQ-081 Per-Cell Power Growth Gate
+
+- Branch: `feature/20260512-req081-power-gating`
+- PR: TBD
+- Changed: Extended `maybeGrowZones(zones, tick, cityHappiness, powerStatus)` in `src/lib/sim/events.ts` with a per-cell power gate. In the happy band, cells with `powerStatus[key] === 'brownout' | 'unpowered'` stall at their current density; a missing entry (undefined) is treated as "no gate" so a city with zero plants and zero lines grows the way it did before this slice (the call site short-circuits the solver and passes an empty `{}` in that case). The decline branch is unchanged: miserable-band density drops ignore powerStatus because cityHappiness already aggregates power-related signals via coverage / abandonment. `applyTick` now imports `solvePowerStatus` from `src/lib/sim/powerSolver.ts` and threads the resolved map into `maybeGrowZones`. Demo city payoff: the 10 powered outskirts cells (rows 1, 9) grow toward density 3 while the 12 unpowered interior cells inside the loop ring stay at their current densities, so a first-time visitor sees the power overlay's effect on growth visibly within ~15 seconds at 1x.
+- Verification: `npm run check:dashes` clean. `npm run type-check` clean. `npm test` 2535 / 2535 across 88 files (+8 new gating cases: back-compat city-without-power grows, powered cell advances, unpowered cell stalls, mid-game cut via line-erase, restoring power resumes growth, miserable-band ignores power, mixed-bucket per-cell gating, brownout blocks growth). `npm run build` green.
+- Assumptions: A city counts as "having power infrastructure" when `power.plants.length > 0 OR Object.keys(power.lines).length > 0`. Both empty means the gate is bypassed, which preserves backward compat for every test fixture that places zones without infrastructure. Water and services per-cell gates stay deferred to follow-on slices.
+- GDD coverage: REQ-081 stays `partial` (water + services gates remain). REQ-085 picks up `src/lib/sim/events.ts` as a new implementation ref and `tests/lib/sim/events.test.ts` as a new test ref because the power solver now feeds the growth reducer.
+- Followups: None new.
+
 ## 2026-05-12, E2E Visible Movement Against Demo City (F-008)
 
 - Branch: `feature/20260512-e2e-demo-drive`
