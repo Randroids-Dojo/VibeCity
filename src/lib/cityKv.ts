@@ -16,7 +16,7 @@ import type { Slug } from './schemas'
 // import path. The kit returns `null` on missing env (no throw); the
 // `hasKvConfigured` helper below preserves the boolean-check ergonomic
 // for callers that branched on it before the migration.
-export { getKv } from '@randroids-dojo/vibekit/server'
+export { getKv }
 
 /**
  * Boolean-check synonym for `getKv() !== null`. Preserves the public
