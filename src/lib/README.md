@@ -30,6 +30,7 @@ These live at the lib root because they are still shared across the city app sur
 | `cityKv.ts` | `city:`-prefixed Redis key namespace + re-exports the kit's `getKv` from `@randroids-dojo/vibekit/server` plus a `hasKvConfigured` synonym (`getKv() !== null`) for back-compat with the gate-then-use pattern. |
 | `cityCount.ts` | Wraps `format/countLabel.ts` with city-specific singular / plural / suffix labels for the home page header cue. |
 | `cityThumbnail.ts` | Walks city pieces + buildings into placements, then delegates to `render/thumbnail.ts` for the home-page recent-card thumbnail. |
+| `demoCity.ts` | Hand-authored showcase `DEMO_CITY` served at the `/demo` slug. Schema-valid `City` + baked `sim` state spanning zones / services / power / water so a first-time visitor sees a populated grid instead of the empty starter. `loadCity` bypasses KV for `DEMO_SLUG` unless a save exists. |
 | `cityVersion.ts`, `hashCity.ts`, `loadCity.ts`, `recentSlugs.ts`, `recentVersions.ts`, `schemas.ts` | City persistence, hashing, and zod schemas. |
 | `connectors.ts`, `trackPath.ts`, `wheelContact.ts` | Ports from VibeRacer's piece / track / wheel-contact substrate. |
 | `controlsPersistence.ts` | Persisted controls envelope (REQ-043). Calls `@randroids-dojo/vibekit`'s schema-validated `readStorage` / `writeStorage` / `removeStorage` directly for the SSR-safe boundary. |

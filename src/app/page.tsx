@@ -110,6 +110,28 @@ export default async function HomePage() {
 
       <HomeCreateForm />
 
+      <Link
+        href="/demo/drive"
+        data-testid="home-demo-cta"
+        prefetch
+        style={{
+          display: 'inline-flex',
+          alignItems: 'center',
+          gap: 6,
+          padding: '10px 20px',
+          fontSize: 15,
+          color: '#222',
+          background: '#fdfaf2',
+          border: '1px solid #b6a87a',
+          borderRadius: 4,
+          textDecoration: 'none',
+          letterSpacing: 0.3,
+        }}
+      >
+        Try the demo
+        <span aria-hidden="true">{'→'}</span>
+      </Link>
+
       <section
         data-testid="home-recent-section"
         data-recent-count={cities.length}
