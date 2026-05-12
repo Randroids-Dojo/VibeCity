@@ -364,6 +364,71 @@ test('drive route shows the empty-state prompt for a fresh slug (REQ-053)', asyn
   expect(page.url()).toMatch(/\/drive-empty-spec$/)
 })
 
+/**
+ * F-008: visible-movement assertion against the prebuilt demo city
+ * (REQ-031, REQ-034, REQ-047). The `/demo` slug bypasses KV in
+ * `loadCity.ts` and returns the hand-authored DEMO_CITY, which gives
+ * the playwright webServer a populated city without needing a seeded
+ * KV instance. With a car mounted, pressing the throttle key must
+ * move the data-car-x / data-car-z attributes off their initial value
+ * so the integrator + keyboard binding path is exercised end-to-end.
+ */
+test('demo drive route mounts the car and pressing throttle moves it (F-008)', async ({
+  page,
+}) => {
+  const response = await page.goto('/demo/drive')
+  expect(response?.status()).toBe(200)
+
+  const root = page.getByTestId('drive-scene-root')
+  await expect(root).toBeVisible()
+  // Populated branch: 24 pieces in DEMO_CITY mounts the car, engages
+  // the chase camera, and arms the keyboard listeners. Asserting all
+  // three together locks the three gates the empty-state spec mirrors
+  // as their `false` defaults.
+  await expect(root).toHaveAttribute('data-vehicle', 'true')
+  await expect(root).toHaveAttribute('data-controls-active', 'true')
+  await expect(root).toHaveAttribute('data-camera-mode', 'chase')
+
+  // Drive scene boots paused on populated cities (press-to-start
+  // pause menu). Press Escape to unpause so the integrator advances.
+  await expect(root).toHaveAttribute('data-pause-state', 'paused')
+  await page.keyboard.press('Escape')
+  await expect(root).toHaveAttribute('data-pause-state', 'running')
+
+  // Wait for both car-x and car-z mirrors to mount. The per-frame
+  // attribute write only fires after the first integrator tick, so
+  // we poll for any non-null value before snapshotting the initial
+  // position.
+  await expect
+    .poll(async () => ({
+      x: await root.getAttribute('data-car-x'),
+      z: await root.getAttribute('data-car-z'),
+    }))
+    .toEqual(expect.objectContaining({ x: expect.any(String), z: expect.any(String) }))
+  const initialX = await root.getAttribute('data-car-x')
+  const initialZ = await root.getAttribute('data-car-z')
+
+  // Hold throttle and poll for movement WHILE the key is still down.
+  // The speed mirror decelerates back to zero in milliseconds after
+  // keyup, so a poll that runs after `page.keyboard.up` is racing
+  // against the integrator and flakes in slower CI environments.
+  await page.keyboard.down('KeyW')
+  try {
+    await expect
+      .poll(async () => {
+        const x = await root.getAttribute('data-car-x')
+        const z = await root.getAttribute('data-car-z')
+        return x !== initialX || z !== initialZ
+      })
+      .toBe(true)
+    await expect
+      .poll(async () => Number(await root.getAttribute('data-car-speed')))
+      .toBeGreaterThan(0)
+  } finally {
+    await page.keyboard.up('KeyW')
+  }
+})
+
 test('drive route sets the per-slug document title (REQ-006, REQ-053)', async ({
   page,
 }) => {
