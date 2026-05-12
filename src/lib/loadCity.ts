@@ -31,32 +31,35 @@ export async function loadCity(
   slug: Slug,
   version?: CityVersionHash,
 ): Promise<{ city: City; versionHash: CityVersionHash | null }> {
-  if (slug === DEMO_SLUG && !version) {
-    const kv = getKv()
+  const kv = getKv()
+  // Track the latest-hash read so the demo branch can reuse it on the
+  // KV-fork fall-through path instead of issuing a second cityLatest
+  // GET.
+  let versionHash: CityVersionHash | null = version ?? null
+
+  if (slug === DEMO_SLUG && !versionHash) {
     if (!kv) {
-      // No KV: demo always wins.
-      return { city: DEMO_CITY, versionHash: null }
+      // No KV: demo always wins. structuredClone keeps callers from
+      // mutating the shared module singleton.
+      return { city: structuredClone(DEMO_CITY), versionHash: null }
     }
     // KV configured: prefer the bundled demo when no save exists yet so
     // a player visiting /demo before anyone has saved sees the showcase
     // rather than the empty starter city.
-    const latest = await kv.get<CityVersionHash>(kvKeys.cityLatest(slug))
-    if (latest === null || latest === undefined) {
-      return { city: DEMO_CITY, versionHash: null }
+    versionHash = await kv.get<CityVersionHash>(kvKeys.cityLatest(slug))
+    if (!versionHash) {
+      return { city: structuredClone(DEMO_CITY), versionHash: null }
     }
-    // Fall through to the KV read path so a saved fork of the demo
-    // surfaces the player's edits instead of the bundled payload.
+    // Fall through to the KV read path with `versionHash` already
+    // resolved so a saved fork of the demo surfaces the player's edits
+    // without a second cityLatest read.
   }
 
-  const kv = getKv()
   if (!kv) {
     return { city: EMPTY_CITY, versionHash: null }
   }
 
-  let versionHash: CityVersionHash | null
-  if (version) {
-    versionHash = version
-  } else {
+  if (!versionHash) {
     versionHash = await kv.get<CityVersionHash>(kvKeys.cityLatest(slug))
   }
 

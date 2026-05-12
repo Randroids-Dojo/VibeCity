@@ -114,7 +114,10 @@ describe('DEMO_CITY composition', () => {
   })
 })
 
-const fake = new FakeKv()
+// Re-bound per test in beforeEach so each case gets a fresh KV. The
+// vi.mock factory closes over the `fake` binding so reassigning it
+// before each test makes the new instance visible to loadCity.
+let fake = new FakeKv()
 
 vi.mock('@/lib/cityKv', async () => {
   const actual =
@@ -125,11 +128,11 @@ vi.mock('@/lib/cityKv', async () => {
 describe('loadCity demo bypass', () => {
   let snap: Record<string, string | undefined>
 
-  beforeEach(async () => {
+  beforeEach(() => {
     snap = snapshotEnv()
     process.env.KV_REST_API_URL = 'http://fake'
     process.env.KV_REST_API_TOKEN = 'fake'
-    await fake.del(kvKeys.cityLatest(DEMO_SLUG))
+    fake = new FakeKv()
   })
 
   afterEach(() => {
