@@ -144,6 +144,9 @@ describe('loadCity demo bypass', () => {
     const result = await loadCity(DEMO_SLUG)
     expect(result.city).toEqual(DEMO_CITY)
     expect(result.versionHash).toBeNull()
+    // The returned payload must be a distinct object so a caller that
+    // mutates it cannot corrupt the shared module singleton.
+    expect(result.city).not.toBe(DEMO_CITY)
   })
 
   it('returns DEMO_CITY for /demo when KV is not configured', async () => {
@@ -153,6 +156,16 @@ describe('loadCity demo bypass', () => {
     const result = await loadCity(DEMO_SLUG)
     expect(result.city).toEqual(DEMO_CITY)
     expect(result.versionHash).toBeNull()
+    expect(result.city).not.toBe(DEMO_CITY)
+  })
+
+  it('clones DEMO_CITY deeply so mutating the returned payload leaves the bundle intact', async () => {
+    const { loadCity } = await import('@/lib/loadCity')
+    const originalPieceCount = DEMO_CITY.pieces.length
+    const result = await loadCity(DEMO_SLUG)
+    // Mutate the result and verify the module singleton stays clean.
+    result.city.pieces.pop()
+    expect(DEMO_CITY.pieces).toHaveLength(originalPieceCount)
   })
 
   it('returns the KV-saved fork when /demo has a :latest version stored', async () => {

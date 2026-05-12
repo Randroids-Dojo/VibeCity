@@ -6,13 +6,12 @@ import { DEMO_CITY, DEMO_SLUG } from './demoCity'
  * Read a saved city for a slug (REQ-015).
  *
  * Sequence (matches `docs/gdd/03-persistence.md` Read path):
- *   1. If slug equals `DEMO_SLUG` and no `version` is pinned, return the
- *      bundled `DEMO_CITY` regardless of KV state. Lets the showcase
- *      slug surface a full city in local dev / preview environments
- *      without a configured Upstash binding, and avoids overwriting the
- *      bundled payload when a player saves over the slug (the KV value
- *      will then take precedence on the next read because a pinned
- *      version still flows through the KV branch).
+ *   1. If slug equals `DEMO_SLUG` and no `version` is pinned, return a
+ *      structuredClone of the bundled `DEMO_CITY` only when no value
+ *      exists at `city:${slug}:latest` (or when KV is not configured).
+ *      Once any save lands on the demo slug the `:latest` value wins,
+ *      so the showcase is a fork-on-edit starting point rather than a
+ *      sacred read-only payload.
  *   2. If KV is not configured (`getKv()` returns null), return `EMPTY_CITY`.
  *   3. Read `city:${slug}:latest` to get the active version hash. If absent,
  *      return `EMPTY_CITY`.
