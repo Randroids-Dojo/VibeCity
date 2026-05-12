@@ -74,16 +74,17 @@ export const DEMO_CITY: City = {
     { type: 'straight', row: 7, col: 2, rotation: 0 },
   ],
   buildings: [
-    // Interior buildings across the four placeholder types. Distribution
-    // is sparse so the zone overlay has room to breathe between rooftops.
+    // Interior buildings across the four placeholder types. Eight cells
+    // on a 3x3 lattice inside the loop with the south-east corner cell
+    // (7,7) reserved for the industrial zone overlay so building and
+    // zone cells stay disjoint.
     { type: 'small-house', row: 3, col: 3, rotation: 0 },
-    { type: 'small-house', row: 3, col: 7, rotation: 0 },
     { type: 'shop', row: 3, col: 5, rotation: 0 },
+    { type: 'small-house', row: 3, col: 7, rotation: 0 },
     { type: 'mid-house', row: 5, col: 3, rotation: 0 },
-    { type: 'mid-house', row: 5, col: 7, rotation: 0 },
     { type: 'factory', row: 5, col: 5, rotation: 0 },
+    { type: 'mid-house', row: 5, col: 7, rotation: 0 },
     { type: 'small-house', row: 7, col: 3, rotation: 0 },
-    { type: 'small-house', row: 7, col: 7, rotation: 0 },
     { type: 'shop', row: 7, col: 5, rotation: 0 },
   ],
   mood: {
@@ -192,14 +193,16 @@ export const DEMO_CITY: City = {
       lastAutoBailoutTick: 0,
     },
     services: {
-      // One of each service kind, distributed across the interior so
-      // the coverage overlay paints a useful spread on first paint.
+      // One of each service kind. Anchored on the five free interior
+      // cells along rows 4 and 6 so service buildings never share a
+      // cell with a placeholder building or a zone (verified by the
+      // demoCity overlap audit in the test suite).
       buildings: [
-        { kind: 'police-station', row: 3, col: 5 },
-        { kind: 'fire-station', row: 5, col: 5 },
-        { kind: 'hospital', row: 7, col: 5 },
-        { kind: 'school', row: 5, col: 3 },
-        { kind: 'garbage-depot', row: 5, col: 7 },
+        { kind: 'hospital', row: 4, col: 3 },
+        { kind: 'police-station', row: 4, col: 5 },
+        { kind: 'school', row: 4, col: 7 },
+        { kind: 'fire-station', row: 6, col: 3 },
+        { kind: 'garbage-depot', row: 6, col: 5 },
       ],
     },
     disasters: {
