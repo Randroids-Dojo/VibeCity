@@ -1,16 +1,11 @@
 import { CitySchema, EMPTY_CITY, type City, type Slug } from './schemas'
-import {
-  getKv,
-  hasKvConfigured,
-  kvKeys,
-  type CityVersionHash,
-} from './cityKv'
+import { getKv, kvKeys, type CityVersionHash } from './cityKv'
 
 /**
  * Read a saved city for a slug (REQ-015).
  *
  * Sequence (matches `docs/gdd/03-persistence.md` Read path):
- *   1. If `hasKvConfigured()` is false, return `EMPTY_CITY`.
+ *   1. If KV is not configured (`getKv()` returns null), return `EMPTY_CITY`.
  *   2. Read `city:${slug}:latest` to get the active version hash. If absent,
  *      return `EMPTY_CITY`.
  *   3. Read `city:${slug}:version:${hash}` for the actual payload.
@@ -26,11 +21,10 @@ export async function loadCity(
   slug: Slug,
   version?: CityVersionHash,
 ): Promise<{ city: City; versionHash: CityVersionHash | null }> {
-  if (!hasKvConfigured()) {
+  const kv = getKv()
+  if (!kv) {
     return { city: EMPTY_CITY, versionHash: null }
   }
-
-  const kv = getKv()
 
   let versionHash: CityVersionHash | null
   if (version) {

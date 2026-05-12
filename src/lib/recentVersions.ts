@@ -1,10 +1,5 @@
 import { type Slug } from './schemas'
-import {
-  getKv,
-  hasKvConfigured,
-  kvKeys,
-  type CityVersionHash,
-} from './cityKv'
+import { getKv, kvKeys, type CityVersionHash } from './cityKv'
 import { parseCityVersionHash } from './cityVersion'
 
 /**
@@ -71,9 +66,8 @@ export async function recentVersions(
 ): Promise<CityVersionEntry[]> {
   if (limit <= 0) return []
   const capped = Math.min(limit, MAX_RECENT_VERSIONS_LIMIT)
-  if (!hasKvConfigured()) return []
-
   const kv = getKv()
+  if (!kv) return []
   const raw = await kv.zrange<string[]>(
     kvKeys.cityVersions(slug),
     0,
