@@ -86,6 +86,21 @@ export const DEMO_CITY: City = {
     { type: 'mid-house', row: 5, col: 7, rotation: 0 },
     { type: 'small-house', row: 7, col: 3, rotation: 0 },
     { type: 'shop', row: 7, col: 5, rotation: 0 },
+    // North suburb buildings sit on the residential zone strip from
+    // round 2. The cells have a zone overlay + a building extrusion +
+    // population + power/water/sewage service; that stack is the
+    // canonical "fully serviced residential cell" the engine grows.
+    { type: 'small-house', row: 1, col: 3, rotation: 0 },
+    { type: 'small-house', row: 1, col: 4, rotation: 0 },
+    { type: 'mid-house', row: 1, col: 5, rotation: 0 },
+    { type: 'small-house', row: 1, col: 6, rotation: 0 },
+    { type: 'small-house', row: 1, col: 7, rotation: 0 },
+    // South industrial belt: factory extrusions atop the row-9 zones.
+    { type: 'factory', row: 9, col: 3, rotation: 0 },
+    { type: 'factory', row: 9, col: 4, rotation: 0 },
+    { type: 'factory', row: 9, col: 5, rotation: 0 },
+    { type: 'factory', row: 9, col: 6, rotation: 0 },
+    { type: 'factory', row: 9, col: 7, rotation: 0 },
   ],
   mood: {
     // 'auto' phase-cycles between day and night every
@@ -113,10 +128,11 @@ export const DEMO_CITY: City = {
     },
     population: {
       cells: {
-        // Interior residential cells (urban core). Density 2 holds 12
-        // residents per cell, density 1 holds 4 (per
-        // RESIDENTIAL_CAPACITY_BY_DENSITY).
-        '4,4': { residents: 12, tripDemand: 0 },
+        // Interior residential. (4,4) is the demo's "downtown" cell at
+        // density 3 (40 residents) so the city totals above the 100
+        // milestone on first load; the other corners hold density 2
+        // (12) and the four secondary cells hold density 1 (4).
+        '4,4': { residents: 40, tripDemand: 0 },
         '4,6': { residents: 12, tripDemand: 0 },
         '6,4': { residents: 12, tripDemand: 0 },
         '6,6': { residents: 12, tripDemand: 0 },
@@ -133,20 +149,23 @@ export const DEMO_CITY: City = {
         '1,6': { residents: 4, tripDemand: 0 },
         '1,7': { residents: 4, tripDemand: 0 },
       },
-      // Interior: 4 * 12 + 4 * 4 = 64. North suburb: 5 * 4 = 20.
-      totalPopulation: 12 * 4 + 4 * 4 + 4 * 5,
+      // Interior: 40 + 3*12 + 4*4 = 92. North suburb: 5 * 4 = 20.
+      // Total: 112 residents, past the 100-resident milestone.
+      totalPopulation: 40 + 12 * 3 + 4 * 4 + 4 * 5,
       totalTripDemand: 0,
       cityHappiness: 92,
-      // Past the 40-resident milestone so the dopamine toast pings
+      // Past the 100-resident milestone so the dopamine toast pings
       // immediately rather than waiting on a growth tick.
-      highestMilestoneReached: 40,
+      highestMilestoneReached: 100,
       lastMilestoneTick: 0,
     },
     zones: {
       cells: {
-        // Interior residential cluster, density 2 at the corners of
-        // the 3x3 interior pattern (12 residents each).
-        '4,4': { kind: 'residential', density: 2 },
+        // Interior residential cluster. (4,4) is density 3 (40
+        // residents) as the city's "downtown" cell; the rest of the
+        // interior residential ring stays density 2 + 1 to give the
+        // density overlay a visible gradient on first paint.
+        '4,4': { kind: 'residential', density: 3 },
         '4,6': { kind: 'residential', density: 2 },
         '6,4': { kind: 'residential', density: 2 },
         '6,6': { kind: 'residential', density: 2 },
