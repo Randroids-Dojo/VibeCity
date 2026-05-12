@@ -16,7 +16,7 @@ These directories contain pure helpers that have no dependency on the city schem
 | `physics/` | Pure planar arcade vehicle integrator parameterized via `VehicleTuning` | `vehicle.ts` |
 | `render/` | Pure rendering math (CSS transforms, chase camera, thumbnail projection, three.js defaults, cell-grid helpers, GLB load cache) | `iso/projection.ts`, `iso/rotation.ts`, `cameraRig.ts`, `thumbnail.ts`, `scene.ts`, `grid.ts`, `gltfCache.ts` |
 | `share/` | Slug-based share-URL composition + clipboard-copy FSM | `index.ts` |
-| `storage/` | Generic Upstash Redis client wrapper, SSR-safe localStorage helpers, versioned-envelope schema constructor | `kv.ts`, `localStorage.ts`, `versionedEnvelope.ts` |
+| `storage/` | Generic Upstash Redis client wrapper, versioned-envelope schema constructor. (SSR-safe localStorage helpers retired in F-018 slice 2; consumers call `@randroids-dojo/vibekit`'s `readStorage` / `writeStorage` / `removeStorage` directly.) | `kv.ts`, `versionedEnvelope.ts` |
 | `ui/` | Pure UI state machines + visual constants | `pauseMenu.ts`, `transitionCurtain.ts` |
 
 ## City-specific modules
@@ -32,7 +32,7 @@ These live at the lib root because they are still shared across the city app sur
 | `cityThumbnail.ts` | Walks city pieces + buildings into placements, then delegates to `render/thumbnail.ts` for the home-page recent-card thumbnail. |
 | `cityVersion.ts`, `hashCity.ts`, `loadCity.ts`, `recentSlugs.ts`, `recentVersions.ts`, `schemas.ts` | City persistence, hashing, and zod schemas. |
 | `connectors.ts`, `trackPath.ts`, `wheelContact.ts` | Ports from VibeRacer's piece / track / wheel-contact substrate. |
-| `controlsPersistence.ts` | Persisted controls envelope (REQ-043). Uses `storage/localStorage.ts` for the SSR-safe boundary. |
+| `controlsPersistence.ts` | Persisted controls envelope (REQ-043). Calls `@randroids-dojo/vibekit`'s schema-validated `readStorage` / `writeStorage` / `removeStorage` directly for the SSR-safe boundary. |
 | `sim/` | Sim engine, solvers, schemas. City-coupled. |
 
 ## Wrapping pattern
@@ -43,7 +43,7 @@ Several lib-root modules are city-shaped wrappers around a generic core. The pat
 - `cityThumbnail.ts` -> `render/thumbnail.ts`: city wrapper gathers placements from city pieces + buildings, then delegates to `bboxNormalizedDots`.
 - `builderId.ts` -> `auth/uuidV4.ts`: city wrapper holds the cookie-name constant, delegates the shape check + mint to the generic helpers.
 - `cityKv.ts` -> `storage/kv.ts`: city wrapper owns the key-namespace map, re-exports the lazy Redis client.
-- `controlsPersistence.ts` -> `storage/localStorage.ts`: city wrapper owns the schema + envelope name, delegates SSR-safe storage I/O to the generic helpers.
+- `controlsPersistence.ts` -> `@randroids-dojo/vibekit` `readStorage` / `writeStorage` / `removeStorage`: city wrapper owns the schema + envelope name and delegates SSR-safe + JSON-safe + schema-validated storage I/O to the kit (F-018 umbrella slice 2).
 - `app/[slug]/driveControls.ts` -> `input/vehicleControls.ts` + `physics/vehicle.ts`: city wrapper builds a `VEHICLE_TUNING` object from `CELL_SIZE`-derived constants, pre-binds the lib integrator, re-exports `applyDriveStep` etc. under the same names.
 - `app/[slug]/sceneTransition.ts` -> `ui/transitionCurtain.ts`: city wrapper holds the city target labels + testid prefix, re-exports the visual constants under the v1 `SCENE_TRANSITION_*` names.
 

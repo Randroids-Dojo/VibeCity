@@ -1,9 +1,9 @@
 import { z } from 'zod'
 import {
-  safeLocalStorageGet,
-  safeLocalStorageRemove,
-  safeLocalStorageSet,
-} from './storage/localStorage'
+  readStorage,
+  removeStorage,
+  writeStorage,
+} from '@randroids-dojo/vibekit'
 
 /**
  * Controls persistence layer (REQ-043).
@@ -248,17 +248,12 @@ export function defaultControls(): Controls {
  * it.
  */
 export function loadControls(): Controls {
-  const raw = safeLocalStorageGet(CONTROLS_STORAGE_KEY)
-  if (raw === null) return defaultControls()
-  let parsed: unknown
-  try {
-    parsed = JSON.parse(raw)
-  } catch {
-    return defaultControls()
-  }
-  const envelope = ControlsEnvelopeSchema.safeParse(parsed)
-  if (!envelope.success) return defaultControls()
-  return resolveControls(envelope.data.controls)
+  // Kit's `readStorage` does the SSR check, raw-string read, JSON.parse,
+  // and schema validation in one. Returns `null` on any failure path,
+  // which collapses to the defaults branch below.
+  const envelope = readStorage(CONTROLS_STORAGE_KEY, ControlsEnvelopeSchema)
+  if (envelope === null) return defaultControls()
+  return resolveControls(envelope.controls)
 }
 
 /**
@@ -287,16 +282,20 @@ export function saveControls(patch: ControlsPayload): boolean {
     version: CONTROLS_STORAGE_VERSION,
     controls: next,
   }
-  return safeLocalStorageSet(CONTROLS_STORAGE_KEY, JSON.stringify(envelope))
+  return writeStorage(CONTROLS_STORAGE_KEY, envelope)
 }
 
 /**
  * Remove the persisted controls envelope from localStorage. Future
- * reads return defaults. Returns `true` on a successful clear, `false`
- * on the server or when the storage call throws.
+ * reads return defaults. Returns `true` on the client (the kit's
+ * `removeStorage` silently swallows quota / disabled-storage errors
+ * so the boolean cannot meaningfully distinguish thrown vs. happy
+ * paths) and `false` on the server (SSR).
  */
 export function clearControls(): boolean {
-  return safeLocalStorageRemove(CONTROLS_STORAGE_KEY)
+  if (typeof window === 'undefined') return false
+  removeStorage(CONTROLS_STORAGE_KEY)
+  return true
 }
 
 /**
@@ -307,15 +306,7 @@ export function clearControls(): boolean {
  * not need this for runtime reads (use `loadControls` instead).
  */
 function readPersistedPayload(): ControlsPayload {
-  const raw = safeLocalStorageGet(CONTROLS_STORAGE_KEY)
-  if (raw === null) return {}
-  let parsed: unknown
-  try {
-    parsed = JSON.parse(raw)
-  } catch {
-    return {}
-  }
-  const envelope = ControlsEnvelopeSchema.safeParse(parsed)
-  if (!envelope.success) return {}
-  return envelope.data.controls
+  const envelope = readStorage(CONTROLS_STORAGE_KEY, ControlsEnvelopeSchema)
+  if (envelope === null) return {}
+  return envelope.controls
 }
