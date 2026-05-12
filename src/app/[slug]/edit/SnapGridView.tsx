@@ -1,11 +1,12 @@
 import type { PointerEvent as ReactPointerEvent, WheelEvent as ReactWheelEvent } from 'react'
 import type { City, PieceType, Rotation } from '@/lib/schemas'
-import type {
-  DisastersBucket,
-  PowerBucket,
-  ServicesBucket,
-  WaterBucket,
-  ZonesBucket,
+import {
+  MIN_SERVICES_FOR_GROWTH,
+  type DisastersBucket,
+  type PowerBucket,
+  type ServicesBucket,
+  type WaterBucket,
+  type ZonesBucket,
 } from '@/lib/sim/state'
 import { solvePowerStatus, type CellPowerStatus } from '@/lib/sim/powerSolver'
 import {
@@ -572,6 +573,27 @@ export function SnapGrid({
               zones,
               power ?? { plants: [], lines: {} },
             )
+            // Per-cell growth-gate diagnostic (REQ-081 / REQ-090 /
+            // REQ-100). Mirrors the same activation rules
+            // `maybeGrowZones` uses at the call site: each gate only
+            // fires when the city has the matching infrastructure
+            // built out. The composite `data-zone-growth-blocked`
+            // attribute below is `true` when any of the three
+            // per-cell gates fails for an under-cap cell, so the
+            // editor surfaces WHY a powered + maxed-out zone is or
+            // is not advancing without the player having to read
+            // three separate attributes.
+            const hasPowerInfrastructure =
+              (power?.plants.length ?? 0) > 0 ||
+              Object.keys(power?.lines ?? {}).length > 0
+            const hasWaterInfrastructure =
+              (water?.sources.length ?? 0) > 0 ||
+              Object.keys(water?.pipes ?? {}).length > 0
+            const distinctServiceKinds = new Set(
+              (services?.buildings ?? []).map((b) => b.kind),
+            )
+            const servicesGateActive =
+              distinctServiceKinds.size >= MIN_SERVICES_FOR_GROWTH
             const servicesCoverage = solveServicesCoverage(
               zones,
               services ?? { buildings: [] },
@@ -619,6 +641,22 @@ export function SnapGrid({
                 !coverage?.['fire-station']
               const isAbandoned =
                 zone.density === 0 && abandonedCellKeys?.has(key) === true
+              // Per-cell growth gate evaluation. Cells already at
+              // density 3 read `false` because they are at cap, not
+              // blocked. Cells where the relevant infrastructure is
+              // missing read `false` because the gate is inactive
+              // by design (the call site short-circuits the solve).
+              const powerBlocked =
+                hasPowerInfrastructure &&
+                (status === 'brownout' || status === 'unpowered')
+              const waterBlocked =
+                hasWaterInfrastructure &&
+                (wstatus === 'brownout' || wstatus === 'unserved')
+              const servicesBlocked =
+                servicesGateActive && cov < MIN_SERVICES_FOR_GROWTH
+              const growthBlocked =
+                zone.density < 3 &&
+                (powerBlocked || waterBlocked || servicesBlocked)
               const baseStroke =
                 status === 'unpowered'
                   ? ZONE_STROKE[zone.kind]
@@ -638,6 +676,12 @@ export function SnapGrid({
                   data-zone-sewage-status={sstatus}
                   data-zone-fire-risk={isFireRisk ? 'true' : 'false'}
                   data-zone-abandoned={isAbandoned ? 'true' : 'false'}
+                  data-zone-growth-blocked={growthBlocked ? 'true' : 'false'}
+                  data-zone-power-blocked={powerBlocked ? 'true' : 'false'}
+                  data-zone-water-blocked={waterBlocked ? 'true' : 'false'}
+                  data-zone-services-blocked={
+                    servicesBlocked ? 'true' : 'false'
+                  }
                   x={x + 1}
                   y={y + 1}
                   width={CELL_PIXELS - 2}
