@@ -113,11 +113,9 @@ export const DEMO_CITY: City = {
     },
     population: {
       cells: {
-        // Residential cells at density 2 hold 12 residents each (per
-        // RESIDENTIAL_CAPACITY_BY_DENSITY). Commercial / industrial
-        // cells get 0 residents (jobs live on the same cells in their
-        // own sim slice; v1 surfaces residents through the milestone
-        // toast and the editor population readout).
+        // Interior residential cells (urban core). Density 2 holds 12
+        // residents per cell, density 1 holds 4 (per
+        // RESIDENTIAL_CAPACITY_BY_DENSITY).
         '4,4': { residents: 12, tripDemand: 0 },
         '4,6': { residents: 12, tripDemand: 0 },
         '6,4': { residents: 12, tripDemand: 0 },
@@ -126,8 +124,17 @@ export const DEMO_CITY: City = {
         '3,6': { residents: 4, tripDemand: 0 },
         '7,4': { residents: 4, tripDemand: 0 },
         '7,6': { residents: 4, tripDemand: 0 },
+        // North suburb residential. All five density-1 = 4 residents
+        // each. Adjacent to row-0 power lines + coal plant so the
+        // power overlay paints 'powered'.
+        '1,3': { residents: 4, tripDemand: 0 },
+        '1,4': { residents: 4, tripDemand: 0 },
+        '1,5': { residents: 4, tripDemand: 0 },
+        '1,6': { residents: 4, tripDemand: 0 },
+        '1,7': { residents: 4, tripDemand: 0 },
       },
-      totalPopulation: 12 * 4 + 4 * 4,
+      // Interior: 4 * 12 + 4 * 4 = 64. North suburb: 5 * 4 = 20.
+      totalPopulation: 12 * 4 + 4 * 4 + 4 * 5,
       totalTripDemand: 0,
       cityHappiness: 92,
       // Past the 40-resident milestone so the dopamine toast pings
@@ -137,8 +144,8 @@ export const DEMO_CITY: City = {
     },
     zones: {
       cells: {
-        // Residential cluster at the four corners of the interior 3x3
-        // pattern (density 2 = 12 residents each).
+        // Interior residential cluster, density 2 at the corners of
+        // the 3x3 interior pattern (12 residents each).
         '4,4': { kind: 'residential', density: 2 },
         '4,6': { kind: 'residential', density: 2 },
         '6,4': { kind: 'residential', density: 2 },
@@ -147,27 +154,55 @@ export const DEMO_CITY: City = {
         '3,6': { kind: 'residential', density: 1 },
         '7,4': { kind: 'residential', density: 1 },
         '7,6': { kind: 'residential', density: 1 },
-        // Commercial along the middle row interior.
+        // Interior commercial along the middle row.
         '5,4': { kind: 'commercial', density: 1 },
         '5,6': { kind: 'commercial', density: 1 },
-        // Industrial on the south-east outskirts.
+        // Interior industrial on the south-east corner.
         '6,7': { kind: 'industrial', density: 1 },
         '7,7': { kind: 'industrial', density: 1 },
+        // North suburb residential strip (row 1, cols 3..7). Adjacent
+        // to row-0 power lines + coal plant so the power overlay
+        // paints 'powered' on first load.
+        '1,3': { kind: 'residential', density: 1 },
+        '1,4': { kind: 'residential', density: 1 },
+        '1,5': { kind: 'residential', density: 1 },
+        '1,6': { kind: 'residential', density: 1 },
+        '1,7': { kind: 'residential', density: 1 },
+        // South industrial belt (row 9, cols 3..7). Adjacent to
+        // row-10 power lines + solar plant.
+        '9,3': { kind: 'industrial', density: 1 },
+        '9,4': { kind: 'industrial', density: 1 },
+        '9,5': { kind: 'industrial', density: 1 },
+        '9,6': { kind: 'industrial', density: 1 },
+        '9,7': { kind: 'industrial', density: 1 },
       },
     },
     power: {
-      // Coal plant north of the loop; solar plant south of the loop.
-      // Anchor cells use the bottom-right of each plant's 2x2 canonical
-      // footprint per REQ-085. Power lines are intentionally empty for
-      // v1; placing them requires a connected-component walk to a zone
-      // that this demo leaves to a follow-on slice (the existing power
-      // status overlay reads 'powered' from the solver, so v1 zones
-      // render as 'unpowered' until lines + grid solver ship).
+      // Coal plant north of the loop (row 0) feeds the north suburb;
+      // solar plant south of the loop (row 10) feeds the south
+      // industrial belt. v1 records plant anchors as single cells
+      // (the 2x2 footprint resolution lands with REQ-085 slice 3).
       plants: [
         { kind: 'coal', row: 0, col: 5 },
         { kind: 'solar', row: 10, col: 5 },
       ],
-      lines: {},
+      // Transmission lines extend each plant along its row so every
+      // outskirts zone cell on the matching row is 4-adjacent to at
+      // least one line or plant cell, which makes the power solver
+      // mark them 'powered'. Interior zones inside the loop stay
+      // 'unpowered' because the ring blocks line routing without
+      // overlapping piece cells; that follow-on lands when the
+      // editor's line-placement validator ships.
+      lines: {
+        '0,3': true,
+        '0,4': true,
+        '0,6': true,
+        '0,7': true,
+        '10,3': true,
+        '10,4': true,
+        '10,6': true,
+        '10,7': true,
+      },
     },
     water: {
       // Water tower west of the loop, sewage treatment east. v1 pipes
