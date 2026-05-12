@@ -122,7 +122,17 @@ let fake = new FakeKv()
 vi.mock('@/lib/cityKv', async () => {
   const actual =
     await vi.importActual<typeof import('@/lib/cityKv')>('@/lib/cityKv')
-  return { ...actual, getKv: () => fake }
+  // Respect env so the "KV not configured" branch in loadCity is
+  // genuinely exercised when a test deletes the env vars. Without this
+  // gate the mock would always hand back the fake and the
+  // !kv branch in loadCity would never fire from this suite.
+  return {
+    ...actual,
+    getKv: () =>
+      process.env.KV_REST_API_URL && process.env.KV_REST_API_TOKEN
+        ? fake
+        : null,
+  }
 })
 
 describe('loadCity demo bypass', () => {
