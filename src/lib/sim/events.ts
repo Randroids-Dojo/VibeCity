@@ -8,6 +8,7 @@ import { applyFloodDamage } from './floodDamage'
 import { applyMonsterDamage } from './monsterDamage'
 import { solvePowerStatus, type CellPowerStatus } from './powerSolver'
 import { solveSewageStatus } from './sewageSolver'
+import { solveWaterStatus, type CellWaterStatus } from './waterSolver'
 import { cellCoverage, coverageCount } from './servicesSolver'
 import { applyTornadoDamage } from './tornadoDamage'
 import {
@@ -573,24 +574,31 @@ function applyTick(state: SimState, event: TickEvent): SimState {
     state.disasters,
     nextTick,
   )
-  // Power status feeds the per-cell growth gate (REQ-081 power
-  // gating). The solver only runs when the city actually has power
-  // infrastructure; an empty `{}` passes through `maybeGrowZones`
-  // as "no gate" so a pre-electrical city (no plants, no lines)
-  // grows the way it did before this slice landed. Solving against
-  // the post-damage zones bucket lines up the powered cells with the
-  // same densities `maybeGrowZones` will read.
+  // Power and water status feed the per-cell growth gates (REQ-081).
+  // Each solver only runs when the city actually has the matching
+  // infrastructure; an empty `{}` passes through `maybeGrowZones` as
+  // "no gate" so a pre-electrical / pre-plumbing city grows the way
+  // it did before these slices landed. Solving against the post-
+  // damage zones bucket lines up the served cells with the same
+  // densities `maybeGrowZones` will read.
   const hasPowerInfrastructure =
     state.power.plants.length > 0 ||
     Object.keys(state.power.lines).length > 0
   const powerStatus: Record<string, CellPowerStatus> = hasPowerInfrastructure
     ? solvePowerStatus(floodDamagedZones, state.power)
     : {}
+  const hasWaterInfrastructure =
+    state.water.sources.length > 0 ||
+    Object.keys(state.water.pipes).length > 0
+  const waterStatus: Record<string, CellWaterStatus> = hasWaterInfrastructure
+    ? solveWaterStatus(floodDamagedZones, state.water)
+    : {}
   const nextZones = maybeGrowZones(
     floodDamagedZones,
     nextTick,
     state.population.cityHappiness,
     powerStatus,
+    waterStatus,
   )
   // Tornado damage (REQ-105 slice 7). Erases sim-state infrastructure
   // (power line / plant, water source / pipe / treatment plant,
@@ -1088,13 +1096,15 @@ export function syncPopulationToZones(
  * Three-tier feedback loop driven by `cityHappiness`:
  *
  *   - happy band (`> GROWTH_HAPPINESS_THRESHOLD`): every density-<3
- *     cell advances by 1 unless the cell's `powerStatus` entry is
- *     `'brownout'` or `'unpowered'`, in which case it stalls at the
- *     current density. A missing `powerStatus[key]` (undefined) is
- *     treated as "no gate" so a pre-electrical city (no plants, no
- *     lines) grows the way it did before the gate landed; the call
- *     site short-circuits the solve and passes an empty `{}` in that
- *     case.
+ *     cell advances by 1 unless the cell is blocked by a per-cell
+ *     supply gate. A cell is blocked when `powerStatus[key]` is
+ *     `'brownout'` or `'unpowered'`, OR when `waterStatus[key]` is
+ *     `'brownout'` or `'unserved'`. Either gate alone is enough to
+ *     stall growth. A missing entry (undefined) is treated as "no
+ *     gate" so a pre-electrical / pre-plumbing city (no plants /
+ *     lines / sources / pipes) grows the way it did before the
+ *     gates landed; the call site short-circuits the solve and
+ *     passes an empty `{}` in that case.
  *   - stagnant band (`(DECLINE_HAPPINESS_THRESHOLD, GROWTH_HAPPINESS_THRESHOLD]`):
  *     density holds; the city neither grows nor decays.
  *   - miserable band (`<= DECLINE_HAPPINESS_THRESHOLD`): every
@@ -1110,14 +1120,15 @@ export function syncPopulationToZones(
  * at 0).
  *
  * Deterministic: replay over the same event log produces the same
- * growth / decline at the same ticks. Per-cell water (REQ-090) and
- * services (REQ-100) gates stay a follow-on slice.
+ * growth / decline at the same ticks. Per-cell services (REQ-100)
+ * gate stays a follow-on slice.
  */
 export function maybeGrowZones(
   zones: ZonesBucket,
   tick: number,
   cityHappiness: number,
   powerStatus: Record<string, CellPowerStatus>,
+  waterStatus: Record<string, CellWaterStatus>,
 ): ZonesBucket {
   if (tick <= 0 || tick % GROWTH_INTERVAL_TICKS !== 0) return zones
   const cellKeys = Object.keys(zones.cells)
@@ -1144,8 +1155,13 @@ export function maybeGrowZones(
       nextCells[key] = cell
       continue
     }
-    const status = powerStatus[key]
-    if (status === 'brownout' || status === 'unpowered') {
+    const power = powerStatus[key]
+    if (power === 'brownout' || power === 'unpowered') {
+      nextCells[key] = cell
+      continue
+    }
+    const water = waterStatus[key]
+    if (water === 'brownout' || water === 'unserved') {
       nextCells[key] = cell
       continue
     }

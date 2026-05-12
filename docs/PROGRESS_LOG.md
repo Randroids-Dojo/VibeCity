@@ -16,6 +16,16 @@ Format for each slice:
 - Followups: any new `F-NNN` entries created. Link to them.
 ```
 
+## 2026-05-12, REQ-090 Per-Cell Water Growth Gate
+
+- Branch: `feature/20260512-req090-water-gating`
+- PR: TBD
+- Changed: Extended `maybeGrowZones(zones, tick, cityHappiness, powerStatus, waterStatus)` in `src/lib/sim/events.ts` with a second per-cell supply gate parallel to the power gate. In the happy band, cells whose `waterStatus[key]` is `'brownout'` or `'unserved'` stall at their current density; the two gates run in series so a cell needs BOTH powered AND served to advance. A missing entry (undefined) on either status remains "no gate" so a city without the matching infrastructure grows the way it did before this slice; the call site short-circuits the solver when `water.sources.length === 0 && Object.keys(water.pipes).length === 0`. Demo city payoff: the 10 outskirts cells (rows 1, 9) are both powered and served (water-tower + pump-station + row-0/10 water pipes) so they continue to grow; the 12 interior cells inside the loop ring still stall because they are unpowered, and would also be unserved if they were powered.
+- Verification: `npm run check:dashes` clean. `npm run type-check` clean. `npm test` 2541 / 2541 across 88 files (+6 new water-gate cases: back-compat no-water city grows, served cell advances + unserved stalls, mid-game pipe-erase stalls a growing cell, water-only gate stalls a powered cell, both-gates-passing advance, water brownout blocks). `npm run build` green.
+- Assumptions: The two gates run in series (logical AND). A future "growth needs ANY supply, not ALL" semantics would change the gate to OR; v1 picks AND because the GDD describes power and water as separate prerequisites, not interchangeable substitutes.
+- GDD coverage: REQ-090 picks up `src/lib/sim/events.ts` as a new implementation ref and `tests/lib/sim/events.test.ts` as a new test ref. REQ-081 stays `partial` (services per-cell gate remains).
+- Followups: None new.
+
 ## 2026-05-12, REQ-081 Per-Cell Power Growth Gate
 
 - Branch: `feature/20260512-req081-power-gating`

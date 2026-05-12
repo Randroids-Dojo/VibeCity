@@ -1212,7 +1212,7 @@ describe('applySimEvent', () => {
           '0,1': { kind: 'commercial' as const, density: 0 as const },
         },
       }
-      const next = maybeGrowZones(zones, 20, 10, {})
+      const next = maybeGrowZones(zones, 20, 10, {}, {})
       expect(next).toBe(zones)
     })
 
@@ -1410,7 +1410,7 @@ describe('applySimEvent', () => {
         },
       }
       const powerStatus = { '0,0': 'unpowered' as const }
-      const next = maybeGrowZones(zones, 20, 10, powerStatus)
+      const next = maybeGrowZones(zones, 20, 10, powerStatus, {})
       expect(next.cells['0,0']?.density).toBe(0)
     })
 
@@ -1428,7 +1428,7 @@ describe('applySimEvent', () => {
         '0,0': 'powered' as const,
         '5,5': 'unpowered' as const,
       }
-      const next = maybeGrowZones(zones, 20, 100, powerStatus)
+      const next = maybeGrowZones(zones, 20, 100, powerStatus, {})
       expect(next.cells['0,0']?.density).toBe(2)
       expect(next.cells['5,5']?.density).toBe(1)
     })
@@ -1440,7 +1440,143 @@ describe('applySimEvent', () => {
         },
       }
       const powerStatus = { '0,0': 'brownout' as const }
-      const next = maybeGrowZones(zones, 20, 100, powerStatus)
+      const next = maybeGrowZones(zones, 20, 100, powerStatus, {})
+      expect(next).toBe(zones)
+    })
+  })
+
+  describe('per-tick zone growth water gating (REQ-090 water gate)', () => {
+    function tickN(times: number, start: SimState): SimState {
+      let s = start
+      for (let i = 0; i < times; i++) {
+        s = applySimEvent(s, {
+          type: 'tick',
+          payload: { deltaMs: 250 },
+          clientCreatedAt: i,
+          authorBuilderId: A_BUILDER,
+        })
+      }
+      return s
+    }
+
+    function placeZone(
+      kind: 'residential' | 'commercial' | 'industrial',
+      row: number,
+      col: number,
+    ): SimEvent {
+      return {
+        type: 'placeZone',
+        payload: { kind, row, col },
+        clientCreatedAt: 0,
+        authorBuilderId: A_BUILDER,
+      }
+    }
+
+    function placeWaterSource(
+      kind: 'water-tower' | 'pump-station',
+      row: number,
+      col: number,
+    ): SimEvent {
+      return {
+        type: 'placeWaterSource',
+        payload: { kind, row, col },
+        clientCreatedAt: 0,
+        authorBuilderId: A_BUILDER,
+      }
+    }
+
+    function runWaterPipe(row: number, col: number): SimEvent {
+      return {
+        type: 'runWaterPipe',
+        payload: { kind: 'water', row, col },
+        clientCreatedAt: 0,
+        authorBuilderId: A_BUILDER,
+      }
+    }
+
+    function eraseWaterPipeEvent(row: number, col: number): SimEvent {
+      return {
+        type: 'eraseWaterPipe',
+        payload: { row, col },
+        clientCreatedAt: 1,
+        authorBuilderId: A_BUILDER,
+      }
+    }
+
+    it('city with no water infrastructure grows normally (back-compat)', () => {
+      let s = applySimEvent(EMPTY_SIM_STATE, placeZone('residential', 0, 0))
+      s = tickN(20, s)
+      expect(s.zones.cells['0,0']?.density).toBe(1)
+    })
+
+    it('served residential cell advances; unserved residential stalls', () => {
+      let s = applySimEvent(EMPTY_SIM_STATE, placeZone('residential', 0, 0))
+      s = applySimEvent(s, placeWaterSource('water-tower', 0, 1))
+      s = applySimEvent(s, placeZone('residential', 5, 5))
+      s = tickN(20, s)
+      expect(s.zones.cells['0,0']?.density).toBe(1)
+      expect(s.zones.cells['5,5']?.density).toBe(0)
+    })
+
+    it('cutting water mid-game stalls a previously-growing cell', () => {
+      let s = applySimEvent(EMPTY_SIM_STATE, placeZone('residential', 0, 0))
+      s = applySimEvent(s, placeWaterSource('water-tower', 0, 3))
+      s = applySimEvent(s, runWaterPipe(0, 1))
+      s = applySimEvent(s, runWaterPipe(0, 2))
+      s = tickN(40, s)
+      expect(s.zones.cells['0,0']?.density).toBe(2)
+      s = applySimEvent(s, eraseWaterPipeEvent(0, 1))
+      s = tickN(20, s)
+      expect(s.zones.cells['0,0']?.density).toBe(2)
+    })
+
+    it('water-only gate: powered + unserved cell stalls (direct unit call)', () => {
+      // Both gates run in series. A cell with powered=powered but
+      // waterStatus=unserved must still stall.
+      const zones = {
+        cells: {
+          '0,0': { kind: 'residential' as const, density: 1 as const },
+        },
+      }
+      const next = maybeGrowZones(
+        zones,
+        20,
+        100,
+        { '0,0': 'powered' as const },
+        { '0,0': 'unserved' as const },
+      )
+      expect(next).toBe(zones)
+    })
+
+    it('both gates passing: powered + served cell advances', () => {
+      const zones = {
+        cells: {
+          '0,0': { kind: 'residential' as const, density: 1 as const },
+        },
+      }
+      const next = maybeGrowZones(
+        zones,
+        20,
+        100,
+        { '0,0': 'powered' as const },
+        { '0,0': 'served' as const },
+      )
+      expect(next.cells['0,0']?.density).toBe(2)
+    })
+
+    it('water brownout blocks growth same as unserved', () => {
+      const zones = {
+        cells: {
+          '0,0': { kind: 'residential' as const, density: 1 as const },
+        },
+      }
+      const next = maybeGrowZones(
+        zones,
+        20,
+        100,
+        {},
+        { '0,0': 'brownout' as const },
+      )
       expect(next).toBe(zones)
     })
   })
