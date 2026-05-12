@@ -395,39 +395,38 @@ test('demo drive route mounts the car and pressing throttle moves it (F-008)', a
   await page.keyboard.press('Escape')
   await expect(root).toHaveAttribute('data-pause-state', 'running')
 
-  // Wait for the car-x / car-z mirrors to mount. The per-frame
+  // Wait for both car-x and car-z mirrors to mount. The per-frame
   // attribute write only fires after the first integrator tick, so
   // we poll for any non-null value before snapshotting the initial
   // position.
   await expect
-    .poll(async () => await root.getAttribute('data-car-x'))
-    .not.toBeNull()
+    .poll(async () => ({
+      x: await root.getAttribute('data-car-x'),
+      z: await root.getAttribute('data-car-z'),
+    }))
+    .toEqual(expect.objectContaining({ x: expect.any(String), z: expect.any(String) }))
   const initialX = await root.getAttribute('data-car-x')
   const initialZ = await root.getAttribute('data-car-z')
 
-  // Hold throttle long enough that the integrator advances past
-  // any sub-millimeter rounding into the third decimal place that
-  // `data-car-x` / `data-car-z` mirror. The kinematic integrator
-  // accelerates from rest so a short hold is enough.
+  // Hold throttle and poll for movement WHILE the key is still down.
+  // The speed mirror decelerates back to zero in milliseconds after
+  // keyup, so a poll that runs after `page.keyboard.up` is racing
+  // against the integrator and flakes in slower CI environments.
   await page.keyboard.down('KeyW')
-  await page.waitForTimeout(1000)
-  await page.keyboard.up('KeyW')
-
-  await expect
-    .poll(async () => {
-      const x = await root.getAttribute('data-car-x')
-      const z = await root.getAttribute('data-car-z')
-      return x !== initialX || z !== initialZ
-    })
-    .toBe(true)
-
-  // Speed mirror flips off zero while the car is rolling, then drifts
-  // back toward zero after the key is released. The first observation
-  // window is enough to lock the "key press reaches the integrator"
-  // contract; the per-frame deceleration is covered by unit tests.
-  await expect
-    .poll(async () => Number(await root.getAttribute('data-car-speed')))
-    .toBeGreaterThan(0)
+  try {
+    await expect
+      .poll(async () => {
+        const x = await root.getAttribute('data-car-x')
+        const z = await root.getAttribute('data-car-z')
+        return x !== initialX || z !== initialZ
+      })
+      .toBe(true)
+    await expect
+      .poll(async () => Number(await root.getAttribute('data-car-speed')))
+      .toBeGreaterThan(0)
+  } finally {
+    await page.keyboard.up('KeyW')
+  }
 })
 
 test('drive route sets the per-slug document title (REQ-006, REQ-053)', async ({

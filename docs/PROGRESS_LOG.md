@@ -19,7 +19,7 @@ Format for each slice:
 ## 2026-05-12, E2E Visible Movement Against Demo City (F-008)
 
 - Branch: `feature/20260512-e2e-demo-drive`
-- PR: TBD
+- PR: #225
 - Changed: Extended `e2e/drive.spec.ts` with a new `F-008` spec that navigates to `/demo/drive`, asserts the populated branch (`data-vehicle="true"`, `data-controls-active="true"`, `data-camera-mode="chase"`), presses Escape to unpause the press-to-start menu, then holds the throttle (`KeyW`) for 1s and polls `data-car-x` / `data-car-z` / `data-car-speed` to assert the integrator actually moved the car. Closes F-008 because the demo's KV bypass (slug `demo` returns `DEMO_CITY` directly when no save exists) gives the playwright webServer a populated city without any fixture wiring.
 - Verification: `npm run check:dashes` clean. `npm run type-check` clean. `npx playwright test -g "F-008"` passes locally (11.2s). Pre-existing local-env home-spec failure (KV configured in `.env.local` leaks into the webServer) is unrelated to this slice; CI's KV-less environment is what the existing empty-state asserts.
 - Assumptions: The `/demo` route resolves through the slug router's standard drive view (no special case), and the spawn anchor is on a piece cell so the placeholder car mounts without falling off the grid before the first throttle tick.
