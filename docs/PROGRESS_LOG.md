@@ -16,6 +16,16 @@ Format for each slice:
 - Followups: any new `F-NNN` entries created. Link to them.
 ```
 
+## 2026-05-12, REQ-100 Per-Cell Services Growth Gate
+
+- Branch: `feature/20260512-req100-services-gating`
+- PR: #228
+- Changed: Completes the three-gate trilogy started by REQ-081 (power) and REQ-090 (water). New `MIN_SERVICES_FOR_GROWTH = 3` constant in `src/lib/sim/state.ts`. `maybeGrowZones(zones, tick, cityHappiness, powerStatus, waterStatus, servicesCoverageCount)` gains a sixth argument: in the happy band, cells whose `servicesCoverageCount[key]` is less than 3 stall at their current density. The three gates run in series (logical AND), so a cell needs powered + served + 3-of-5-service-kinds covering it to advance. Back-compat: the call site in `applyTick` only solves coverage when the city has at least `MIN_SERVICES_FOR_GROWTH` distinct service kinds placed; a partial network (1 or 2 kinds) is impossible to satisfy by definition, so we skip the gate the same way the power gate skips for empty infrastructure. Demo city payoff: 4 of 5 outskirts cells on each strip grow (3-4 service kinds reach them); the (9,7) corner cell sits at 2/5 coverage and joins the stalled set alongside the unpowered interior.
+- Verification: `npm run check:dashes` clean. `npm run type-check` clean. `npm test` 2547 / 2547 across 88 files (+6 new services-gate cases: gate inactive when < 3 kinds placed, gate active + in-range advances, gate active + out-of-range stalls, direct-unit services-only block, direct-unit all-three-passing advance, direct-unit undefined-count back-compat). `npm run build` green.
+- Assumptions: Threshold is 3 of 5 service kinds (police, fire, hospital, school, garbage). 5/5 would be too strict (no real city covers every cell with every service); 1/5 too lenient. Tunable via the new `MIN_SERVICES_FOR_GROWTH` constant if playtest signal asks for a different cutoff.
+- GDD coverage: REQ-100 picks up `src/lib/sim/events.ts` as a new implementation ref and `tests/lib/sim/events.test.ts` as a new test ref. REQ-081's "supply / demand gating" follow-on slice plan is now complete on the trio (power, water, services); citizen demand gate (REQ-075) remains.
+- Followups: None new.
+
 ## 2026-05-12, REQ-090 Per-Cell Water Growth Gate
 
 - Branch: `feature/20260512-req090-water-gating`

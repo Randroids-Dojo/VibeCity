@@ -255,6 +255,18 @@ export const EMPTY_ZONES_BUCKET: ZonesBucket = Object.freeze({
 export const GROWTH_INTERVAL_TICKS = 20
 
 /**
+ * Minimum number of distinct service kinds (police, fire, hospital,
+ * school, garbage) that must cover a zoned cell before the per-tick
+ * growth reducer (REQ-081 + REQ-100) advances its density. 3 of 5
+ * is the v1 threshold: it lets a cell on the edge of the service
+ * cluster keep growing (matching how a SimCity 2000 zone advances
+ * when most-but-not-all services reach it) while a cell with 2 or
+ * fewer covering service kinds stalls. Tunable in case the demo /
+ * playtest signal asks for a stricter or looser gate.
+ */
+export const MIN_SERVICES_FOR_GROWTH = 3
+
+/**
  * Compose a stable cell key from a `(row, col)` coordinate. Mirrors
  * the existing `"row,col"` convention used by `streetCellSet` and
  * `buildingCellSet` so the zoning layer integrates cleanly with the
