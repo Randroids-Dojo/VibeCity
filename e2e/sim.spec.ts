@@ -552,6 +552,73 @@ test('editor: place plant + line + adjacent zone -> zone shows powered status (R
   )
 })
 
+test('editor: zone-growth-blocked diagnostic flips when power gate activates', async ({
+  page,
+}) => {
+  // REQ-081 / REQ-090 / REQ-100 diagnostic. A composite
+  // `data-zone-growth-blocked` attribute mirrors the three per-cell
+  // gates so the editor surfaces WHY a sub-cap zone is or is not
+  // advancing. With no power infrastructure, the power gate is
+  // inactive and the cell reads `false` (not blocked). Placing a
+  // plant + line far from the zone activates the gate without
+  // covering the cell, flipping the readout to `true`.
+  await page.route('**/api/city/**', async (route, req) => {
+    if (req.method() === 'PUT') {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          slug: 'sim-growth-blocked-spec',
+          versionHash: '0'.repeat(64),
+          updatedAt: 0,
+        }),
+      })
+    } else {
+      await route.fallback()
+    }
+  })
+
+  await page.goto('/sim-growth-blocked-spec/edit')
+  await page.getByTestId('editor-sim-speed-0').click()
+
+  // Paint a residential zone at (0, 5).
+  await page.getByTestId('editor-palette-category-zone').click()
+  await page
+    .locator(
+      '[data-testid="editor-snap-grid"] rect[data-cell-row="0"][data-cell-col="5"]',
+    )
+    .click()
+  const zoneOverlay = page.locator(
+    '[data-testid="editor-zone-overlay"][data-zone-row="0"][data-zone-col="5"]',
+  )
+  // No power infrastructure yet: gate inactive, cell not blocked.
+  await expect(zoneOverlay).toHaveAttribute(
+    'data-zone-growth-blocked',
+    'false',
+  )
+  await expect(zoneOverlay).toHaveAttribute('data-zone-power-blocked', 'false')
+
+  // Place a coal plant far from (0, 5). The power gate activates,
+  // and because (0, 5) is not 4-adjacent to the plant, the cell now
+  // reads as power-blocked and growth-blocked.
+  await page.getByTestId('editor-palette-category-power').click()
+  await page.getByTestId('editor-palette').locator('[data-power-tool="plant-coal"]').click()
+  await page
+    .locator(
+      '[data-testid="editor-snap-grid"] rect[data-cell-row="0"][data-cell-col="0"]',
+    )
+    .click()
+
+  await expect(zoneOverlay).toHaveAttribute(
+    'data-zone-power-blocked',
+    'true',
+  )
+  await expect(zoneOverlay).toHaveAttribute(
+    'data-zone-growth-blocked',
+    'true',
+  )
+})
+
 test('editor: zone coverage count climbs as services are placed nearby (REQ-101)', async ({
   page,
 }) => {
