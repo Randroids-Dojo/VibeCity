@@ -6,6 +6,7 @@ import { computeFireAutoSpawn } from './fireAutoSpawn'
 import { computeFireSpread } from './fireSpread'
 import { applyFloodDamage } from './floodDamage'
 import { applyMonsterDamage } from './monsterDamage'
+import { solvePowerStatus, type CellPowerStatus } from './powerSolver'
 import { solveSewageStatus } from './sewageSolver'
 import { cellCoverage, coverageCount } from './servicesSolver'
 import { applyTornadoDamage } from './tornadoDamage'
@@ -572,10 +573,24 @@ function applyTick(state: SimState, event: TickEvent): SimState {
     state.disasters,
     nextTick,
   )
+  // Power status feeds the per-cell growth gate (REQ-081 power
+  // gating). The solver only runs when the city actually has power
+  // infrastructure; an empty `{}` passes through `maybeGrowZones`
+  // as "no gate" so a pre-electrical city (no plants, no lines)
+  // grows the way it did before this slice landed. Solving against
+  // the post-damage zones bucket lines up the powered cells with the
+  // same densities `maybeGrowZones` will read.
+  const hasPowerInfrastructure =
+    state.power.plants.length > 0 ||
+    Object.keys(state.power.lines).length > 0
+  const powerStatus: Record<string, CellPowerStatus> = hasPowerInfrastructure
+    ? solvePowerStatus(floodDamagedZones, state.power)
+    : {}
   const nextZones = maybeGrowZones(
     floodDamagedZones,
     nextTick,
     state.population.cityHappiness,
+    powerStatus,
   )
   // Tornado damage (REQ-105 slice 7). Erases sim-state infrastructure
   // (power line / plant, water source / pipe / treatment plant,
@@ -1073,28 +1088,36 @@ export function syncPopulationToZones(
  * Three-tier feedback loop driven by `cityHappiness`:
  *
  *   - happy band (`> GROWTH_HAPPINESS_THRESHOLD`): every density-<3
- *     cell advances by 1 (unchanged from slice 1 / 2).
+ *     cell advances by 1 unless the cell's `powerStatus` entry is
+ *     `'brownout'` or `'unpowered'`, in which case it stalls at the
+ *     current density. A missing `powerStatus[key]` (undefined) is
+ *     treated as "no gate" so a pre-electrical city (no plants, no
+ *     lines) grows the way it did before the gate landed; the call
+ *     site short-circuits the solve and passes an empty `{}` in that
+ *     case.
  *   - stagnant band (`(DECLINE_HAPPINESS_THRESHOLD, GROWTH_HAPPINESS_THRESHOLD]`):
  *     density holds; the city neither grows nor decays.
  *   - miserable band (`<= DECLINE_HAPPINESS_THRESHOLD`): every
  *     zoned cell with density > 0 steps DOWN by 1 regardless of
- *     kind (commercial / industrial occupants leave too, not only
- *     residential). The cell stays zoned at density 0 so the player
- *     can recover the city without re-painting.
+ *     power status, because the decline branch reads cityHappiness
+ *     (which already aggregates power-related signals via the
+ *     coverage / abandonment math) and dropping density is the
+ *     uniform "residents leave" response.
  *
  * Returns the input bucket unchanged when this tick is not a growth
  * tick or the band's transformation is a no-op (happy + everything
- * already at max, or miserable + everything already at 0).
+ * already at max-or-unpowered, or miserable + everything already
+ * at 0).
  *
  * Deterministic: replay over the same event log produces the same
- * growth / decline at the same ticks. Per-cell supply / demand
- * gating from power (REQ-085), water (REQ-090), and services
- * (REQ-100) layers stays a follow-on slice.
+ * growth / decline at the same ticks. Per-cell water (REQ-090) and
+ * services (REQ-100) gates stay a follow-on slice.
  */
 export function maybeGrowZones(
   zones: ZonesBucket,
   tick: number,
   cityHappiness: number,
+  powerStatus: Record<string, CellPowerStatus>,
 ): ZonesBucket {
   if (tick <= 0 || tick % GROWTH_INTERVAL_TICKS !== 0) return zones
   const cellKeys = Object.keys(zones.cells)
@@ -1118,6 +1141,11 @@ export function maybeGrowZones(
       continue
     }
     if (cell.density >= 3) {
+      nextCells[key] = cell
+      continue
+    }
+    const status = powerStatus[key]
+    if (status === 'brownout' || status === 'unpowered') {
       nextCells[key] = cell
       continue
     }
