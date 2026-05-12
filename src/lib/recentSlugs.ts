@@ -1,5 +1,5 @@
 import { SlugSchema, type Slug } from './schemas'
-import { getKv, hasKvConfigured, kvKeys } from './cityKv'
+import { getKv, kvKeys } from './cityKv'
 
 /**
  * Default page size for the home page recently-updated list (REQ-011,
@@ -56,9 +56,8 @@ export async function recentSlugs(
 ): Promise<Slug[]> {
   if (limit <= 0) return []
   const capped = Math.min(limit, MAX_RECENT_SLUGS_LIMIT)
-  if (!hasKvConfigured()) return []
-
   const kv = getKv()
+  if (!kv) return []
   const raw = await kv.zrange<string[]>(
     kvKeys.cityIndex(),
     0,
@@ -105,9 +104,8 @@ export async function recentCities(
 ): Promise<RecentCityEntry[]> {
   if (limit <= 0) return []
   const capped = Math.min(limit, MAX_RECENT_SLUGS_LIMIT)
-  if (!hasKvConfigured()) return []
-
   const kv = getKv()
+  if (!kv) return []
   const raw = await kv.zrange<string[]>(
     kvKeys.cityIndex(),
     0,
@@ -166,8 +164,8 @@ export async function recentCities(
  *     warning so the home page never paints `NaN cities so far`.
  */
 export async function cityIndexCount(): Promise<number> {
-  if (!hasKvConfigured()) return 0
   const kv = getKv()
+  if (!kv) return 0
   const raw = await kv.zcard(kvKeys.cityIndex())
   const count = Number(raw)
   if (!Number.isFinite(count) || count < 0) {

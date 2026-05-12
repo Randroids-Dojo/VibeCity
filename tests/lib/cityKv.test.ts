@@ -1,4 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest'
+import { resetKvForTesting } from '@randroids-dojo/vibekit/server'
 import {
   hasKvConfigured,
   kvKeys,
@@ -27,9 +28,14 @@ describe('hasKvConfigured', () => {
 
   beforeEach(() => {
     snap = snapshotEnv()
+    // Kit's `getKv` caches the resolution across calls; clear the
+    // cache between tests so each env permutation re-reads
+    // `process.env`.
+    resetKvForTesting()
   })
   afterEach(() => {
     restoreEnv(snap)
+    resetKvForTesting()
   })
 
   it('returns false when neither env var is set', () => {
@@ -99,14 +105,26 @@ describe('getKv', () => {
 
   beforeEach(() => {
     snap = snapshotEnv()
+    resetKvForTesting()
   })
   afterEach(() => {
     restoreEnv(snap)
+    resetKvForTesting()
   })
 
-  it('throws when env is unset', () => {
+  // Behavioral delta from the F-018 slice 3 migration: the kit's
+  // `getKv` returns `null` on missing env instead of throwing. Callers
+  // that want a soft fallback branch on the return value directly;
+  // the synonym `hasKvConfigured` is preserved for back-compat.
+  it('returns null when env is unset', () => {
     delete process.env.KV_REST_API_URL
     delete process.env.KV_REST_API_TOKEN
-    expect(() => getKv()).toThrow(/Missing required environment variable/)
+    expect(getKv()).toBeNull()
+  })
+
+  it('returns a client when both env vars are populated', () => {
+    process.env.KV_REST_API_URL = 'https://example.upstash.io'
+    process.env.KV_REST_API_TOKEN = 'tok'
+    expect(getKv()).not.toBeNull()
   })
 })

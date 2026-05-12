@@ -1,7 +1,7 @@
 import { NextResponse, type NextRequest } from 'next/server'
 import { z } from 'zod'
 import { SlugSchema, type Slug } from '@/lib/schemas'
-import { getKv, hasKvConfigured, kvKeys } from '@/lib/cityKv'
+import { getKv, kvKeys } from '@/lib/cityKv'
 import { BUILDER_ID_COOKIE, isValidBuilderId } from '@/lib/builderId'
 import { SimEventSchema, type SimEvent } from '@/lib/sim/events'
 import {
@@ -70,7 +70,8 @@ export async function POST(
   if (!slugParsed.success) return jsonError(400, 'invalid slug')
   const slug: Slug = slugParsed.data
 
-  if (!hasKvConfigured()) {
+  const kv = getKv()
+  if (!kv) {
     return jsonError(503, 'storage unavailable', {
       reason: 'KV not configured',
     })
@@ -96,8 +97,6 @@ export async function POST(
     ...event,
     clientReceivedAt: now,
   }))
-
-  const kv = getKv()
   let nextCursor: number
   try {
     nextCursor = await kv.rpush(
@@ -188,7 +187,8 @@ export async function GET(
   // KV-unconfigured fallback: empty log, empty snapshot. Mirrors
   // loadCity's REQ-015 fallback so the playwright e2e webServer (which
   // runs without KV) returns sane payloads.
-  if (!hasKvConfigured()) {
+  const kv = getKv()
+  if (!kv) {
     return NextResponse.json({
       slug,
       cursor,
@@ -198,8 +198,6 @@ export async function GET(
       snapshotCursor: 0,
     })
   }
-
-  const kv = getKv()
   const stop = cursor + MAX_EVENTS_PER_GET - 1
 
   let raws: string[] = []

@@ -1,19 +1,35 @@
+import { getKv } from '@randroids-dojo/vibekit/server'
 import type { Slug } from './schemas'
 
 /**
  * VibeCity-specific key namespace for the Upstash Redis store. The
- * generic Redis client wrapper (`getKv`, `hasKvConfigured`) lives in
- * `@/lib/storage/kv`; this module owns the `city:`-prefixed key
- * shapes the route handlers and lib helpers use.
+ * generic Redis client wrapper (`getKv`) is sourced from
+ * `@randroids-dojo/vibekit/server`; this module owns the `city:`-
+ * prefixed key shapes the route handlers and lib helpers use plus a
+ * `hasKvConfigured` synonym for the soft-fallback branch.
  *
  * Keep these key strings stable: external tooling (migrations,
  * dashboards) reads them literally.
  */
 
-// Re-export the storage-layer wrappers for backwards-compatible import
-// shape. Callers that only need the city keys should import from this
-// module; new generic callers can import directly from `@/lib/storage/kv`.
-export { getKv, hasKvConfigured } from './storage/kv'
+// Re-export the kit's lazy singleton so existing callers keep the same
+// import path. The kit returns `null` on missing env (no throw); the
+// `hasKvConfigured` helper below preserves the boolean-check ergonomic
+// for callers that branched on it before the migration.
+export { getKv } from '@randroids-dojo/vibekit/server'
+
+/**
+ * Boolean-check synonym for `getKv() !== null`. Preserves the public
+ * API the route handlers and lib helpers branched on before the F-018
+ * slice 3 migration. The kit collapsed the two-call pattern
+ * `if (!hasKvConfigured()) return ...; const kv = getKv()` into a
+ * single nullable read; new call sites should prefer `const kv = getKv();
+ * if (!kv) return ...` directly. The kit caches the resolution so
+ * back-to-back calls are cheap.
+ */
+export function hasKvConfigured(): boolean {
+  return getKv() !== null
+}
 
 /**
  * Hash of a city's pieces+buildings (REQ-013). Typed nominally so a raw

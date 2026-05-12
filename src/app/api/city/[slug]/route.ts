@@ -5,12 +5,7 @@ import {
   type Slug,
 } from '@/lib/schemas'
 import { hashCity } from '@/lib/hashCity'
-import {
-  getKv,
-  hasKvConfigured,
-  kvKeys,
-  type CityVersionHash,
-} from '@/lib/cityKv'
+import { getKv, kvKeys, type CityVersionHash } from '@/lib/cityKv'
 import { BUILDER_ID_COOKIE, isValidBuilderId } from '@/lib/builderId'
 import { loadCity } from '@/lib/loadCity'
 import { parseCityVersionHash } from '@/lib/cityVersion'
@@ -85,7 +80,8 @@ export async function PUT(
   if (!slugParsed.success) return jsonError(400, 'invalid slug')
   const slug: Slug = slugParsed.data
 
-  if (!hasKvConfigured()) {
+  const kv = getKv()
+  if (!kv) {
     return jsonError(503, 'storage unavailable', {
       reason: 'KV not configured',
     })
@@ -106,8 +102,6 @@ export async function PUT(
   const cityParsed = CitySchema.safeParse(body)
   if (!cityParsed.success) return jsonError(400, 'invalid city')
   const city = cityParsed.data
-
-  const kv = getKv()
 
   const hash = hashCity(city)
   const now = Date.now()

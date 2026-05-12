@@ -16,7 +16,7 @@ These directories contain pure helpers that have no dependency on the city schem
 | `physics/` | Pure planar arcade vehicle integrator parameterized via `VehicleTuning` | `vehicle.ts` |
 | `render/` | Pure rendering math (CSS transforms, chase camera, thumbnail projection, three.js defaults, cell-grid helpers, GLB load cache) | `iso/projection.ts`, `iso/rotation.ts`, `cameraRig.ts`, `thumbnail.ts`, `scene.ts`, `grid.ts`, `gltfCache.ts` |
 | `share/` | Slug-based share-URL composition + clipboard-copy FSM | `index.ts` |
-| `storage/` | Generic Upstash Redis client wrapper, versioned-envelope schema constructor. (SSR-safe localStorage helpers retired in F-018 slice 2; consumers call `@randroids-dojo/vibekit`'s `readStorage` / `writeStorage` / `removeStorage` directly.) | `kv.ts`, `versionedEnvelope.ts` |
+| `storage/` | Versioned-envelope schema constructor. (SSR-safe localStorage helpers retired in F-018 slice 2; Upstash Redis client wrapper retired in F-018 slice 3. Consumers call `@randroids-dojo/vibekit`'s `readStorage` / `writeStorage` / `removeStorage` for localStorage and `@randroids-dojo/vibekit/server`'s `getKv` for Upstash, both via thin city wrappers where appropriate.) | `versionedEnvelope.ts` |
 | `ui/` | Pure UI state machines + visual constants | `pauseMenu.ts`, `transitionCurtain.ts` |
 
 ## City-specific modules
@@ -27,7 +27,7 @@ These live at the lib root because they are still shared across the city app sur
 | --- | --- |
 | `builderId.ts` | Anonymous owner id (REQ-009): VibeCity cookie name + the typed `BuilderId` wrapper around the generic `auth/uuidV4.ts` helpers. |
 | `cellSize.ts` | World-space size of one grid cell (`CELL_SIZE = 4`). Single source of truth for both the drive scene and the trackPath geometry layer; `driveScene.ts` re-exports for backward compatibility. |
-| `cityKv.ts` | `city:`-prefixed Redis key namespace + re-exports `getKv` / `hasKvConfigured` from `storage/kv.ts` for callsite ergonomics. |
+| `cityKv.ts` | `city:`-prefixed Redis key namespace + re-exports the kit's `getKv` from `@randroids-dojo/vibekit/server` plus a `hasKvConfigured` synonym (`getKv() !== null`) for back-compat with the gate-then-use pattern. |
 | `cityCount.ts` | Wraps `format/countLabel.ts` with city-specific singular / plural / suffix labels for the home page header cue. |
 | `cityThumbnail.ts` | Walks city pieces + buildings into placements, then delegates to `render/thumbnail.ts` for the home-page recent-card thumbnail. |
 | `cityVersion.ts`, `hashCity.ts`, `loadCity.ts`, `recentSlugs.ts`, `recentVersions.ts`, `schemas.ts` | City persistence, hashing, and zod schemas. |
@@ -42,7 +42,7 @@ Several lib-root modules are city-shaped wrappers around a generic core. The pat
 - `cityCount.ts` -> `format/countLabel.ts`: city wrapper supplies `{ singular: 'city', plural: 'cities', suffix: 'so far' }`.
 - `cityThumbnail.ts` -> `render/thumbnail.ts`: city wrapper gathers placements from city pieces + buildings, then delegates to `bboxNormalizedDots`.
 - `builderId.ts` -> `auth/uuidV4.ts`: city wrapper holds the cookie-name constant, delegates the shape check + mint to the generic helpers.
-- `cityKv.ts` -> `storage/kv.ts`: city wrapper owns the key-namespace map, re-exports the lazy Redis client.
+- `cityKv.ts` -> `@randroids-dojo/vibekit/server` `getKv`: city wrapper owns the key-namespace map and re-exports the kit's lazy nullable Redis client (F-018 umbrella slice 3). Local `hasKvConfigured` collapses to `getKv() !== null` for back-compat with existing callers; new callers should prefer `const kv = getKv(); if (!kv) return ...` directly.
 - `controlsPersistence.ts` -> `@randroids-dojo/vibekit` `readStorage` / `writeStorage` / `removeStorage`: city wrapper owns the schema + envelope name and delegates SSR-safe + JSON-safe + schema-validated storage I/O to the kit (F-018 umbrella slice 2).
 - `app/[slug]/driveControls.ts` -> `input/vehicleControls.ts` + `physics/vehicle.ts`: city wrapper builds a `VEHICLE_TUNING` object from `CELL_SIZE`-derived constants, pre-binds the lib integrator, re-exports `applyDriveStep` etc. under the same names.
 - `app/[slug]/sceneTransition.ts` -> `ui/transitionCurtain.ts`: city wrapper holds the city target labels + testid prefix, re-exports the visual constants under the v1 `SCENE_TRANSITION_*` names.
