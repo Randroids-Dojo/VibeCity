@@ -3,6 +3,10 @@ import { FakeKv } from './storage/_fakeKv'
 import { DEMO_CITY, DEMO_SLUG } from '@/lib/demoCity'
 import { CitySchema, SlugSchema, type Slug } from '@/lib/schemas'
 import { SimStateSchema } from '@/lib/sim/state'
+import { solvePowerStatus } from '@/lib/sim/powerSolver'
+import { solveWaterStatus } from '@/lib/sim/waterSolver'
+import { solveSewageStatus } from '@/lib/sim/sewageSolver'
+import { solveServicesCoverage } from '@/lib/sim/servicesSolver'
 import {
   buildTrackPath,
   validateConnections,
@@ -102,15 +106,117 @@ describe('DEMO_CITY composition', () => {
     expect(sim.water.treatmentPlants.length).toBeGreaterThanOrEqual(1)
   })
 
-  it('seeds population so the milestone toast fires on first paint', () => {
+  it('seeds population so the 100-resident milestone toast fires on first paint', () => {
     const sim = DEMO_CITY.sim as {
       population: {
         totalPopulation: number
         highestMilestoneReached: number
       }
     }
-    expect(sim.population.totalPopulation).toBeGreaterThanOrEqual(40)
-    expect(sim.population.highestMilestoneReached).toBeGreaterThanOrEqual(40)
+    expect(sim.population.totalPopulation).toBeGreaterThanOrEqual(100)
+    expect(sim.population.highestMilestoneReached).toBeGreaterThanOrEqual(100)
+  })
+})
+
+describe('DEMO_CITY layout invariants (round 1 audit)', () => {
+  it('no cell hosts both a piece and a building', () => {
+    const pieceCells = new Set(
+      DEMO_CITY.pieces.map((p) => `${p.row},${p.col}`),
+    )
+    const buildingCells = DEMO_CITY.buildings.map((b) => `${b.row},${b.col}`)
+    const collisions = buildingCells.filter((c) => pieceCells.has(c))
+    expect(collisions).toEqual([])
+  })
+
+  it('no service building shares a cell with a regular building or piece', () => {
+    const pieceCells = new Set(
+      DEMO_CITY.pieces.map((p) => `${p.row},${p.col}`),
+    )
+    const buildingCells = new Set(
+      DEMO_CITY.buildings.map((b) => `${b.row},${b.col}`),
+    )
+    const sim = DEMO_CITY.sim as {
+      services: { buildings: Array<{ row: number; col: number }> }
+    }
+    const serviceCells = sim.services.buildings.map(
+      (b) => `${b.row},${b.col}`,
+    )
+    const collisions = serviceCells.filter(
+      (c) => pieceCells.has(c) || buildingCells.has(c),
+    )
+    expect(collisions).toEqual([])
+  })
+
+  it('every population entry has a matching residential zone', () => {
+    const sim = DEMO_CITY.sim as {
+      population: { cells: Record<string, unknown> }
+      zones: { cells: Record<string, { kind: string }> }
+    }
+    for (const key of Object.keys(sim.population.cells)) {
+      expect(sim.zones.cells[key]?.kind).toBe('residential')
+    }
+  })
+})
+
+describe('DEMO_CITY sim solvers paint outskirts overlays (rounds 2 + 3)', () => {
+  it('power solver: outskirts strips read powered (10 of 22 zones)', () => {
+    const sim = SimStateSchema.parse(DEMO_CITY.sim)
+    const status = solvePowerStatus(sim.zones, sim.power)
+    const powered = Object.entries(status)
+      .filter(([, v]) => v === 'powered')
+      .map(([k]) => k)
+    expect(powered.length).toBe(10)
+    // All row-1 + row-9 outskirts cells should be powered.
+    for (const col of [3, 4, 5, 6, 7]) {
+      expect(powered).toContain(`1,${col}`)
+      expect(powered).toContain(`9,${col}`)
+    }
+  })
+
+  it('water solver: outskirts strips read served (10 of 22 zones)', () => {
+    const sim = SimStateSchema.parse(DEMO_CITY.sim)
+    const status = solveWaterStatus(sim.zones, sim.water)
+    const served = Object.entries(status)
+      .filter(([, v]) => v === 'served')
+      .map(([k]) => k)
+    expect(served.length).toBe(10)
+    for (const col of [3, 4, 5, 6, 7]) {
+      expect(served).toContain(`1,${col}`)
+      expect(served).toContain(`9,${col}`)
+    }
+  })
+
+  it('sewage solver: outskirts strips read drained (10 of 22 zones)', () => {
+    const sim = SimStateSchema.parse(DEMO_CITY.sim)
+    const status = solveSewageStatus(sim.zones, sim.water)
+    const drained = Object.entries(status)
+      .filter(([, v]) => v === 'drained')
+      .map(([k]) => k)
+    expect(drained.length).toBe(10)
+    for (const col of [3, 4, 5, 6, 7]) {
+      expect(drained).toContain(`1,${col}`)
+      expect(drained).toContain(`9,${col}`)
+    }
+  })
+
+  it('service coverage: every interior cell is covered by at least 4 of 5 service kinds', () => {
+    // Interior zones span rows 3-7. The downtown core gets all 5
+    // service kinds; (7,4) sits at Manhattan 6 from the (4,7) school
+    // (radius 5) so it reads 4 of 5. That partial coverage is the
+    // realistic "service brownout at the edges" cue the editor is
+    // built to surface; locking 4-of-5 as the floor invariant keeps a
+    // future tweak from accidentally pushing the demo below that bar.
+    const sim = SimStateSchema.parse(DEMO_CITY.sim)
+    const cov = solveServicesCoverage(sim.zones, sim.services)
+    const interiorKeys = Object.keys(cov).filter((k) => {
+      const [r] = k.split(',').map(Number)
+      return r >= 3 && r <= 7
+    })
+    for (const k of interiorKeys) {
+      const c = cov[k]
+      const kinds = Object.values(c).filter(Boolean).length
+      expect(kinds).toBeGreaterThanOrEqual(4)
+    }
   })
 })
 
