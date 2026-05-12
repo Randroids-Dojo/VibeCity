@@ -156,8 +156,10 @@ export const DEMO_CITY: City = {
       cityHappiness: 92,
       // Past the 100-resident milestone so the dopamine toast pings
       // immediately rather than waiting on a growth tick.
+      // `isMilestoneToastVisible` gates on `lastMilestoneTick > 0`, so
+      // seed tick 1 to fire the toast on first paint.
       highestMilestoneReached: 100,
-      lastMilestoneTick: 0,
+      lastMilestoneTick: 1,
     },
     zones: {
       cells: {

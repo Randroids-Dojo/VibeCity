@@ -147,6 +147,18 @@ describe('DEMO_CITY layout invariants (round 1 audit)', () => {
     expect(collisions).toEqual([])
   })
 
+  it('no service building shares a cell with a zone', () => {
+    const sim = DEMO_CITY.sim as {
+      services: { buildings: Array<{ row: number; col: number }> }
+      zones: { cells: Record<string, unknown> }
+    }
+    const zoneCells = new Set(Object.keys(sim.zones.cells))
+    const collisions = sim.services.buildings
+      .map((b) => `${b.row},${b.col}`)
+      .filter((c) => zoneCells.has(c))
+    expect(collisions).toEqual([])
+  })
+
   it('every population entry has a matching residential zone', () => {
     const sim = DEMO_CITY.sim as {
       population: { cells: Record<string, unknown> }
