@@ -1212,7 +1212,7 @@ describe('applySimEvent', () => {
           '0,1': { kind: 'commercial' as const, density: 0 as const },
         },
       }
-      const next = maybeGrowZones(zones, 20, 10, {}, {})
+      const next = maybeGrowZones(zones, 20, 10, {}, {}, {})
       expect(next).toBe(zones)
     })
 
@@ -1410,7 +1410,7 @@ describe('applySimEvent', () => {
         },
       }
       const powerStatus = { '0,0': 'unpowered' as const }
-      const next = maybeGrowZones(zones, 20, 10, powerStatus, {})
+      const next = maybeGrowZones(zones, 20, 10, powerStatus, {}, {})
       expect(next.cells['0,0']?.density).toBe(0)
     })
 
@@ -1428,7 +1428,7 @@ describe('applySimEvent', () => {
         '0,0': 'powered' as const,
         '5,5': 'unpowered' as const,
       }
-      const next = maybeGrowZones(zones, 20, 100, powerStatus, {})
+      const next = maybeGrowZones(zones, 20, 100, powerStatus, {}, {})
       expect(next.cells['0,0']?.density).toBe(2)
       expect(next.cells['5,5']?.density).toBe(1)
     })
@@ -1440,7 +1440,7 @@ describe('applySimEvent', () => {
         },
       }
       const powerStatus = { '0,0': 'brownout' as const }
-      const next = maybeGrowZones(zones, 20, 100, powerStatus, {})
+      const next = maybeGrowZones(zones, 20, 100, powerStatus, {}, {})
       expect(next).toBe(zones)
     })
   })
@@ -1544,6 +1544,7 @@ describe('applySimEvent', () => {
         100,
         { '0,0': 'powered' as const },
         { '0,0': 'unserved' as const },
+        {},
       )
       expect(next).toBe(zones)
     })
@@ -1560,6 +1561,7 @@ describe('applySimEvent', () => {
         100,
         { '0,0': 'powered' as const },
         { '0,0': 'served' as const },
+        {},
       )
       expect(next.cells['0,0']?.density).toBe(2)
     })
@@ -1576,8 +1578,143 @@ describe('applySimEvent', () => {
         100,
         {},
         { '0,0': 'brownout' as const },
+        {},
       )
       expect(next).toBe(zones)
+    })
+  })
+
+  describe('per-tick zone growth services gating (REQ-100 services gate)', () => {
+    function tickN(times: number, start: SimState): SimState {
+      let s = start
+      for (let i = 0; i < times; i++) {
+        s = applySimEvent(s, {
+          type: 'tick',
+          payload: { deltaMs: 250 },
+          clientCreatedAt: i,
+          authorBuilderId: A_BUILDER,
+        })
+      }
+      return s
+    }
+
+    function placeZone(
+      kind: 'residential' | 'commercial' | 'industrial',
+      row: number,
+      col: number,
+    ): SimEvent {
+      return {
+        type: 'placeZone',
+        payload: { kind, row, col },
+        clientCreatedAt: 0,
+        authorBuilderId: A_BUILDER,
+      }
+    }
+
+    function placeService(
+      kind:
+        | 'police-station'
+        | 'fire-station'
+        | 'hospital'
+        | 'school'
+        | 'garbage-depot',
+      row: number,
+      col: number,
+    ): SimEvent {
+      return {
+        type: 'placeServiceBuilding',
+        payload: { kind, row, col },
+        clientCreatedAt: 0,
+        authorBuilderId: A_BUILDER,
+      }
+    }
+
+    it('city with fewer than 3 distinct service kinds: gate inactive (back-compat)', () => {
+      // Only 2 kinds placed (police, fire). The services gate stays
+      // off because a partial network would be impossible to satisfy
+      // by definition (max coverage <= 2 < threshold 3).
+      let s = applySimEvent(EMPTY_SIM_STATE, placeZone('residential', 0, 0))
+      s = applySimEvent(s, placeService('police-station', 0, 1))
+      s = applySimEvent(s, placeService('fire-station', 0, 2))
+      s = tickN(20, s)
+      expect(s.zones.cells['0,0']?.density).toBe(1)
+    })
+
+    it('3 distinct service kinds in range: gate active, cell grows', () => {
+      // Police + fire + hospital all within their radii of (0,0).
+      // Coverage count >= 3 -> growth advances.
+      let s = applySimEvent(EMPTY_SIM_STATE, placeZone('residential', 0, 0))
+      s = applySimEvent(s, placeService('police-station', 0, 1))
+      s = applySimEvent(s, placeService('fire-station', 0, 2))
+      s = applySimEvent(s, placeService('hospital', 0, 3))
+      s = tickN(20, s)
+      expect(s.zones.cells['0,0']?.density).toBe(1)
+    })
+
+    it('3 distinct service kinds placed but out of range: cell stalls', () => {
+      // Three kinds placed (police, fire, hospital) but far from
+      // (0,0). The cell's coverage count is 0; with the gate active
+      // (>= 3 distinct kinds in the bucket), the cell stalls.
+      let s = applySimEvent(EMPTY_SIM_STATE, placeZone('residential', 0, 0))
+      s = applySimEvent(s, placeService('police-station', 30, 30))
+      s = applySimEvent(s, placeService('fire-station', 31, 31))
+      s = applySimEvent(s, placeService('hospital', 32, 32))
+      s = tickN(20, s)
+      expect(s.zones.cells['0,0']?.density).toBe(0)
+    })
+
+    it('direct unit: services gate alone (powered + served + low coverage) stalls', () => {
+      const zones = {
+        cells: {
+          '0,0': { kind: 'residential' as const, density: 1 as const },
+        },
+      }
+      const next = maybeGrowZones(
+        zones,
+        20,
+        100,
+        { '0,0': 'powered' as const },
+        { '0,0': 'served' as const },
+        { '0,0': 2 },
+      )
+      expect(next).toBe(zones)
+    })
+
+    it('direct unit: all three gates passing (powered + served + 3-coverage) advances', () => {
+      const zones = {
+        cells: {
+          '0,0': { kind: 'residential' as const, density: 1 as const },
+        },
+      }
+      const next = maybeGrowZones(
+        zones,
+        20,
+        100,
+        { '0,0': 'powered' as const },
+        { '0,0': 'served' as const },
+        { '0,0': 3 },
+      )
+      expect(next.cells['0,0']?.density).toBe(2)
+    })
+
+    it('direct unit: undefined services count is treated as no gate', () => {
+      // Mirrors the call-site short-circuit: when the city has
+      // fewer than 3 distinct kinds, the call site passes an empty
+      // `{}` and every cell falls through "no gate".
+      const zones = {
+        cells: {
+          '0,0': { kind: 'residential' as const, density: 1 as const },
+        },
+      }
+      const next = maybeGrowZones(
+        zones,
+        20,
+        100,
+        { '0,0': 'powered' as const },
+        { '0,0': 'served' as const },
+        {},
+      )
+      expect(next.cells['0,0']?.density).toBe(2)
     })
   })
 

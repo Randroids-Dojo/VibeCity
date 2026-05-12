@@ -9,7 +9,11 @@ import { applyMonsterDamage } from './monsterDamage'
 import { solvePowerStatus, type CellPowerStatus } from './powerSolver'
 import { solveSewageStatus } from './sewageSolver'
 import { solveWaterStatus, type CellWaterStatus } from './waterSolver'
-import { cellCoverage, coverageCount } from './servicesSolver'
+import {
+  cellCoverage,
+  coverageCount,
+  solveServicesCoverage,
+} from './servicesSolver'
 import { applyTornadoDamage } from './tornadoDamage'
 import {
   ABANDONED_CELL_HAPPINESS_WEIGHT,
@@ -28,6 +32,7 @@ import {
   EMPTY_SIM_STATE,
   GROWTH_HAPPINESS_THRESHOLD,
   GROWTH_INTERVAL_TICKS,
+  MIN_SERVICES_FOR_GROWTH,
   INDUSTRIAL_JOBS_BY_DENSITY,
   LINE_MAINTENANCE_PER_TICK,
   BANKRUPTCY_THRESHOLD_TICKS,
@@ -593,12 +598,33 @@ function applyTick(state: SimState, event: TickEvent): SimState {
   const waterStatus: Record<string, CellWaterStatus> = hasWaterInfrastructure
     ? solveWaterStatus(floodDamagedZones, state.water)
     : {}
+  // Services per-cell gate (REQ-100). The gate only fires once the
+  // city has built out at least `MIN_SERVICES_FOR_GROWTH` distinct
+  // service kinds. A partial network (1 or 2 kinds placed) would
+  // make the gate impossible to satisfy by definition: max coverage
+  // is bounded by the number of kinds in play, so every cell would
+  // stall. Skipping the gate in that regime mirrors the back-compat
+  // path the power and water gates use for empty infrastructure:
+  // the city is still building out the system, so don't punish it.
+  const distinctServiceKinds = new Set(
+    state.services.buildings.map((b) => b.kind),
+  )
+  const servicesGateActive =
+    distinctServiceKinds.size >= MIN_SERVICES_FOR_GROWTH
+  const servicesCoverage = servicesGateActive
+    ? solveServicesCoverage(floodDamagedZones, state.services)
+    : {}
+  const servicesCoverageCount: Record<string, number> = {}
+  for (const [key, coverage] of Object.entries(servicesCoverage)) {
+    servicesCoverageCount[key] = coverageCount(coverage)
+  }
   const nextZones = maybeGrowZones(
     floodDamagedZones,
     nextTick,
     state.population.cityHappiness,
     powerStatus,
     waterStatus,
+    servicesCoverageCount,
   )
   // Tornado damage (REQ-105 slice 7). Erases sim-state infrastructure
   // (power line / plant, water source / pipe / treatment plant,
@@ -1097,14 +1123,19 @@ export function syncPopulationToZones(
  *
  *   - happy band (`> GROWTH_HAPPINESS_THRESHOLD`): every density-<3
  *     cell advances by 1 unless the cell is blocked by a per-cell
- *     supply gate. A cell is blocked when `powerStatus[key]` is
- *     `'brownout'` or `'unpowered'`, OR when `waterStatus[key]` is
- *     `'brownout'` or `'unserved'`. Either gate alone is enough to
- *     stall growth. A missing entry (undefined) is treated as "no
- *     gate" so a pre-electrical / pre-plumbing city (no plants /
- *     lines / sources / pipes) grows the way it did before the
- *     gates landed; the call site short-circuits the solve and
- *     passes an empty `{}` in that case.
+ *     supply gate. A cell is blocked when:
+ *     - `powerStatus[key]` is `'brownout'` or `'unpowered'`, OR
+ *     - `waterStatus[key]` is `'brownout'` or `'unserved'`, OR
+ *     - `servicesCoverageCount[key]` is less than
+ *       `MIN_SERVICES_FOR_GROWTH` (3 of 5 service kinds).
+ *     Any one gate is enough to stall growth (the three run in
+ *     series as a logical AND). A missing entry (undefined) on any
+ *     status / count is treated as "no gate" so a pre-electrical /
+ *     pre-plumbing / pre-services city (no plants / lines / sources
+ *     / pipes / fewer than `MIN_SERVICES_FOR_GROWTH` distinct
+ *     service kinds) grows the way it did before the gates landed;
+ *     the call site short-circuits each solve and passes an empty
+ *     `{}` in those cases.
  *   - stagnant band (`(DECLINE_HAPPINESS_THRESHOLD, GROWTH_HAPPINESS_THRESHOLD]`):
  *     density holds; the city neither grows nor decays.
  *   - miserable band (`<= DECLINE_HAPPINESS_THRESHOLD`): every
@@ -1120,8 +1151,7 @@ export function syncPopulationToZones(
  * at 0).
  *
  * Deterministic: replay over the same event log produces the same
- * growth / decline at the same ticks. Per-cell services (REQ-100)
- * gate stays a follow-on slice.
+ * growth / decline at the same ticks.
  */
 export function maybeGrowZones(
   zones: ZonesBucket,
@@ -1129,6 +1159,7 @@ export function maybeGrowZones(
   cityHappiness: number,
   powerStatus: Record<string, CellPowerStatus>,
   waterStatus: Record<string, CellWaterStatus>,
+  servicesCoverageCount: Record<string, number>,
 ): ZonesBucket {
   if (tick <= 0 || tick % GROWTH_INTERVAL_TICKS !== 0) return zones
   const cellKeys = Object.keys(zones.cells)
@@ -1162,6 +1193,14 @@ export function maybeGrowZones(
     }
     const water = waterStatus[key]
     if (water === 'brownout' || water === 'unserved') {
+      nextCells[key] = cell
+      continue
+    }
+    const serviceCount = servicesCoverageCount[key]
+    if (
+      serviceCount !== undefined &&
+      serviceCount < MIN_SERVICES_FOR_GROWTH
+    ) {
       nextCells[key] = cell
       continue
     }
