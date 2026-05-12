@@ -617,6 +617,18 @@ test('editor: zone-growth-blocked diagnostic flips when power gate activates', a
     'data-zone-growth-blocked',
     'true',
   )
+  // Confirm the flip is caused ONLY by the power gate: the water
+  // gate is still inactive (no sources, no pipes) and the services
+  // gate is still inactive (no service buildings). Both per-gate
+  // attributes stay `false` while the composite reads `true`.
+  await expect(zoneOverlay).toHaveAttribute(
+    'data-zone-water-blocked',
+    'false',
+  )
+  await expect(zoneOverlay).toHaveAttribute(
+    'data-zone-services-blocked',
+    'false',
+  )
 })
 
 test('editor: zone coverage count climbs as services are placed nearby (REQ-101)', async ({
