@@ -70,16 +70,16 @@ export async function POST(
   if (!slugParsed.success) return jsonError(400, 'invalid slug')
   const slug: Slug = slugParsed.data
 
+  const builderId = req.cookies.get(BUILDER_ID_COOKIE)?.value
+  if (!builderId || !isValidBuilderId(builderId)) {
+    return jsonError(401, 'no builder')
+  }
+
   const kv = getKv()
   if (!kv) {
     return jsonError(503, 'storage unavailable', {
       reason: 'KV not configured',
     })
-  }
-
-  const builderId = req.cookies.get(BUILDER_ID_COOKIE)?.value
-  if (!builderId || !isValidBuilderId(builderId)) {
-    return jsonError(401, 'no builder')
   }
 
   let body: unknown
