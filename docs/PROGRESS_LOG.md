@@ -19,7 +19,7 @@ Format for each slice:
 ## 2026-05-13, Mobile Standards: Viewport + Globals.css + Touch Suppression
 
 - Branch: `feature/20260513-mobile-standards`
-- PR: TBD
+- PR: #231
 - Changed: Ported VibeRacer's mobile conventions so VibeCity stops mis-sizing on phones and stops popping the iOS long-press menu on the drive canvas / editor grid. Three pieces:
   1. **Viewport meta** (`src/app/layout.tsx`): new Next 15 `viewport` export with `width: 'device-width'`, `initialScale: 1`. Without this, mobile browsers render at the default ~980 desktop CSS px and scale down, so HUD buttons and slider hit-targets came out tiny. Pinch zoom stays enabled (no `maximumScale`).
   2. **Global CSS** (`src/app/globals.css`, new file imported by layout): re-enables `-webkit-user-select: text` on the body (iOS UA stylesheet disables it on interactive elements by default) and re-asserts `-webkit-touch-callout: default`, then sets `a, button, [role='button'], ...` to `inherit` so descendants of an in-game / in-editor `user-select: none` root cascade correctly. Mirrors VibeRacer's `globals.css` byte for byte.
