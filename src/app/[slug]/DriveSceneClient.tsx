@@ -2554,6 +2554,11 @@ export function DriveSceneClient({
           display: 'flex',
           alignItems: 'center',
           gap: 8,
+          // Cap the left group's width on narrow phones so the slug
+          // can not push past the Sound / Edit buttons anchored on
+          // the right. A long slug ellipsis-truncates instead of
+          // wrapping under the buttons.
+          maxWidth: 'calc(50vw - 24px)',
         }}
       >
         <div
@@ -2564,6 +2569,10 @@ export function DriveSceneClient({
             fontSize: 14,
             fontFamily: 'system-ui, sans-serif',
             letterSpacing: 0.5,
+            minWidth: 0,
+            overflow: 'hidden',
+            textOverflow: 'ellipsis',
+            whiteSpace: 'nowrap',
           }}
         >
           <span data-testid="drive-scene-slug">{slug}</span>
@@ -3054,13 +3063,32 @@ export function DriveSceneClient({
             display: 'flex',
             flexDirection: 'column',
             alignItems: 'center',
-            justifyContent: 'center',
+            // `flex-start` (instead of `center`) so when the camera
+            // / touch / keyboard panels stack taller than the viewport
+            // (small phones), the menu starts at the top of the
+            // screen and scrolls instead of cropping content off the
+            // top AND bottom (which `center` does on overflow). The
+            // vertical padding centers the content visually when it
+            // does fit.
+            justifyContent: 'flex-start',
             gap: 16,
+            padding: '32px 16px',
             background: 'rgba(0, 0, 0, 0.6)',
             fontFamily: 'system-ui, sans-serif',
             // Sit above the slug label and Edit CTA so the menu owns
             // the click surface while paused (REQ-039).
             zIndex: 10,
+            // Make the menu scroll when its panels overflow the
+            // viewport (mobile, short windows). Without this the
+            // CAMERA / TOUCH / KEYBOARD panels get clipped and the
+            // player can not reach the Edit / Resume buttons at the
+            // top.
+            overflowY: 'auto',
+            // Allow the touchAction: 'none' on the drive root to
+            // pass through to scroll. Without this override, the
+            // root's `touchAction: 'none'` would block touch scroll
+            // of the panel.
+            touchAction: 'pan-y',
           }}
         >
           <p
