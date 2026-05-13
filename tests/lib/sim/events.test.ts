@@ -6,6 +6,7 @@ import {
   computeCityHappiness,
   maybeGrowZones,
   reduceSimEvents,
+  syncPopulationToZones,
   type SimEvent,
   type TickEvent,
   type SetSpeedEvent,
@@ -668,6 +669,131 @@ describe('applySimEvent', () => {
         placeZone('residential', 1, 0),
         placeZone('commercial', 0, 1),
         ...Array.from({ length: 20 }, (_, i) => ({
+          type: 'tick' as const,
+          payload: { deltaMs: 250 },
+          clientCreatedAt: i,
+          authorBuilderId: A_BUILDER,
+        })),
+      ]
+      const a = applyMany(EMPTY_SIM_STATE, events)
+      const b = applyMany(EMPTY_SIM_STATE, events)
+      expect(a.population).toEqual(b.population)
+    })
+  })
+
+  describe('per-tick trip demand accumulation (REQ-075 trip-demand slice)', () => {
+    function tickN(times: number, start: SimState): SimState {
+      let s = start
+      for (let i = 0; i < times; i++) {
+        s = applySimEvent(s, {
+          type: 'tick',
+          payload: { deltaMs: 250 },
+          clientCreatedAt: i,
+          authorBuilderId: A_BUILDER,
+        })
+      }
+      return s
+    }
+
+    function placeZone(
+      kind: 'residential' | 'commercial' | 'industrial',
+      row: number,
+      col: number,
+    ): SimEvent {
+      return {
+        type: 'placeZone',
+        payload: { kind, row, col },
+        clientCreatedAt: 0,
+        authorBuilderId: A_BUILDER,
+      }
+    }
+
+    it('first growth tick seeds tripDemand to the resident count', () => {
+      let s = applySimEvent(EMPTY_SIM_STATE, placeZone('residential', 0, 0))
+      s = tickN(20, s)
+      // density 1 -> 4 residents -> tripDemand = 4 (first cycle increment).
+      expect(s.population.cells['0,0']?.tripDemand).toBe(4)
+      expect(s.population.totalTripDemand).toBe(4)
+    })
+
+    it('trip demand accumulates each growth tick up to the cap', () => {
+      let s = applySimEvent(EMPTY_SIM_STATE, placeZone('residential', 0, 0))
+      s = tickN(20, s)
+      expect(s.population.cells['0,0']?.tripDemand).toBe(4)
+      // density 1, residents 4, cap = 4 * 4 = 16. Three more growth
+      // ticks at density 2 (residents 12) jumps the cap to 48 and
+      // accumulates 4 + 12 = 16 on the first density-2 tick, but the
+      // growth advance also lands so density goes 1 -> 2 on tick 40.
+      // Walk the ticks explicitly.
+      s = tickN(20, s) // tick 40: density 2, residents 12, prev demand 4 + 12 = 16
+      expect(s.zones.cells['0,0']?.density).toBe(2)
+      expect(s.population.cells['0,0']?.residents).toBe(12)
+      expect(s.population.cells['0,0']?.tripDemand).toBe(16)
+      s = tickN(20, s) // tick 60: density 3, residents 40, prev 16 + 40 = 56
+      expect(s.zones.cells['0,0']?.density).toBe(3)
+      expect(s.population.cells['0,0']?.residents).toBe(40)
+      expect(s.population.cells['0,0']?.tripDemand).toBe(56)
+    })
+
+    it('trip demand saturates at TRIP_DEMAND_CAP_MULTIPLIER * residents', () => {
+      // Walk past the cap on a density-3 cell. residents 40, cap = 160.
+      // Start at density 3 directly via a forged state so we exercise
+      // the saturation without waiting through 60 growth ticks.
+      let s = applySimEvent(EMPTY_SIM_STATE, placeZone('residential', 0, 0))
+      s = {
+        ...s,
+        zones: {
+          cells: {
+            '0,0': { kind: 'residential', density: 3 },
+          },
+        },
+      }
+      s = tickN(20, s) // residents synced to 40, tripDemand = 40
+      expect(s.population.cells['0,0']?.tripDemand).toBe(40)
+      s = tickN(20, s) // tripDemand = 80
+      s = tickN(20, s) // tripDemand = 120
+      s = tickN(20, s) // tripDemand = 160 (at cap)
+      expect(s.population.cells['0,0']?.tripDemand).toBe(160)
+      s = tickN(20, s) // still 160 (saturated)
+      expect(s.population.cells['0,0']?.tripDemand).toBe(160)
+    })
+
+    it('zero-resident cell resets tripDemand to 0 (direct unit call)', () => {
+      // Direct unit call to `syncPopulationToZones` so the test
+      // exercises the reset path without racing the growth reducer.
+      // A residential cell at density 0 has 0 residents; even if
+      // residual demand was carried into the population bucket
+      // (e.g. mid-decline state), the sync resets it to 0 because
+      // nobody is making trips from an empty cell.
+      const zones = {
+        cells: {
+          '0,0': { kind: 'residential' as const, density: 0 as const },
+        },
+      }
+      const population = {
+        ...EMPTY_SIM_STATE.population,
+        cells: { '0,0': { residents: 0, tripDemand: 12 } },
+        totalTripDemand: 12,
+      }
+      const next = syncPopulationToZones(population, zones, 20)
+      expect(next.cells['0,0']?.residents).toBe(0)
+      expect(next.cells['0,0']?.tripDemand).toBe(0)
+      expect(next.totalTripDemand).toBe(0)
+    })
+
+    it('totalTripDemand sums across cells', () => {
+      let s = applySimEvent(EMPTY_SIM_STATE, placeZone('residential', 0, 0))
+      s = applySimEvent(s, placeZone('residential', 1, 1))
+      s = tickN(20, s)
+      // 2 cells, residents 4 each, tripDemand 4 each, total 8.
+      expect(s.population.totalTripDemand).toBe(8)
+    })
+
+    it('two replays of the same event log derive identical tripDemand', () => {
+      const events: SimEvent[] = [
+        placeZone('residential', 0, 0),
+        placeZone('residential', 2, 2),
+        ...Array.from({ length: 60 }, (_, i) => ({
           type: 'tick' as const,
           payload: { deltaMs: 250 },
           clientCreatedAt: i,

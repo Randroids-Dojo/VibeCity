@@ -33,6 +33,7 @@ import {
   GROWTH_HAPPINESS_THRESHOLD,
   GROWTH_INTERVAL_TICKS,
   MIN_SERVICES_FOR_GROWTH,
+  TRIP_DEMAND_CAP_MULTIPLIER,
   INDUSTRIAL_JOBS_BY_DENSITY,
   LINE_MAINTENANCE_PER_TICK,
   BANKRUPTCY_THRESHOLD_TICKS,
@@ -1057,12 +1058,24 @@ export function syncPopulationToZones(
   let totalTripDemand = 0
   let changed = false
   // Walk every zoned cell. Residential zones contribute residents.
+  // Trip-demand accumulates by `residents` each growth tick (the
+  // function only runs on growth ticks, gated by the call site in
+  // `applyTick`). Saturate at `TRIP_DEMAND_CAP_MULTIPLIER * residents`
+  // so a stagnant city without a drain layer does not accumulate
+  // unbounded demand. Cells with zero residents reset trip-demand
+  // to 0 because nobody is making trips from an empty cell, even if
+  // the cell still carries residual demand from a prior decline.
   for (const [key, zone] of Object.entries(zones.cells)) {
     if (zone.kind !== 'residential') continue
     const targetResidents = RESIDENTIAL_CAPACITY_BY_DENSITY[zone.density]
     const existing = population.cells[key]
-    const tripDemand = existing?.tripDemand ?? 0
     const residents = targetResidents
+    const previousTripDemand = existing?.tripDemand ?? 0
+    const cap = residents * TRIP_DEMAND_CAP_MULTIPLIER
+    const tripDemand =
+      residents === 0
+        ? 0
+        : Math.min(previousTripDemand + residents, cap)
     if (
       !existing ||
       existing.residents !== residents ||

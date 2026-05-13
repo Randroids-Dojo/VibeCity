@@ -267,6 +267,20 @@ export const GROWTH_INTERVAL_TICKS = 20
 export const MIN_SERVICES_FOR_GROWTH = 3
 
 /**
+ * Trip-demand saturation cap (REQ-075 trip-demand slice). On every
+ * growth tick, `syncPopulationToZones` increments each residential
+ * cell's `tripDemand` by its current resident count (each resident
+ * wants one trip per cycle to a commercial / industrial cell). The
+ * counter saturates at `TRIP_DEMAND_CAP_MULTIPLIER * residents` so
+ * a stagnant city (no draining via NPC vehicle spawn yet) does not
+ * accumulate unbounded demand. 4 cycles of pending trips is enough
+ * headroom for the NPC traffic layer (REQ-077 future slice) to
+ * drain through without losing all signal, and small enough that
+ * the HUD readout stays interpretable.
+ */
+export const TRIP_DEMAND_CAP_MULTIPLIER = 4
+
+/**
  * Compose a stable cell key from a `(row, col)` coordinate. Mirrors
  * the existing `"row,col"` convention used by `streetCellSet` and
  * `buildingCellSet` so the zoning layer integrates cleanly with the
