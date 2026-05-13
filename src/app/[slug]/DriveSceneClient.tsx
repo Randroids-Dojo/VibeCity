@@ -2522,6 +2522,19 @@ export function DriveSceneClient({
         inset: 0,
         background: '#000',
         color: '#f7f4ee',
+        // Mobile: suppress the iOS long-press text-selection menu,
+        // text-selection drags, and the gray tap highlight on the
+        // drive surface. Without these, a touch hold on the canvas
+        // pops the copy / lookup menu over the game and a touch drag
+        // selects the slug label in the corner overlay. The HUD
+        // child buttons re-enable callout via `WebkitTouchCallout:
+        // 'default'` on their own style if they need long-press
+        // hints. Mirrors VibeRacer's Game.tsx root convention.
+        touchAction: 'none',
+        userSelect: 'none',
+        WebkitUserSelect: 'none',
+        WebkitTouchCallout: 'none',
+        WebkitTapHighlightColor: 'transparent',
       }}
     >
       <canvas
