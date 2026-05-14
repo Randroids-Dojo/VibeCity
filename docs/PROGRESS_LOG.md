@@ -19,7 +19,7 @@ Format for each slice:
 ## 2026-05-14, REQ-089 Coal Pollution Happiness Penalty
 
 - Branch: `feature/20260514-req085-coal-pollution`
-- PR: TBD
+- PR: `#233`
 - Changed: Added the missing coal pollution signal under the REQ-085 power-grid umbrella. `PowerBucket` now carries a `pollution` map refreshed each tick from coal plants by `src/lib/sim/powerPollution.ts`; coal emits into four orthogonally-adjacent cells, solar emits none, overlapping coal adjacency stacks. `computeCityHappiness` now subtracts average populated-cell pollution exposure, so residential cells next to coal plants feed into the existing happiness, growth-stall, and decline loop.
 - Verification: `npm run check:dashes` clean. `git diff --check` clean. `npm run type-check` clean. `npx vitest run tests/lib/sim/state.test.ts tests/lib/sim/powerSolver.test.ts tests/lib/sim/powerPollution.test.ts tests/lib/sim/events.test.ts tests/lib/sim/tornadoDamage.test.ts tests/lib/sim/monsterDamage.test.ts` passed (319 / 319). `npm test` passed (2568 / 2568). `npx playwright test e2e/sim.spec.ts --project=chromium` passed (36 / 36). `npm run build` green with the pre-existing `DriveSceneClient.tsx` missing `simState.tick` hook-deps warning.
 - Assumptions: Pollution is a current-tick exposure map rather than an accumulating historical counter, so removing coal or moving population clears the penalty on the next tick. Coal affects orthogonally-adjacent cells only in v1, matching the grid-distance convention already used by the power solver.
