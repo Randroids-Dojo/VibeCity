@@ -492,7 +492,18 @@ export function SnapGrid({
         maxWidth: '100%',
         height: 'auto',
         cursor,
+        // Mobile: `touchAction: 'none'` was already set so single-finger
+        // drag steers the pan / zoom handlers instead of scrolling the
+        // page. The user-select / touch-callout / tap-highlight
+        // suppressions extend that to long-press: without them, a
+        // touch hold on a cell pops the iOS copy / lookup context
+        // menu and a drag selects the underlying SVG text. Mirrors
+        // the VibeRacer track-editor convention.
         touchAction: 'none',
+        userSelect: 'none',
+        WebkitUserSelect: 'none',
+        WebkitTouchCallout: 'none',
+        WebkitTapHighlightColor: 'transparent',
         transform: isoTransformCss(viewMode, viewRotationDeg),
         transformOrigin: 'center center',
       }}

@@ -16,6 +16,20 @@ Format for each slice:
 - Followups: any new `F-NNN` entries created. Link to them.
 ```
 
+## 2026-05-13, Mobile Standards: Viewport + Globals.css + Touch Suppression
+
+- Branch: `feature/20260513-mobile-standards`
+- PR: #231
+- Changed: Ported VibeRacer's mobile conventions so VibeCity stops mis-sizing on phones and stops popping the iOS long-press menu on the drive canvas / editor grid. Three pieces:
+  1. **Viewport meta** (`src/app/layout.tsx`): new Next 15 `viewport` export with `width: 'device-width'`, `initialScale: 1`. Without this, mobile browsers render at the default ~980 desktop CSS px and scale down, so HUD buttons and slider hit-targets came out tiny. Pinch zoom stays enabled (no `maximumScale`).
+  2. **Global CSS** (`src/app/globals.css`, new file imported by layout): re-enables `-webkit-user-select: text` on the body (iOS UA stylesheet disables it on interactive elements by default) and re-asserts `-webkit-touch-callout: default`, then sets `a, button, [role='button'], ...` to `inherit` so descendants of an in-game / in-editor `user-select: none` root cascade correctly. Mirrors VibeRacer's `globals.css` byte for byte.
+  3. **Drive scene + editor grid** (`src/app/[slug]/DriveSceneClient.tsx`, `src/app/[slug]/edit/SnapGridView.tsx`): both roots gain `touchAction: 'none' / userSelect: 'none' / WebkitUserSelect: 'none' / WebkitTouchCallout: 'none' / WebkitTapHighlightColor: 'transparent'`. The drive root previously had no touch / select suppression so a touch hold popped iOS's copy / lookup menu; the SnapGrid had `touchAction: 'none'` but no callout / select suppression. Mirrors VibeRacer's `Game.tsx` root convention.
+- Verification: `npm run check:dashes` clean. `npm run type-check` clean. `npm test` 2547 / 2547. `npm run build` green. `npx playwright test e2e/drive.spec.ts e2e/editor.spec.ts e2e/sim.spec.ts` 72 / 72.
+- Follow-on (same PR, second commit): two layout fixes surfaced by mobile screenshot review. (a) `drive-pause-menu` switched from `justifyContent: 'center'` to `'flex-start'` plus `overflowY: 'auto'` and `padding: '32px 16px'` so the menu's CAMERA / TOUCH / KEYBOARD panels scroll instead of getting clipped at top + bottom on phones where they exceed viewport height; menu sets `touchAction: 'pan-y'` to pierce the drive root's `touchAction: 'none'` for the scroll. (b) Top-left slug + share container gains `maxWidth: 'calc(50vw - 24px)'` plus ellipsis truncation on the slug span so a long slug can not push past the Sound / Edit buttons anchored on the right edge.
+- Assumptions: No `maximumScale` / `userScalable: false` so pinch zoom stays available; a player who wants to zoom into the HUD or grid can. The HUD / overlay buttons sit inside the drive scene root, so they inherit `userSelect: none`. A button that needs long-press hints (none today) would re-enable callout on its own style.
+- GDD coverage: No row flips. Mobile-platform polish that does not have a REQ row.
+- Followups: None new. A future polish slice could port VibeRacer's `useViewportWidth` hook for HUD compaction below 600px.
+
 ## 2026-05-13, REQ-075 Trip-Demand Accumulation Per Growth Tick
 
 - Branch: `feature/20260513-trip-demand-accumulation`
