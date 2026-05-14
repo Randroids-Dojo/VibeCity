@@ -22,7 +22,7 @@ function powerWith(
 ): PowerBucket {
   const lines: Record<string, true> = {}
   for (const key of lineKeys) lines[key] = true
-  return { plants, lines }
+  return { plants, lines, pollution: {} }
 }
 
 function zonesWith(

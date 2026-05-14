@@ -582,7 +582,7 @@ export function SnapGrid({
             // solver runs cleanly when a layer is absent.
             const powerStatus = solvePowerStatus(
               zones,
-              power ?? { plants: [], lines: {} },
+              power ?? { plants: [], lines: {}, pollution: {} },
             )
             // Per-cell growth-gate diagnostic (REQ-081 / REQ-090 /
             // REQ-100). Mirrors the same activation rules

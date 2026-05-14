@@ -1960,6 +1960,19 @@ describe('applySimEvent', () => {
       }
     }
 
+    function placePowerPlant(
+      kind: 'coal' | 'solar',
+      row: number,
+      col: number,
+    ): SimEvent {
+      return {
+        type: 'placePowerPlant',
+        payload: { kind, row, col },
+        clientCreatedAt: 0,
+        authorBuilderId: A_BUILDER,
+      }
+    }
+
     function eraseZone(row: number, col: number): SimEvent {
       return {
         type: 'eraseZone',
@@ -2174,6 +2187,37 @@ describe('applySimEvent', () => {
       expect(s.population.cityHappiness).toBe(72)
     })
 
+    it('coal pollution near populated cells lowers happiness (REQ-089)', () => {
+      // Drained sewage + no services starts at 80. A coal plant
+      // adjacent to the populated cell emits 8 pollution, and the
+      // v1 pollution weight of 1.5 drops happiness by 12 more.
+      let s = applySimEvent(EMPTY_SIM_STATE, placeRes(0, 1))
+      s = applySimEvent(s, placeTreatmentPlant(0, 0))
+      s = applySimEvent(s, {
+        type: 'placePowerPlant',
+        payload: { kind: 'coal', row: 0, col: 0 },
+        clientCreatedAt: 0,
+        authorBuilderId: A_BUILDER,
+      })
+      s = tickN(20, s)
+      expect(s.power.pollution['0,1']).toBe(8)
+      expect(s.population.cityHappiness).toBe(68)
+    })
+
+    it('solar plant adjacency does not lower happiness through pollution (REQ-089)', () => {
+      let s = applySimEvent(EMPTY_SIM_STATE, placeRes(0, 1))
+      s = applySimEvent(s, placeTreatmentPlant(0, 0))
+      s = applySimEvent(s, {
+        type: 'placePowerPlant',
+        payload: { kind: 'solar', row: 0, col: 0 },
+        clientCreatedAt: 0,
+        authorBuilderId: A_BUILDER,
+      })
+      s = tickN(20, s)
+      expect(s.power.pollution).toEqual({})
+      expect(s.population.cityHappiness).toBe(80)
+    })
+
     it('two replays of the same event log derive identical happiness', () => {
       const events: SimEvent[] = [
         placeRes(0, 0),
@@ -2285,6 +2329,7 @@ describe('applySimEvent', () => {
         water: SimState['water']
         population: SimState['population']
         disasters: SimState['disasters']
+        power: SimState['power']
         services: SimState['services']
         zones: SimState['zones']
         taxRates: SimState['taxRates']
@@ -2312,6 +2357,7 @@ describe('applySimEvent', () => {
             highestMilestoneReached: 0,
             lastMilestoneTick: 0,
           },
+          power: { plants: [], lines: {}, pollution: {} },
           disasters: { active: [] },
           services: { buildings: [] },
           zones: { cells: zoneCells },
@@ -2323,6 +2369,7 @@ describe('applySimEvent', () => {
         return computeCityHappiness(
           s.water,
           s.population,
+          s.power,
           s.disasters,
           s.services,
           s.zones,
@@ -2379,6 +2426,7 @@ describe('applySimEvent', () => {
       const happinessOrphan = computeCityHappiness(
         s.water,
         s.population,
+        s.power,
         s.disasters,
         s.services,
         s.zones,
@@ -2542,7 +2590,7 @@ describe('applySimEvent', () => {
           highestMilestoneReached: 0,
           lastMilestoneTick: 0,
         },
-        { plants: [{ kind: 'coal', row: 0, col: 0 }], lines: {} },
+        { plants: [{ kind: 'coal', row: 0, col: 0 }], lines: {}, pollution: {} },
         { residential: 0.07, commercial: 0.07, industrial: 0.05 },
         { cells: {} },
       )
@@ -2571,7 +2619,7 @@ describe('applySimEvent', () => {
           highestMilestoneReached: 0,
           lastMilestoneTick: 0,
         },
-        { plants: [{ kind: 'coal', row: 0, col: 0 }], lines: {} },
+        { plants: [{ kind: 'coal', row: 0, col: 0 }], lines: {}, pollution: {} },
         { residential: 0.07, commercial: 0.07, industrial: 0.05 },
         { cells: {} },
         FIRING_TICK,
@@ -2598,7 +2646,7 @@ describe('applySimEvent', () => {
           highestMilestoneReached: 0,
           lastMilestoneTick: 0,
         },
-        { plants: [], lines: {} },
+        { plants: [], lines: {}, pollution: {} },
         { residential: 0.07, commercial: 0.07, industrial: 0.05 },
         { cells: {} },
       )
