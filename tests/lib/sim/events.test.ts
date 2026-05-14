@@ -1844,6 +1844,90 @@ describe('applySimEvent', () => {
     })
   })
 
+  describe('per-tick zone growth employment gating (REQ-075 employment gate)', () => {
+    function tickN(times: number, start: SimState): SimState {
+      let s = start
+      for (let i = 0; i < times; i++) {
+        s = applySimEvent(s, {
+          type: 'tick',
+          payload: { deltaMs: 250 },
+          clientCreatedAt: i,
+          authorBuilderId: A_BUILDER,
+        })
+      }
+      return s
+    }
+
+    function placeZone(
+      kind: 'residential' | 'commercial' | 'industrial',
+      row: number,
+      col: number,
+    ): SimEvent {
+      return {
+        type: 'placeZone',
+        payload: { kind, row, col },
+        clientCreatedAt: 0,
+        authorBuilderId: A_BUILDER,
+      }
+    }
+
+    it('residential-only starter city grows normally before job slots exist', () => {
+      let s = applySimEvent(EMPTY_SIM_STATE, placeZone('residential', 0, 0))
+      s = tickN(20, s)
+      expect(s.zones.cells['0,0']?.density).toBe(1)
+      expect(s.population.cells['0,0']?.residents).toBe(4)
+    })
+
+    it('residential growth stalls when job slots are filled', () => {
+      let s = applySimEvent(EMPTY_SIM_STATE, placeZone('residential', 0, 0))
+      s = applySimEvent(s, placeZone('industrial', 0, 1))
+      s = tickN(20, s)
+      expect(s.zones.cells['0,0']?.density).toBe(1)
+      expect(s.zones.cells['0,1']?.density).toBe(1)
+      expect(s.population.totalPopulation).toBe(4)
+
+      s = tickN(20, s)
+      expect(s.zones.cells['0,0']?.density).toBe(1)
+      expect(s.zones.cells['0,1']?.density).toBe(2)
+      expect(s.population.totalPopulation).toBe(4)
+    })
+
+    it('residential growth resumes when employment headroom opens', () => {
+      let s = applySimEvent(EMPTY_SIM_STATE, placeZone('residential', 0, 0))
+      s = applySimEvent(s, placeZone('industrial', 0, 1))
+      s = tickN(40, s)
+      expect(s.zones.cells['0,0']?.density).toBe(1)
+      expect(s.zones.cells['0,1']?.density).toBe(2)
+
+      s = tickN(20, s)
+      expect(s.zones.cells['0,0']?.density).toBe(2)
+      expect(s.zones.cells['0,1']?.density).toBe(3)
+      expect(s.population.totalPopulation).toBe(12)
+    })
+
+    it('direct unit: positive employment demand lets residential advance', () => {
+      const zones = {
+        cells: {
+          '0,0': { kind: 'residential' as const, density: 1 as const },
+        },
+      }
+      const next = maybeGrowZones(zones, 20, 100, {}, {}, {}, 4)
+      expect(next.cells['0,0']?.density).toBe(2)
+    })
+
+    it('direct unit: no employment headroom stalls residential only', () => {
+      const zones = {
+        cells: {
+          '0,0': { kind: 'residential' as const, density: 1 as const },
+          '0,1': { kind: 'commercial' as const, density: 1 as const },
+        },
+      }
+      const next = maybeGrowZones(zones, 20, 100, {}, {}, {}, 0)
+      expect(next.cells['0,0']?.density).toBe(1)
+      expect(next.cells['0,1']?.density).toBe(2)
+    })
+  })
+
   describe('per-tick waste accumulation (REQ-092 sewage slice 4)', () => {
     function tickN(times: number, start: SimState): SimState {
       let s = start
