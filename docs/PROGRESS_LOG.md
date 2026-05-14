@@ -16,6 +16,16 @@ Format for each slice:
 - Followups: any new `F-NNN` entries created. Link to them.
 ```
 
+## 2026-05-14, REQ-075 Residential Employment Growth Gate
+
+- Branch: `feature/20260514-req075-demand-gate`
+- PR: `#232`
+- Changed: Added the citizen employment headroom gate promised by REQ-075 / REQ-081. `src/lib/sim/events.ts` now computes R/C/I demand before the growth reducer and passes an optional residential employment demand into `maybeGrowZones`. The gate is active only after commercial or industrial job slots exist; once active, residential cells stall when job slots are filled, while commercial and industrial cells can keep growing to open more employment headroom.
+- Verification: `npm run check:dashes` clean. `git diff --check` clean. `npm run type-check` clean. `npx vitest run tests/lib/sim/events.test.ts` passed (188 / 188). `npm test` passed (2558 / 2558). `npm run build` green with the pre-existing `DriveSceneClient.tsx` missing `simState.tick` hook-deps warning.
+- Assumptions: A city with zero job slots bypasses the employment gate so the first residential zone still grows and satisfies the three-second on-ramp. Residential growth reads city-level employment headroom for v1; nearest-job routing remains a future trip-drain slice.
+- GDD coverage: REQ-075 and REQ-081 stay `partial`; both already reference `src/lib/sim/events.ts` and `tests/lib/sim/events.test.ts`. `docs/gdd/14-citizens.md` and `docs/gdd/15-zoning-and-business.md` gained build log entries.
+- Followups: None new.
+
 ## 2026-05-13, Mobile Standards: Viewport + Globals.css + Touch Suppression
 
 - Branch: `feature/20260513-mobile-standards`

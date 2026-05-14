@@ -9,6 +9,7 @@ import { applyMonsterDamage } from './monsterDamage'
 import { solvePowerStatus, type CellPowerStatus } from './powerSolver'
 import { solveSewageStatus } from './sewageSolver'
 import { solveWaterStatus, type CellWaterStatus } from './waterSolver'
+import { computeRciDemand } from './rciDemand'
 import {
   cellCoverage,
   coverageCount,
@@ -619,6 +620,10 @@ function applyTick(state: SimState, event: TickEvent): SimState {
   for (const [key, coverage] of Object.entries(servicesCoverage)) {
     servicesCoverageCount[key] = coverageCount(coverage)
   }
+  const rciDemand = computeRciDemand(floodDamagedZones, state.population)
+  const jobSlots = rciDemand.residential + state.population.totalPopulation
+  const residentialEmploymentDemand =
+    jobSlots > 0 ? rciDemand.residential : undefined
   const nextZones = maybeGrowZones(
     floodDamagedZones,
     nextTick,
@@ -626,6 +631,7 @@ function applyTick(state: SimState, event: TickEvent): SimState {
     powerStatus,
     waterStatus,
     servicesCoverageCount,
+    residentialEmploymentDemand,
   )
   // Tornado damage (REQ-105 slice 7). Erases sim-state infrastructure
   // (power line / plant, water source / pipe / treatment plant,
@@ -1140,15 +1146,19 @@ export function syncPopulationToZones(
  *     - `powerStatus[key]` is `'brownout'` or `'unpowered'`, OR
  *     - `waterStatus[key]` is `'brownout'` or `'unserved'`, OR
  *     - `servicesCoverageCount[key]` is less than
- *       `MIN_SERVICES_FOR_GROWTH` (3 of 5 service kinds).
- *     Any one gate is enough to stall growth (the three run in
+ *       `MIN_SERVICES_FOR_GROWTH` (3 of 5 service kinds), OR
+ *     - residential employment demand is 0 or lower for residential
+ *       cells after commercial / industrial job slots exist.
+ *     Any one gate is enough to stall growth (the gates run in
  *     series as a logical AND). A missing entry (undefined) on any
  *     status / count is treated as "no gate" so a pre-electrical /
  *     pre-plumbing / pre-services city (no plants / lines / sources
  *     / pipes / fewer than `MIN_SERVICES_FOR_GROWTH` distinct
  *     service kinds) grows the way it did before the gates landed;
  *     the call site short-circuits each solve and passes an empty
- *     `{}` in those cases.
+ *     `{}` in those cases. The employment gate uses `undefined` for
+ *     a city with zero job slots so the first residential block still
+ *     grows before the player zones employment.
  *   - stagnant band (`(DECLINE_HAPPINESS_THRESHOLD, GROWTH_HAPPINESS_THRESHOLD]`):
  *     density holds; the city neither grows nor decays.
  *   - miserable band (`<= DECLINE_HAPPINESS_THRESHOLD`): every
@@ -1173,6 +1183,7 @@ export function maybeGrowZones(
   powerStatus: Record<string, CellPowerStatus>,
   waterStatus: Record<string, CellWaterStatus>,
   servicesCoverageCount: Record<string, number>,
+  residentialEmploymentDemand?: number,
 ): ZonesBucket {
   if (tick <= 0 || tick % GROWTH_INTERVAL_TICKS !== 0) return zones
   const cellKeys = Object.keys(zones.cells)
@@ -1213,6 +1224,14 @@ export function maybeGrowZones(
     if (
       serviceCount !== undefined &&
       serviceCount < MIN_SERVICES_FOR_GROWTH
+    ) {
+      nextCells[key] = cell
+      continue
+    }
+    if (
+      cell.kind === 'residential' &&
+      residentialEmploymentDemand !== undefined &&
+      residentialEmploymentDemand <= 0
     ) {
       nextCells[key] = cell
       continue
