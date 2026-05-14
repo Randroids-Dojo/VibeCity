@@ -76,7 +76,7 @@ export function applyTornadoDamage(
     if (plantsAfter.length !== power.plants.length || hadLine) {
       const nextLines = { ...power.lines }
       if (hadLine) delete nextLines[lineK]
-      power = { plants: plantsAfter, lines: nextLines }
+      power = { plants: plantsAfter, lines: nextLines, pollution: power.pollution }
     }
     // Water: erase source + pipe + treatment plant at the cell.
     const sourcesAfter = water.sources.filter(

@@ -89,6 +89,7 @@ describe('applyTornadoDamage', () => {
     const power: PowerBucket = {
       plants: [{ kind: 'coal', row: 0, col: 0 }],
       lines: { '0,0': true },
+      pollution: {},
     }
     const buckets = { ...EMPTY_BUCKETS, power }
     const disasters: DisastersBucket = {
@@ -102,6 +103,7 @@ describe('applyTornadoDamage', () => {
     const power: PowerBucket = {
       plants: [],
       lines: { '0,0': true, '0,1': true },
+      pollution: {},
     }
     const buckets = { ...EMPTY_BUCKETS, power }
     const tick = tickWhereDamageRolls(0, 0)
@@ -121,6 +123,7 @@ describe('applyTornadoDamage', () => {
         { kind: 'solar', row: 5, col: 5 },
       ],
       lines: {},
+      pollution: {},
     }
     const buckets = { ...EMPTY_BUCKETS, power }
     const tick = tickWhereDamageRolls(0, 0)
@@ -179,6 +182,7 @@ describe('applyTornadoDamage', () => {
     const power: PowerBucket = {
       plants: [{ kind: 'coal', row: 0, col: 0 }],
       lines: {},
+      pollution: {},
     }
     const buckets = { ...EMPTY_BUCKETS, power }
     const tick = tickWhereDamageMisses(0, 0)
@@ -194,6 +198,7 @@ describe('applyTornadoDamage', () => {
     const power: PowerBucket = {
       plants: [{ kind: 'coal', row: 0, col: 0 }],
       lines: { '0,0': true },
+      pollution: {},
     }
     const buckets = { ...EMPTY_BUCKETS, power }
     const disasters: DisastersBucket = { active: [tornadoAt(0, 0)] }

@@ -319,6 +319,16 @@ export const POWER_PLANT_CAPACITY_MW: Record<PowerPlantKind, number> = {
 }
 
 /**
+ * Per-tick coal pollution signal (REQ-089). Each coal plant emits
+ * into its four orthogonally-adjacent cells. The value is a current
+ * tick exposure map, not an accumulating historical counter, so
+ * moving a neighborhood away from coal clears the penalty on the
+ * next tick.
+ */
+export const COAL_POLLUTION_PER_TICK = 8
+export const COAL_POLLUTION_RADIUS_CELLS = 1
+
+/**
  * One power plant placed on the city grid (REQ-085 slice 1).
  *
  * Plants are 2x2 multi-cell footprints in the spec text (REQ-085).
@@ -353,6 +363,7 @@ export const PowerBucketSchema = z
   .object({
     plants: z.array(PowerPlantSchema),
     lines: z.record(z.string(), z.literal(true)),
+    pollution: z.record(z.string(), z.number().min(0)).default({}),
   })
   .strict()
 export type PowerBucket = z.infer<typeof PowerBucketSchema>
@@ -360,6 +371,7 @@ export type PowerBucket = z.infer<typeof PowerBucketSchema>
 export const EMPTY_POWER_BUCKET: PowerBucket = Object.freeze({
   plants: Object.freeze([] as PowerPlant[]) as PowerPlant[],
   lines: Object.freeze({}) as Record<string, true>,
+  pollution: Object.freeze({}) as Record<string, number>,
 }) as PowerBucket
 
 /**
@@ -786,8 +798,8 @@ export const EARTHQUAKE_HAPPINESS_PENALTY = 25
 /**
  * Citizen happiness multi-input weights (REQ-076).
  *
- * Happiness reads four signals: waste accumulation, services
- * coverage, tax rates, active earthquakes. Each contributes a
+ * Happiness reads five signals: waste accumulation, services
+ * coverage, tax rates, coal pollution, active earthquakes. Each contributes a
  * subtractive penalty from a 100 baseline; the final score clamps
  * to [0, 100] and rounds to one decimal.
  *
@@ -805,12 +817,15 @@ export const EARTHQUAKE_HAPPINESS_PENALTY = 25
  *     7% residential rate is below neutral so the default starter
  *     city has no tax penalty; rates above 10% drag happiness down
  *     fast (each +1pp = 2 happiness lost).
+ *   - Pollution penalty: average populated-cell pollution scaled by
+ *     `POLLUTION_HAPPINESS_WEIGHT`.
  *   - Earthquake penalty: `EARTHQUAKE_HAPPINESS_PENALTY` per active
  *     earthquake (cumulative; existing).
  */
 export const WASTE_HAPPINESS_WEIGHT = 50
 export const COVERAGE_HAPPINESS_WEIGHT = 4
 export const TAX_HAPPINESS_WEIGHT = 200
+export const POLLUTION_HAPPINESS_WEIGHT = 1.5
 export const TAX_NEUTRAL_RATE = 0.10
 
 /**

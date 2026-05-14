@@ -6,6 +6,7 @@ import { computeFireAutoSpawn } from './fireAutoSpawn'
 import { computeFireSpread } from './fireSpread'
 import { applyFloodDamage } from './floodDamage'
 import { applyMonsterDamage } from './monsterDamage'
+import { refreshPowerPollution } from './powerPollution'
 import { solvePowerStatus, type CellPowerStatus } from './powerSolver'
 import { solveSewageStatus } from './sewageSolver'
 import { solveWaterStatus, type CellWaterStatus } from './waterSolver'
@@ -26,6 +27,7 @@ import {
   EARTHQUAKE_HAPPINESS_PENALTY,
   EMPTY_ECONOMY_BUCKET,
   MAX_ABANDONED_HAPPINESS_PENALTY,
+  POLLUTION_HAPPINESS_WEIGHT,
   TAX_HAPPINESS_WEIGHT,
   TAX_NEUTRAL_RATE,
   WASTE_HAPPINESS_WEIGHT,
@@ -663,6 +665,7 @@ function applyTick(state: SimState, event: TickEvent): SimState {
     state.disasters,
     nextTick,
   )
+  const nextPower = refreshPowerPollution(monsterDamaged.power)
   // Population follows zone density. The sync runs on every growth
   // tick so a place + grow + erase sequence cleans up the population
   // entry the next time the growth interval fires (within ~5s at
@@ -684,7 +687,7 @@ function applyTick(state: SimState, event: TickEvent): SimState {
   const nextEconomy = applyEconomyTick(
     state.economy,
     nextPopulation,
-    monsterDamaged.power,
+    nextPower,
     state.taxRates,
     monsterDamaged.zones,
     nextTick,
@@ -747,6 +750,7 @@ function applyTick(state: SimState, event: TickEvent): SimState {
   const nextPopulationWithHappiness = applyHappinessTick(
     nextPopulation,
     nextWater,
+    nextPower,
     nextDisasters,
     monsterDamaged.services,
     monsterDamaged.zones,
@@ -759,7 +763,7 @@ function applyTick(state: SimState, event: TickEvent): SimState {
     zones: monsterDamaged.zones,
     population: nextPopulationWithHappiness,
     economy: nextEconomy,
-    power: monsterDamaged.power,
+    power: nextPower,
     water: nextWater,
     services: monsterDamaged.services,
     disasters: nextDisasters,
@@ -868,7 +872,7 @@ export function applyEconomyTick(
  * allocating a new bucket reference per growth tick.
  */
 /**
- * Compute city happiness from waste / services / taxes / earthquakes
+ * Compute city happiness from waste / services / taxes / pollution / earthquakes
  * (REQ-076 multi-input slice). Returns a 0..100 score from a 100
  * baseline minus four subtractive penalties:
  *   - Waste: avg-waste-ratio scaled by `WASTE_HAPPINESS_WEIGHT` (max 50).
@@ -883,6 +887,8 @@ export function applyEconomyTick(
  *   - Taxes: residential rate above `TAX_NEUTRAL_RATE` (10%) drags
  *     `(rate - TAX_NEUTRAL_RATE) * TAX_HAPPINESS_WEIGHT` per tick;
  *     rates at or below 10% contribute 0.
+ *   - Pollution: avg populated-cell coal pollution scaled by
+ *     `POLLUTION_HAPPINESS_WEIGHT`.
  *   - Earthquakes: `EARTHQUAKE_HAPPINESS_PENALTY` per active.
  *
  * With no populated cells, waste / services / tax all read 0 (no one
@@ -894,6 +900,7 @@ export function applyEconomyTick(
 export function computeCityHappiness(
   water: WaterBucket,
   population: PopulationBucket,
+  power: PowerBucket,
   disasters: DisastersBucket,
   services: ServicesBucket,
   zones: ZonesBucket,
@@ -911,13 +918,18 @@ export function computeCityHappiness(
   let wastePenalty = 0
   let coveragePenalty = 0
   let taxPenalty = 0
+  let pollutionPenalty = 0
   if (populatedKeys.length > 0) {
     let totalWaste = 0
+    let totalPollution = 0
     for (const key of populatedKeys) {
       totalWaste += water.wasteAccumulation[key] ?? 0
+      totalPollution += power.pollution[key] ?? 0
     }
     const avgWaste = totalWaste / populatedKeys.length
     wastePenalty = (avgWaste / WASTE_MAX_PER_CELL) * WASTE_HAPPINESS_WEIGHT
+    const avgPollution = totalPollution / populatedKeys.length
+    pollutionPenalty = avgPollution * POLLUTION_HAPPINESS_WEIGHT
     // Coverage scoped to populated cells only (F-017): cellCoverage
     // walks the services list per cell, avoiding the full-zones
     // sort + per-zone-cell solve in solveServicesCoverage. For a
@@ -967,6 +979,7 @@ export function computeCityHappiness(
     wastePenalty -
     coveragePenalty -
     taxPenalty -
+    pollutionPenalty -
     earthquakePenalty -
     abandonedPenalty
   const clamped = Math.max(0, Math.min(100, score))
@@ -975,8 +988,9 @@ export function computeCityHappiness(
 
 /**
  * Per-tick happiness reducer (REQ-076 multi-input). Recomputes
- * `cityHappiness` from the freshly-updated water bucket, active
- * disasters, services coverage, zones membership, and tax rates.
+ * `cityHappiness` from the freshly-updated water bucket, coal
+ * pollution, active disasters, services coverage, zones membership,
+ * and tax rates.
  * `zones` is read only as a membership gate so the per-cell
  * coverage walk skips populated-but-not-zoned cells (a transient
  * state between erase and the next growth-tick sync); the per-cell
@@ -987,6 +1001,7 @@ export function computeCityHappiness(
 export function applyHappinessTick(
   population: PopulationBucket,
   water: WaterBucket,
+  power: PowerBucket,
   disasters: DisastersBucket,
   services: ServicesBucket,
   zones: ZonesBucket,
@@ -995,6 +1010,7 @@ export function applyHappinessTick(
   const next = computeCityHappiness(
     water,
     population,
+    power,
     disasters,
     services,
     zones,

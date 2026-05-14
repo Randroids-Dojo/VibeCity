@@ -15,6 +15,8 @@ import {
   PowerPlantKindSchema,
   PowerPlantSchema,
   PowerBucketSchema,
+  COAL_POLLUTION_PER_TICK,
+  COAL_POLLUTION_RADIUS_CELLS,
   POWER_PLANT_CAPACITY_MW,
   EMPTY_POWER_BUCKET,
   powerLineKey,
@@ -208,8 +210,12 @@ describe('EMPTY_SIM_STATE', () => {
     expect(EMPTY_SIM_STATE.zones).toEqual({ cells: {} })
   })
 
-  it('has power bucket initialized to empty plants + lines (REQ-085 slice 1 strict shape)', () => {
-    expect(EMPTY_SIM_STATE.power).toEqual({ plants: [], lines: {} })
+  it('has power bucket initialized to empty plants + lines + pollution (REQ-085 strict shape)', () => {
+    expect(EMPTY_SIM_STATE.power).toEqual({
+      plants: [],
+      lines: {},
+      pollution: {},
+    })
   })
 
   it('is frozen at the top level', () => {
@@ -388,24 +394,37 @@ describe('PowerBucketSchema (REQ-085 slice 1)', () => {
         '0,1': true,
         '0,2': true,
       },
+      pollution: {
+        '1,0': COAL_POLLUTION_PER_TICK,
+      },
     }
     expect(PowerBucketSchema.safeParse(bucket).success).toBe(true)
   })
 
   it('rejects extra top-level fields (strict)', () => {
-    const bucket = { plants: [], lines: {}, meterReadings: {} }
+    const bucket = { plants: [], lines: {}, pollution: {}, meterReadings: {} }
     expect(PowerBucketSchema.safeParse(bucket).success).toBe(false)
   })
 
   it('rejects a line value that is not literally true', () => {
-    const bucket = { plants: [], lines: { '0,0': false } }
+    const bucket = { plants: [], lines: { '0,0': false }, pollution: {} }
+    expect(PowerBucketSchema.safeParse(bucket).success).toBe(false)
+  })
+
+  it('defaults missing pollution map for older snapshots', () => {
+    const result = PowerBucketSchema.parse({ plants: [], lines: {} })
+    expect(result).toEqual({ plants: [], lines: {}, pollution: {} })
+  })
+
+  it('rejects negative pollution values', () => {
+    const bucket = { plants: [], lines: {}, pollution: { '0,0': -1 } }
     expect(PowerBucketSchema.safeParse(bucket).success).toBe(false)
   })
 })
 
 describe('EMPTY_POWER_BUCKET', () => {
-  it('is shaped { plants: [], lines: {} }', () => {
-    expect(EMPTY_POWER_BUCKET).toEqual({ plants: [], lines: {} })
+  it('is shaped with empty plants, lines, and pollution maps', () => {
+    expect(EMPTY_POWER_BUCKET).toEqual({ plants: [], lines: {}, pollution: {} })
   })
 
   it('passes PowerBucketSchema', () => {
@@ -414,6 +433,13 @@ describe('EMPTY_POWER_BUCKET', () => {
 
   it('is frozen at the top level', () => {
     expect(Object.isFrozen(EMPTY_POWER_BUCKET)).toBe(true)
+  })
+})
+
+describe('coal pollution constants (REQ-089)', () => {
+  it('emit a positive single-cell adjacent signal', () => {
+    expect(COAL_POLLUTION_PER_TICK).toBeGreaterThan(0)
+    expect(COAL_POLLUTION_RADIUS_CELLS).toBe(1)
   })
 })
 
