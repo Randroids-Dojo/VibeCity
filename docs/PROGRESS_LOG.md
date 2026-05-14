@@ -30,6 +30,16 @@ Format for each slice:
 - GDD coverage: No row flips. Mobile-platform polish that does not have a REQ row.
 - Followups: None new. A future polish slice could port VibeRacer's `useViewportWidth` hook for HUD compaction below 600px.
 
+## 2026-05-13, REQ-075 Trip-Demand Accumulation Per Growth Tick
+
+- Branch: `feature/20260513-trip-demand-accumulation`
+- PR: #230
+- Changed: First sim-reducer slice that actually moves `tripDemand`. New `TRIP_DEMAND_CAP_MULTIPLIER = 4` constant in `src/lib/sim/state.ts`. `syncPopulationToZones` in `src/lib/sim/events.ts` now increments each residential cell's `tripDemand` by its current resident count on every growth tick (the function only runs on growth ticks, gated by the call site in `applyTick`), saturating at `TRIP_DEMAND_CAP_MULTIPLIER * residents` so a stagnant city without a drain layer does not accumulate unbounded demand. Cells whose residents fall to 0 (e.g. mid-decline) reset `tripDemand` to 0 because nobody is making trips from an empty cell. `totalTripDemand` already rolled up across cells; this slice makes the bucket field meaningful.
+- Verification: `npm run check:dashes` clean. `npm run type-check` clean. `npm test` 2553 / 2553 across 88 files (+6 new trip-demand cases: first-tick seeds tripDemand to residents, accumulates each cycle, saturates at cap on density-3, zero-resident cell resets to 0 via direct `syncPopulationToZones` unit call, totalTripDemand sums across cells, two-replay determinism). `npm run build` green.
+- Assumptions: One trip per resident per growth cycle is the v1 rate. The cap multiplier of 4 cycles is the saturation headroom; tunable via the new constant if playtest signal asks for a different value. The drain mechanism (NPC vehicle spawn that consumes `tripDemand` per trip event, REQ-077 future slice) is intentionally deferred so the counter is observable without the spawn dependency.
+- GDD coverage: REQ-075 stays `partial` (NPC vehicle spawn per trip-demand event remains; citizen demand growth gate remains). The "trip demand counter per residential cell" half of the REQ now actually moves.
+- Followups: None new.
+
 ## 2026-05-12, Zone Growth-Blocked Diagnostic in Editor SnapGridView
 
 - Branch: `feature/20260512-zone-growth-blocked-diagnostic`
