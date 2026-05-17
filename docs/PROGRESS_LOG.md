@@ -16,6 +16,16 @@ Format for each slice:
 - Followups: any new `F-NNN` entries created. Link to them.
 ```
 
+## 2026-05-17, Drive Minimap Renders Zones
+
+- Branch: `feature/20260517-minimap-zones`
+- PR: (pending)
+- Changed: Drive-mode polish. The minimap rendered pieces + buildings but no zones, so a player driving the city had no overhead view of the R/C/I layout they zoned. Added `MINIMAP_ZONE_COLOR` palette in `src/app/[slug]/driveMinimap.ts` mirroring the editor and home-page-thumbnail palette (green residential, blue commercial, ochre industrial). `DriveSceneClient.tsx` minimap SVG now iterates `simState.zones.cells` and emits one rect per zoned cell BEFORE the pieces and buildings, so road pieces draw on top of the zone color and buildings draw on top of both. Defensive parsing on the cell key Number conversion so a malformed key cannot crash the render.
+- Verification: `npm run check:dashes` clean. `git diff --check` clean. `npm run type-check` clean. `npm run build` green (no warnings). `npm test` passed (2590 / 2590, +3 new minimap-color cases: valid hex per kind, distinct between kinds, distinct from piece / building). `npx playwright test e2e/drive.spec.ts --project=chromium -g "F-008"` passed (1 / 1).
+- Assumptions: Zones render below pieces / buildings so the road silhouette stays sharp on top of the zone color. Cell-key Number coercion check matches the same defensive pattern used in the SnapGridView zone walk so a corrupt key key cannot crash either surface.
+- GDD coverage: No row flips. REQ-069 (minimap) gains zone-layer coverage; REQ-110 sim-as-primary view UI parity tightens.
+- Followups: None new.
+
 ## 2026-05-17, Home Page Card Population Badge
 
 - Branch: `feature/20260517-home-card-population`

@@ -192,6 +192,7 @@ import {
   MINIMAP_CAR_SIZE_PX,
   MINIMAP_PIECE_COLOR,
   MINIMAP_SIZE_PX,
+  MINIMAP_ZONE_COLOR,
   headingToMinimapDegrees,
   minimapBoundsForCity,
   worldToMinimap,
@@ -3026,6 +3027,35 @@ export function DriveSceneClient({
             viewBox={`0 0 ${MINIMAP_SIZE_PX} ${MINIMAP_SIZE_PX}`}
             style={{ display: 'block' }}
           >
+            {Object.entries(simState.zones.cells).map(
+              ([key, zone]) => {
+                const [rowStr, colStr] = key.split(',')
+                const row = Number(rowStr)
+                const col = Number(colStr)
+                if (!Number.isFinite(row) || !Number.isFinite(col)) {
+                  return null
+                }
+                const worldPos = cellToWorld(row, col)
+                const center = worldToMinimap(
+                  worldPos.x,
+                  worldPos.z,
+                  minimapBounds,
+                )
+                const size = CELL_SIZE * minimapBounds.scale
+                return (
+                  <rect
+                    key={`zone-${key}`}
+                    data-testid="drive-minimap-zone"
+                    data-zone-kind={zone.kind}
+                    x={center.x - size / 2}
+                    y={center.y - size / 2}
+                    width={size}
+                    height={size}
+                    fill={MINIMAP_ZONE_COLOR[zone.kind]}
+                  />
+                )
+              },
+            )}
             {city.pieces.flatMap((piece, pieceIndex) =>
               pieceFootprintWorldCells(piece).map((cell, cellIndex) => {
                 const center = worldToMinimap(cell.x, cell.z, minimapBounds)

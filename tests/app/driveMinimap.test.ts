@@ -8,6 +8,7 @@ import {
   MINIMAP_PADDING_CELLS,
   MINIMAP_PIECE_COLOR,
   MINIMAP_SIZE_PX,
+  MINIMAP_ZONE_COLOR,
   headingToMinimapDegrees,
   minimapBoundsForCity,
   worldToMinimap,
@@ -71,6 +72,25 @@ describe('minimap constants', () => {
   it('keeps the car color distinct from the piece and building colors', () => {
     expect(MINIMAP_CAR_COLOR).not.toBe(MINIMAP_PIECE_COLOR)
     expect(MINIMAP_CAR_COLOR).not.toBe(MINIMAP_BUILDING_COLOR)
+  })
+
+  it('exposes a valid hex color per zone kind', () => {
+    for (const kind of ['residential', 'commercial', 'industrial'] as const) {
+      expect(MINIMAP_ZONE_COLOR[kind]).toMatch(/^#[0-9a-f]{6}$/i)
+    }
+  })
+
+  it('keeps every zone color distinct from the others', () => {
+    expect(MINIMAP_ZONE_COLOR.residential).not.toBe(MINIMAP_ZONE_COLOR.commercial)
+    expect(MINIMAP_ZONE_COLOR.commercial).not.toBe(MINIMAP_ZONE_COLOR.industrial)
+    expect(MINIMAP_ZONE_COLOR.residential).not.toBe(MINIMAP_ZONE_COLOR.industrial)
+  })
+
+  it('keeps zone colors distinct from the piece and building colors', () => {
+    for (const kind of ['residential', 'commercial', 'industrial'] as const) {
+      expect(MINIMAP_ZONE_COLOR[kind]).not.toBe(MINIMAP_PIECE_COLOR)
+      expect(MINIMAP_ZONE_COLOR[kind]).not.toBe(MINIMAP_BUILDING_COLOR)
+    }
   })
 })
 

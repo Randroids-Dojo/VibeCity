@@ -51,6 +51,22 @@ export const MINIMAP_PIECE_COLOR = '#7d6b4a'
 export const MINIMAP_BUILDING_COLOR = '#6b7d4a'
 
 /**
+ * Per-zone-kind minimap fill. Mirrors the editor's zone fill palette
+ * (green = residential, blue = commercial, ochre = industrial) so the
+ * player driving the city sees the same color vocabulary they used to
+ * zone it. Pulled out so a future tooling slice can render a legend
+ * from the same constants.
+ */
+export const MINIMAP_ZONE_COLOR: Record<
+  'residential' | 'commercial' | 'industrial',
+  string
+> = {
+  residential: '#3a8a3a',
+  commercial: '#3a6aa3',
+  industrial: '#a38a3a',
+}
+
+/**
  * Background color of the minimap viewport. A muted dark fill so the
  * piece / building markers read with high contrast and the minimap
  * does not glow against the drive scene's noon lighting.
