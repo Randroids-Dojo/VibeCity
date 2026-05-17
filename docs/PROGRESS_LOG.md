@@ -19,7 +19,7 @@ Format for each slice:
 ## 2026-05-17, Growth-Blocked Cells Get a Visible Stroke
 
 - Branch: `feature/20260517-growth-blocked-stroke`
-- PR: (pending)
+- PR: `#238`
 - Changed: Polish slice on the editor zone overlays. The 2026-05-12 growth-blocked diagnostic landed the composite `data-zone-growth-blocked` attribute plus three per-gate attributes, but the player had no visible signal for stalled cells; reading WHICH cells were blocked meant inspecting the DOM. New `GROWTH_BLOCKED_STROKE = '#d68a3a'` warm orange, `GROWTH_BLOCKED_STROKE_WIDTH = 2`, and `GROWTH_BLOCKED_STROKE_DASHARRAY = '2 2'` in `src/app/[slug]/edit/SnapGridView.tsx`. Stroke override priority: fire-risk solid red > abandoned dashed grey > growth-blocked dashed orange > base power-status color. Cells already at density 3 read as base (at cap, not blocked).
 - Verification: `npm run check:dashes` clean. `git diff --check` clean. `npm run type-check` clean. `npm run build` green (no warnings). `npm test` passed (2576 / 2576). `npx playwright test e2e/sim.spec.ts --project=chromium -g "zone-growth-blocked"` passed (1 / 1) with new stroke + stroke-dasharray attribute assertions on the existing diagnostic spec.
 - Assumptions: Orange chosen to read as distinct from the existing red (fire-risk) and grey (abandoned) overrides while still landing in the warm warning palette. Short dash pattern `2 2` differs from the abandoned `4 3` so the two cues are visually distinguishable when both could theoretically apply to adjacent cells.
