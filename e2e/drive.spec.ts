@@ -117,6 +117,10 @@ test('drive route mounts the canvas with the slug label and Edit CTA', async ({
   await expect(page.getByTestId('drive-hud-population')).toHaveCount(0)
   await expect(page.getByTestId('drive-hud-happiness')).toHaveCount(0)
   await expect(page.getByTestId('drive-hud-pollution')).toHaveCount(0)
+  // F-013 close-out: data-dust-active mirrors the live dust state and
+  // defaults to 'false' on an empty city (no car mounted, no per-frame
+  // step runs).
+  await expect(root).toHaveAttribute('data-dust-active', 'false')
   await expect(page.getByTestId('drive-hud-brake')).toHaveCount(0)
   await expect(page.getByTestId('drive-hud-milestone')).toHaveCount(0)
   await expect(page.getByTestId('drive-hud-surface')).toHaveCount(0)
@@ -281,6 +285,10 @@ test('drive route shows the empty-state prompt for a fresh slug (REQ-053)', asyn
   await expect(page.getByTestId('drive-hud-population')).toHaveCount(0)
   await expect(page.getByTestId('drive-hud-happiness')).toHaveCount(0)
   await expect(page.getByTestId('drive-hud-pollution')).toHaveCount(0)
+  // F-013 close-out: data-dust-active mirrors the live dust state and
+  // defaults to 'false' on an empty city (no car mounted, no per-frame
+  // step runs).
+  await expect(root).toHaveAttribute('data-dust-active', 'false')
   await expect(page.getByTestId('drive-hud-brake')).toHaveCount(0)
   await expect(page.getByTestId('drive-hud-milestone')).toHaveCount(0)
   await expect(page.getByTestId('drive-hud-surface')).toHaveCount(0)

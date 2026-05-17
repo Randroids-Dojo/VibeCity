@@ -37,6 +37,7 @@ import {
   CAR_CABIN_LENGTH,
   CAR_CABIN_OFFSET,
   CAR_CABIN_WIDTH,
+  CAR_GROUND_LIFT,
   BRAKE_LIGHT_DEPTH,
   BRAKE_LIGHT_HEIGHT,
   BRAKE_LIGHT_WIDTH,
@@ -150,6 +151,7 @@ import {
   applyOffStreetPenalty,
   closestStreetPiece,
   wheelOnStreet,
+  wheelWorldPosition,
   type ClosestStreetPiece,
 } from './offStreetPenalty'
 import {
@@ -177,6 +179,12 @@ import {
 import { RESPAWN_KEY_CODE, respawnVehicle } from './respawn'
 import { ENGINE_MUTE_KEY_CODE, EngineAudioRig } from '@/lib/audio/engineAudio'
 import { TireScreechAudioRig } from '@/lib/audio/tireScreech'
+import {
+  DUST_PARTICLES_PER_WHEEL,
+  dustParticleOpacity,
+  dustParticleRise,
+  shouldSpawnDust,
+} from '@/lib/render/dustParticles'
 import {
   SHARE_COPY_RESET_DELAY_MS,
   buildShareUrl,
@@ -1576,6 +1584,49 @@ export function DriveSceneClient({
       )
     }
 
+    // F-013 close-out: off-street dust particles. Preallocate a fixed
+    // pool of small puff meshes (4 per wheel). Per frame, when a wheel
+    // is off-street and the car is moving, spawn an idle puff at the
+    // wheel world position; per-frame update advances each active
+    // puff's age, fades opacity, and lifts the y position so a puff
+    // reads as "scuffed up dust" rather than a static decal. The pool
+    // is recycled rather than allocated/disposed per spawn so the
+    // garbage pressure stays flat.
+    const dustPool: {
+      mesh: THREE.Mesh
+      material: THREE.MeshBasicMaterial
+      age: number
+      baseX: number
+      baseZ: number
+      baseY: number
+    }[] = []
+    const lastDustSpawnTimePerWheel: number[] = [0, 0, 0, 0]
+    if (car) {
+      const dustGeometry = new THREE.SphereGeometry(CELL_SIZE * 0.06, 6, 4)
+      const totalDustPuffs = 4 * DUST_PARTICLES_PER_WHEEL
+      for (let i = 0; i < totalDustPuffs; i++) {
+        const material = new THREE.MeshBasicMaterial({
+          color: 0xb8a878,
+          transparent: true,
+          opacity: 0,
+          depthWrite: false,
+        })
+        const mesh = new THREE.Mesh(dustGeometry, material)
+        mesh.userData = { dust: true }
+        mesh.visible = false
+        scene.add(mesh)
+        dustPool.push({
+          mesh,
+          material,
+          age: Number.POSITIVE_INFINITY,
+          baseX: 0,
+          baseZ: 0,
+          baseY: 0,
+        })
+      }
+    }
+    let dustElapsedSeconds = 0
+
     // Resize handling. The canvas fills its parent; we read the parent
     // box size on mount and on resize so the renderer / camera stay in
     // sync as the page reflows.
@@ -2253,6 +2304,88 @@ export function DriveSceneClient({
             screechActive ? 'true' : 'false',
           )
         }
+        // F-013 close-out: off-street dust spawn + per-puff update.
+        // Each wheel's world position is computed once; the spawn
+        // predicate gates on (off-street, speed > min, interval).
+        // Idle puffs in the pool (age >= lifetime) recycle to the
+        // current wheel position when spawned. The data-dust-active
+        // attribute mirrors whether any puff is currently visible so
+        // a contract-based test can lock the substrate without
+        // poking at three.js internals.
+        dustElapsedSeconds += dt
+        const offStreet = !onStreet
+        for (let w = 0; w < wheelLocalOffsets.length; w++) {
+          if (
+            shouldSpawnDust(
+              offStreet,
+              vehicle.speed,
+              lastDustSpawnTimePerWheel[w],
+              dustElapsedSeconds,
+            )
+          ) {
+            const world = wheelWorldPosition(vehicle, wheelLocalOffsets[w])
+            // Find an idle puff in the wheel's sub-pool. Pool layout
+            // is [wheel0 puffs][wheel1 puffs]..., so wheel `w` owns
+            // indices [w * N, (w + 1) * N).
+            const poolStart = w * DUST_PARTICLES_PER_WHEEL
+            const poolEnd = poolStart + DUST_PARTICLES_PER_WHEEL
+            let chosen = -1
+            for (let i = poolStart; i < poolEnd; i++) {
+              if (dustPool[i].age >= Number.POSITIVE_INFINITY) {
+                chosen = i
+                break
+              }
+            }
+            if (chosen === -1) {
+              // No fully-idle puff: recycle the oldest (highest age)
+              // in this wheel's sub-pool so the spawn never silently
+              // skips.
+              let oldestAge = -1
+              for (let i = poolStart; i < poolEnd; i++) {
+                if (dustPool[i].age > oldestAge) {
+                  oldestAge = dustPool[i].age
+                  chosen = i
+                }
+              }
+            }
+            if (chosen !== -1) {
+              const puff = dustPool[chosen]
+              puff.age = 0
+              puff.baseX = world.x
+              puff.baseZ = world.z
+              puff.baseY = CAR_GROUND_LIFT
+              lastDustSpawnTimePerWheel[w] = dustElapsedSeconds
+            }
+          }
+        }
+        let anyDustVisible = false
+        for (const puff of dustPool) {
+          if (puff.age >= Number.POSITIVE_INFINITY) {
+            puff.mesh.visible = false
+            continue
+          }
+          puff.age += dt
+          const opacity = dustParticleOpacity(puff.age)
+          if (opacity <= 0) {
+            puff.mesh.visible = false
+            puff.age = Number.POSITIVE_INFINITY
+            continue
+          }
+          puff.material.opacity = opacity
+          puff.mesh.position.set(
+            puff.baseX,
+            puff.baseY + dustParticleRise(puff.age),
+            puff.baseZ,
+          )
+          puff.mesh.visible = true
+          anyDustVisible = true
+        }
+        if (root) {
+          root.setAttribute(
+            'data-dust-active',
+            anyDustVisible ? 'true' : 'false',
+          )
+        }
         prevHeading = vehicle.heading
         updateVehicleAttrs()
         updateOnBuildingAttr(onBuilding)
@@ -2526,6 +2659,7 @@ export function DriveSceneClient({
       data-hud-surface="street"
       data-brake-active="false"
       data-screech-active="false"
+      data-dust-active="false"
       data-city-validity={cityValidityState}
       data-unmatched-port-count={unmatchedPortCount}
       data-engine-audio-muted={engineMuted ? 'true' : 'false'}
