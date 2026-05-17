@@ -247,6 +247,14 @@ export function EditorClient({
     }
     return keys
   }, [simState.zones, simState.population])
+  const jobSlots = useMemo(
+    () => cityJobSlots(simState.zones),
+    [simState.zones],
+  )
+  const avgPollution = useMemo(
+    () => cityAvgPollution(simState.power, simState.population),
+    [simState.power, simState.population],
+  )
   const [history, setHistory] = useState<EditorHistory<City>>(() =>
     createHistory(initialCity),
   )
@@ -1204,24 +1212,19 @@ export function EditorClient({
             },
           )
         })()}
-        {(() => {
-          const jobs = cityJobSlots(simState.zones)
-          return (
-            <span
-              data-testid="editor-sim-jobs"
-              data-sim-jobs={jobs.total}
-              data-sim-jobs-commercial={jobs.commercial}
-              data-sim-jobs-industrial={jobs.industrial}
-              title={`${jobs.commercial} commercial + ${jobs.industrial} industrial`}
-              style={{
-                marginLeft: 6,
-                fontFamily: 'ui-monospace, Menlo, monospace',
-              }}
-            >
-              {`jobs ${jobs.total}`}
-            </span>
-          )
-        })()}
+        <span
+          data-testid="editor-sim-jobs"
+          data-sim-jobs={jobSlots.total}
+          data-sim-jobs-commercial={jobSlots.commercial}
+          data-sim-jobs-industrial={jobSlots.industrial}
+          title={`${jobSlots.commercial} commercial + ${jobSlots.industrial} industrial`}
+          style={{
+            marginLeft: 6,
+            fontFamily: 'ui-monospace, Menlo, monospace',
+          }}
+        >
+          {`jobs ${jobSlots.total}`}
+        </span>
         <span
           data-testid="editor-sim-treasury"
           data-sim-treasury={Math.round(simState.economy.treasury)}
@@ -1318,11 +1321,7 @@ export function EditorClient({
           {`happy ${Math.round(simState.population.cityHappiness)}`}
         </span>
         {(() => {
-          const pollution = cityAvgPollution(
-            simState.power,
-            simState.population,
-          )
-          const display = Math.round(pollution * 10) / 10
+          const display = Math.round(avgPollution * 10) / 10
           return (
             <span
               data-testid="editor-sim-pollution"
@@ -1331,7 +1330,7 @@ export function EditorClient({
               style={{
                 marginLeft: 6,
                 fontFamily: 'ui-monospace, Menlo, monospace',
-                color: pollution > 0 ? '#a3372a' : undefined,
+                color: display > 0 ? '#a3372a' : undefined,
               }}
             >
               {`smog ${display}`}
