@@ -19,7 +19,7 @@ Format for each slice:
 ## 2026-05-17, Home Page Card Population Badge
 
 - Branch: `feature/20260517-home-card-population`
-- PR: (pending)
+- PR: `#242`
 - Changed: Polish slice on the home page recent-cards. Each card already loads the city payload (for the F-011 thumbnail), so adding a population badge is free as far as KV round-trips go. New `cityCardPopulation(city)` helper in `src/app/page.tsx` reads `simState.population.totalPopulation` via `SimStateSchema.safeParse` so a malformed sim payload or a pre-pivot city quietly reads as 0. Renamed the per-card data fan-out from `thumbnailDots` to `cardData` carrying both `{ dots, population }`; one loadCity call per slug now feeds both display values. Badge renders conditionally (`population > 0`) so empty cities stay quiet, formatted with locale grouping so `1,250` reads instead of `1250`.
 - Verification: `npm run check:dashes` clean. `git diff --check` clean. `npm run type-check` clean. `npm run build` green. `npm test` passed (2587 / 2587). `npx playwright test e2e/home.spec.ts --project=chromium` Create-form coverage passes; the pre-existing empty-list spec depends on a KV-less webServer and the local environment has populated KV, so the local empty-list assertion is environmental noise that CI's KV-less webServer resolves.
 - Assumptions: SafeParse keeps the same defensive contract as the F-011 thumbnail extension. Conditional badge matches the existing fire-risk / abandoned / smog / milestone pattern: only show when there is something to communicate.
