@@ -61,6 +61,13 @@ Keep `F-NNN` IDs monotonically increasing. When a followup ships, leave the entr
 
 ## Nice To Have
 
+### F-019: Positive-path e2e for `data-dust-active='true'`
+
+- Priority: nice-to-have
+- Context: PR #246 shipped the F-013 dust substrate and the empty-state `data-dust-active='false'` assertion, but no e2e exercises the live `'true'` flip when a mounted car goes off-street. CodeRabbit flagged this on the PR. The demo city's road loop is fully paved so reusing `/demo/drive` would race the 120ms spawn interval against the per-frame off-street resolver and flake in CI.
+- Blocker: needs a deterministic seeded off-street city fixture (a Playwright spec slug whose pieces leave a known off-street cell within keyboard range of the spawn anchor) or an in-test reducer step that nudges the car off-street directly.
+- Unblock condition: pick one of (a) extend the playwright webServer fixture to seed a small city with a deliberate off-street cell adjacent to the spawn, (b) expose a test-only escape hatch on the drive scene that the spec can call to teleport the car onto a non-piece cell. Then poll for `data-dust-active='true'` post-Escape-unpause.
+
 ### F-018: Adopt `@randroids-dojo/vibekit` across remaining duplicated lib modules
 
 - Priority: nice-to-have
