@@ -203,6 +203,7 @@ import {
   milestoneTierColor,
   milestoneTierLabel,
 } from '@/lib/sim/state'
+import { cityAvgPollution } from '@/lib/sim/hudReadouts'
 
 /**
  * Drive scene scaffold (REQ-044, REQ-045, REQ-046, REQ-053) plus the
@@ -2864,6 +2865,28 @@ export function DriveSceneClient({
                   }}
                 >
                   {`Happy ${happiness}`}
+                </span>
+              )
+            })()}
+            {(() => {
+              const display =
+                Math.round(
+                  cityAvgPollution(simState.power, simState.population) * 10,
+                ) / 10
+              if (display <= 0) return null
+              return (
+                <span
+                  data-testid="drive-hud-pollution"
+                  data-sim-pollution={display}
+                  style={{
+                    fontSize: 11,
+                    letterSpacing: 0.4,
+                    textTransform: 'uppercase',
+                    color: '#e08a8a',
+                    fontWeight: 700,
+                  }}
+                >
+                  {`Smog ${display}`}
                 </span>
               )
             })()}
