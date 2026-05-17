@@ -564,6 +564,30 @@ export function SnapGrid({
         }
         if (isPiece) tooltipParts.push('piece')
         if (isBuilding) tooltipParts.push('building')
+        // Surface the infrastructure layers (service buildings, water,
+        // power) so a hover reveals whether a cell carries a plant,
+        // pipe, line, or service building. The lookups are O(N) per
+        // cell where N is the layer's array length; v1 city sizes
+        // keep this well under a millisecond per render.
+        const service = services?.buildings.find(
+          (b) => b.row === cell.row && b.col === cell.col,
+        )
+        if (service) tooltipParts.push(service.kind)
+        const plant = power?.plants.find(
+          (p) => p.row === cell.row && p.col === cell.col,
+        )
+        if (plant) tooltipParts.push(`${plant.kind} plant`)
+        if (power?.lines[key] === true) tooltipParts.push('power line')
+        const waterSource = water?.sources.find(
+          (s) => s.row === cell.row && s.col === cell.col,
+        )
+        if (waterSource) tooltipParts.push(waterSource.kind)
+        const treatmentPlant = water?.treatmentPlants.find(
+          (t) => t.row === cell.row && t.col === cell.col,
+        )
+        if (treatmentPlant) tooltipParts.push('sewage treatment plant')
+        const pipeKind = water?.pipes[key]
+        if (pipeKind) tooltipParts.push(`${pipeKind} pipe`)
         const tooltip = tooltipParts.length > 0
           ? `(${cell.row}, ${cell.col}) ${tooltipParts.join(', ')}`
           : ''

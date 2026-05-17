@@ -16,6 +16,16 @@ Format for each slice:
 - Followups: any new `F-NNN` entries created. Link to them.
 ```
 
+## 2026-05-17, Cell Tooltips Cover Infrastructure Layers Too
+
+- Branch: `feature/20260517-overlay-tooltips`
+- PR: (pending)
+- Changed: Follow-on to PR #244. The new cell tooltip only carried zone kind + density + piece / building occupancy. Extended it to walk the services, power, and water layers so a hover on any infrastructure cell reveals what is there: service kind (`fire-station`, `hospital`, etc), power plant kind (`coal plant`, `solar plant`), `power line`, water source kind (`water-tower`, `pump-station`), `sewage treatment plant`, and pipe kind (`water pipe`, `sewage pipe`). Lookups are O(N) per cell where N is the layer's array length; v1 city sizes keep this under a millisecond per render.
+- Verification: `npm run check:dashes` clean. `git diff --check` clean. `npm run type-check` clean. `npm run build` green. `npm test` passed (2592 / 2592). `npx playwright test e2e/sim.spec.ts --project=chromium -g "hover tooltip"` passed (1 / 1) with a new infrastructure assertion: place a coal plant, the cell's tooltip text matches `/coal plant/`.
+- Assumptions: Inline `Array.find` per layer per cell is acceptable at v1 city sizes; the editor render is already O(cells * layers) for other overlays, so the extra constant factor lands in the same envelope. If a future city scale needs faster lookup, the cell-render block can hoist a single Map<cellKey, infra> precomputed once per render.
+- GDD coverage: No row flips. REQ-085 / REQ-090 / REQ-100 / REQ-101 tooltips gain coverage; existing test refs already cover SnapGridView.
+- Followups: None new.
+
 ## 2026-05-17, Editor Cell Hover Tooltips
 
 - Branch: `feature/20260517-zone-tooltips`
