@@ -8,6 +8,7 @@ import {
   MINIMAP_PADDING_CELLS,
   MINIMAP_PIECE_COLOR,
   MINIMAP_SIZE_PX,
+  MINIMAP_ZONE_COLOR,
   headingToMinimapDegrees,
   minimapBoundsForCity,
   worldToMinimap,
@@ -71,6 +72,25 @@ describe('minimap constants', () => {
   it('keeps the car color distinct from the piece and building colors', () => {
     expect(MINIMAP_CAR_COLOR).not.toBe(MINIMAP_PIECE_COLOR)
     expect(MINIMAP_CAR_COLOR).not.toBe(MINIMAP_BUILDING_COLOR)
+  })
+
+  it('exposes a valid hex color per zone kind', () => {
+    for (const kind of ['residential', 'commercial', 'industrial'] as const) {
+      expect(MINIMAP_ZONE_COLOR[kind]).toMatch(/^#[0-9a-f]{6}$/i)
+    }
+  })
+
+  it('keeps every zone color distinct from the others', () => {
+    expect(MINIMAP_ZONE_COLOR.residential).not.toBe(MINIMAP_ZONE_COLOR.commercial)
+    expect(MINIMAP_ZONE_COLOR.commercial).not.toBe(MINIMAP_ZONE_COLOR.industrial)
+    expect(MINIMAP_ZONE_COLOR.residential).not.toBe(MINIMAP_ZONE_COLOR.industrial)
+  })
+
+  it('keeps zone colors distinct from the piece and building colors', () => {
+    for (const kind of ['residential', 'commercial', 'industrial'] as const) {
+      expect(MINIMAP_ZONE_COLOR[kind]).not.toBe(MINIMAP_PIECE_COLOR)
+      expect(MINIMAP_ZONE_COLOR[kind]).not.toBe(MINIMAP_BUILDING_COLOR)
+    }
   })
 })
 
@@ -204,6 +224,43 @@ describe('minimapBoundsForCity', () => {
     if (!bounds) return
     expect(bounds.width).toBe(CELL_SIZE * 2)
     expect(bounds.depth).toBe(CELL_SIZE * 2)
+  })
+
+  it('expands bounds to include zoned cells outside the piece bbox', () => {
+    // Zone at (5, 5) sits well outside a single piece at (0, 0).
+    const withZones = minimapBoundsForCity(
+      [piece(0, 0)],
+      [],
+      0,
+      undefined,
+      [{ row: 5, col: 5 }],
+    )
+    const withoutZones = minimapBoundsForCity([piece(0, 0)], [], 0)
+    expect(withZones).not.toBeNull()
+    expect(withoutZones).not.toBeNull()
+    if (!withZones || !withoutZones) return
+    // Bounds must be larger when zones extend past the piece footprint.
+    expect(withZones.width).toBeGreaterThan(withoutZones.width)
+    expect(withZones.depth).toBeGreaterThan(withoutZones.depth)
+  })
+
+  it('ignores zone cells with non-finite coordinates', () => {
+    const bounds = minimapBoundsForCity(
+      [piece(0, 0)],
+      [],
+      0,
+      undefined,
+      [
+        { row: Number.NaN, col: 5 },
+        { row: 5, col: Number.POSITIVE_INFINITY },
+      ],
+    )
+    const without = minimapBoundsForCity([piece(0, 0)], [], 0)
+    expect(bounds).not.toBeNull()
+    expect(without).not.toBeNull()
+    if (!bounds || !without) return
+    expect(bounds.width).toBe(without.width)
+    expect(bounds.depth).toBe(without.depth)
   })
 })
 

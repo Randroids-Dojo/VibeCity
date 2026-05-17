@@ -51,6 +51,22 @@ export const MINIMAP_PIECE_COLOR = '#7d6b4a'
 export const MINIMAP_BUILDING_COLOR = '#6b7d4a'
 
 /**
+ * Per-zone-kind minimap fill. Mirrors the editor's zone fill palette
+ * (green = residential, blue = commercial, ochre = industrial) so the
+ * player driving the city sees the same color vocabulary they used to
+ * zone it. Pulled out so a future tooling slice can render a legend
+ * from the same constants.
+ */
+export const MINIMAP_ZONE_COLOR: Record<
+  'residential' | 'commercial' | 'industrial',
+  string
+> = {
+  residential: '#3a8a3a',
+  commercial: '#3a6aa3',
+  industrial: '#a38a3a',
+}
+
+/**
  * Background color of the minimap viewport. A muted dark fill so the
  * piece / building markers read with high contrast and the minimap
  * does not glow against the drive scene's noon lighting.
@@ -131,6 +147,7 @@ export function minimapBoundsForCity(
   buildings: readonly Building[],
   paddingCells: number = MINIMAP_PADDING_CELLS,
   sizePx: number = MINIMAP_SIZE_PX,
+  zoneCells: readonly { row: number; col: number }[] = [],
 ): MinimapBounds | null {
   if (sizePx <= 0 || !Number.isFinite(sizePx)) return null
   const safePadding = Math.max(0, Number.isFinite(paddingCells) ? paddingCells : 0)
@@ -154,6 +171,10 @@ export function minimapBoundsForCity(
   }
   for (const building of buildings) {
     inflate(building.col * CELL_SIZE, building.row * CELL_SIZE)
+  }
+  for (const cell of zoneCells) {
+    if (!Number.isFinite(cell.row) || !Number.isFinite(cell.col)) continue
+    inflate(cell.col * CELL_SIZE, cell.row * CELL_SIZE)
   }
   if (!saw) return null
   const padding = safePadding * CELL_SIZE
