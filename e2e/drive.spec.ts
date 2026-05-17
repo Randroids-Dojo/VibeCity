@@ -114,6 +114,8 @@ test('drive route mounts the canvas with the slug label and Edit CTA', async ({
   await expect(page.getByTestId('drive-hud-city-validity')).toHaveCount(0)
   await expect(page.getByTestId('drive-hud-speed')).toHaveCount(0)
   await expect(page.getByTestId('drive-hud-day')).toHaveCount(0)
+  await expect(page.getByTestId('drive-hud-population')).toHaveCount(0)
+  await expect(page.getByTestId('drive-hud-happiness')).toHaveCount(0)
   await expect(page.getByTestId('drive-hud-brake')).toHaveCount(0)
   await expect(page.getByTestId('drive-hud-milestone')).toHaveCount(0)
   await expect(page.getByTestId('drive-hud-surface')).toHaveCount(0)
@@ -275,6 +277,8 @@ test('drive route shows the empty-state prompt for a fresh slug (REQ-053)', asyn
   await expect(page.getByTestId('drive-hud-city-validity')).toHaveCount(0)
   await expect(page.getByTestId('drive-hud-speed')).toHaveCount(0)
   await expect(page.getByTestId('drive-hud-day')).toHaveCount(0)
+  await expect(page.getByTestId('drive-hud-population')).toHaveCount(0)
+  await expect(page.getByTestId('drive-hud-happiness')).toHaveCount(0)
   await expect(page.getByTestId('drive-hud-brake')).toHaveCount(0)
   await expect(page.getByTestId('drive-hud-milestone')).toHaveCount(0)
   await expect(page.getByTestId('drive-hud-surface')).toHaveCount(0)
@@ -394,6 +398,14 @@ test('demo drive route mounts the car and pressing throttle moves it (F-008)', a
   await expect(root).toHaveAttribute('data-pause-state', 'paused')
   await page.keyboard.press('Escape')
   await expect(root).toHaveAttribute('data-pause-state', 'running')
+
+  // Drive HUD city pulse: Pop and Happy pills mount alongside the
+  // existing Day pill so the player driving sees the city's life
+  // signal at a glance. The speed HUD wrapper only mounts when the
+  // car is mounted AND the pause menu is dismissed, so assertion
+  // runs after the Escape unpause.
+  await expect(page.getByTestId('drive-hud-population')).toBeVisible()
+  await expect(page.getByTestId('drive-hud-happiness')).toBeVisible()
 
   // Wait for both car-x and car-z mirrors to mount. The per-frame
   // attribute write only fires after the first integrator tick, so
