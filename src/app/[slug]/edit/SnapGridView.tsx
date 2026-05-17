@@ -553,6 +553,20 @@ export function SnapGrid({
         const isPiece = occupiedPieces.has(key)
         const isBuilding = occupiedBuildings.has(key)
         const zone = zones?.cells[key]
+        // Tooltip text shown on hover (SVG <title> child). Skips
+        // empty cells so a blank grid does not pop a stack of
+        // "(empty)" tooltips. The title is intentionally short:
+        // longer narration belongs in the existing data-* attributes
+        // that a debug HUD can read instead.
+        const tooltipParts: string[] = []
+        if (zone) {
+          tooltipParts.push(`${zone.kind} density ${zone.density}`)
+        }
+        if (isPiece) tooltipParts.push('piece')
+        if (isBuilding) tooltipParts.push('building')
+        const tooltip = tooltipParts.length > 0
+          ? `(${cell.row}, ${cell.col}) ${tooltipParts.join(', ')}`
+          : ''
         // Piece cells now render their actual road shape via
         // `<PieceGlyph />` below; the brown slab tile is dropped so the
         // gray road reads cleanly without a colored backdrop. Building
@@ -609,7 +623,11 @@ export function SnapGrid({
                 : undefined
             }
             style={interactive ? { cursor } : undefined}
-          />
+          >
+            {tooltip.length > 0 ? (
+              <title data-testid="editor-cell-tooltip">{tooltip}</title>
+            ) : null}
+          </rect>
         )
       })}
       {zones

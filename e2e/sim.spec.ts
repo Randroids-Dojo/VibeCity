@@ -412,6 +412,52 @@ test('editor: coal plant renders a pollution overlay on its four adjacent cells 
   ).toHaveCount(0)
 })
 
+test('editor: zone cell exposes a hover tooltip with kind and density', async ({
+  page,
+}) => {
+  await page.route('**/api/city/**', async (route, req) => {
+    if (req.method() === 'PUT') {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          slug: 'sim-cell-tooltip-spec',
+          versionHash: '0'.repeat(64),
+          updatedAt: 0,
+        }),
+      })
+    } else {
+      await route.fallback()
+    }
+  })
+
+  await page.goto('/sim-cell-tooltip-spec/edit')
+  await page.getByTestId('editor-sim-speed-0').click()
+
+  // Empty cell has no tooltip.
+  await expect(
+    page.locator(
+      '[data-testid="editor-snap-grid"] rect[data-cell-row="2"][data-cell-col="2"] title',
+    ),
+  ).toHaveCount(0)
+
+  // Paint a residential zone at (2, 2). The cell's <title> now reads
+  // the kind + density so a hover reveals the cell's state without
+  // dom inspection.
+  await page.getByTestId('editor-palette-category-zone').click()
+  await page
+    .locator(
+      '[data-testid="editor-snap-grid"] rect[data-cell-row="2"][data-cell-col="2"]',
+    )
+    .click()
+  const titleSel = page.locator(
+    '[data-testid="editor-snap-grid"] rect[data-cell-row="2"][data-cell-col="2"] title',
+  )
+  await expect(titleSel).toHaveCount(1)
+  await expect(titleSel).toHaveText(/residential density \d/)
+  await expect(titleSel).toHaveText(/\(2, 2\)/)
+})
+
 test('editor: day/night mood toggle flips active state and triggers autosave (REQ-088 follow-on)', async ({
   page,
 }) => {

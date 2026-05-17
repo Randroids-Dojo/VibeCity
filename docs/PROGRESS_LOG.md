@@ -16,6 +16,16 @@ Format for each slice:
 - Followups: any new `F-NNN` entries created. Link to them.
 ```
 
+## 2026-05-17, Editor Cell Hover Tooltips
+
+- Branch: `feature/20260517-zone-tooltips`
+- PR: (pending)
+- Changed: Editor UX polish. The snap-grid cells expose data attributes for every signal (zone kind, density, power, water, coverage, fire risk, abandoned, growth-blocked) but a player without devtools could only read the colored stroke. Added a native SVG `<title>` child to each occupied cell rect formatted as `(row, col) kind density N, piece, building`. Empty cells emit no title so a blank grid does not pop "(empty)" tooltips on every hover. Cross-browser native hover surface, no JS listeners, no extra DOM cost per cell beyond the title text.
+- Verification: `npm run check:dashes` clean. `git diff --check` clean. `npm run type-check` clean. `npm run build` green. `npm test` passed (2592 / 2592). `npx playwright test e2e/sim.spec.ts --project=chromium -g "hover tooltip"` passed (1 / 1) with assertions on empty-cell-no-title, painted-zone-shows-title, and the title text format.
+- Assumptions: Title format is intentionally short ("kind density N" plus the cell coord). Full state narration (power, water, services, fire risk, etc) belongs in the existing data attributes, which a debug HUD or per-slug integrity check can read; layering all of that into the title would make the hover tooltip unreadably long.
+- GDD coverage: No row flips. REQ-016 (snap grid render) gains tooltip coverage; the existing test refs already cover SnapGridView.
+- Followups: None new.
+
 ## 2026-05-17, Drive Minimap Renders Zones
 
 - Branch: `feature/20260517-minimap-zones`
