@@ -1,5 +1,6 @@
 import { pieceFootprintCells } from '@/app/[slug]/edit/snapGrid'
 import type { City } from './schemas'
+import { SimStateSchema } from './sim/state'
 import {
   bboxNormalizedDots,
   type BboxPlacement,
@@ -37,22 +38,36 @@ export const THUMBNAIL_MARGIN = 0.08
  */
 export const THUMBNAIL_DOT_RADIUS = 0.05
 
-/** Distinguishes piece dots (streets) from building dots so consumers can color them differently. */
-type ThumbnailDotKind = 'piece' | 'building'
+/**
+ * Distinguishes thumbnail dot sources so consumers can color them
+ * differently. v1 covers streets (pieces), placeholder buildings, and
+ * the sim layer's zoned cells split by kind so a city with extensive
+ * R/C/I zoning reads as the same SimCity-shaped silhouette in the
+ * recent-card thumbnail that the editor presents.
+ */
+type ThumbnailDotKind =
+  | 'piece'
+  | 'building'
+  | 'residential'
+  | 'commercial'
+  | 'industrial'
 
 export type ThumbnailDot = NormalizedDot<ThumbnailDotKind>
 
 /**
- * Project a city's pieces and buildings into a normalized [0, 1] x
- * [0, 1] dot list for thumbnail rendering. Empty city returns an empty
- * list. A single placement collapses the bbox to a point and centers
- * the dot at (0.5, 0.5) so a one-piece city still reads as visible
- * activity rather than a degenerate corner dot.
+ * Project a city's pieces, buildings, and zoned cells into a normalized
+ * [0, 1] x [0, 1] dot list for thumbnail rendering. Empty city returns
+ * an empty list. A single placement collapses the bbox to a point and
+ * centers the dot at (0.5, 0.5) so a one-piece city still reads as
+ * visible activity rather than a degenerate corner dot.
  *
  * Each piece emits one dot per footprint cell via `pieceFootprintCells`,
  * so a multi-cell piece (mega sweep, hairpin) reads as the road shape it
  * actually covers rather than a single anchor dot. Buildings emit one
  * dot at their anchor cell (v1 buildings have no footprint field).
+ * Zoned cells emit one dot per cell keyed by their kind so a player
+ * scanning recent cards can tell a residential-heavy city apart from
+ * an industrial-heavy one at a glance.
  */
 export function cityThumbnailDots(city: City): ThumbnailDot[] {
   const placements: BboxPlacement<ThumbnailDotKind>[] = []
@@ -67,6 +82,20 @@ export function cityThumbnailDots(city: City): ThumbnailDot[] {
       col: building.col,
       kind: 'building',
     })
+  }
+  // city.sim types as unknown at the schema boundary; safeParse here
+  // so a pre-pivot v1 city (no sim field) or a malformed payload
+  // gracefully degrades to "no zone dots" rather than crashing the
+  // home page render.
+  const parsedSim = SimStateSchema.safeParse(city.sim)
+  if (parsedSim.success) {
+    for (const [key, cell] of Object.entries(parsedSim.data.zones.cells)) {
+      const [rowStr, colStr] = key.split(',')
+      const row = Number(rowStr)
+      const col = Number(colStr)
+      if (!Number.isFinite(row) || !Number.isFinite(col)) continue
+      placements.push({ row, col, kind: cell.kind })
+    }
   }
   return bboxNormalizedDots(placements, { margin: THUMBNAIL_MARGIN })
 }

@@ -16,6 +16,16 @@ Format for each slice:
 - Followups: any new `F-NNN` entries created. Link to them.
 ```
 
+## 2026-05-17, Home Page Thumbnails Show Zones
+
+- Branch: `feature/20260517-thumbnail-zones`
+- PR: `#240`
+- Changed: Polish slice on the home page recent-card thumbnails (F-011 follow-on). The original thumbnail walked only `city.pieces` and `city.buildings`, so a zoning-heavy post-Q-009 city showed an empty thumbnail. Extended `ThumbnailDotKind` to include `residential | commercial | industrial` and walked `city.sim.zones.cells` via `SimStateSchema.safeParse` (the schema boundary types `city.sim` as `unknown`). `src/app/page.tsx` gained a `THUMBNAIL_DOT_FILL` palette mapping each kind to a SimCity-shaped color: green residential, blue commercial, ochre industrial. Pre-pivot cities with no sim field continue to render only pieces and buildings.
+- Verification: `npm run check:dashes` clean. `git diff --check` clean. `npm run type-check` clean. `npm run build` green (no warnings). `npm test` passed (2587 / 2587, +5 new zone-coverage cases: residential dot, mixed kinds, combined pieces / buildings / zones, pre-pivot no-sim graceful, malformed-sim graceful).
+- Assumptions: Each zoned cell emits one dot; on a dense city the dots pack into the thumbnail's bbox and read as a heat-map of zoning rather than individual cells. SafeParse on the sim field means a future schema migration cannot silently break home page renders.
+- GDD coverage: No row flips. F-011 implementationRefs gain the extended `cityThumbnail.ts` and `cityThumbnail.test.ts` coverage.
+- Followups: None new.
+
 ## 2026-05-17, Coal Pollution Overlay In Editor
 
 - Branch: `feature/20260517-pollution-overlay`
