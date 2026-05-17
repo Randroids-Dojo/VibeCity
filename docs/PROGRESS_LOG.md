@@ -16,6 +16,16 @@ Format for each slice:
 - Followups: any new `F-NNN` entries created. Link to them.
 ```
 
+## 2026-05-17, DriveSceneClient Hook-Deps Warning Silenced With Rationale
+
+- Branch: `chore/20260517-drive-scene-hookdeps`
+- PR: (pending)
+- Changed: Cleanup slice. The bootstrap useEffect in `src/app/[slug]/DriveSceneClient.tsx` has been emitting a `react-hooks/exhaustive-deps` warning on every build because `simState.tick` is read inside the effect (to seed the initial lighting palette at line 685) but is intentionally NOT in the dep array. Adding the tick to deps would re-run the entire bootstrap on every 4 Hz sim tick and teleport the player car back to spawn. The per-tick lighting cycle is handled by the separate `cycleResolvedTimeOfDay` effect immediately below. Added an `eslint-disable-next-line react-hooks/exhaustive-deps` directive immediately above the dep array with a multi-line comment explaining the intentional omission so a future reader does not silently flip the warning back on.
+- Verification: `npm run check:dashes` clean. `git diff --check` clean. `npm run type-check` clean. `npm run build` green with no warnings (previously: 1 hook-deps warning).
+- Assumptions: The intentional-omission pattern is the right call here; alternatives (snapshotting via ref) would either drift on re-bootstrap or introduce a second source of truth for the seed tick. The disable comment is scoped to one line so a future genuinely-missing dep on this effect will still surface.
+- GDD coverage: No row flips.
+- Followups: None new.
+
 ## 2026-05-17, Editor Sim HUD: Jobs and Pollution Readouts
 
 - Branch: `feature/20260517-editor-hud-jobs-pollution`
