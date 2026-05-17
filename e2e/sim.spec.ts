@@ -456,6 +456,24 @@ test('editor: zone cell exposes a hover tooltip with kind and density', async ({
   await expect(titleSel).toHaveCount(1)
   await expect(titleSel).toHaveText(/residential density \d/)
   await expect(titleSel).toHaveText(/\(2, 2\)/)
+
+  // Infrastructure tooltip: place a coal plant at (5, 5). The cell's
+  // tooltip surfaces the kind so a hover reveals what is there.
+  await page.getByTestId('editor-palette-category-power').click()
+  await page
+    .getByTestId('editor-palette')
+    .locator('[data-power-tool="plant-coal"]')
+    .click()
+  await page
+    .locator(
+      '[data-testid="editor-snap-grid"] rect[data-cell-row="5"][data-cell-col="5"]',
+    )
+    .click()
+  const plantTitle = page.locator(
+    '[data-testid="editor-snap-grid"] rect[data-cell-row="5"][data-cell-col="5"] title',
+  )
+  await expect(plantTitle).toHaveCount(1)
+  await expect(plantTitle).toHaveText(/coal plant/)
 })
 
 test('editor: day/night mood toggle flips active state and triggers autosave (REQ-088 follow-on)', async ({
