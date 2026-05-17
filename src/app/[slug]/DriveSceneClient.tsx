@@ -2399,6 +2399,14 @@ export function DriveSceneClient({
       })
       renderer.dispose()
     }
+    // `simState.tick` is intentionally excluded from the dep array: the
+    // bootstrap effect reads it once at mount to seed the initial
+    // lighting / sky palette, and the separate `cycleResolvedTimeOfDay`
+    // effect below mutates the scene in place on every tick change.
+    // Including the tick here would re-run the entire bootstrap on
+    // every sim tick (every 250ms at 4Hz default) and teleport the
+    // player car back to spawn each time.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
     city.pieces,
     city.buildings,
