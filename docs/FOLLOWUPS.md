@@ -61,6 +61,13 @@ Keep `F-NNN` IDs monotonically increasing. When a followup ships, leave the entr
 
 ## Nice To Have
 
+### F-019: Positive-path e2e for `data-dust-active='true'`
+
+- Priority: nice-to-have
+- Context: PR #246 shipped the F-013 dust substrate and the empty-state `data-dust-active='false'` assertion, but no e2e exercises the live `'true'` flip when a mounted car goes off-street. CodeRabbit flagged this on the PR. The demo city's road loop is fully paved so reusing `/demo/drive` would race the 120ms spawn interval against the per-frame off-street resolver and flake in CI.
+- Blocker: needs a deterministic seeded off-street city fixture (a Playwright spec slug whose pieces leave a known off-street cell within keyboard range of the spawn anchor) or an in-test reducer step that nudges the car off-street directly.
+- Unblock condition: pick one of (a) extend the playwright webServer fixture to seed a small city with a deliberate off-street cell adjacent to the spawn, (b) expose a test-only escape hatch on the drive scene that the spec can call to teleport the car onto a non-piece cell. Then poll for `data-dust-active='true'` post-Escape-unpause.
+
 ### F-018: Adopt `@randroids-dojo/vibekit` across remaining duplicated lib modules
 
 - Priority: nice-to-have
@@ -157,6 +164,7 @@ Keep `F-NNN` IDs monotonically increasing. When a followup ships, leave the entr
 - Context: Surfaced in the 2026-05-05 fun-factor audit (`docs/FUN_FACTOR_AUDIT.md`). The drive surface today has engine pitch (REQ-068) but nothing else; mid and expert players see no skill expression because the kinematic integrator does not reward line choice with audio or visual feedback. The smallest slice: tire-screech SFX gated on lateral-acceleration above a threshold, suspension bob on the car body keyed to throttle / brake events, and a brake-light material on the car's rear faces that switches color when brake is pressed.
 - Blocker: best landed AFTER the real car model dot (so the brake light has a stable rear face to attach to).
 - Unblock condition: `implement: port car.glb to drive scene (REQ-047 fidelity bump)` lands.
+- Resolved: 2026-05-17. All four slices landed. Brake-light pads (slice 2): PR #N. Tire-screech substrate + audio rig (slice 3): live in `src/lib/audio/tireScreech.ts`. Suspension bob (slice 4): `suspensionBobOffset` in `driveScene.ts`. Off-street dust (close-out): `src/lib/render/dustParticles.ts` ships pure resolvers (`shouldSpawnDust`, `dustParticleOpacity`, `dustParticleRise`); `DriveSceneClient.tsx` preallocates a 16-puff pool (4 per wheel) of small sphere meshes parented to the scene, per-frame spawn when wheel off-street + speed > min + interval elapsed, per-frame opacity fade + y-rise. `data-dust-active` mirrors live state on the scene root. PR #246. Final closure pending manual preview-deploy visual confirmation that the puffs render as intended.
 
 ### F-012: First-session on-ramp polish (NOT a tutorial)
 
