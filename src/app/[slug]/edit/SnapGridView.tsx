@@ -732,11 +732,13 @@ export function SnapGrid({
                           : baseStrokeWidth
                   }
                   strokeDasharray={
-                    isAbandoned
-                      ? '4 3'
-                      : growthBlocked
-                        ? GROWTH_BLOCKED_STROKE_DASHARRAY
-                        : undefined
+                    isFireRisk
+                      ? undefined
+                      : isAbandoned
+                        ? '4 3'
+                        : growthBlocked
+                          ? GROWTH_BLOCKED_STROKE_DASHARRAY
+                          : undefined
                   }
                   pointerEvents="none"
                 />
