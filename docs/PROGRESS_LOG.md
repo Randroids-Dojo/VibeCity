@@ -16,6 +16,16 @@ Format for each slice:
 - Followups: any new `F-NNN` entries created. Link to them.
 ```
 
+## 2026-05-17, Drive HUD Smog Pill (Parity With Editor Pollution)
+
+- Branch: `feature/20260517-drive-hud-smog`
+- PR: `#241`
+- Changed: Drive HUD parity. The pop + happy pills landed earlier today, but the drive HUD had no environmental signal: a player driving a city next to a coal plant saw no clue why happiness was dropping. New `Smog N` pill mounts inside the existing `drive-hud-speed` wrapper next to `Happy`, rendered conditionally (only when avg pollution > 0). Reuses `cityAvgPollution` from `@/lib/sim/hudReadouts`. Always-red bold so the cue reads as "the city has a problem" the moment it appears, rather than fading into the neutral pop / day color palette.
+- Verification: `npm run check:dashes` clean. `git diff --check` clean. `npm run type-check` clean. `npm run build` green. `npm test` passed (2587 / 2587). `npx playwright test e2e/drive.spec.ts --project=chromium` passed (5 / 5) with new `drive-hud-pollution` count assertions in both empty-state specs.
+- Assumptions: Conditional render matches the existing `fire-risk` / `abandoned` / `growth-stalled` / `milestone` pattern (only show when there is something to communicate); always-rendering `Smog 0` would be visual noise on a clean city. The populated-city assertion is intentionally not added: smog only appears after the sim ticks the pollution refresh through, so testing it without flakiness needs a poll, and the empty-state coverage plus the existing editor pollution spec already lock the behavior.
+- GDD coverage: No row flips. REQ-066 (drive HUD) gains the smog readout.
+- Followups: None new.
+
 ## 2026-05-17, Home Page Thumbnails Show Zones
 
 - Branch: `feature/20260517-thumbnail-zones`
