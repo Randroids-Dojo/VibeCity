@@ -152,6 +152,20 @@ const POWER_STATUS_STROKE_WIDTH: Record<CellPowerStatus, number> = {
   brownout: 2,
   unpowered: 1,
 }
+
+/**
+ * Growth-blocked stroke override. A cell whose density is below 3 and
+ * one of the per-cell gates (power, water, services) is blocking
+ * advancement reads as warm orange with a short dash pattern so the
+ * player can pick out stalled zones from the powered-but-growing
+ * neighborhood. Distinct from the fire-risk red and abandoned grey
+ * dashes (priority order: fire-risk solid red > abandoned dashed grey
+ * > growth-blocked dashed orange > base power-status color). A cell
+ * already at density 3 reads as base (at cap, not blocked).
+ */
+export const GROWTH_BLOCKED_STROKE = '#d68a3a'
+export const GROWTH_BLOCKED_STROKE_WIDTH = 2
+export const GROWTH_BLOCKED_STROKE_DASHARRAY = '2 2'
 import {
   PREVIEW_FILL,
   PREVIEW_FILL_OPACITY,
@@ -704,12 +718,28 @@ export function SnapGrid({
                       ? '#a3372a'
                       : isAbandoned
                         ? '#8a8a8a'
-                        : baseStroke
+                        : growthBlocked
+                          ? GROWTH_BLOCKED_STROKE
+                          : baseStroke
                   }
                   strokeWidth={
-                    isFireRisk ? 2 : isAbandoned ? 2 : baseStrokeWidth
+                    isFireRisk
+                      ? 2
+                      : isAbandoned
+                        ? 2
+                        : growthBlocked
+                          ? GROWTH_BLOCKED_STROKE_WIDTH
+                          : baseStrokeWidth
                   }
-                  strokeDasharray={isAbandoned ? '4 3' : undefined}
+                  strokeDasharray={
+                    isFireRisk
+                      ? undefined
+                      : isAbandoned
+                        ? '4 3'
+                        : growthBlocked
+                          ? GROWTH_BLOCKED_STROKE_DASHARRAY
+                          : undefined
+                  }
                   pointerEvents="none"
                 />
               )
