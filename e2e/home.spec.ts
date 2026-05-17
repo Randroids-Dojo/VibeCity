@@ -38,6 +38,9 @@ test('home page renders the heading, the Create form, and the empty list', async
   // F-011: thumbnails only mount inside recent-card list items; with
   // no recent cards there are no thumbnail SVGs.
   await expect(page.getByTestId('home-recent-thumbnail')).toHaveCount(0)
+  // Population badge mounts conditionally on cards with residents > 0;
+  // with no recent cards there are none.
+  await expect(page.getByTestId('home-recent-population')).toHaveCount(0)
 
   // Total-count header cue is visible with the zero-count copy. The
   // Playwright webServer runs without KV configured so cityIndexCount()

@@ -9,6 +9,9 @@ import {
   cityThumbnailDots,
   type ThumbnailDot,
 } from '@/lib/cityThumbnail'
+import { SimStateSchema } from '@/lib/sim/state'
+import type { City } from '@/lib/schemas'
+import { HomeCreateForm } from './HomeCreateForm'
 
 /**
  * Recent-card thumbnail palette. Mirrors the editor's zone fills so a
@@ -24,7 +27,20 @@ const THUMBNAIL_DOT_FILL: Record<ThumbnailDot['kind'], string> = {
   commercial: '#3a6aa3',
   industrial: '#a38a3a',
 }
-import { HomeCreateForm } from './HomeCreateForm'
+
+/**
+ * Read a recent city's population for the home-card badge. Returns 0
+ * for pre-pivot cities (no `sim` field), zero-population cities, and
+ * malformed sim payloads so the home page render never throws on a
+ * single bad slug. The schema boundary types `city.sim` as `unknown`,
+ * so safeParse is the cheap gate.
+ */
+function cityCardPopulation(city: City): number {
+  const parsed = SimStateSchema.safeParse(city.sim)
+  if (!parsed.success) return 0
+  const pop = parsed.data.population.totalPopulation
+  return Number.isFinite(pop) && pop > 0 ? pop : 0
+}
 
 /**
  * Home page (REQ-050).
@@ -58,18 +74,23 @@ export default async function HomePage() {
   // F-011: fetch each recent city's payload in parallel so the
   // recent-card thumbnails render alongside the slug + relative-time
   // labels. The recentCities limit is bounded (default 12) so the
-  // parallel fan-out stays small.
-  const thumbnailDots = await Promise.all(
+  // parallel fan-out stays small. The same loaded city also feeds the
+  // population badge so each card costs one KV read regardless of how
+  // many derived display values it carries.
+  const cardData = await Promise.all(
     cities.map(async ({ slug }) => {
       try {
         const { city } = await loadCity(slug)
-        return cityThumbnailDots(city)
+        return {
+          dots: cityThumbnailDots(city),
+          population: cityCardPopulation(city),
+        }
       } catch (err) {
         console.warn(
           `home: thumbnail loadCity failed for slug=${slug}:`,
           err,
         )
-        return []
+        return { dots: [] as ThumbnailDot[], population: 0 }
       }
     }),
   )
@@ -194,7 +215,10 @@ export default async function HomePage() {
             {cities.map(({ slug, updatedAt }, index) => {
               const relative = formatRelativeTime(updatedAt, nowMs)
               const iso = new Date(updatedAt).toISOString()
-              const dots = thumbnailDots[index] ?? []
+              const { dots, population } = cardData[index] ?? {
+                dots: [] as ThumbnailDot[],
+                population: 0,
+              }
               return (
                 <li key={slug}>
                   <Link
@@ -238,6 +262,20 @@ export default async function HomePage() {
                         >
                           {`Updated ${relative}`}
                         </time>
+                      ) : null}
+                      {population > 0 ? (
+                        <span
+                          data-testid="home-recent-population"
+                          data-population={population}
+                          style={{
+                            fontSize: 12,
+                            opacity: 0.7,
+                            color: '#3a5a3a',
+                            fontWeight: 600,
+                          }}
+                        >
+                          {`Pop ${population.toLocaleString('en-US')}`}
+                        </span>
                       ) : null}
                     </span>
                   </Link>
