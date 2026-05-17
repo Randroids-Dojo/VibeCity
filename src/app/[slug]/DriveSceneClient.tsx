@@ -2869,11 +2869,12 @@ export function DriveSceneClient({
               )
             })()}
             {(() => {
-              const display =
-                Math.round(
-                  cityAvgPollution(simState.power, simState.population) * 10,
-                ) / 10
-              if (display <= 0) return null
+              const avgPollution = cityAvgPollution(
+                simState.power,
+                simState.population,
+              )
+              if (avgPollution <= 0) return null
+              const display = Math.round(avgPollution * 10) / 10
               return (
                 <span
                   data-testid="drive-hud-pollution"
