@@ -348,6 +348,70 @@ test('editor: switch to coal plant and paint, then erase a power line', async ({
   await expect(lineOverlay).toHaveCount(0)
 })
 
+test('editor: coal plant renders a pollution overlay on its four adjacent cells (REQ-089)', async ({
+  page,
+}) => {
+  await page.route('**/api/city/**', async (route, req) => {
+    if (req.method() === 'PUT') {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          slug: 'sim-pollution-overlay-spec',
+          versionHash: '0'.repeat(64),
+          updatedAt: 0,
+        }),
+      })
+    } else {
+      await route.fallback()
+    }
+  })
+
+  await page.goto('/sim-pollution-overlay-spec/edit')
+
+  // Before placement: no pollution overlays on the empty city.
+  await expect(page.getByTestId('editor-pollution-cell')).toHaveCount(0)
+
+  // Place a coal plant at (3, 3). The pollution map populates on the
+  // next sim tick (refreshPowerPollution runs inside applyTick), so
+  // the test leaves the sim at the default 1x speed and lets the
+  // overlay appear naturally rather than racing it.
+  await page.getByTestId('editor-palette-category-power').click()
+  const palette = page.getByTestId('editor-palette')
+  await palette.locator('[data-power-tool="plant-coal"]').click()
+  await page
+    .locator(
+      '[data-testid="editor-snap-grid"] rect[data-cell-row="3"][data-cell-col="3"]',
+    )
+    .click()
+
+  // Four overlay cells appear (4 orthogonal neighbors) once the sim
+  // ticks the pollution refresh through.
+  await expect(page.getByTestId('editor-pollution-cell')).toHaveCount(4, {
+    timeout: 10000,
+  })
+  for (const [r, c] of [
+    [2, 3],
+    [4, 3],
+    [3, 2],
+    [3, 4],
+  ]) {
+    await expect(
+      page.locator(
+        `[data-testid="editor-pollution-cell"][data-pollution-row="${r}"][data-pollution-col="${c}"]`,
+      ),
+    ).toBeVisible()
+  }
+
+  // The plant's own cell carries no pollution overlay (emit pattern
+  // is orthogonal-adjacent only).
+  await expect(
+    page.locator(
+      '[data-testid="editor-pollution-cell"][data-pollution-row="3"][data-pollution-col="3"]',
+    ),
+  ).toHaveCount(0)
+})
+
 test('editor: day/night mood toggle flips active state and triggers autosave (REQ-088 follow-on)', async ({
   page,
 }) => {

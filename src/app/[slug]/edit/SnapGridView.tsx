@@ -166,6 +166,30 @@ const POWER_STATUS_STROKE_WIDTH: Record<CellPowerStatus, number> = {
 export const GROWTH_BLOCKED_STROKE = '#d68a3a'
 export const GROWTH_BLOCKED_STROKE_WIDTH = 2
 export const GROWTH_BLOCKED_STROKE_DASHARRAY = '2 2'
+
+/**
+ * Coal pollution exposure overlay. Each coal plant pollutes its four
+ * orthogonally-adjacent cells (REQ-089). v1 ships the signal as a
+ * happiness penalty input but nothing visible, so the player has no
+ * way to see WHERE the smog is coming from. The overlay renders a
+ * faint red fill on every cell present in `power.pollution`,
+ * scaled by exposure intensity (overlapping plants stack the value).
+ *
+ * Opacity uses `min(value / scale, max)` so a single plant reads as
+ * a subtle tint and stacked exposure deepens the red without ever
+ * fully obscuring the underlying zone fill or empty cell.
+ */
+export const POLLUTION_OVERLAY_FILL = '#a3372a'
+export const POLLUTION_OVERLAY_OPACITY_SCALE = 24
+export const POLLUTION_OVERLAY_OPACITY_MAX = 0.35
+
+export function pollutionOverlayOpacity(value: number): number {
+  if (!Number.isFinite(value) || value <= 0) return 0
+  return Math.min(
+    POLLUTION_OVERLAY_OPACITY_MAX,
+    value / POLLUTION_OVERLAY_OPACITY_SCALE,
+  )
+}
 import {
   PREVIEW_FILL,
   PREVIEW_FILL_OPACITY,
@@ -745,6 +769,33 @@ export function SnapGrid({
               )
             })
           })()
+        : null}
+      {power
+        ? Object.keys(power.pollution).map((key) => {
+            const value = power.pollution[key]
+            if (!Number.isFinite(value) || value <= 0) return null
+            const [rowStr, colStr] = key.split(',')
+            const row = Number(rowStr)
+            const col = Number(colStr)
+            if (!Number.isFinite(row) || !Number.isFinite(col)) return null
+            const { x, y } = cellToPixel({ row, col })
+            return (
+              <rect
+                key={`pollution-${key}`}
+                data-testid="editor-pollution-cell"
+                data-pollution-row={row}
+                data-pollution-col={col}
+                data-pollution-value={value}
+                x={x}
+                y={y}
+                width={CELL_PIXELS}
+                height={CELL_PIXELS}
+                fill={POLLUTION_OVERLAY_FILL}
+                fillOpacity={pollutionOverlayOpacity(value)}
+                pointerEvents="none"
+              />
+            )
+          })
         : null}
       {power
         ? Object.keys(power.lines).map((key) => {
