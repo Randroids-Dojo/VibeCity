@@ -9,6 +9,21 @@ import {
   cityThumbnailDots,
   type ThumbnailDot,
 } from '@/lib/cityThumbnail'
+
+/**
+ * Recent-card thumbnail palette. Mirrors the editor's zone fills so a
+ * visitor's eye learns to associate green = residential, blue =
+ * commercial, ochre = industrial across the home page and the editor.
+ * Pieces and buildings keep their existing warm brown / tan to read
+ * as "infrastructure" against the sim layer's color-coded zones.
+ */
+const THUMBNAIL_DOT_FILL: Record<ThumbnailDot['kind'], string> = {
+  piece: '#3a2f1a',
+  building: '#a36a3a',
+  residential: '#3a8a3a',
+  commercial: '#3a6aa3',
+  industrial: '#a38a3a',
+}
 import { HomeCreateForm } from './HomeCreateForm'
 
 /**
@@ -273,7 +288,7 @@ function RecentCityThumbnail({
           cx={dot.xNorm}
           cy={dot.yNorm}
           r={THUMBNAIL_DOT_RADIUS}
-          fill={dot.kind === 'piece' ? '#3a2f1a' : '#a36a3a'}
+          fill={THUMBNAIL_DOT_FILL[dot.kind]}
           data-dot-kind={dot.kind}
         />
       ))}

@@ -6,6 +6,7 @@ import {
   cityThumbnailDots,
 } from '@/lib/cityThumbnail'
 import { EMPTY_CITY, type City } from '@/lib/schemas'
+import { EMPTY_SIM_STATE } from '@/lib/sim/state'
 
 function makePiece(row: number, col: number): City['pieces'][number] {
   return { type: 'straight', row, col, rotation: 0 }
@@ -196,5 +197,88 @@ describe('cityThumbnailDots multi-cell footprints (PR #156 follow-on)', () => {
     expect(dots).toHaveLength(8)
     expect(dots.filter((d) => d.kind === 'piece')).toHaveLength(7)
     expect(dots.filter((d) => d.kind === 'building')).toHaveLength(1)
+  })
+})
+
+describe('cityThumbnailDots zone coverage', () => {
+  it('renders a residential zone cell as a residential-kind dot', () => {
+    const city: City = {
+      ...EMPTY_CITY,
+      sim: {
+        ...EMPTY_SIM_STATE,
+        zones: {
+          cells: {
+            '0,0': { kind: 'residential', density: 2 },
+          },
+        },
+      },
+    }
+    const dots = cityThumbnailDots(city)
+    expect(dots).toHaveLength(1)
+    expect(dots[0].kind).toBe('residential')
+  })
+
+  it('emits one dot per zoned cell across all three kinds', () => {
+    const city: City = {
+      ...EMPTY_CITY,
+      sim: {
+        ...EMPTY_SIM_STATE,
+        zones: {
+          cells: {
+            '0,0': { kind: 'residential', density: 1 },
+            '0,1': { kind: 'commercial', density: 1 },
+            '0,2': { kind: 'industrial', density: 1 },
+          },
+        },
+      },
+    }
+    const dots = cityThumbnailDots(city)
+    expect(dots.map((d) => d.kind).sort()).toEqual([
+      'commercial',
+      'industrial',
+      'residential',
+    ])
+  })
+
+  it('combines pieces, buildings, and zones into one dot list', () => {
+    const city: City = {
+      pieces: [makePiece(0, 0)],
+      buildings: [makeBuilding(2, 2)],
+      sim: {
+        ...EMPTY_SIM_STATE,
+        zones: {
+          cells: {
+            '5,5': { kind: 'commercial', density: 2 },
+          },
+        },
+      },
+    }
+    const dots = cityThumbnailDots(city)
+    expect(dots).toHaveLength(3)
+    const kinds = dots.map((d) => d.kind)
+    expect(kinds).toContain('piece')
+    expect(kinds).toContain('building')
+    expect(kinds).toContain('commercial')
+  })
+
+  it('a pre-pivot city with no sim field renders only pieces and buildings', () => {
+    // No `sim` key means the field is undefined; safeParse fails and
+    // the zone-walk skips silently.
+    const city: City = makeCity([makePiece(0, 0)], [makeBuilding(1, 1)])
+    const dots = cityThumbnailDots(city)
+    expect(dots).toHaveLength(2)
+    expect(dots.every((d) => d.kind === 'piece' || d.kind === 'building')).toBe(
+      true,
+    )
+  })
+
+  it('a malformed sim field degrades gracefully without throwing', () => {
+    const city: City = {
+      ...makeCity([makePiece(0, 0)]),
+      sim: { not: 'a sim state' } as unknown,
+    }
+    const dots = cityThumbnailDots(city)
+    expect(dots).toHaveLength(1)
+    expect(dots[0].kind).toBe('piece')
   })
 })
