@@ -76,6 +76,7 @@ import {
 } from '@/lib/sim/state'
 import { TICK_INTERVAL_MS_BASE } from '@/lib/sim/engine'
 import { computeRciDemand } from '@/lib/sim/rciDemand'
+import { cityAvgPollution, cityJobSlots } from '@/lib/sim/hudReadouts'
 import { countUncoveredIndustrial } from '@/lib/sim/fireAutoSpawn'
 import {
   AUTOSAVE_STATUS_LABEL,
@@ -246,6 +247,14 @@ export function EditorClient({
     }
     return keys
   }, [simState.zones, simState.population])
+  const jobSlots = useMemo(
+    () => cityJobSlots(simState.zones),
+    [simState.zones],
+  )
+  const avgPollution = useMemo(
+    () => cityAvgPollution(simState.power, simState.population),
+    [simState.power, simState.population],
+  )
   const [history, setHistory] = useState<EditorHistory<City>>(() =>
     createHistory(initialCity),
   )
@@ -1204,6 +1213,19 @@ export function EditorClient({
           )
         })()}
         <span
+          data-testid="editor-sim-jobs"
+          data-sim-jobs={jobSlots.total}
+          data-sim-jobs-commercial={jobSlots.commercial}
+          data-sim-jobs-industrial={jobSlots.industrial}
+          title={`${jobSlots.commercial} commercial + ${jobSlots.industrial} industrial`}
+          style={{
+            marginLeft: 6,
+            fontFamily: 'ui-monospace, Menlo, monospace',
+          }}
+        >
+          {`jobs ${jobSlots.total}`}
+        </span>
+        <span
           data-testid="editor-sim-treasury"
           data-sim-treasury={Math.round(simState.economy.treasury)}
           style={{
@@ -1298,6 +1320,23 @@ export function EditorClient({
         >
           {`happy ${Math.round(simState.population.cityHappiness)}`}
         </span>
+        {(() => {
+          const display = Math.round(avgPollution * 10) / 10
+          return (
+            <span
+              data-testid="editor-sim-pollution"
+              data-sim-pollution={display}
+              title="avg coal pollution exposure across populated cells"
+              style={{
+                marginLeft: 6,
+                fontFamily: 'ui-monospace, Menlo, monospace',
+                color: display > 0 ? '#a3372a' : undefined,
+              }}
+            >
+              {`smog ${display}`}
+            </span>
+          )
+        })()}
         {simState.population.cityHappiness <= GROWTH_HAPPINESS_THRESHOLD ? (
           <span
             data-testid="editor-sim-growth-stalled"
