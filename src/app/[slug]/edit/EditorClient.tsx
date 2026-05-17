@@ -76,6 +76,7 @@ import {
 } from '@/lib/sim/state'
 import { TICK_INTERVAL_MS_BASE } from '@/lib/sim/engine'
 import { computeRciDemand } from '@/lib/sim/rciDemand'
+import { cityAvgPollution, cityJobSlots } from '@/lib/sim/hudReadouts'
 import { countUncoveredIndustrial } from '@/lib/sim/fireAutoSpawn'
 import {
   AUTOSAVE_STATUS_LABEL,
@@ -1203,6 +1204,24 @@ export function EditorClient({
             },
           )
         })()}
+        {(() => {
+          const jobs = cityJobSlots(simState.zones)
+          return (
+            <span
+              data-testid="editor-sim-jobs"
+              data-sim-jobs={jobs.total}
+              data-sim-jobs-commercial={jobs.commercial}
+              data-sim-jobs-industrial={jobs.industrial}
+              title={`${jobs.commercial} commercial + ${jobs.industrial} industrial`}
+              style={{
+                marginLeft: 6,
+                fontFamily: 'ui-monospace, Menlo, monospace',
+              }}
+            >
+              {`jobs ${jobs.total}`}
+            </span>
+          )
+        })()}
         <span
           data-testid="editor-sim-treasury"
           data-sim-treasury={Math.round(simState.economy.treasury)}
@@ -1298,6 +1317,27 @@ export function EditorClient({
         >
           {`happy ${Math.round(simState.population.cityHappiness)}`}
         </span>
+        {(() => {
+          const pollution = cityAvgPollution(
+            simState.power,
+            simState.population,
+          )
+          const display = Math.round(pollution * 10) / 10
+          return (
+            <span
+              data-testid="editor-sim-pollution"
+              data-sim-pollution={display}
+              title="avg coal pollution exposure across populated cells"
+              style={{
+                marginLeft: 6,
+                fontFamily: 'ui-monospace, Menlo, monospace',
+                color: pollution > 0 ? '#a3372a' : undefined,
+              }}
+            >
+              {`smog ${display}`}
+            </span>
+          )
+        })()}
         {simState.population.cityHappiness <= GROWTH_HAPPINESS_THRESHOLD ? (
           <span
             data-testid="editor-sim-growth-stalled"

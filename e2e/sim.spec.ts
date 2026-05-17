@@ -109,6 +109,10 @@ test('sim view: REQ-113 controls panel is visible by default at /<slug> (speed s
   for (const kind of ['residential', 'commercial', 'industrial']) {
     await expect(page.getByTestId(`editor-sim-demand-${kind}`)).toBeVisible()
   }
+  // Job slots and pollution readouts surface the REQ-082 jobs total
+  // and the REQ-089 coal pollution signal.
+  await expect(page.getByTestId('editor-sim-jobs')).toBeVisible()
+  await expect(page.getByTestId('editor-sim-pollution')).toBeVisible()
   // Tax sliders (R / C / I) per REQ-113.
   for (const kind of ['residential', 'commercial', 'industrial']) {
     await expect(page.getByTestId(`editor-sim-tax-${kind}`)).toBeVisible()
