@@ -16,6 +16,16 @@ Format for each slice:
 - Followups: any new `F-NNN` entries created. Link to them.
 ```
 
+## 2026-05-17, Drive HUD City Pulse (Pop + Happy Pills)
+
+- Branch: `feature/20260517-drive-hud-city-pulse`
+- PR: `#237`
+- Changed: Polish slice on the drive HUD. The player driving the city saw speed / surface / compass / day pills but had no signal for the city's life: pop and happiness only appeared in the editor toolbar. New `Pop N` and `Happy N` pills mount inside the existing `drive-hud-speed` wrapper next to the `Day N` pill, matching the same uppercase / 0.4 letter-spacing / 11px style. The happy pill recolors to a warm red and bolds when happiness sits at or below `GROWTH_HAPPINESS_THRESHOLD`, mirroring the editor's growth-stalled cue. Both expose `data-sim-population` / `data-sim-happiness` / `data-sim-growth-stalled` attributes for downstream consumers (debug HUD, per-slug integrity checks).
+- Verification: `npm run check:dashes` clean. `git diff --check` clean. `npm run type-check` clean. `npm run build` green (zero warnings). `npm test` passed (2576 / 2576). `npx playwright test e2e/drive.spec.ts --project=chromium` passed (5 / 5) including a new visibility assertion for both pills on the demo drive route post-unpause.
+- Assumptions: Pills mount inside the existing speed HUD wrapper which gates on `hasVehicle && !showPauseMenu`, so an empty city or a paused drive does not render them; the e2e empty-state assertions extend the `toHaveCount(0)` discipline to the new pills. Happiness rounds to integer for display so the pill does not jitter on tiny per-tick deltas (matching the editor pattern).
+- GDD coverage: No row flips. REQ-066 (drive HUD) gains visible city-life readouts; REQ-110 (sim-as-primary view) tightens the parity between editor and drive HUD.
+- Followups: None new.
+
 ## 2026-05-17, DriveSceneClient Hook-Deps Warning Silenced With Rationale
 
 - Branch: `chore/20260517-drive-scene-hookdeps`

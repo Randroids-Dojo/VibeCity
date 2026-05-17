@@ -198,6 +198,7 @@ import {
 } from './driveMinimap'
 import { SceneTransitionCurtain } from './SceneTransitionCurtain'
 import {
+  GROWTH_HAPPINESS_THRESHOLD,
   isMilestoneToastVisible,
   milestoneTierColor,
   milestoneTierLabel,
@@ -2830,6 +2831,39 @@ export function DriveSceneClient({
                   }}
                 >
                   {`Day ${dayNumber}`}
+                </span>
+              )
+            })()}
+            <span
+              data-testid="drive-hud-population"
+              data-sim-population={simState.population.totalPopulation}
+              style={{
+                fontSize: 11,
+                letterSpacing: 0.4,
+                textTransform: 'uppercase',
+                color: '#cbb88a',
+              }}
+            >
+              {`Pop ${simState.population.totalPopulation}`}
+            </span>
+            {(() => {
+              const happiness = Math.round(simState.population.cityHappiness)
+              const stalled =
+                simState.population.cityHappiness <= GROWTH_HAPPINESS_THRESHOLD
+              return (
+                <span
+                  data-testid="drive-hud-happiness"
+                  data-sim-happiness={happiness}
+                  data-sim-growth-stalled={stalled ? 'true' : 'false'}
+                  style={{
+                    fontSize: 11,
+                    letterSpacing: 0.4,
+                    textTransform: 'uppercase',
+                    color: stalled ? '#e08a8a' : '#a3c8a3',
+                    fontWeight: stalled ? 700 : undefined,
+                  }}
+                >
+                  {`Happy ${happiness}`}
                 </span>
               )
             })()}
