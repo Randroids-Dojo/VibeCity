@@ -633,6 +633,11 @@ test('editor: zone-growth-blocked diagnostic flips when power gate activates', a
     'data-zone-services-blocked',
     'false',
   )
+  // Visible payoff: the orange dashed growth-blocked stroke now
+  // overrides the base power-status stroke so the player sees WHICH
+  // cells are stalled rather than only the data-attribute mirror.
+  await expect(zoneOverlay).toHaveAttribute('stroke', '#d68a3a')
+  await expect(zoneOverlay).toHaveAttribute('stroke-dasharray', '2 2')
 })
 
 test('editor: zone coverage count climbs as services are placed nearby (REQ-101)', async ({
