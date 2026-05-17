@@ -256,6 +256,8 @@ describe('minimapBoundsForCity', () => {
       ],
     )
     const without = minimapBoundsForCity([piece(0, 0)], [], 0)
+    expect(bounds).not.toBeNull()
+    expect(without).not.toBeNull()
     if (!bounds || !without) return
     expect(bounds.width).toBe(without.width)
     expect(bounds.depth).toBe(without.depth)
