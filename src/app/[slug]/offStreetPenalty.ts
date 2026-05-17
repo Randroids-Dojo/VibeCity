@@ -235,6 +235,38 @@ export function wheelOnStreet(
 }
 
 /**
+ * Per-wheel on-street test (F-013 close-out follow-on). Same shape as
+ * `wheelOnStreet` but returns a `boolean[]` aligned with the input
+ * offset order so a caller can act per wheel (dust particle spawn,
+ * per-corner physics tuning). An empty city (zero segments in the
+ * path) reports every wheel as off-street, matching
+ * `wheelOnStreet`'s contract.
+ */
+export function wheelOnStreetPerWheel(
+  vehicle: Pick<VehicleState, 'x' | 'z' | 'heading'>,
+  wheelOffsets: readonly WheelLocalOffset[],
+  path: TrackPath,
+  cityPieces: readonly Piece[],
+  cellSize: number,
+): boolean[] {
+  if (path.segments.length === 0) {
+    return wheelOffsets.map(() => false)
+  }
+  return wheelOffsets.map((offset) => {
+    const world = wheelWorldPosition(vehicle, offset)
+    return (
+      wheelContactCandidates(
+        world.x,
+        world.z,
+        path,
+        cityPieces,
+        cellSize,
+      ).length > 0
+    )
+  })
+}
+
+/**
  * Closest-piece resolution for the vehicle (REQ-032 / REQ-065).
  *
  * Picked field shape:

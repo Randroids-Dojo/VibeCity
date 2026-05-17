@@ -8,6 +8,7 @@ import {
   isOnStreetCell,
   streetCellSet,
   wheelOnStreet,
+  wheelOnStreetPerWheel,
   wheelWorldPosition,
 } from '@/app/[slug]/offStreetPenalty'
 import { BUILDING_PENALTY_MAX_SPEED } from '@/app/[slug]/buildingCollision'
@@ -520,6 +521,82 @@ describe('wheelOnStreet (REQ-032)', () => {
       )
       expect(result).toBe(true)
     }
+  })
+})
+
+describe('wheelOnStreetPerWheel (F-013 dust spawn follow-on)', () => {
+  const localOffsets = carWheelOffsets().map(({ x, z }) => ({ x, z }))
+
+  it('returns one entry per wheel offset', () => {
+    const pieces: Piece[] = [piece('straight', 0, 0)]
+    const path = buildTrackPath({ pieces })
+    const result = wheelOnStreetPerWheel(
+      { x: 0, z: 0, heading: 0 },
+      localOffsets,
+      path,
+      pieces,
+      CELL_SIZE,
+    )
+    expect(result).toHaveLength(localOffsets.length)
+  })
+
+  it('returns false for every wheel on an empty city', () => {
+    const path = buildTrackPath({ pieces: [] })
+    const result = wheelOnStreetPerWheel(
+      { x: 0, z: 0, heading: 0 },
+      localOffsets,
+      path,
+      [],
+      CELL_SIZE,
+    )
+    expect(result.every((v) => v === false)).toBe(true)
+  })
+
+  it('returns true for every wheel when the car sits on a piece', () => {
+    const pieces: Piece[] = [piece('straight', 0, 0)]
+    const path = buildTrackPath({ pieces })
+    const result = wheelOnStreetPerWheel(
+      { x: 0, z: 0, heading: 0 },
+      localOffsets,
+      path,
+      pieces,
+      CELL_SIZE,
+    )
+    expect(result.every((v) => v === true)).toBe(true)
+  })
+
+  it('shoulder case: only some wheels are on the road', () => {
+    // Place a single piece at (0,0). Park the car so its right-side
+    // wheels sit one cell to the east (off-road) while the left-side
+    // wheels remain on the piece.
+    const pieces: Piece[] = [piece('straight', 0, 0)]
+    const path = buildTrackPath({ pieces })
+    const offset = CELL_SIZE * 0.5
+    const result = wheelOnStreetPerWheel(
+      { x: offset, z: 0, heading: 0 },
+      localOffsets,
+      path,
+      pieces,
+      CELL_SIZE,
+    )
+    // At minimum, the per-wheel result is mixed (not all-true and
+    // not all-false). The exact wheel indices depend on the car's
+    // wheel layout, but a half-cell shift must put at least one
+    // wheel on each side of the road edge.
+    const anyOn = result.some((v) => v === true)
+    const anyOff = result.some((v) => v === false)
+    expect(anyOn).toBe(true)
+    expect(anyOff).toBe(true)
+  })
+
+  it('returns a fresh array (no shared mutable state across calls)', () => {
+    const pieces: Piece[] = [piece('straight', 0, 0)]
+    const path = buildTrackPath({ pieces })
+    const vehicle = { x: 0, z: 0, heading: 0 }
+    const a = wheelOnStreetPerWheel(vehicle, localOffsets, path, pieces, CELL_SIZE)
+    const b = wheelOnStreetPerWheel(vehicle, localOffsets, path, pieces, CELL_SIZE)
+    expect(a).not.toBe(b)
+    expect(a).toEqual(b)
   })
 })
 

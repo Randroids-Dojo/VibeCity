@@ -151,6 +151,7 @@ import {
   applyOffStreetPenalty,
   closestStreetPiece,
   wheelOnStreet,
+  wheelOnStreetPerWheel,
   wheelWorldPosition,
   type ClosestStreetPiece,
 } from './offStreetPenalty'
@@ -2313,11 +2314,24 @@ export function DriveSceneClient({
         // a contract-based test can lock the substrate without
         // poking at three.js internals.
         dustElapsedSeconds += dt
-        const offStreet = !onStreet
+        // Per-wheel off-street: one tire dropping into dirt should
+        // dust even if the other three stay on the road. Reusing the
+        // whole-car onStreet bool would only fire dust when EVERY
+        // wheel is off-street, missing the shoulder cases F-013 is
+        // about. The substrate's per-wheel helper resolves contact
+        // for each wheel independently via the same multi-locator
+        // path the whole-car `wheelOnStreet` uses.
+        const wheelOffStreetFlags = wheelOnStreetPerWheel(
+          vehicle,
+          wheelLocalOffsets,
+          trackPath,
+          city.pieces,
+          CELL_SIZE,
+        ).map((on) => !on)
         for (let w = 0; w < wheelLocalOffsets.length; w++) {
           if (
             shouldSpawnDust(
-              offStreet,
+              wheelOffStreetFlags[w],
               vehicle.speed,
               lastDustSpawnTimePerWheel[w],
               dustElapsedSeconds,

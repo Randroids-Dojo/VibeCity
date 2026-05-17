@@ -23,8 +23,8 @@ Format for each slice:
 - Changed: Closes F-013 with the final visible drive-feel layer. New `src/lib/render/dustParticles.ts` ships three pure resolvers (`shouldSpawnDust` predicate gated on off-street + speed > min + interval-elapsed; `dustParticleOpacity` linear-fade from peak to zero across lifetime; `dustParticleRise` linear lift over lifetime). `DriveSceneClient.tsx` preallocates a 16-puff pool of small sphere meshes (4 per wheel) parented to the scene, per-frame spawn at the live wheel world position, per-frame opacity fade + y-lift. Pool recycles oldest puff if all 4 in a wheel's sub-pool are still active so a spawn never silently drops. `data-dust-active` mirror on the scene root flips true whenever any puff is currently visible.
 - Verification: `npm run check:dashes` clean. `git diff --check` clean. `npm run type-check` clean. `npm run build` green. `npm test` passed (2614 / 2614, +22 dust-resolver cases). `npx playwright test e2e/drive.spec.ts --project=chromium` passed (5 / 5) with new `data-dust-active="false"` assertions on the empty-state specs.
 - Assumptions: 16-puff pool sized as `4 wheels * 4 puffs per wheel` to cover the worst case (lifetime / interval ratio). Per-wheel sub-pool means a held off-street run on one wheel cannot starve the other wheels' pools. Spawn predicate suppresses below min speed so a stopped car on grass does not emit dust.
-- GDD coverage: No row flips. REQ-068 (drive feel) gains the dust layer; F-013 marked Resolved in `docs/FOLLOWUPS.md`.
-- Followups: F-013 closed.
+- GDD coverage: No row flips. REQ-068 (drive feel) gains the dust layer; F-013 marked Resolved in `docs/FOLLOWUPS.md` pending manual preview-deploy visual confirmation.
+- Followups: F-013 substrate + per-frame spawn shipped; preview-deploy visual check is the last remaining gate before final closure.
 
 ## 2026-05-17, Cell Tooltips Cover Infrastructure Layers Too
 
