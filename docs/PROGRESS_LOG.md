@@ -19,7 +19,7 @@ Format for each slice:
 ## 2026-05-17, Coal Pollution Overlay In Editor
 
 - Branch: `feature/20260517-pollution-overlay`
-- PR: (pending)
+- PR: `#239`
 - Changed: Polish slice surfacing REQ-089 coal pollution exposure visually. The pollution map populated `power.pollution` and fed `computeCityHappiness` but the player had no way to see WHICH cells were polluted (e.g. before placing residential nearby). New constants `POLLUTION_OVERLAY_FILL = '#a3372a'`, `POLLUTION_OVERLAY_OPACITY_SCALE = 24`, `POLLUTION_OVERLAY_OPACITY_MAX = 0.35`, plus pure `pollutionOverlayOpacity(value)` resolver in `src/app/[slug]/edit/SnapGridView.tsx`. Renders a faint red full-cell rect for every key in `power.pollution`, opacity scaled linearly with cap so a single coal plant reads as a subtle tint and stacked exposure deepens the red without ever fully obscuring the underlying zone fill.
 - Verification: `npm run check:dashes` clean. `git diff --check` clean. `npm run type-check` clean. `npm run build` green (no warnings). `npm test` passed (2582 / 2582, +6 new opacity-resolver cases). `npx playwright test e2e/sim.spec.ts --project=chromium -g "pollution overlay"` passed (1 / 1) with a new spec asserting four orthogonal-neighbor overlays appear after placing a coal plant and the plant's own cell does NOT get an overlay.
 - Assumptions: Overlay reads at low opacity so it doesn't fight zone fills for color attention; if the cap is later raised to make polluted zones obviously gross, the underlying zone color still shows through. The e2e leaves the sim at default 1x speed and waits up to 10s for the next tick to refresh the pollution map (the refresh runs inside `applyTick`, so a paused sim never populates it).
