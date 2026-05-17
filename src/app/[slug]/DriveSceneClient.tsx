@@ -647,10 +647,25 @@ export function DriveSceneClient({
   // Minimap bounds (REQ-069). Memoized so the projection only
   // recomputes when the city footprint changes; the per-frame loop
   // reuses the same bounds to project the live car position.
-  const minimapBounds = useMemo(
-    () => minimapBoundsForCity(city.pieces, city.buildings),
-    [city.pieces, city.buildings],
-  )
+  // Bounds expand to cover zoned cells too so a zone placed outside the
+  // piece / building bbox does not clip off the minimap (REQ-069 follow-on).
+  const minimapBounds = useMemo(() => {
+    const zoneCells = Object.keys(simState.zones.cells)
+      .map((key) => {
+        const [rowStr, colStr] = key.split(',')
+        return { row: Number(rowStr), col: Number(colStr) }
+      })
+      .filter(
+        (cell) => Number.isFinite(cell.row) && Number.isFinite(cell.col),
+      )
+    return minimapBoundsForCity(
+      city.pieces,
+      city.buildings,
+      undefined,
+      undefined,
+      zoneCells,
+    )
+  }, [city.pieces, city.buildings, simState.zones.cells])
 
   useEffect(() => {
     const canvas = canvasRef.current

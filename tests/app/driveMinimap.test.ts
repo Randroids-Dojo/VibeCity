@@ -225,6 +225,41 @@ describe('minimapBoundsForCity', () => {
     expect(bounds.width).toBe(CELL_SIZE * 2)
     expect(bounds.depth).toBe(CELL_SIZE * 2)
   })
+
+  it('expands bounds to include zoned cells outside the piece bbox', () => {
+    // Zone at (5, 5) sits well outside a single piece at (0, 0).
+    const withZones = minimapBoundsForCity(
+      [piece(0, 0)],
+      [],
+      0,
+      undefined,
+      [{ row: 5, col: 5 }],
+    )
+    const withoutZones = minimapBoundsForCity([piece(0, 0)], [], 0)
+    expect(withZones).not.toBeNull()
+    expect(withoutZones).not.toBeNull()
+    if (!withZones || !withoutZones) return
+    // Bounds must be larger when zones extend past the piece footprint.
+    expect(withZones.width).toBeGreaterThan(withoutZones.width)
+    expect(withZones.depth).toBeGreaterThan(withoutZones.depth)
+  })
+
+  it('ignores zone cells with non-finite coordinates', () => {
+    const bounds = minimapBoundsForCity(
+      [piece(0, 0)],
+      [],
+      0,
+      undefined,
+      [
+        { row: Number.NaN, col: 5 },
+        { row: 5, col: Number.POSITIVE_INFINITY },
+      ],
+    )
+    const without = minimapBoundsForCity([piece(0, 0)], [], 0)
+    if (!bounds || !without) return
+    expect(bounds.width).toBe(without.width)
+    expect(bounds.depth).toBe(without.depth)
+  })
 })
 
 describe('worldToMinimap', () => {

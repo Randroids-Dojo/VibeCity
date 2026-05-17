@@ -147,6 +147,7 @@ export function minimapBoundsForCity(
   buildings: readonly Building[],
   paddingCells: number = MINIMAP_PADDING_CELLS,
   sizePx: number = MINIMAP_SIZE_PX,
+  zoneCells: readonly { row: number; col: number }[] = [],
 ): MinimapBounds | null {
   if (sizePx <= 0 || !Number.isFinite(sizePx)) return null
   const safePadding = Math.max(0, Number.isFinite(paddingCells) ? paddingCells : 0)
@@ -170,6 +171,10 @@ export function minimapBoundsForCity(
   }
   for (const building of buildings) {
     inflate(building.col * CELL_SIZE, building.row * CELL_SIZE)
+  }
+  for (const cell of zoneCells) {
+    if (!Number.isFinite(cell.row) || !Number.isFinite(cell.col)) continue
+    inflate(cell.col * CELL_SIZE, cell.row * CELL_SIZE)
   }
   if (!saw) return null
   const padding = safePadding * CELL_SIZE
