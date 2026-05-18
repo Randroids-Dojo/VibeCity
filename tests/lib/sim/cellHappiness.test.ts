@@ -281,6 +281,26 @@ describe('cellHappiness earthquake input', () => {
     )
     expect(score).toBe(100)
   })
+
+  it('multiple active earthquakes accumulate the penalty', () => {
+    const disasters: DisastersBucket = {
+      active: [
+        { kind: 'earthquake', row: 0, col: 0, ticksRemaining: 10 },
+        { kind: 'earthquake', row: 5, col: 5, ticksRemaining: 8 },
+      ],
+    }
+    const score = cellHappiness(
+      0,
+      0,
+      emptyWater(),
+      EMPTY_POWER_BUCKET,
+      emptyServices(),
+      EMPTY_ZONES_BUCKET,
+      DEFAULT_TAX_RATES,
+      disasters,
+    )
+    expect(score).toBe(100 - 2 * EARTHQUAKE_HAPPINESS_PENALTY)
+  })
 })
 
 describe('cellHappiness clamping and rounding', () => {
