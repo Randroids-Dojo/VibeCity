@@ -1085,42 +1085,60 @@ export function EditorClient({
             'street',
             'building',
             'zone',
-            'power',
+            'infrastructure',
             'services',
-            'water',
             'disaster',
           ] as const
-        ).map((category) => {
-          const isActive = category === paletteCategory
-          // REQ-110 vocabulary: the GDD's toolbar taxonomy reads
-          // "zones, infrastructure, services, transit, terrain". The
-          // internal `street` PaletteCategory enum value is kept (a
-          // cross-file rename would ripple far beyond the slice); only
-          // the visible label switches to "Transit".
+        ).map((tab) => {
+          // REQ-110 toolbar redesign: the GDD taxonomy collapses Power
+          // and Water under a single "Infrastructure" top-level tab.
+          // The internal `power` and `water` PaletteCategory enum
+          // values stay (click handlers, event-payload kinds, and
+          // testids are unchanged); the parent button is purely a
+          // visual grouping that defaults to Power when entering
+          // Infrastructure and surfaces a sub-tab row beneath the
+          // top-level tablist when active.
+          const isActive =
+            tab === 'infrastructure'
+              ? paletteCategory === 'power' || paletteCategory === 'water'
+              : tab === paletteCategory
           const label =
-            category === 'street'
+            tab === 'street'
               ? 'Transit'
-              : category === 'building'
+              : tab === 'building'
                 ? 'Buildings'
-                : category === 'zone'
+                : tab === 'zone'
                   ? 'Zones'
-                  : category === 'power'
-                    ? 'Power'
-                    : category === 'services'
+                  : tab === 'infrastructure'
+                    ? 'Infrastructure'
+                    : tab === 'services'
                       ? 'Services'
-                      : category === 'water'
-                        ? 'Water'
-                        : 'Disasters'
+                      : 'Disasters'
+          const handleClick = () => {
+            if (tab === 'infrastructure') {
+              // Default to Power when entering the parent group fresh;
+              // if already inside (Power or Water active) the click is
+              // a no-op so the player does not lose their sub-selection.
+              if (
+                paletteCategory !== 'power' &&
+                paletteCategory !== 'water'
+              ) {
+                handleSelectCategory('power')
+              }
+              return
+            }
+            handleSelectCategory(tab)
+          }
           return (
             <button
-              key={category}
+              key={tab}
               type="button"
               role="tab"
               aria-selected={isActive}
-              data-testid={`editor-palette-category-${category}`}
-              data-palette-category={category}
+              data-testid={`editor-palette-category-${tab}`}
+              data-palette-category={tab}
               data-active={isActive ? 'true' : 'false'}
-              onClick={() => handleSelectCategory(category)}
+              onClick={handleClick}
               style={{
                 padding: '6px 12px',
                 fontSize: 13,
@@ -1137,6 +1155,50 @@ export function EditorClient({
           )
         })}
       </div>
+      {paletteCategory === 'power' || paletteCategory === 'water' ? (
+        <div
+          role="tablist"
+          aria-label="Infrastructure subcategory"
+          data-testid="editor-palette-subcategory"
+          data-palette-subcategory={paletteCategory}
+          style={{
+            display: 'flex',
+            gap: 6,
+            flexWrap: 'wrap',
+            justifyContent: 'center',
+            alignItems: 'center',
+          }}
+        >
+          {(['power', 'water'] as const).map((sub) => {
+            const isActive = sub === paletteCategory
+            const label = sub === 'power' ? 'Power' : 'Water'
+            return (
+              <button
+                key={sub}
+                type="button"
+                role="tab"
+                aria-selected={isActive}
+                data-testid={`editor-palette-category-${sub}`}
+                data-palette-category={sub}
+                data-active={isActive ? 'true' : 'false'}
+                onClick={() => handleSelectCategory(sub)}
+                style={{
+                  padding: '4px 10px',
+                  fontSize: 12,
+                  fontFamily: 'inherit',
+                  color: isActive ? '#f7f4ee' : '#222',
+                  background: isActive ? '#3a4a3a' : '#efe7d2',
+                  border: '1px solid #d6cfbf',
+                  borderRadius: 4,
+                  cursor: 'pointer',
+                }}
+              >
+                {label}
+              </button>
+            )
+          })}
+        </div>
+      ) : null}
       <div
         role="toolbar"
         aria-label="Sim speed"

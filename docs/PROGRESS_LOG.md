@@ -16,6 +16,16 @@ Format for each slice:
 - Followups: any new `F-NNN` entries created. Link to them.
 ```
 
+## 2026-05-18, REQ-110: Collapse Power + Water Under "Infrastructure" Parent Tab
+
+- Branch: `req-110-infrastructure-tab`
+- PR: `#256`
+- Changed: Second restructuring slice of REQ-110's toolbar redesign (GDD taxonomy: `zones, infrastructure, services, transit, terrain`). The editor's top-level palette tablist drops the standalone "Power" and "Water" tabs and adds a single "Infrastructure" parent tab. The parent shows as active when either `'power'` or `'water'` is the current `PaletteCategory`. Clicking Infrastructure defaults to Power; once the parent is active, a new sub-tab row mounts beneath the top-level tablist with Power | Water buttons. Internal `PaletteCategory` enum values stay (`'power'` / `'water'` still drive click handlers, event-payload kinds, and the existing palette swap); only the visual grouping and the rendering of two separate top-level entries change. New `data-testid="editor-palette-subcategory"` exposes the sub-tab row plus `data-palette-subcategory={paletteCategory}` for e2e + analytics. `data-testid="editor-palette-category-power"` and `editor-palette-category-water` now live on the sub-tab buttons (same testid surface for backward compat). E2e tests that previously clicked the top-level Power / Water tabs now route via a new `selectInfraSubTab(page, sub)` helper that expands the parent before clicking the sub-tab.
+- Verification: `npm run check:dashes` clean. `git diff --check` clean. `npm run type-check` clean. `npm run build` green. `npm test` passed (2689 / 2689). E2e: full `npx playwright test e2e/sim.spec.ts --project=chromium` passes 40 / 40. Added 1 new spec `REQ-110: Infrastructure parent tab expands Power + Water sub-tabs` that asserts parent visibility, default-to-Power on first click, sub-tab aria-selected flip on Water click, and sub-row tear-down on leaving the parent. Refactored 13 existing Power / Water test sites: the 11 simple `await page.getByTestId('editor-palette-category-{power,water}').click()` calls route through a new `selectInfraSubTab(page, sub)` helper; the 2 `powerTab` / `waterTab` variable-declaration blocks get an explicit `editor-palette-category-infrastructure` click prepended so the sub-tab is visible before the assertion runs.
+- Assumptions: The parent click defaults to Power (not Water) because Power maintenance / placement is the more common first interaction in the existing telemetry; a returning player who was last on Water gets a no-op parent click that preserves their selection. Sub-tab labels read "Power" / "Water" rather than the alternative GDD wording ("Electricity" / "Plumbing") because the existing event-payload schema and palette UI already speak the canonical names. The Disasters top-level tab stays; REQ-110's taxonomy does not list it explicitly, but the gameplay layer (REQ-105) still routes through this category.
+- GDD coverage: REQ-110 stays `partial`; four of the five GDD-target top-level tabs are now in place (`transit`, `zones`, `infrastructure`, `services`); only "terrain" is still TBD. `docs/gdd/21-sim-as-primary-view.md` gains a build log entry.
+- Followups: none new.
+
 ## 2026-05-18, REQ-110: Editor Toolbar Shows Current Focus Cell
 
 - Branch: `req-110-focus-indicator`
