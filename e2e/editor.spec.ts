@@ -1319,6 +1319,61 @@ test('multi-cell footprint preview ghost reveals full piece reach (REQ-059)', as
   expect(eraseKinds.every((kind) => kind === 'erase-target')).toBe(true)
 })
 
+test('editor mirrors viewport focus into ?focus= URL after pan (REQ-110)', async ({
+  page,
+}) => {
+  await page.route('**/api/city/**', async (route) => {
+    if (route.request().method() !== 'PUT') {
+      await route.continue()
+      return
+    }
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        slug: 'live-focus-url-spec',
+        versionHash:
+          '0000000000000000000000000000000000000000000000000000000000000000',
+        updatedAt: Date.now(),
+      }),
+    })
+  })
+
+  await page.goto('/live-focus-url-spec')
+  const grid = page.getByTestId('editor-snap-grid')
+  await expect(grid).toBeVisible()
+  // Default load: URL has no query string.
+  expect(new URL(page.url()).search).toBe('')
+
+  // Wheel-zoom over the grid center shifts the viewport off-default.
+  const box = await grid.boundingBox()
+  if (!box) throw new Error('grid bounding box missing')
+  await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2)
+  await page.mouse.wheel(0, -200)
+  await expect(grid).toHaveAttribute('data-viewport-default', 'false')
+
+  // After the 300ms debounce, the URL picks up the ?focus= query
+  // matching the focus-cell indicator's data attributes.
+  const focusLabel = page.getByTestId('editor-viewport-focus')
+  await expect(focusLabel).toBeVisible()
+  const focusRow = await focusLabel.getAttribute('data-focus-row')
+  const focusCol = await focusLabel.getAttribute('data-focus-col')
+  expect(focusRow).not.toBeNull()
+  expect(focusCol).not.toBeNull()
+  await expect
+    .poll(() => new URL(page.url()).searchParams.get('focus'), {
+      timeout: 2000,
+    })
+    .toBe(`${focusRow},${focusCol}`)
+
+  // Reset View returns to default; the ?focus= query drops after the debounce.
+  await page.getByTestId('editor-reset-viewport').click()
+  await expect(grid).toHaveAttribute('data-viewport-default', 'true')
+  await expect
+    .poll(() => new URL(page.url()).search, { timeout: 2000 })
+    .toBe('')
+})
+
 test('pan / zoom viewport (REQ-024) responds to wheel and reset button', async ({
   page,
 }) => {
