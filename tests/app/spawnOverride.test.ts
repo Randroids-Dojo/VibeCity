@@ -76,13 +76,26 @@ describe('resolveSpawnOverride', () => {
   })
 
   it('accepts any footprint cell of a multi-cell piece', () => {
-    // A hairpin piece occupies a 2x3 implicit footprint anchored at
-    // (0, 0). Any of those 6 cells should accept the override.
+    // A hairpin at (0, 0) covers cells (-1,0), (-1,1), (0,0), (0,1),
+    // (1,0), (1,1) per HAIRPIN_FOOTPRINT in snapGrid.ts. Both the
+    // anchor and any non-anchor footprint cell must resolve.
     const pieces: Piece[] = [
       { row: 0, col: 0, type: 'hairpin', rotation: 0 },
     ]
-    // The hairpin anchor cell is always on its own footprint.
-    expect(resolveSpawnOverride({ row: 0, col: 0 }, pieces)).not.toBeNull()
+    expect(resolveSpawnOverride({ row: 0, col: 0 }, pieces)).toEqual({
+      row: 0,
+      col: 0,
+    })
+    expect(resolveSpawnOverride({ row: -1, col: 1 }, pieces)).toEqual({
+      row: -1,
+      col: 1,
+    })
+    expect(resolveSpawnOverride({ row: 1, col: 1 }, pieces)).toEqual({
+      row: 1,
+      col: 1,
+    })
+    // A cell just past the footprint must fall through.
+    expect(resolveSpawnOverride({ row: 2, col: 0 }, pieces)).toBeNull()
   })
 })
 

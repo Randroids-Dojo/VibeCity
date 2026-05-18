@@ -468,16 +468,23 @@ test('demo drive route honors a valid ?spawn=row,col override (REQ-110)', async 
 test('demo drive route ignores an off-piece ?spawn override (REQ-110)', async ({
   page,
 }) => {
+  // Capture the baseline default spawn first so the off-piece
+  // assertion locks the exact fallback rather than just "not 100".
+  await page.goto('/demo/drive')
+  const baselineRoot = page.getByTestId('drive-scene-root')
+  await expect(baselineRoot).toBeVisible()
+  const baselineRow = await baselineRoot.getAttribute('data-spawn-row')
+  const baselineCol = await baselineRoot.getAttribute('data-spawn-col')
+  expect(baselineRow).not.toBeNull()
+  expect(baselineCol).not.toBeNull()
+
   // (100, 100) is far outside the demo city's footprint, so the
   // override falls through and the default spawn anchor wins.
   await page.goto('/demo/drive?spawn=100,100')
   const root = page.getByTestId('drive-scene-root')
   await expect(root).toBeVisible()
-  // Default spawn for the demo city is its first piece's anchor.
-  // Not asserting an exact value (decoupled from the demo layout),
-  // just that the override did NOT take effect.
-  await expect(root).not.toHaveAttribute('data-spawn-row', '100')
-  await expect(root).not.toHaveAttribute('data-spawn-col', '100')
+  await expect(root).toHaveAttribute('data-spawn-row', baselineRow!)
+  await expect(root).toHaveAttribute('data-spawn-col', baselineCol!)
 })
 
 test('drive route sets the per-slug document title (REQ-006, REQ-053)', async ({
