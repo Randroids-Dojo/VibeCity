@@ -108,6 +108,7 @@ import {
   panViewport,
   screenToGridPixel,
   viewportFocusCell,
+  viewportPanToCell,
   wheelZoomViewport,
   type Viewport,
 } from './gridViewport'
@@ -219,11 +220,20 @@ export function EditorClient({
   initialCity,
   builderId,
   autosaveDebounceMs = DEFAULT_AUTOSAVE_DEBOUNCE_MS,
+  initialFocus = null,
 }: {
   slug: Slug
   initialCity: City
   builderId: BuilderId
   autosaveDebounceMs?: number
+  /**
+   * REQ-110: optional `?focus=row,col` deep-link cell. When provided,
+   * the editor's initial viewport is panned so the cell sits at the
+   * geometric center of the visible viewBox. `null` (the default)
+   * keeps the existing `DEFAULT_VIEWPORT` framing centered on cell
+   * (0, 0).
+   */
+  initialFocus?: { row: number; col: number } | null
 }) {
   // Sim engine (REQ-070..074 substrate + REQ-080 unification).
   // Mounted here so the editor surface is the canonical place /
@@ -310,7 +320,9 @@ export function EditorClient({
   // rejection on a different cell cancels the prior clear and shows the
   // new flash for its full duration.
   const rejectionTimeoutRef = useRef<number | null>(null)
-  const [viewport, setViewport] = useState<Viewport>(DEFAULT_VIEWPORT)
+  const [viewport, setViewport] = useState<Viewport>(() =>
+    initialFocus ? viewportPanToCell(initialFocus) : DEFAULT_VIEWPORT,
+  )
   const viewportDefault = isDefaultViewport(viewport)
   // Editor Drive CTA (REQ-110): encode the viewport's focus cell into
   // a `?spawn=row,col` query so driving lands the car under whatever
