@@ -751,6 +751,12 @@ test('editor pans to ?focus=row,col on initial load (REQ-110)', async ({
   await expect(grid).toHaveAttribute('data-viewport-pan-y', '0')
   await expect(grid).toHaveAttribute('data-viewport-default', 'true')
 
+  // The bare load also keeps the focus-cell indicator hidden so the
+  // default-framing case stays clean.
+  await expect(
+    page.getByTestId('editor-viewport-focus'),
+  ).toHaveCount(0)
+
   // `?focus=0,3` pans east by 3 cells (3 * 32 = 96 grid pixels) and
   // leaves panY at 0. The viewport is no longer default.
   const focused = await page.goto('/focus-url-spec?focus=0,3')
@@ -758,6 +764,13 @@ test('editor pans to ?focus=row,col on initial load (REQ-110)', async ({
   await expect(grid).toHaveAttribute('data-viewport-pan-x', '96')
   await expect(grid).toHaveAttribute('data-viewport-pan-y', '0')
   await expect(grid).toHaveAttribute('data-viewport-default', 'false')
+  // The focus-cell indicator mounts in the toolbar and mirrors the
+  // current viewportFocusCell, so the player sees where the camera
+  // is centered without inspecting the URL.
+  const focusLabel = page.getByTestId('editor-viewport-focus')
+  await expect(focusLabel).toHaveAttribute('data-focus-row', '0')
+  await expect(focusLabel).toHaveAttribute('data-focus-col', '3')
+  await expect(focusLabel).toHaveText('Centered on (0, 3)')
 
   // Malformed focus values fall through silently (no 404, no
   // exception); the viewport stays at the default.

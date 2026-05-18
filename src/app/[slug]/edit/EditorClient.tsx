@@ -1959,6 +1959,27 @@ export function EditorClient({
         >
           Redo
         </button>
+        {viewportDefault
+          ? null
+          : (() => {
+              const focusCell = viewportFocusCell(viewport)
+              return (
+                <span
+                  data-testid="editor-viewport-focus"
+                  data-focus-row={focusCell.row}
+                  data-focus-col={focusCell.col}
+                  title="Drive from here lands the car at this cell"
+                  style={{
+                    fontSize: 12,
+                    alignSelf: 'center',
+                    color: '#5a4a1a',
+                    padding: '0 8px',
+                  }}
+                >
+                  {`Centered on (${focusCell.row}, ${focusCell.col})`}
+                </span>
+              )
+            })()}
         <button
           type="button"
           data-testid="editor-reset-viewport"
