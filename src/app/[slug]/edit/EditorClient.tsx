@@ -116,6 +116,7 @@ import {
   resolveSpawnOverride,
   spawnOverrideQuery,
 } from '@/app/[slug]/drive/spawnOverride'
+import { focusOverrideQuery } from './focusOverride'
 import { SnapGrid } from './SnapGridView'
 import {
   DEFAULT_ISO_ROTATION_DEG,
@@ -331,6 +332,32 @@ export function EditorClient({
     () => (viewportDefault ? null : viewportFocusCell(viewport)),
     [viewport, viewportDefault],
   )
+  // REQ-110: mirror the current focus cell into the URL via
+  // `history.replaceState` so a player who pans the camera and copies
+  // the address bar shares the exact viewport with their collaborator.
+  // Debounced 300ms so rapid pan / wheel-zoom does not thrash the
+  // history entry; the final cell after the gesture settles is what
+  // ends up in the URL. We avoid `router.replace` to keep the update
+  // purely in the browser (no Next navigation, no re-fetch); other
+  // consumers of `useSearchParams` will not react, which is the
+  // intended trade-off because this is a share-URL convenience, not
+  // a state route.
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    const timeoutId = window.setTimeout(() => {
+      const query = focusOverrideQuery(focusCell)
+      const url = `${window.location.pathname}${query}${window.location.hash}`
+      if (
+        `${window.location.pathname}${window.location.search}${window.location.hash}` !==
+        url
+      ) {
+        window.history.replaceState(null, '', url)
+      }
+    }, 300)
+    return () => {
+      window.clearTimeout(timeoutId)
+    }
+  }, [focusCell])
   // Editor Drive CTA (REQ-110): encode the viewport's focus cell into
   // a `?spawn=row,col` query so driving lands the car under whatever
   // the player was looking at in the editor. The override silently
