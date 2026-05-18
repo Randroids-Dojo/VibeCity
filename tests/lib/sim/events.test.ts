@@ -3143,7 +3143,7 @@ describe('applyHappinessDecline (F-016 slice 2)', () => {
   it('does not drop density below 0', () => {
     const pop = popWith({
       '0,0': {
-        residents: 0,
+        residents: 4,
         tripDemand: 0,
         unhappyTicks: CELL_DECLINE_TICKS_TO_LOSE_RESIDENT,
       },
@@ -3172,7 +3172,7 @@ describe('applyHappinessDecline (F-016 slice 2)', () => {
   it('ignores non-residential zones (commercial / industrial)', () => {
     const pop = popWith({
       '0,0': {
-        residents: 0,
+        residents: 4,
         tripDemand: 0,
         unhappyTicks: CELL_DECLINE_TICKS_TO_LOSE_RESIDENT,
       },

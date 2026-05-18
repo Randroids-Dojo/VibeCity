@@ -694,10 +694,17 @@ function applyTick(state: SimState, event: TickEvent): SimState {
         state.disasters,
       )
     : { population: state.population, zones: monsterDamaged.zones }
+  // `zonesAfterDecline` is the authoritative zones snapshot for every
+  // reducer downstream of this point: syncPopulationToZones,
+  // applyEconomyTick, applyWasteTick, the fire / earthquake auto-spawn
+  // helpers, applyHappinessTick, and the returned state. Reading
+  // monsterDamaged.zones in any of those would silently drop the
+  // decline density mutation and desync zones vs population.
+  const zonesAfterDecline = declineResult.zones
   const nextPopulation = isGrowthTick
     ? syncPopulationToZones(
         declineResult.population,
-        declineResult.zones,
+        zonesAfterDecline,
         nextTick,
       )
     : state.population
@@ -712,7 +719,7 @@ function applyTick(state: SimState, event: TickEvent): SimState {
     nextPopulation,
     nextPower,
     state.taxRates,
-    monsterDamaged.zones,
+    zonesAfterDecline,
     nextTick,
   )
   // Waste tick (REQ-092 slice 4). Populated cells accumulate waste
@@ -723,7 +730,7 @@ function applyTick(state: SimState, event: TickEvent): SimState {
   const nextWater = applyWasteTick(
     monsterDamaged.water,
     nextPopulation,
-    monsterDamaged.zones,
+    zonesAfterDecline,
   )
   // Disaster lifetime tick (REQ-105 substrate slice 1). Each active
   // disaster decrements its `ticksRemaining`; entries that hit 0 are
@@ -742,7 +749,7 @@ function applyTick(state: SimState, event: TickEvent): SimState {
   // decrement / spread so a freshly-spawned fire burns its full
   // duration on the next tick instead of immediately decrementing.
   const autoSpawnedFires = computeFireAutoSpawn(
-    monsterDamaged.zones,
+    zonesAfterDecline,
     monsterDamaged.services,
     decrementedDisasters,
     nextTick,
@@ -754,7 +761,7 @@ function applyTick(state: SimState, event: TickEvent): SimState {
   // can experience different per-tick disaster sequences across
   // replays of distinct event logs.
   const autoSpawnedEarthquake = computeEarthquakeAutoSpawn(
-    monsterDamaged.zones,
+    zonesAfterDecline,
     decrementedDisasters,
     nextTick,
   )
@@ -776,14 +783,14 @@ function applyTick(state: SimState, event: TickEvent): SimState {
     nextPower,
     nextDisasters,
     monsterDamaged.services,
-    monsterDamaged.zones,
+    zonesAfterDecline,
     state.taxRates,
   )
   return {
     ...state,
     tick: nextTick,
     simTimeMs: state.simTimeMs + event.payload.deltaMs,
-    zones: monsterDamaged.zones,
+    zones: zonesAfterDecline,
     population: nextPopulationWithHappiness,
     economy: nextEconomy,
     power: nextPower,
