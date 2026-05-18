@@ -721,6 +721,51 @@ test('Drive CTA appends ?spawn= when viewport focuses a placed piece (REQ-110)',
   )
 })
 
+test('editor pans to ?focus=row,col on initial load (REQ-110)', async ({
+  page,
+}) => {
+  await page.route('**/api/city/**', async (route) => {
+    if (route.request().method() !== 'PUT') {
+      await route.continue()
+      return
+    }
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        slug: 'focus-url-spec',
+        versionHash:
+          '0000000000000000000000000000000000000000000000000000000000000000',
+        updatedAt: Date.now(),
+      }),
+    })
+  })
+
+  // No focus param: viewport stays at the default (panX = panY = 0,
+  // zoom = 1) so cell (0, 0) sits at the visible center.
+  const bare = await page.goto('/focus-url-spec')
+  expect(bare?.status()).toBe(200)
+  const grid = page.getByTestId('editor-snap-grid')
+  await expect(grid).toHaveAttribute('data-viewport-zoom', '1')
+  await expect(grid).toHaveAttribute('data-viewport-pan-x', '0')
+  await expect(grid).toHaveAttribute('data-viewport-pan-y', '0')
+  await expect(grid).toHaveAttribute('data-viewport-default', 'true')
+
+  // `?focus=0,3` pans east by 3 cells (3 * 32 = 96 grid pixels) and
+  // leaves panY at 0. The viewport is no longer default.
+  const focused = await page.goto('/focus-url-spec?focus=0,3')
+  expect(focused?.status()).toBe(200)
+  await expect(grid).toHaveAttribute('data-viewport-pan-x', '96')
+  await expect(grid).toHaveAttribute('data-viewport-pan-y', '0')
+  await expect(grid).toHaveAttribute('data-viewport-default', 'false')
+
+  // Malformed focus values fall through silently (no 404, no
+  // exception); the viewport stays at the default.
+  const bad = await page.goto('/focus-url-spec?focus=not-a-cell')
+  expect(bad?.status()).toBe(200)
+  await expect(grid).toHaveAttribute('data-viewport-default', 'true')
+})
+
 test('building palette places, switches category, and erases (REQ-028, REQ-029)', async ({
   page,
 }) => {

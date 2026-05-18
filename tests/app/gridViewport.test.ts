@@ -12,6 +12,7 @@ import {
   panViewport,
   screenToGridPixel,
   viewportFocusCell,
+  viewportPanToCell,
   viewportToViewBox,
   viewportToViewBoxString,
   wheelZoomViewport,
@@ -398,5 +399,70 @@ describe('viewportFocusCell (REQ-110)', () => {
     const cell = viewportFocusCell({ panX: 13, panY: 47, zoom: 1.7 })
     expect(Number.isInteger(cell.row)).toBe(true)
     expect(Number.isInteger(cell.col)).toBe(true)
+  })
+})
+
+describe('viewportPanToCell (REQ-110)', () => {
+  it('cell (0, 0) at default zoom yields DEFAULT_VIEWPORT', () => {
+    expect(viewportPanToCell({ row: 0, col: 0 })).toEqual(DEFAULT_VIEWPORT)
+  })
+
+  it('positive cell shifts pan east / south by the cell offset', () => {
+    // Cell (0, 3) at zoom 1: cellCenterX = (3 + 8 + 0.5) * 32 = 368;
+    // panX = 368 - 544/2 = 368 - 272 = 96 = 3 * CELL_PIXELS. panY = 0.
+    expect(viewportPanToCell({ row: 0, col: 3 })).toEqual({
+      panX: 3 * CELL_PIXELS,
+      panY: 0,
+      zoom: 1,
+    })
+    expect(viewportPanToCell({ row: 4, col: 0 })).toEqual({
+      panX: 0,
+      panY: 4 * CELL_PIXELS,
+      zoom: 1,
+    })
+  })
+
+  it('round-trips with viewportFocusCell', () => {
+    // Any cell that round-trips through both helpers must come back
+    // intact at the default zoom. Sample a spread of cells across
+    // sign quadrants and the origin.
+    for (const cell of [
+      { row: 0, col: 0 },
+      { row: 1, col: 2 },
+      { row: -3, col: 4 },
+      { row: 5, col: -7 },
+      { row: -4, col: -6 },
+    ]) {
+      expect(viewportFocusCell(viewportPanToCell(cell))).toEqual(cell)
+    }
+  })
+
+  it('honors the zoom argument', () => {
+    // At zoom 2 the viewBox is half-size, but the focus cell must
+    // still land at the geometric center.
+    const v = viewportPanToCell({ row: 0, col: 0 }, 2)
+    expect(v.zoom).toBe(2)
+    expect(viewportFocusCell(v)).toEqual({ row: 0, col: 0 })
+  })
+
+  it('output is clamped (extreme cell stays inside the legal pan range)', () => {
+    // A far-flung cell still produces a clamped viewport (no
+    // out-of-range pan that would render the grid off-screen).
+    const v = viewportPanToCell({ row: 999, col: -999 })
+    expect(Number.isFinite(v.panX)).toBe(true)
+    expect(Number.isFinite(v.panY)).toBe(true)
+    expect(v.zoom).toBe(1)
+  })
+
+  it('clamps zoom before computing pan (out-of-range zoom still centers correctly)', () => {
+    // An out-of-range `zoom` argument must not corrupt the pan math.
+    // Both an above-MAX and a below-MIN value should produce a
+    // viewport whose focus cell round-trips back to the input cell.
+    const huge = viewportPanToCell({ row: 0, col: 0 }, 100)
+    expect(huge.zoom).toBe(MAX_ZOOM)
+    expect(viewportFocusCell(huge)).toEqual({ row: 0, col: 0 })
+    const tiny = viewportPanToCell({ row: 0, col: 0 }, 0.001)
+    expect(tiny.zoom).toBe(MIN_ZOOM)
+    expect(viewportFocusCell(tiny)).toEqual({ row: 0, col: 0 })
   })
 })

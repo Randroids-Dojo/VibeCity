@@ -289,3 +289,36 @@ export function viewportFocusCell(viewport: Viewport): {
     col: Math.floor(centerX / CELL_PIXELS) - GRID_RADIUS,
   }
 }
+
+/**
+ * Inverse of `viewportFocusCell`: build a clamped `Viewport` whose
+ * visible viewBox center sits on the given cell's geometric center.
+ * Used by the editor's `?focus=row,col` reader (REQ-110) so a deep
+ * link or a drive -> editor handoff can land the camera on a known
+ * cell without forcing the user to pan there manually.
+ *
+ * `zoom` defaults to `DEFAULT_ZOOM`; pass a different factor when the
+ * caller wants the deep-link to land at a non-default zoom.
+ */
+export function viewportPanToCell(
+  cell: { row: number; col: number },
+  zoom: number = DEFAULT_ZOOM,
+): Viewport {
+  // Clamp the zoom first so the pan math uses the same factor that
+  // the final clampViewport will accept. Otherwise an out-of-range
+  // `zoom` would compute the pan against the unclamped viewBox size
+  // (centering on the wrong cell) before clampViewport corrected
+  // zoom on the way out. Round-trips through `clampViewport` to
+  // reuse the existing clamp logic without exposing a new helper.
+  const clampedZoom = clampViewport({ panX: 0, panY: 0, zoom }).zoom
+  const size = GRID_PIXEL_SIZE / clampedZoom
+  // `cellToPixel` returns the top-left of the cell; the geometric
+  // center is half a cell further along each axis.
+  const cellCenterX = (cell.col + GRID_RADIUS + 0.5) * CELL_PIXELS
+  const cellCenterY = (cell.row + GRID_RADIUS + 0.5) * CELL_PIXELS
+  return clampViewport({
+    panX: cellCenterX - size / 2,
+    panY: cellCenterY - size / 2,
+    zoom: clampedZoom,
+  })
+}

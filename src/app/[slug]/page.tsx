@@ -8,6 +8,7 @@ import { editDescription, editTitle } from './slugMetadata'
 import { BUILDER_ID_COOKIE, isValidBuilderId } from '@/lib/builderId'
 import type { BuilderId } from '@/lib/schemas'
 import { EditorClient } from './edit/EditorClient'
+import { readFocusSearchParam } from './edit/focusOverride'
 
 /**
  * Sim-as-primary view at `/<slug>` (REQ-110, REQ-111).
@@ -57,7 +58,10 @@ export default async function SlugSimPage({
   searchParams,
 }: {
   params: Promise<{ slug: string }>
-  searchParams: Promise<{ v?: string | string[] }>
+  searchParams: Promise<{
+    v?: string | string[]
+    focus?: string | string[]
+  }>
 }) {
   const { slug: raw } = await params
   const slug = parseSlugParam(raw)
@@ -65,11 +69,17 @@ export default async function SlugSimPage({
     notFound()
   }
 
-  const { v: vRaw } = await searchParams
+  const { v: vRaw, focus: focusRaw } = await searchParams
   const pinned = vRaw === undefined ? null : readVersionParam(vRaw)
   if (vRaw !== undefined && pinned === null) {
     notFound()
   }
+  // REQ-110: `?focus=row,col` deep-links the editor's camera to a
+  // specific cell so a drive -> editor handoff (or a shared link)
+  // pans into place automatically. A malformed value falls through
+  // to the default viewport rather than 404-ing (the surface still
+  // works; the player just gets the default framing).
+  const initialFocus = readFocusSearchParam(focusRaw)
 
   const { city } = await loadCity(slug, pinned ?? undefined)
 
@@ -106,7 +116,12 @@ export default async function SlugSimPage({
         rotate. Press E to erase. Edits autosave. Click Drive in the
         toolbar to take this city for a spin.
       </p>
-      <EditorClient slug={slug} initialCity={city} builderId={builderId} />
+      <EditorClient
+        slug={slug}
+        initialCity={city}
+        builderId={builderId}
+        initialFocus={initialFocus}
+      />
     </main>
   )
 }
