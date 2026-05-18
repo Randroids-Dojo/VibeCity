@@ -1,4 +1,4 @@
-import { CELL_PIXELS, GRID_PIXEL_SIZE } from './snapGrid'
+import { CELL_PIXELS, GRID_PIXEL_SIZE, GRID_RADIUS } from './snapGrid'
 
 /**
  * Pan + zoom viewport for the editor snap-grid (REQ-024).
@@ -265,4 +265,27 @@ export function isDefaultViewport(viewport: Viewport): boolean {
     viewport.panY === DEFAULT_VIEWPORT.panY &&
     viewport.zoom === DEFAULT_VIEWPORT.zoom
   )
+}
+
+/**
+ * Compute the `(row, col)` cell at the center of the viewport's
+ * visible viewBox. Used by the editor Drive CTA (REQ-110) to encode
+ * the camera focus into a `?spawn=row,col` URL so the drive view
+ * spawns under wherever the player was looking in the editor.
+ *
+ * The default viewport `(0, 0, 1)` centers on cell `(0, 0)`, matching
+ * the editor's initial framing. Panning shifts the center, so a player
+ * panned to the corner of their city gets the corner cell back.
+ */
+export function viewportFocusCell(viewport: Viewport): {
+  row: number
+  col: number
+} {
+  const size = GRID_PIXEL_SIZE / viewport.zoom
+  const centerX = viewport.panX + size / 2
+  const centerY = viewport.panY + size / 2
+  return {
+    row: Math.floor(centerY / CELL_PIXELS) - GRID_RADIUS,
+    col: Math.floor(centerX / CELL_PIXELS) - GRID_RADIUS,
+  }
 }

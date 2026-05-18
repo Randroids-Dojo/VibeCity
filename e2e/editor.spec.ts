@@ -679,6 +679,48 @@ test('toolbar Drive CTA links to /<slug> and navigates on click (REQ-026)', asyn
   expect(page.url()).toMatch(/\/drive-cta-spec\/drive$/)
 })
 
+test('Drive CTA appends ?spawn= when viewport focuses a placed piece (REQ-110)', async ({
+  page,
+}) => {
+  // Stub autosave so the editor opens without KV.
+  await page.route('**/api/city/**', async (route) => {
+    if (route.request().method() !== 'PUT') {
+      await route.continue()
+      return
+    }
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        slug: 'spawn-link-spec',
+        versionHash:
+          '0000000000000000000000000000000000000000000000000000000000000000',
+        updatedAt: Date.now(),
+      }),
+    })
+  })
+
+  const response = await page.goto('/spawn-link-spec/edit')
+  expect(response?.status()).toBe(200)
+
+  const driveCta = page.getByTestId('editor-drive-cta')
+  // Empty city, default viewport focuses (0, 0) which has no piece, so
+  // the override is dropped and the CTA href has no query string.
+  await expect(driveCta).toHaveAttribute('href', '/spawn-link-spec/drive')
+  await expect(driveCta).toHaveAttribute('data-spawn-query', '')
+
+  // Place a piece at the origin. The viewport still focuses (0, 0),
+  // which is now a footprint cell, so the CTA href picks up the
+  // override and the data-spawn-query attribute mirrors it.
+  const grid = page.getByTestId('editor-snap-grid')
+  await grid.locator('[data-cell-row="0"][data-cell-col="0"]').click()
+  await expect(driveCta).toHaveAttribute('data-spawn-query', '?spawn=0,0')
+  await expect(driveCta).toHaveAttribute(
+    'href',
+    '/spawn-link-spec/drive?spawn=0,0',
+  )
+})
+
 test('building palette places, switches category, and erases (REQ-028, REQ-029)', async ({
   page,
 }) => {
