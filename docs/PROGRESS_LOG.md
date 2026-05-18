@@ -16,6 +16,18 @@ Format for each slice:
 - Followups: any new `F-NNN` entries created. Link to them.
 ```
 
+## 2026-05-18, REQ-110: File Open Questions for Terrain Tab + Disasters Tab Placement
+
+- Branch: `req-110-open-questions`
+- PR: `#257`
+- Changed: Doc-only slice that gates the remaining REQ-110 toolbar redesign with two open questions. `docs/OPEN_QUESTIONS.md` gains:
+  - **Q-015**: Terrain palette mechanics for the fifth toolbar tab. Four options (elevation paint / surface paint / decorations / defer); Recommended default D (defer). Shipping an inert "Terrain (coming soon)" button is anti-feature work, and there is no playtest signal yet to pick one of the three mechanics over the others; the right default is to leave the tab unbuilt.
+  - **Q-016**: Disasters tab placement in the REQ-110 taxonomy. Four options (keep as sixth top-level / hide behind debug flag / demote under Services / remove entirely); Recommended default A (keep as a sixth top-level tab). The taxonomy in REQ-110 lists five tabs but the disaster-spawn UI is still useful for early playtest of REQ-105's auto-fire pipeline; revisit once auto-fire feels reliable enough to drop the manual trigger.
+- Verification: `npm run check:dashes` clean (no em / en dashes added). `git diff --check` clean. No code changes so type-check, unit, build, and e2e all stay green on `main`.
+- Assumptions: The two Recommended defaults (defer Terrain, keep Disasters as a sixth tab) match the current shipped state, so the autonomous loop's "ship under default" contract is honored by doing nothing further; both questions stay open until dev sign-off or override.
+- GDD coverage: REQ-110 stays `partial`; this slice is process-shaped, not code-shaped, so no coverage flip. `docs/gdd/21-sim-as-primary-view.md` is unchanged.
+- Followups: none new.
+
 ## 2026-05-18, REQ-110: Collapse Power + Water Under "Infrastructure" Parent Tab
 
 - Branch: `req-110-infrastructure-tab`
