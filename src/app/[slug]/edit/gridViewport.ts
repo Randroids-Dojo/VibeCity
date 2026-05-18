@@ -304,7 +304,14 @@ export function viewportPanToCell(
   cell: { row: number; col: number },
   zoom: number = DEFAULT_ZOOM,
 ): Viewport {
-  const size = GRID_PIXEL_SIZE / zoom
+  // Clamp the zoom first so the pan math uses the same factor that
+  // the final clampViewport will accept. Otherwise an out-of-range
+  // `zoom` would compute the pan against the unclamped viewBox size
+  // (centering on the wrong cell) before clampViewport corrected
+  // zoom on the way out. Round-trips through `clampViewport` to
+  // reuse the existing clamp logic without exposing a new helper.
+  const clampedZoom = clampViewport({ panX: 0, panY: 0, zoom }).zoom
+  const size = GRID_PIXEL_SIZE / clampedZoom
   // `cellToPixel` returns the top-left of the cell; the geometric
   // center is half a cell further along each axis.
   const cellCenterX = (cell.col + GRID_RADIUS + 0.5) * CELL_PIXELS
@@ -312,6 +319,6 @@ export function viewportPanToCell(
   return clampViewport({
     panX: cellCenterX - size / 2,
     panY: cellCenterY - size / 2,
-    zoom,
+    zoom: clampedZoom,
   })
 }

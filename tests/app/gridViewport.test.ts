@@ -453,4 +453,16 @@ describe('viewportPanToCell (REQ-110)', () => {
     expect(Number.isFinite(v.panY)).toBe(true)
     expect(v.zoom).toBe(1)
   })
+
+  it('clamps zoom before computing pan (out-of-range zoom still centers correctly)', () => {
+    // An out-of-range `zoom` argument must not corrupt the pan math.
+    // Both an above-MAX and a below-MIN value should produce a
+    // viewport whose focus cell round-trips back to the input cell.
+    const huge = viewportPanToCell({ row: 0, col: 0 }, 100)
+    expect(huge.zoom).toBe(MAX_ZOOM)
+    expect(viewportFocusCell(huge)).toEqual({ row: 0, col: 0 })
+    const tiny = viewportPanToCell({ row: 0, col: 0 }, 0.001)
+    expect(tiny.zoom).toBe(MIN_ZOOM)
+    expect(viewportFocusCell(tiny)).toEqual({ row: 0, col: 0 })
+  })
 })
