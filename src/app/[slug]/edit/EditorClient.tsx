@@ -107,9 +107,14 @@ import {
   isDefaultViewport,
   panViewport,
   screenToGridPixel,
+  viewportFocusCell,
   wheelZoomViewport,
   type Viewport,
 } from './gridViewport'
+import {
+  resolveSpawnOverride,
+  spawnOverrideQuery,
+} from '@/app/[slug]/drive/spawnOverride'
 import { SnapGrid } from './SnapGridView'
 import {
   DEFAULT_ISO_ROTATION_DEG,
@@ -307,6 +312,18 @@ export function EditorClient({
   const rejectionTimeoutRef = useRef<number | null>(null)
   const [viewport, setViewport] = useState<Viewport>(DEFAULT_VIEWPORT)
   const viewportDefault = isDefaultViewport(viewport)
+  // Editor Drive CTA (REQ-110): encode the viewport's focus cell into
+  // a `?spawn=row,col` query so driving lands the car under whatever
+  // the player was looking at in the editor. The override silently
+  // falls through to the city's spawn anchor if the focus cell is not
+  // on a placed street piece (so an empty corner of the grid is a
+  // no-op rather than a 404), so we can omit the query entirely in
+  // that case to keep the URL clean.
+  const driveSpawnQuery = useMemo(() => {
+    const focus = viewportFocusCell(viewport)
+    const resolved = resolveSpawnOverride(focus, city.pieces)
+    return spawnOverrideQuery(resolved)
+  }, [viewport, city.pieces])
   // REQ-111 slice C: iso camera rotation in 90deg snaps. Stored as
   // an integer degrees value in [0, 360). Q rotates ccw, `]` rotates
   // cw. Persisted only in component state for v1; a future slice can
@@ -2015,9 +2032,10 @@ export function EditorClient({
           {editCopyLabel(editCopyStatus)}
         </button>
         <Link
-          href={`/${slug}/drive`}
+          href={`/${slug}/drive${driveSpawnQuery}`}
           data-testid="editor-drive-cta"
           data-slug={slug}
+          data-spawn-query={driveSpawnQuery}
           aria-label={`Drive city ${slug}`}
           title="Drive this city"
           prefetch

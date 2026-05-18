@@ -11,6 +11,7 @@ import {
   isDefaultViewport,
   panViewport,
   screenToGridPixel,
+  viewportFocusCell,
   viewportToViewBox,
   viewportToViewBoxString,
   wheelZoomViewport,
@@ -349,5 +350,53 @@ describe('isDefaultViewport', () => {
     v = zoomViewport(v, 2, GRID_PIXEL_SIZE / 2, GRID_PIXEL_SIZE / 2)
     v = zoomViewport(v, 1, GRID_PIXEL_SIZE / 2, GRID_PIXEL_SIZE / 2)
     expect(isDefaultViewport(v)).toBe(true)
+  })
+})
+
+describe('viewportFocusCell (REQ-110)', () => {
+  it('default viewport focuses on the origin cell (0, 0)', () => {
+    expect(viewportFocusCell(DEFAULT_VIEWPORT)).toEqual({ row: 0, col: 0 })
+  })
+
+  it('shifts row / col when panned by one cell', () => {
+    // Panning the viewBox right by CELL_PIXELS moves the focus cell
+    // east by 1 (col + 1). Panning down by CELL_PIXELS moves focus
+    // south by 1 (row + 1).
+    expect(
+      viewportFocusCell({ panX: CELL_PIXELS, panY: 0, zoom: 1 }),
+    ).toEqual({ row: 0, col: 1 })
+    expect(
+      viewportFocusCell({ panX: 0, panY: CELL_PIXELS, zoom: 1 }),
+    ).toEqual({ row: 1, col: 0 })
+    expect(
+      viewportFocusCell({
+        panX: -CELL_PIXELS,
+        panY: -CELL_PIXELS,
+        zoom: 1,
+      }),
+    ).toEqual({ row: -1, col: -1 })
+  })
+
+  it('still tracks the cell under the center when zoomed in', () => {
+    // Zoom 2 means the viewBox shrinks to half-size. A non-zero pan
+    // still places the focus on the cell at the visible center.
+    const cell = viewportFocusCell({
+      panX: CELL_PIXELS * 3,
+      panY: CELL_PIXELS * 2,
+      zoom: 2,
+    })
+    // viewBox size = GRID_PIXEL_SIZE / 2; center pixel =
+    // (3 * CELL_PIXELS + GRID_PIXEL_SIZE / 4,
+    //  2 * CELL_PIXELS + GRID_PIXEL_SIZE / 4)
+    // floor(centerX / CELL_PIXELS) - GRID_RADIUS = floor(3 + 8.5/2) - 8
+    // GRID_PIXEL_SIZE = 17 * 32 = 544; 544/4 = 136; 136/32 = 4.25.
+    // col = floor(3 + 4.25) - 8 = 7 - 8 = -1; row = floor(2 + 4.25) - 8 = -2.
+    expect(cell).toEqual({ row: -2, col: -1 })
+  })
+
+  it('returns integer coords (no fractional cells slip through)', () => {
+    const cell = viewportFocusCell({ panX: 13, panY: 47, zoom: 1.7 })
+    expect(Number.isInteger(cell.row)).toBe(true)
+    expect(Number.isInteger(cell.col)).toBe(true)
   })
 })
