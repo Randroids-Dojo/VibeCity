@@ -25,7 +25,7 @@ Keep `Q-NNN` IDs monotonically increasing. When a question resolves, leave the e
 
 ### Q-015: Terrain palette mechanics for the REQ-110 fifth toolbar tab
 
-- Context: REQ-110's GDD taxonomy lists five top-level toolbar tabs (`zones, infrastructure, services, transit, terrain`). After PR #256 the editor has four of them in place (`transit, zones, infrastructure, services` plus the existing `disaster`). The fifth tab, "Terrain", is named but the GDD does not specify what it actually does. Without a Recommended default the loop cannot ship a meaningful terrain placement tool; shipping an inert "Terrain (coming soon)" button is anti-feature work.
+- Context: REQ-110's GDD taxonomy lists five top-level toolbar tabs (`zones, infrastructure, services, transit, terrain`). After PR #256 the editor has four of them in place (`transit, zones, infrastructure, services`); the existing Disasters tab is a sixth top-level entry that is NOT part of REQ-110's taxonomy (see Q-016). The fifth REQ-110 tab, "Terrain", is named but the GDD does not specify what it actually does. Without a Recommended default the loop cannot ship a meaningful terrain placement tool; shipping an inert "Terrain (coming soon)" button is anti-feature work.
 - Options:
   - A. Elevation paint: click a cell to bump its elevation up or down by 1 step (range -2..+2). Pieces, buildings, and zones interact via a height field on the cell. Driving renders elevation as terrain slope.
   - B. Surface paint: click a cell to swap its base surface (grass / water / sand / rock). No physics interaction in v1; cosmetic only. Drive view samples the surface for fog / dust / ambient color cues.
