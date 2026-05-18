@@ -803,6 +803,10 @@ test('building palette places, switches category, and erases (REQ-028, REQ-029)'
   await expect(streetTab).toHaveAttribute('aria-selected', 'true')
   await expect(buildingTab).toHaveAttribute('aria-selected', 'false')
   await expect(palette).toHaveAttribute('data-palette-category', 'street')
+  // REQ-110 vocabulary: the visible label of the `street` tab reads
+  // "Transit" to match the GDD's taxonomy. The internal enum value
+  // stays `street` to avoid a cross-file rename.
+  await expect(streetTab).toHaveText('Transit')
 
   // Place a street piece at (0, 0) so the building overlap path has
   // something to bump into.

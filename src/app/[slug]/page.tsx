@@ -111,7 +111,7 @@ export default async function SlugSimPage({
       </p>
       <h1 style={{ fontSize: 32, margin: 0, wordBreak: 'break-all' }}>{slug}</h1>
       <p style={{ fontSize: 14, margin: 0, opacity: 0.65, textAlign: 'center' }}>
-        Pick a tab (Streets, Zones, Buildings, Power, Water, Services,
+        Pick a tab (Transit, Zones, Buildings, Power, Water, Services,
         Disasters), click the iso grid to place items. Press R to
         rotate. Press E to erase. Edits autosave. Click Drive in the
         toolbar to take this city for a spin.
