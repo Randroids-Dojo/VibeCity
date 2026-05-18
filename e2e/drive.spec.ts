@@ -475,10 +475,14 @@ test('drive HUD Edit CTA navigates to /<slug>?focus=row,col at the car cell (REQ
   await page.goto('/demo/drive')
   const root = page.getByTestId('drive-scene-root')
   await expect(root).toHaveAttribute('data-vehicle', 'true')
-  // Wait for the imperative loop to populate data-car-x; the spawn
-  // attributes are present immediately, but the per-frame writer
-  // runs inside the first rAF tick.
+  // Wait for the imperative loop to populate both data-car-x AND
+  // data-car-z before reading either; the spawn attributes are present
+  // immediately, but the per-frame writer runs inside the first rAF
+  // tick. Asserting both individually keeps the test from racing on
+  // a half-written tick that would leave `Number(null) === 0` to
+  // corrupt the expected cell.
   await expect(root).toHaveAttribute('data-car-x', /-?\d+\.\d+/)
+  await expect(root).toHaveAttribute('data-car-z', /-?\d+\.\d+/)
   const carX = Number(await root.getAttribute('data-car-x'))
   const carZ = Number(await root.getAttribute('data-car-z'))
   expect(Number.isFinite(carX)).toBe(true)
