@@ -91,3 +91,60 @@ export function cellHappiness(
   const clamped = Math.max(0, Math.min(100, score))
   return Math.round(clamped * 10) / 10
 }
+
+/**
+ * Color map for the per-cell happiness heatmap (F-015). Maps a
+ * 0..100 score to a hex color string: warm red at the floor, yellow
+ * at the middle, fresh green at the ceiling. Scores outside the
+ * range clamp; non-finite inputs collapse to the mid-yellow color
+ * so a tuning bug cannot crash the editor render.
+ *
+ * Two linear segments meeting at score=50:
+ *   - [0, 50]: red `#c74a3a` to yellow `#d9c84a`
+ *   - [50, 100]: yellow `#d9c84a` to green `#3a8a3a`
+ *
+ * The midpoint color is desaturated slightly so a cell sitting at
+ * the growth-stall threshold reads as cautionary-yellow rather than
+ * a vivid alarm color.
+ */
+const HEATMAP_LOW: [number, number, number] = [0xc7, 0x4a, 0x3a]
+const HEATMAP_MID: [number, number, number] = [0xd9, 0xc8, 0x4a]
+const HEATMAP_HIGH: [number, number, number] = [0x3a, 0x8a, 0x3a]
+
+function lerpRgb(
+  a: [number, number, number],
+  b: [number, number, number],
+  t: number,
+): [number, number, number] {
+  return [
+    Math.round(a[0] + (b[0] - a[0]) * t),
+    Math.round(a[1] + (b[1] - a[1]) * t),
+    Math.round(a[2] + (b[2] - a[2]) * t),
+  ]
+}
+
+function rgbToHex(rgb: [number, number, number]): string {
+  const hex = rgb
+    .map((c) => Math.max(0, Math.min(255, c)).toString(16).padStart(2, '0'))
+    .join('')
+  return `#${hex}`
+}
+
+export function happinessHeatmapColor(score: number): string {
+  if (!Number.isFinite(score)) return rgbToHex(HEATMAP_MID)
+  const clamped = Math.max(0, Math.min(100, score))
+  if (clamped <= 50) {
+    const t = clamped / 50
+    return rgbToHex(lerpRgb(HEATMAP_LOW, HEATMAP_MID, t))
+  }
+  const t = (clamped - 50) / 50
+  return rgbToHex(lerpRgb(HEATMAP_MID, HEATMAP_HIGH, t))
+}
+
+/**
+ * Default opacity for the heatmap fill. Low enough that the
+ * underlying cell color (origin marker, building, piece glyph) and
+ * the zone overlay above stay readable; high enough to be visible
+ * against the cream snap-grid background.
+ */
+export const HAPPINESS_HEATMAP_FILL_OPACITY = 0.32

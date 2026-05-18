@@ -1,5 +1,9 @@
 import { describe, expect, it } from 'vitest'
-import { cellHappiness } from '@/lib/sim/cellHappiness'
+import {
+  HAPPINESS_HEATMAP_FILL_OPACITY,
+  cellHappiness,
+  happinessHeatmapColor,
+} from '@/lib/sim/cellHappiness'
 import {
   COVERAGE_HAPPINESS_WEIGHT,
   DEFAULT_TAX_RATES,
@@ -300,6 +304,44 @@ describe('cellHappiness earthquake input', () => {
       disasters,
     )
     expect(score).toBe(100 - 2 * EARTHQUAKE_HAPPINESS_PENALTY)
+  })
+})
+
+describe('happinessHeatmapColor', () => {
+  it('returns the high-end green at score 100', () => {
+    expect(happinessHeatmapColor(100)).toMatch(/^#[0-9a-f]{6}$/i)
+    expect(happinessHeatmapColor(100)).toBe('#3a8a3a')
+  })
+
+  it('returns the floor red at score 0', () => {
+    expect(happinessHeatmapColor(0)).toBe('#c74a3a')
+  })
+
+  it('returns the mid yellow at score 50', () => {
+    expect(happinessHeatmapColor(50)).toBe('#d9c84a')
+  })
+
+  it('interpolates exactly to #d08942 at score 25 (red → yellow midpoint)', () => {
+    expect(happinessHeatmapColor(25)).toBe('#d08942')
+  })
+
+  it('interpolates exactly to #8aa942 at score 75 (yellow → green midpoint)', () => {
+    expect(happinessHeatmapColor(75)).toBe('#8aa942')
+  })
+
+  it('clamps scores below 0 and above 100', () => {
+    expect(happinessHeatmapColor(-10)).toBe('#c74a3a')
+    expect(happinessHeatmapColor(200)).toBe('#3a8a3a')
+  })
+
+  it('returns the safe mid color for non-finite input', () => {
+    expect(happinessHeatmapColor(Number.NaN)).toBe('#d9c84a')
+    expect(happinessHeatmapColor(Number.POSITIVE_INFINITY)).toBe('#d9c84a')
+    expect(happinessHeatmapColor(Number.NEGATIVE_INFINITY)).toBe('#d9c84a')
+  })
+
+  it('HAPPINESS_HEATMAP_FILL_OPACITY is locked at the documented 0.32 contract', () => {
+    expect(HAPPINESS_HEATMAP_FILL_OPACITY).toBe(0.32)
   })
 })
 

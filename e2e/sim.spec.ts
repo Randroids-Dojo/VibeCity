@@ -412,6 +412,56 @@ test('editor: coal plant renders a pollution overlay on its four adjacent cells 
   ).toHaveCount(0)
 })
 
+test('editor: zoned cells render a happiness heatmap overlay (F-015)', async ({
+  page,
+}) => {
+  await page.route('**/api/city/**', async (route, req) => {
+    if (req.method() === 'PUT') {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          slug: 'sim-happiness-heatmap-spec',
+          versionHash: '0'.repeat(64),
+          updatedAt: 0,
+        }),
+      })
+    } else {
+      await route.fallback()
+    }
+  })
+
+  await page.goto('/sim-happiness-heatmap-spec/edit')
+  await page.getByTestId('editor-sim-speed-0').click()
+
+  // Before any zone is painted, no heatmap overlay exists.
+  await expect(
+    page.getByTestId('editor-happiness-heatmap'),
+  ).toHaveCount(0)
+
+  // Paint one residential zone. The heatmap overlay mounts on the
+  // zoned cell with a data-heatmap-score reading the cellHappiness
+  // value. Unzoned cells stay clear.
+  await page.getByTestId('editor-palette-category-zone').click()
+  await page
+    .locator(
+      '[data-testid="editor-snap-grid"] rect[data-cell-row="2"][data-cell-col="2"]',
+    )
+    .click()
+  const heatmap = page.locator(
+    '[data-testid="editor-happiness-heatmap"][data-heatmap-row="2"][data-heatmap-col="2"]',
+  )
+  await expect(heatmap).toHaveCount(1)
+  // One zone painted → exactly one heatmap overlay.
+  await expect(page.getByTestId('editor-happiness-heatmap')).toHaveCount(1)
+  const score = await heatmap.getAttribute('data-heatmap-score')
+  expect(score).not.toBeNull()
+  const numericScore = Number(score)
+  expect(Number.isFinite(numericScore)).toBe(true)
+  expect(numericScore).toBeGreaterThanOrEqual(0)
+  expect(numericScore).toBeLessThanOrEqual(100)
+})
+
 test('editor: zone cell exposes a hover tooltip with kind and density', async ({
   page,
 }) => {

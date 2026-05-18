@@ -5,9 +5,15 @@ import {
   type DisastersBucket,
   type PowerBucket,
   type ServicesBucket,
+  type TaxRates,
   type WaterBucket,
   type ZonesBucket,
 } from '@/lib/sim/state'
+import {
+  HAPPINESS_HEATMAP_FILL_OPACITY,
+  cellHappiness,
+  happinessHeatmapColor,
+} from '@/lib/sim/cellHappiness'
 import { solvePowerStatus, type CellPowerStatus } from '@/lib/sim/powerSolver'
 import {
   coverageCount,
@@ -343,6 +349,7 @@ export function SnapGrid({
   services,
   water,
   disasters,
+  taxRates,
   abandonedCellKeys,
   onSurfaceWheel,
   onSurfacePointerDown,
@@ -423,6 +430,13 @@ export function SnapGrid({
    * connector glyphs.
    */
   disasters?: DisastersBucket | null
+  /**
+   * Optional tax rates (REQ-076 input). Required for the F-015
+   * happiness heatmap so the per-cell `cellHappiness` resolver can
+   * factor in the residential tax penalty. Absent → heatmap layer
+   * does not render.
+   */
+  taxRates?: TaxRates | null
   /**
    * Optional set of cell keys (`"row,col"`) for cells whose density
    * dropped to 0 via REQ-079 happiness-driven decline (population
@@ -654,6 +668,41 @@ export function SnapGrid({
           </rect>
         )
       })}
+      {zones && services && power && water && disasters && taxRates
+        ? Object.keys(zones.cells).map((key) => {
+            const [rowStr, colStr] = key.split(',')
+            const row = Number(rowStr)
+            const col = Number(colStr)
+            if (!Number.isFinite(row) || !Number.isFinite(col)) return null
+            const score = cellHappiness(
+              row,
+              col,
+              water,
+              power,
+              services,
+              zones,
+              taxRates,
+              disasters,
+            )
+            const { x, y } = cellToPixel({ row, col })
+            return (
+              <rect
+                key={`heatmap-${key}`}
+                data-testid="editor-happiness-heatmap"
+                data-heatmap-row={row}
+                data-heatmap-col={col}
+                data-heatmap-score={score}
+                x={x + 1}
+                y={y + 1}
+                width={CELL_PIXELS - 2}
+                height={CELL_PIXELS - 2}
+                fill={happinessHeatmapColor(score)}
+                fillOpacity={HAPPINESS_HEATMAP_FILL_OPACITY}
+                pointerEvents="none"
+              />
+            )
+          })
+        : null}
       {zones
         ? (() => {
             // Compute power status + service coverage once per render

@@ -16,6 +16,16 @@ Format for each slice:
 - Followups: any new `F-NNN` entries created. Link to them.
 ```
 
+## 2026-05-18, F-015 Close: Per-Cell Happiness Heatmap
+
+- Branch: `feature/20260518-happiness-heatmap`
+- PR: `#248`
+- Changed: Consumes the new `cellHappiness` resolver shipped in PR #247. New `happinessHeatmapColor(score)` plus `HAPPINESS_HEATMAP_FILL_OPACITY = 0.32` exports in `src/lib/sim/cellHappiness.ts` produce a two-segment lerp: red `#c74a3a` at score 0, yellow `#d9c84a` at 50, green `#3a8a3a` at 100. `SnapGridView.tsx` walks `zones.cells` and emits one translucent rect per zoned cell colored by `cellHappiness(row, col, water, power, services, zones, taxRates, disasters)`. Inserted between the cell grid and the zone overlay so the zone-kind fill reads on top with the heatmap tint underneath. New `taxRates` prop on SnapGridView so the per-cell resolver has all five inputs; `EditorClient` passes `simState.taxRates`.
+- Verification: `npm run check:dashes` clean. `git diff --check` clean. `npm run type-check` clean. `npm run build` green. `npm test` passed (2643 / 2643, +10 heatmap-color cases: stop colors, midpoint, both lerp segments, clamp, non-finite, opacity bound). `npx playwright test e2e/sim.spec.ts --project=chromium -g "happiness heatmap"` passed (1 / 1) asserting the heatmap mounts on a zoned cell with a numeric `data-heatmap-score`. Preview-deploy visual verification: not yet run; final closure of F-015 pending manual confirmation that the heatmap renders as intended in the browser.
+- Assumptions: Per-input palette tabs (waste / coverage / tax / earthquake) stay deferred; v1 ships the composite score only. Heatmap is always-on rather than gated on a toggle; opacity stays low so the zone kind color and stroke overrides (fire-risk, abandoned, growth-blocked) all stay legible on top.
+- GDD coverage: No row flips. REQ-076 gains the heatmap visualization. F-015 marked Resolved in `docs/FOLLOWUPS.md`.
+- Followups: F-016 slice 2 (resident abandonment per cell) is the remaining piece.
+
 ## 2026-05-17, F-016 Slice 1: Pure Per-Cell Happiness Resolver
 
 - Branch: `feature/20260517-per-cell-happiness`
