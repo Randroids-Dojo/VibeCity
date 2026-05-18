@@ -16,6 +16,16 @@ Format for each slice:
 - Followups: any new `F-NNN` entries created. Link to them.
 ```
 
+## 2026-05-18, REQ-110: Rename "Streets" Toolbar Tab to "Transit"
+
+- Branch: `req-110-transit-rename`
+- PR: (pending)
+- Changed: First label-side step of REQ-110's toolbar redesign (GDD taxonomy: `zones, infrastructure, services, transit, terrain`). The editor's `street` palette category button now reads "Transit" in its visible label; the internal `PaletteCategory = 'street'` enum value stays so the cross-file ripple (CSS testids, event-payload kinds, handlers in seven reducers) stays out of this slice. Touched: `src/app/[slug]/edit/EditorClient.tsx` label map + welcome hint copy, and the `/<slug>/page.tsx` blurb paragraph. The slice-discipline note in the touched code makes the rename intent legible for future readers (no surprise that the enum and the label differ).
+- Verification: `npm run check:dashes` clean. `git diff --check` clean. `npm run type-check` clean. `npm test` passed (2689 / 2689; no behavior change so no new unit cases). E2e: extended the existing `building palette places, switches category, and erases (REQ-028, REQ-029)` spec in `e2e/editor.spec.ts` with one extra assertion `await expect(streetTab).toHaveText('Transit')` so the rename is locked; the spec still passes against the visible label rather than the internal enum.
+- Assumptions: The internal `'street'` enum value, `editor-palette-category-street` testid, and the dispatched event kinds stay unchanged because REQ-110's redesign target is a label-side taxonomy (the GDD does not require renaming the schema), and an enum rename would ripple far beyond what one slice should carry. A subsequent slice can collapse Power + Water into a single "Infrastructure" tab and add Terrain as a new category; those slices change the enum surface and ship their own migration.
+- GDD coverage: REQ-110 stays `partial`; the visible-label half of the toolbar redesign now matches the GDD vocabulary for the first of the five tabs. `docs/gdd/21-sim-as-primary-view.md` gains a build log entry.
+- Followups: none new.
+
 ## 2026-05-18, REQ-110: Drive HUD Edit CTA Encodes Car Cell Into `?focus=`
 
 - Branch: `req-110-drive-edit-focus-url`

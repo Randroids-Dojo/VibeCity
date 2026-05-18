@@ -1085,9 +1085,14 @@ export function EditorClient({
           ] as const
         ).map((category) => {
           const isActive = category === paletteCategory
+          // REQ-110 vocabulary: the GDD's toolbar taxonomy reads
+          // "zones, infrastructure, services, transit, terrain". The
+          // internal `street` PaletteCategory enum value is kept (a
+          // cross-file rename would ripple far beyond the slice); only
+          // the visible label switches to "Transit".
           const label =
             category === 'street'
-              ? 'Streets'
+              ? 'Transit'
               : category === 'building'
                 ? 'Buildings'
                 : category === 'zone'
@@ -2209,7 +2214,7 @@ export function EditorClient({
             color: '#5a4a1a',
           }}
         >
-          {`Welcome! Pick a tab above (try Streets, Zones, or Buildings), then click any cell on the grid to place your first item. Once a residential zone grows, you'll see a "milestone" toast and the city comes alive.`}
+          {`Welcome! Pick a tab above (try Transit, Zones, or Buildings), then click any cell on the grid to place your first item. Once a residential zone grows, you'll see a "milestone" toast and the city comes alive.`}
         </p>
       ) : null}
     </div>
