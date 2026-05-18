@@ -338,9 +338,8 @@ describe('happinessHeatmapColor', () => {
     expect(happinessHeatmapColor(Number.NaN)).toBe('#d9c84a')
   })
 
-  it('HAPPINESS_HEATMAP_FILL_OPACITY is in the visible-but-translucent range', () => {
-    expect(HAPPINESS_HEATMAP_FILL_OPACITY).toBeGreaterThan(0)
-    expect(HAPPINESS_HEATMAP_FILL_OPACITY).toBeLessThan(0.6)
+  it('HAPPINESS_HEATMAP_FILL_OPACITY is locked at the documented 0.32 contract', () => {
+    expect(HAPPINESS_HEATMAP_FILL_OPACITY).toBe(0.32)
   })
 })
 
