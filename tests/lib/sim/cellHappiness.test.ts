@@ -68,6 +68,33 @@ describe('cellHappiness baseline', () => {
       ),
     ).toBe(0)
   })
+
+  it('returns 0 for non-integer coordinates so cell-key contract holds', () => {
+    expect(
+      cellHappiness(
+        0.5,
+        0,
+        emptyWater(),
+        EMPTY_POWER_BUCKET,
+        emptyServices(),
+        EMPTY_ZONES_BUCKET,
+        DEFAULT_TAX_RATES,
+        emptyDisasters(),
+      ),
+    ).toBe(0)
+    expect(
+      cellHappiness(
+        0,
+        1.7,
+        emptyWater(),
+        EMPTY_POWER_BUCKET,
+        emptyServices(),
+        EMPTY_ZONES_BUCKET,
+        DEFAULT_TAX_RATES,
+        emptyDisasters(),
+      ),
+    ).toBe(0)
+  })
 })
 
 describe('cellHappiness waste input', () => {

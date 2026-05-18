@@ -50,7 +50,14 @@ export function cellHappiness(
   taxRates: TaxRates,
   disasters: DisastersBucket,
 ): number {
-  if (!Number.isFinite(row) || !Number.isFinite(col)) return 0
+  if (
+    !Number.isFinite(row) ||
+    !Number.isFinite(col) ||
+    !Number.isInteger(row) ||
+    !Number.isInteger(col)
+  ) {
+    return 0
+  }
   const key = `${row},${col}`
   const waste = water.wasteAccumulation[key] ?? 0
   const wastePenalty = (waste / WASTE_MAX_PER_CELL) * WASTE_HAPPINESS_WEIGHT
