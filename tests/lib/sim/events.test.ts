@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest'
 import {
   SimEventSchema,
   applyEconomyTick,
+  applyHappinessDecline,
   applySimEvent,
   computeCityHappiness,
   maybeGrowZones,
@@ -14,9 +15,18 @@ import {
 } from '@/lib/sim/events'
 import {
   BANKRUPTCY_THRESHOLD_TICKS,
+  CELL_DECLINE_TICKS_TO_LOSE_RESIDENT,
+  DEFAULT_TAX_RATES,
+  EMPTY_POWER_BUCKET,
   EMPTY_SIM_STATE,
+  type DisastersBucket,
   type EconomyBucket,
+  type PopulationBucket,
+  type PowerBucket,
+  type ServicesBucket,
   type SimState,
+  type WaterBucket,
+  type ZonesBucket,
 } from '@/lib/sim/state'
 
 const A_BUILDER = '11111111-2222-3333-4444-555555555555'
@@ -772,7 +782,7 @@ describe('applySimEvent', () => {
       }
       const population = {
         ...EMPTY_SIM_STATE.population,
-        cells: { '0,0': { residents: 0, tripDemand: 12 } },
+        cells: { '0,0': { residents: 0, tripDemand: 12, unhappyTicks: 0 } },
         totalTripDemand: 12,
       }
       const next = syncPopulationToZones(population, zones, 20)
@@ -2336,11 +2346,14 @@ describe('applySimEvent', () => {
       } => {
         const zoneCells: Record<string, { kind: 'residential'; density: 0 }> =
           {}
-        const popCells: Record<string, { residents: 0; tripDemand: 0 }> = {}
+        const popCells: Record<
+          string,
+          { residents: 0; tripDemand: 0; unhappyTicks: 0 }
+        > = {}
         for (let i = 0; i < abandonedCount; i++) {
           const key = `0,${i}`
           zoneCells[key] = { kind: 'residential', density: 0 }
-          popCells[key] = { residents: 0, tripDemand: 0 }
+          popCells[key] = { residents: 0, tripDemand: 0, unhappyTicks: 0 }
         }
         return {
           water: {
@@ -2999,5 +3012,194 @@ describe('reduceSimEvents', () => {
     const final = reduceSimEvents([tick(250, 0)], start)
     expect(final.tick).toBe(101)
     expect(final.simTimeMs).toBe(25250)
+  })
+})
+
+describe('applyHappinessDecline (F-016 slice 2)', () => {
+  const emptyServices: ServicesBucket = { buildings: [] }
+  const emptyWater: WaterBucket = {
+    sources: [],
+    pipes: {},
+    treatmentPlants: [],
+    wasteAccumulation: {},
+  }
+  const noDisasters: DisastersBucket = { active: [] }
+
+  function popWith(
+    cells: PopulationBucket['cells'],
+  ): PopulationBucket {
+    let total = 0
+    for (const c of Object.values(cells)) total += c.residents
+    return {
+      cells,
+      totalPopulation: total,
+      totalTripDemand: 0,
+      cityHappiness: 100,
+      highestMilestoneReached: 0,
+      lastMilestoneTick: 0,
+    }
+  }
+
+  function zonesWith(cells: ZonesBucket['cells']): ZonesBucket {
+    return { cells }
+  }
+
+  it('returns identity on empty input', () => {
+    const pop: PopulationBucket = popWith({})
+    const zones: ZonesBucket = zonesWith({})
+    const result = applyHappinessDecline(
+      pop,
+      zones,
+      emptyWater,
+      EMPTY_POWER_BUCKET,
+      emptyServices,
+      DEFAULT_TAX_RATES,
+      noDisasters,
+    )
+    expect(result.population).toBe(pop)
+    expect(result.zones).toBe(zones)
+  })
+
+  it('resets unhappyTicks to 0 when happiness is above threshold', () => {
+    const pop = popWith({
+      '0,0': { residents: 4, tripDemand: 0, unhappyTicks: 3 },
+    })
+    const zones = zonesWith({
+      '0,0': { kind: 'residential', density: 1 },
+    })
+    const result = applyHappinessDecline(
+      pop,
+      zones,
+      emptyWater,
+      EMPTY_POWER_BUCKET,
+      emptyServices,
+      DEFAULT_TAX_RATES,
+      noDisasters,
+    )
+    expect(result.population.cells['0,0'].unhappyTicks).toBe(0)
+    // Zone density unchanged.
+    expect(result.zones.cells['0,0'].density).toBe(1)
+  })
+
+  it('increments unhappyTicks when happiness is below threshold', () => {
+    // Active earthquake drops happiness by 25 city-wide; combined with
+    // services-coverage gap (5 missing * 4 = 20) the zoned cell sits
+    // well below the 40 decline threshold.
+    const pop = popWith({
+      '0,0': { residents: 4, tripDemand: 0, unhappyTicks: 0 },
+    })
+    const zones = zonesWith({
+      '0,0': { kind: 'residential', density: 2 },
+    })
+    const disasters: DisastersBucket = {
+      active: [
+        { kind: 'earthquake', row: 0, col: 0, ticksRemaining: 5 },
+        { kind: 'earthquake', row: 5, col: 5, ticksRemaining: 5 },
+      ],
+    }
+    const result = applyHappinessDecline(
+      pop,
+      zones,
+      emptyWater,
+      EMPTY_POWER_BUCKET,
+      emptyServices,
+      DEFAULT_TAX_RATES,
+      disasters,
+    )
+    expect(result.population.cells['0,0'].unhappyTicks).toBe(1)
+    expect(result.zones.cells['0,0'].density).toBe(2)
+  })
+
+  it('drops zone density when unhappyTicks reaches the threshold', () => {
+    const pop = popWith({
+      '0,0': {
+        residents: 12,
+        tripDemand: 0,
+        unhappyTicks: CELL_DECLINE_TICKS_TO_LOSE_RESIDENT - 1,
+      },
+    })
+    const zones = zonesWith({
+      '0,0': { kind: 'residential', density: 2 },
+    })
+    const disasters: DisastersBucket = {
+      active: [
+        { kind: 'earthquake', row: 0, col: 0, ticksRemaining: 5 },
+        { kind: 'earthquake', row: 5, col: 5, ticksRemaining: 5 },
+      ],
+    }
+    const result = applyHappinessDecline(
+      pop,
+      zones,
+      emptyWater,
+      EMPTY_POWER_BUCKET,
+      emptyServices,
+      DEFAULT_TAX_RATES,
+      disasters,
+    )
+    expect(result.zones.cells['0,0'].density).toBe(1)
+    expect(result.population.cells['0,0'].unhappyTicks).toBe(0)
+  })
+
+  it('does not drop density below 0', () => {
+    const pop = popWith({
+      '0,0': {
+        residents: 4,
+        tripDemand: 0,
+        unhappyTicks: CELL_DECLINE_TICKS_TO_LOSE_RESIDENT,
+      },
+    })
+    const zones = zonesWith({
+      '0,0': { kind: 'residential', density: 0 },
+    })
+    const disasters: DisastersBucket = {
+      active: [
+        { kind: 'earthquake', row: 0, col: 0, ticksRemaining: 5 },
+        { kind: 'earthquake', row: 5, col: 5, ticksRemaining: 5 },
+      ],
+    }
+    const result = applyHappinessDecline(
+      pop,
+      zones,
+      emptyWater,
+      EMPTY_POWER_BUCKET,
+      emptyServices,
+      DEFAULT_TAX_RATES,
+      disasters,
+    )
+    expect(result.zones.cells['0,0'].density).toBe(0)
+  })
+
+  it('ignores non-residential zones (commercial / industrial)', () => {
+    const pop = popWith({
+      '0,0': {
+        residents: 4,
+        tripDemand: 0,
+        unhappyTicks: CELL_DECLINE_TICKS_TO_LOSE_RESIDENT,
+      },
+    })
+    const zones = zonesWith({
+      '0,0': { kind: 'commercial', density: 2 },
+    })
+    const disasters: DisastersBucket = {
+      active: [
+        { kind: 'earthquake', row: 0, col: 0, ticksRemaining: 5 },
+        { kind: 'earthquake', row: 5, col: 5, ticksRemaining: 5 },
+      ],
+    }
+    const result = applyHappinessDecline(
+      pop,
+      zones,
+      emptyWater,
+      EMPTY_POWER_BUCKET,
+      emptyServices,
+      DEFAULT_TAX_RATES,
+      disasters,
+    )
+    // Commercial cells are not the target of the F-016 reducer.
+    expect(result.zones.cells['0,0'].density).toBe(2)
+    // And the population counter does not advance for non-residential.
+    expect(result.population.cells['0,0'].unhappyTicks).toBe(
+      CELL_DECLINE_TICKS_TO_LOSE_RESIDENT,
+    )
   })
 })

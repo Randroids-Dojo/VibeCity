@@ -84,8 +84,8 @@ describe('cityAvgPollution', () => {
     // Two populated cells, one exposed to 8 units of pollution and the
     // other to none. Average is 4.
     const population = populationWith({
-      '0,0': { residents: 4, tripDemand: 0 },
-      '0,1': { residents: 4, tripDemand: 0 },
+      '0,0': { residents: 4, tripDemand: 0, unhappyTicks: 0 },
+      '0,1': { residents: 4, tripDemand: 0, unhappyTicks: 0 },
     })
     const power = powerWith({ '0,0': 8 })
     expect(cityAvgPollution(power, population)).toBe(4)
@@ -96,8 +96,8 @@ describe('cityAvgPollution', () => {
     // bucket with zero residents (transient post-decline state). Only
     // (0,0) feeds the average.
     const population = populationWith({
-      '0,0': { residents: 4, tripDemand: 0 },
-      '0,1': { residents: 0, tripDemand: 0 },
+      '0,0': { residents: 4, tripDemand: 0, unhappyTicks: 0 },
+      '0,1': { residents: 0, tripDemand: 0, unhappyTicks: 0 },
     })
     const power = powerWith({ '0,0': 8, '0,1': 8 })
     expect(cityAvgPollution(power, population)).toBe(8)
@@ -105,7 +105,7 @@ describe('cityAvgPollution', () => {
 
   it('reads 0 for a populated cell with no pollution entry', () => {
     const population = populationWith({
-      '0,0': { residents: 4, tripDemand: 0 },
+      '0,0': { residents: 4, tripDemand: 0, unhappyTicks: 0 },
     })
     expect(cityAvgPollution(powerWith({}), population)).toBe(0)
   })
