@@ -99,6 +99,7 @@ Keep `F-NNN` IDs monotonically increasing. When a followup ships, leave the entr
 - Context: REQ-076 multi-input happiness now reads four signals (waste, coverage, taxes, earthquakes), but the HUD only shows the city-wide average. A heatmap overlay (similar to REQ-101 zone coverage stroke) would let the player see which neighborhoods are underserved and why. Surfaced as a polish followup after REQ-076 happiness landed.
 - Blocker: depends on F-016 / a per-cell happiness reducer landing. The editor cannot render per-cell happiness it does not yet compute.
 - Unblock condition: per-cell happiness state lands. Heatmap then renders four palette tabs (waste / coverage / tax / earthquake) so the player can inspect the contributing penalty.
+- Resolved: PR #248. 2026-05-18. Substrate (F-016 slice 1, PR #247) unblocked the heatmap. New `happinessHeatmapColor(score)` + `HAPPINESS_HEATMAP_FILL_OPACITY` in `src/lib/sim/cellHappiness.ts` produce a two-segment lerp (red `#c74a3a` → yellow `#d9c84a` at score 50 → green `#3a8a3a`). `SnapGridView.tsx` walks `zones.cells` and emits a translucent rect per zoned cell colored by `cellHappiness(row, col, ...)`. Per-input palette tabs (waste / coverage / tax / earthquake) stay deferred under a future slice; v1 ships the composite score only.
 
 ### F-014: Pedestrian sprite render proxies (REQ-076 spec text)
 

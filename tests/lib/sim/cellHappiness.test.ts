@@ -1,5 +1,9 @@
 import { describe, expect, it } from 'vitest'
-import { cellHappiness } from '@/lib/sim/cellHappiness'
+import {
+  HAPPINESS_HEATMAP_FILL_OPACITY,
+  cellHappiness,
+  happinessHeatmapColor,
+} from '@/lib/sim/cellHappiness'
 import {
   COVERAGE_HAPPINESS_WEIGHT,
   DEFAULT_TAX_RATES,
@@ -300,6 +304,53 @@ describe('cellHappiness earthquake input', () => {
       disasters,
     )
     expect(score).toBe(100 - 2 * EARTHQUAKE_HAPPINESS_PENALTY)
+  })
+})
+
+describe('happinessHeatmapColor', () => {
+  it('returns the high-end green at score 100', () => {
+    expect(happinessHeatmapColor(100)).toMatch(/^#[0-9a-f]{6}$/i)
+    expect(happinessHeatmapColor(100)).toBe('#3a8a3a')
+  })
+
+  it('returns the floor red at score 0', () => {
+    expect(happinessHeatmapColor(0)).toBe('#c74a3a')
+  })
+
+  it('returns the mid yellow at score 50', () => {
+    expect(happinessHeatmapColor(50)).toBe('#d9c84a')
+  })
+
+  it('interpolates between the red and yellow stops below 50', () => {
+    const color = happinessHeatmapColor(25)
+    expect(color).toMatch(/^#[0-9a-f]{6}$/i)
+    // R channel sits between the red 0xc7 and yellow 0xd9.
+    const r = parseInt(color.slice(1, 3), 16)
+    expect(r).toBeGreaterThan(0xc7 - 1)
+    expect(r).toBeLessThan(0xd9 + 1)
+  })
+
+  it('interpolates between the yellow and green stops above 50', () => {
+    const color = happinessHeatmapColor(75)
+    expect(color).toMatch(/^#[0-9a-f]{6}$/i)
+    // R channel falls from yellow 0xd9 toward green 0x3a.
+    const r = parseInt(color.slice(1, 3), 16)
+    expect(r).toBeLessThan(0xd9)
+    expect(r).toBeGreaterThan(0x3a - 1)
+  })
+
+  it('clamps scores below 0 and above 100', () => {
+    expect(happinessHeatmapColor(-10)).toBe('#c74a3a')
+    expect(happinessHeatmapColor(200)).toBe('#3a8a3a')
+  })
+
+  it('returns the safe mid color for non-finite input', () => {
+    expect(happinessHeatmapColor(Number.NaN)).toBe('#d9c84a')
+  })
+
+  it('HAPPINESS_HEATMAP_FILL_OPACITY is in the visible-but-translucent range', () => {
+    expect(HAPPINESS_HEATMAP_FILL_OPACITY).toBeGreaterThan(0)
+    expect(HAPPINESS_HEATMAP_FILL_OPACITY).toBeLessThan(0.6)
   })
 })
 

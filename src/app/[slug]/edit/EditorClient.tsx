@@ -2156,6 +2156,7 @@ export function EditorClient({
         services={simState.services}
         water={simState.water}
         disasters={simState.disasters}
+        taxRates={simState.taxRates}
         abandonedCellKeys={abandonedCellKeys}
         onSurfaceWheel={handleSurfaceWheel}
         onSurfacePointerDown={handleSurfacePointerDown}
