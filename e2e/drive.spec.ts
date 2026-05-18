@@ -499,10 +499,10 @@ test('drive HUD Edit CTA navigates to /<slug>?focus=row,col at the car cell (REQ
   // focus-aware navigation only for plain left-clicks.
   await expect(editCta).toHaveAttribute('href', '/demo')
   await editCta.click()
+  // `waitForURL` is the URL assertion: it throws (timeout) if the URL
+  // never matches, so a separate `expect(page.url()).toMatch(...)`
+  // would be redundant noise.
   await page.waitForURL(`**/demo?focus=${expectedRow},${expectedCol}`)
-  expect(page.url()).toMatch(
-    new RegExp(`/demo\\?focus=${expectedRow},${expectedCol}$`),
-  )
 })
 
 test('demo drive route ignores an off-piece ?spawn override (REQ-110)', async ({
