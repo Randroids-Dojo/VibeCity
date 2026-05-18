@@ -1,3 +1,4 @@
+import type { Page } from '@playwright/test'
 import { expect, test } from '@playwright/test'
 
 /**
@@ -9,6 +10,19 @@ import { expect, test } from '@playwright/test'
  * tests cover the redirect and the editor's new sim capabilities
  * (speed buttons, zone tab, zone painting).
  */
+
+/**
+ * REQ-110: Power and Water live under the "Infrastructure" parent
+ * tab. Selecting either sub-tab requires expanding the parent first;
+ * this helper handles both clicks so test sites stay terse.
+ */
+async function selectInfraSubTab(
+  page: Page,
+  sub: 'power' | 'water',
+): Promise<void> {
+  await page.getByTestId('editor-palette-category-infrastructure').click()
+  await page.getByTestId(`editor-palette-category-${sub}`).click()
+}
 
 test.beforeEach(async ({ page }) => {
   // Default-route the events POST so the sim engine's autonomous
@@ -40,6 +54,48 @@ test.beforeEach(async ({ page }) => {
       })
     }
   })
+})
+
+test('REQ-110: Infrastructure parent tab expands Power + Water sub-tabs', async ({
+  page,
+}) => {
+  await page.goto('/sim-infra-tab-spec')
+  await page.getByTestId('editor-sim-speed-0').click()
+
+  const infraTab = page.getByTestId('editor-palette-category-infrastructure')
+  await expect(infraTab).toBeVisible()
+  await expect(infraTab).toHaveText('Infrastructure')
+  // Top-level no longer surfaces standalone Power / Water; only the
+  // parent. The sub-tab row mounts after expansion.
+  await expect(
+    page.getByTestId('editor-palette-subcategory'),
+  ).toHaveCount(0)
+
+  // Clicking Infrastructure defaults to Power and expands the sub-tabs.
+  await infraTab.click()
+  await expect(infraTab).toHaveAttribute('aria-selected', 'true')
+  const subRow = page.getByTestId('editor-palette-subcategory')
+  await expect(subRow).toBeVisible()
+  await expect(subRow).toHaveAttribute('data-palette-subcategory', 'power')
+  const powerSub = page.getByTestId('editor-palette-category-power')
+  const waterSub = page.getByTestId('editor-palette-category-water')
+  await expect(powerSub).toHaveAttribute('aria-selected', 'true')
+  await expect(waterSub).toHaveAttribute('aria-selected', 'false')
+
+  // Switching to Water inside the parent keeps Infrastructure active
+  // and flips the sub-tab selection.
+  await waterSub.click()
+  await expect(infraTab).toHaveAttribute('aria-selected', 'true')
+  await expect(waterSub).toHaveAttribute('aria-selected', 'true')
+  await expect(powerSub).toHaveAttribute('aria-selected', 'false')
+  await expect(subRow).toHaveAttribute('data-palette-subcategory', 'water')
+
+  // Leaving Infrastructure (e.g. to Zones) tears down the sub-tab row.
+  await page.getByTestId('editor-palette-category-zone').click()
+  await expect(infraTab).toHaveAttribute('aria-selected', 'false')
+  await expect(
+    page.getByTestId('editor-palette-subcategory'),
+  ).toHaveCount(0)
 })
 
 test('legacy /<slug>/sim redirects to /<slug> (REQ-110 slice B)', async ({ page }) => {
@@ -257,9 +313,12 @@ test('editor: Power tab exposes plant + line tools and paints a line', async ({
   await page.goto('/sim-power-spec/edit')
   await page.getByTestId('editor-sim-speed-0').click()
 
-  // Switch to Power tab.
+  // Switch to Power sub-tab (under the Infrastructure parent per REQ-110).
+  await page.getByTestId('editor-palette-category-infrastructure').click()
   const powerTab = page.getByTestId('editor-palette-category-power')
   await expect(powerTab).toBeVisible()
+  // Parent click already defaulted to Power; explicit sub-tab click
+  // confirms the selection and lets us assert the aria-selected flip.
   await powerTab.click()
   await expect(powerTab).toHaveAttribute('aria-selected', 'true')
 
@@ -309,7 +368,7 @@ test('editor: switch to coal plant and paint, then erase a power line', async ({
 
   await page.goto('/sim-power-mix-spec/edit')
   await page.getByTestId('editor-sim-speed-0').click()
-  await page.getByTestId('editor-palette-category-power').click()
+  await selectInfraSubTab(page, 'power')
 
   // Select coal plant.
   const palette = page.getByTestId('editor-palette')
@@ -376,7 +435,7 @@ test('editor: coal plant renders a pollution overlay on its four adjacent cells 
   // next sim tick (refreshPowerPollution runs inside applyTick), so
   // the test leaves the sim at the default 1x speed and lets the
   // overlay appear naturally rather than racing it.
-  await page.getByTestId('editor-palette-category-power').click()
+  await selectInfraSubTab(page, 'power')
   const palette = page.getByTestId('editor-palette')
   await palette.locator('[data-power-tool="plant-coal"]').click()
   await page
@@ -509,7 +568,7 @@ test('editor: zone cell exposes a hover tooltip with kind and density', async ({
 
   // Infrastructure tooltip: place a coal plant at (5, 5). The cell's
   // tooltip surfaces the kind so a hover reveals what is there.
-  await page.getByTestId('editor-palette-category-power').click()
+  await selectInfraSubTab(page, 'power')
   await page
     .getByTestId('editor-palette')
     .locator('[data-power-tool="plant-coal"]')
@@ -601,7 +660,7 @@ test('editor: treasury starts at 20000 and decreases as power infrastructure is 
   await expect(treasury).toHaveAttribute('data-sim-treasury', '20000')
 
   // Place a coal plant (one-time build cost = 4000 deducted on placement).
-  await page.getByTestId('editor-palette-category-power').click()
+  await selectInfraSubTab(page, 'power')
   const palette = page.getByTestId('editor-palette')
   await palette.locator('[data-power-tool="plant-coal"]').click()
   await page
@@ -710,7 +769,7 @@ test('editor: place plant + line + adjacent zone -> zone shows powered status (R
   )
 
   // Switch to power, place a coal plant at (0, 0) and a line at (0, 1).
-  await page.getByTestId('editor-palette-category-power').click()
+  await selectInfraSubTab(page, 'power')
   const palette = page.getByTestId('editor-palette')
   await palette.locator('[data-power-tool="plant-coal"]').click()
   await page
@@ -783,7 +842,7 @@ test('editor: zone-growth-blocked diagnostic flips when power gate activates', a
   // Place a coal plant far from (0, 5). The power gate activates,
   // and because (0, 5) is not 4-adjacent to the plant, the cell now
   // reads as power-blocked and growth-blocked.
-  await page.getByTestId('editor-palette-category-power').click()
+  await selectInfraSubTab(page, 'power')
   await page.getByTestId('editor-palette').locator('[data-power-tool="plant-coal"]').click()
   await page
     .locator(
@@ -957,7 +1016,8 @@ test('editor: Water tab exposes 4 tools and paints a water tower + pipe (REQ-090
   await page.goto('/sim-water-spec/edit')
   await page.getByTestId('editor-sim-speed-0').click()
 
-  // Switch to Water.
+  // Switch to Water sub-tab (under the Infrastructure parent per REQ-110).
+  await page.getByTestId('editor-palette-category-infrastructure').click()
   const waterTab = page.getByTestId('editor-palette-category-water')
   await expect(waterTab).toBeVisible()
   await waterTab.click()
@@ -1046,7 +1106,7 @@ test('editor: Water palette includes a sewage-treatment tool that paints a plant
   await page.goto('/sim-sewage-plant-spec/edit')
   await page.getByTestId('editor-sim-speed-0').click()
 
-  await page.getByTestId('editor-palette-category-water').click()
+  await selectInfraSubTab(page, 'water')
   const palette = page.getByTestId('editor-palette')
   await expect(
     palette.locator('[data-water-tool="source-sewage-treatment"]'),
@@ -1229,7 +1289,7 @@ test('editor: bankruptcy reset-budget button restores treasury to 20000 (REQ-095
   await page.getByTestId('editor-sim-speed-0').click()
 
   // Six coal plants drives treasury to -4000 immediately.
-  await page.getByTestId('editor-palette-category-power').click()
+  await selectInfraSubTab(page, 'power')
   const palette = page.getByTestId('editor-palette')
   await palette.locator('[data-power-tool="plant-coal"]').click()
   for (let row = 0; row < 6; row++) {
@@ -1279,7 +1339,7 @@ test('editor: bankruptcy warning fires once treasury drops below 0 (REQ-095)', a
 
   // Place six coal plants ($24,000 of build cost vs $20,000 starter
   // treasury). Treasury goes to -4000 immediately.
-  await page.getByTestId('editor-palette-category-power').click()
+  await selectInfraSubTab(page, 'power')
   const palette = page.getByTestId('editor-palette')
   await palette.locator('[data-power-tool="plant-coal"]').click()
   for (let row = 0; row < 6; row++) {
@@ -1674,7 +1734,7 @@ test('editor: zone sewage status flips to drained when wired to a treatment plan
   )
 
   // Place a sewage treatment plant at (0, 0) and a sewage pipe at (0, 1).
-  await page.getByTestId('editor-palette-category-water').click()
+  await selectInfraSubTab(page, 'water')
   const palette = page.getByTestId('editor-palette')
   await palette.locator('[data-water-tool="source-sewage-treatment"]').click()
   await page
@@ -1733,7 +1793,7 @@ test('editor: zone water status flips to served when wired to a water source (RE
   )
 
   // Place a water tower at (0, 0) and a water pipe at (0, 1).
-  await page.getByTestId('editor-palette-category-water').click()
+  await selectInfraSubTab(page, 'water')
   const palette = page.getByTestId('editor-palette')
   await palette.locator('[data-water-tool="source-water-tower"]').click()
   await page
