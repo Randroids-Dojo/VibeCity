@@ -336,6 +336,8 @@ describe('happinessHeatmapColor', () => {
 
   it('returns the safe mid color for non-finite input', () => {
     expect(happinessHeatmapColor(Number.NaN)).toBe('#d9c84a')
+    expect(happinessHeatmapColor(Number.POSITIVE_INFINITY)).toBe('#d9c84a')
+    expect(happinessHeatmapColor(Number.NEGATIVE_INFINITY)).toBe('#d9c84a')
   })
 
   it('HAPPINESS_HEATMAP_FILL_OPACITY is locked at the documented 0.32 contract', () => {
