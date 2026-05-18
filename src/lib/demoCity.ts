@@ -132,22 +132,22 @@ export const DEMO_CITY: City = {
         // density 3 (40 residents) so the city totals above the 100
         // milestone on first load; the other corners hold density 2
         // (12) and the four secondary cells hold density 1 (4).
-        '4,4': { residents: 40, tripDemand: 0 },
-        '4,6': { residents: 12, tripDemand: 0 },
-        '6,4': { residents: 12, tripDemand: 0 },
-        '6,6': { residents: 12, tripDemand: 0 },
-        '3,4': { residents: 4, tripDemand: 0 },
-        '3,6': { residents: 4, tripDemand: 0 },
-        '7,4': { residents: 4, tripDemand: 0 },
-        '7,6': { residents: 4, tripDemand: 0 },
+        '4,4': { residents: 40, tripDemand: 0, unhappyTicks: 0 },
+        '4,6': { residents: 12, tripDemand: 0, unhappyTicks: 0 },
+        '6,4': { residents: 12, tripDemand: 0, unhappyTicks: 0 },
+        '6,6': { residents: 12, tripDemand: 0, unhappyTicks: 0 },
+        '3,4': { residents: 4, tripDemand: 0, unhappyTicks: 0 },
+        '3,6': { residents: 4, tripDemand: 0, unhappyTicks: 0 },
+        '7,4': { residents: 4, tripDemand: 0, unhappyTicks: 0 },
+        '7,6': { residents: 4, tripDemand: 0, unhappyTicks: 0 },
         // North suburb residential. All five density-1 = 4 residents
         // each. Adjacent to row-0 power lines + coal plant so the
         // power overlay paints 'powered'.
-        '1,3': { residents: 4, tripDemand: 0 },
-        '1,4': { residents: 4, tripDemand: 0 },
-        '1,5': { residents: 4, tripDemand: 0 },
-        '1,6': { residents: 4, tripDemand: 0 },
-        '1,7': { residents: 4, tripDemand: 0 },
+        '1,3': { residents: 4, tripDemand: 0, unhappyTicks: 0 },
+        '1,4': { residents: 4, tripDemand: 0, unhappyTicks: 0 },
+        '1,5': { residents: 4, tripDemand: 0, unhappyTicks: 0 },
+        '1,6': { residents: 4, tripDemand: 0, unhappyTicks: 0 },
+        '1,7': { residents: 4, tripDemand: 0, unhappyTicks: 0 },
       },
       // Interior: 40 + 3*12 + 4*4 = 92. North suburb: 5 * 4 = 20.
       // Total: 112 residents, past the 100-resident milestone.

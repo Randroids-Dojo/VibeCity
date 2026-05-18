@@ -134,9 +134,42 @@ export const PopulationCellSchema = z
   .object({
     residents: z.number().int().min(0),
     tripDemand: z.number().int().min(0),
+    /**
+     * Sustained unhappiness counter (F-016 slice 2). Increments on
+     * every growth tick during which `cellHappiness(row, col, ...)`
+     * sits at or below `CELL_DECLINE_HAPPINESS_THRESHOLD`; resets to
+     * 0 the first growth tick the cell's happiness climbs above the
+     * threshold. When the counter reaches
+     * `CELL_DECLINE_TICKS_TO_LOSE_RESIDENT` the per-cell decline
+     * reducer drops one resident and resets the counter so a cell
+     * recovers immediately on improvement.
+     *
+     * Optional with default 0 so pre-F-016 save payloads validate
+     * without migration.
+     */
+    unhappyTicks: z.number().int().min(0).default(0),
   })
   .strict()
 export type PopulationCell = z.infer<typeof PopulationCellSchema>
+
+/**
+ * Per-cell happiness decline thresholds (F-016 slice 2).
+ *
+ * `CELL_DECLINE_HAPPINESS_THRESHOLD = 40` sits noticeably below the
+ * city-wide `GROWTH_HAPPINESS_THRESHOLD` (50) so a cell that's just
+ * stalled growth does NOT immediately start losing residents; the
+ * gap creates a "stalled but stable" band before decline kicks in.
+ *
+ * `CELL_DECLINE_TICKS_TO_LOSE_RESIDENT = 5` is the number of
+ * consecutive growth ticks the cell must sit at or below the
+ * threshold before one resident leaves. With the default
+ * `GROWTH_INTERVAL_TICKS = 20` and 4 Hz base tick rate, five growth
+ * ticks is ~25 seconds of sustained low happiness; a player who
+ * notices the heatmap turn red has time to react before losing
+ * residents.
+ */
+export const CELL_DECLINE_HAPPINESS_THRESHOLD = 40
+export const CELL_DECLINE_TICKS_TO_LOSE_RESIDENT = 5
 
 /**
  * Population bucket (REQ-075 slice 1).

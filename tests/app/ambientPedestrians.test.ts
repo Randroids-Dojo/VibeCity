@@ -29,7 +29,7 @@ describe('pedestrianAnchors', () => {
   it('skips cells with residents = 0', () => {
     const population: PopulationBucket = {
       cells: {
-        '0,0': { residents: 0, tripDemand: 0 },
+        '0,0': { residents: 0, tripDemand: 0, unhappyTicks: 0 },
       },
       totalPopulation: 0,
       totalTripDemand: 0,
@@ -43,8 +43,8 @@ describe('pedestrianAnchors', () => {
   it('emits one anchor per populated cell at the world-projected position with tiered count', () => {
     const population: PopulationBucket = {
       cells: {
-        '0,0': { residents: 4, tripDemand: 0 },
-        '1,2': { residents: 12, tripDemand: 0 },
+        '0,0': { residents: 4, tripDemand: 0, unhappyTicks: 0 },
+        '1,2': { residents: 12, tripDemand: 0, unhappyTicks: 0 },
       },
       totalPopulation: 16,
       totalTripDemand: 0,
@@ -73,7 +73,7 @@ describe('pedestrianAnchors', () => {
   it('caps count at PEDESTRIANS_PER_CELL_CAP for density-3 residents (40+)', () => {
     const population: PopulationBucket = {
       cells: {
-        '0,0': { residents: 40, tripDemand: 0 },
+        '0,0': { residents: 40, tripDemand: 0, unhappyTicks: 0 },
       },
       totalPopulation: 40,
       totalTripDemand: 0,
@@ -89,9 +89,9 @@ describe('pedestrianAnchors', () => {
   it('iterates cell keys in sorted order for replay stability', () => {
     const population: PopulationBucket = {
       cells: {
-        '5,3': { residents: 1, tripDemand: 0 },
-        '0,9': { residents: 1, tripDemand: 0 },
-        '2,2': { residents: 1, tripDemand: 0 },
+        '5,3': { residents: 1, tripDemand: 0, unhappyTicks: 0 },
+        '0,9': { residents: 1, tripDemand: 0, unhappyTicks: 0 },
+        '2,2': { residents: 1, tripDemand: 0, unhappyTicks: 0 },
       },
       totalPopulation: 3,
       totalTripDemand: 0,

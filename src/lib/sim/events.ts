@@ -6,6 +6,7 @@ import { computeFireAutoSpawn } from './fireAutoSpawn'
 import { computeFireSpread } from './fireSpread'
 import { applyFloodDamage } from './floodDamage'
 import { applyMonsterDamage } from './monsterDamage'
+import { cellHappiness } from './cellHappiness'
 import { refreshPowerPollution } from './powerPollution'
 import { solvePowerStatus, type CellPowerStatus } from './powerSolver'
 import { solveSewageStatus } from './sewageSolver'
@@ -31,6 +32,8 @@ import {
   TAX_HAPPINESS_WEIGHT,
   TAX_NEUTRAL_RATE,
   WASTE_HAPPINESS_WEIGHT,
+  CELL_DECLINE_HAPPINESS_THRESHOLD,
+  CELL_DECLINE_TICKS_TO_LOSE_RESIDENT,
   DECLINE_HAPPINESS_THRESHOLD,
   EMPTY_SIM_STATE,
   GROWTH_HAPPINESS_THRESHOLD,
@@ -675,8 +678,28 @@ function applyTick(state: SimState, event: TickEvent): SimState {
   // entirely so the per-tick cost stays bounded.
   const isGrowthTick =
     nextTick > 0 && nextTick % GROWTH_INTERVAL_TICKS === 0
+  // F-016 slice 2: per-cell happiness decline. Runs on growth ticks
+  // before the population sync so a cell whose density just dropped
+  // gets the lower residents count from the sync on the same tick.
+  // Reads the post-disaster + post-power-pollution snapshot so the
+  // decline sees the same inputs the heatmap renders.
+  const declineResult = isGrowthTick
+    ? applyHappinessDecline(
+        state.population,
+        monsterDamaged.zones,
+        monsterDamaged.water,
+        nextPower,
+        monsterDamaged.services,
+        state.taxRates,
+        state.disasters,
+      )
+    : { population: state.population, zones: monsterDamaged.zones }
   const nextPopulation = isGrowthTick
-    ? syncPopulationToZones(state.population, monsterDamaged.zones, nextTick)
+    ? syncPopulationToZones(
+        declineResult.population,
+        declineResult.zones,
+        nextTick,
+      )
     : state.population
   // Economy ticks every frame (REQ-095 slice 1). Income from
   // residents * tax rate, maintenance from infrastructure cell counts.
@@ -1105,7 +1128,11 @@ export function syncPopulationToZones(
     ) {
       changed = true
     }
-    nextCells[key] = { residents, tripDemand }
+    nextCells[key] = {
+      residents,
+      tripDemand,
+      unhappyTicks: existing?.unhappyTicks ?? 0,
+    }
     totalPopulation += residents
     totalTripDemand += tripDemand
   }
@@ -1149,6 +1176,100 @@ export function syncPopulationToZones(
     cityHappiness: population.cityHappiness,
     highestMilestoneReached,
     lastMilestoneTick,
+  }
+}
+
+/**
+ * Per-cell happiness decline reducer (F-016 slice 2). Walks every
+ * zoned residential cell, computes the cell's happiness via
+ * `cellHappiness`, and updates the population entry's `unhappyTicks`
+ * counter:
+ *
+ *   - score > `CELL_DECLINE_HAPPINESS_THRESHOLD`: counter resets to 0.
+ *   - score <= threshold: counter increments by 1.
+ *   - counter >= `CELL_DECLINE_TICKS_TO_LOSE_RESIDENT` AND zone density
+ *     > 0: zone density drops by 1, counter resets to 0 so the next
+ *     decline cycle has to accumulate from scratch.
+ *
+ * Density drop is the actionable decline; the subsequent
+ * `syncPopulationToZones` call in `applyTick` will set residents to
+ * the new (lower) capacity automatically. A cell that bottoms out at
+ * density 0 stops declining further; it stays in the population
+ * bucket with `residents = 0` so the abandoned-cell stroke + city
+ * happiness penalty continue to fire.
+ *
+ * Identity-on-no-change: when no cells changed `unhappyTicks` AND no
+ * density drops fired, returns the same `{ population, zones }`
+ * object references so consumers can short-circuit.
+ *
+ * Called from `applyTick` on growth ticks only (same cadence as
+ * `syncPopulationToZones`) so the decline pacing matches the rest of
+ * the per-cell sim. The function does NOT compute disasters,
+ * waste, etc.; it reads the live `state` snapshot that
+ * `applyTick` passes in.
+ */
+export function applyHappinessDecline(
+  population: PopulationBucket,
+  zones: ZonesBucket,
+  water: WaterBucket,
+  power: PowerBucket,
+  services: ServicesBucket,
+  taxRates: TaxRates,
+  disasters: DisastersBucket,
+): { population: PopulationBucket; zones: ZonesBucket } {
+  const nextPopCells: Record<string, PopulationCell> = { ...population.cells }
+  const nextZoneCells: Record<string, ZoneCell> = { ...zones.cells }
+  let populationChanged = false
+  let zonesChanged = false
+  for (const [key, popCell] of Object.entries(population.cells)) {
+    const zone = zones.cells[key]
+    if (!zone || zone.kind !== 'residential') continue
+    const [rowStr, colStr] = key.split(',')
+    const row = Number(rowStr)
+    const col = Number(colStr)
+    if (!Number.isFinite(row) || !Number.isFinite(col)) continue
+    const score = cellHappiness(
+      row,
+      col,
+      water,
+      power,
+      services,
+      zones,
+      taxRates,
+      disasters,
+    )
+    const prevUnhappy = popCell.unhappyTicks ?? 0
+    let nextUnhappy: number
+    if (score > CELL_DECLINE_HAPPINESS_THRESHOLD) {
+      nextUnhappy = 0
+    } else {
+      nextUnhappy = prevUnhappy + 1
+    }
+    if (
+      nextUnhappy >= CELL_DECLINE_TICKS_TO_LOSE_RESIDENT &&
+      zone.density > 0
+    ) {
+      // Decline step: drop density by 1 (clamped at 0), reset counter.
+      const nextDensity = (zone.density - 1) as ZoneCell['density']
+      if (nextDensity !== zone.density) {
+        nextZoneCells[key] = { ...zone, density: nextDensity }
+        zonesChanged = true
+      }
+      nextUnhappy = 0
+    }
+    if (nextUnhappy !== prevUnhappy) {
+      nextPopCells[key] = { ...popCell, unhappyTicks: nextUnhappy }
+      populationChanged = true
+    }
+  }
+  if (!populationChanged && !zonesChanged) {
+    return { population, zones }
+  }
+  return {
+    population: populationChanged
+      ? { ...population, cells: nextPopCells }
+      : population,
+    zones: zonesChanged ? { ...zones, cells: nextZoneCells } : zones,
   }
 }
 

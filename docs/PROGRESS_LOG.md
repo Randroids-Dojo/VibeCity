@@ -16,6 +16,16 @@ Format for each slice:
 - Followups: any new `F-NNN` entries created. Link to them.
 ```
 
+## 2026-05-18, F-016 Close: Per-Cell Resident Decline
+
+- Branch: `feature/20260518-f016-decline`
+- PR: `#249`
+- Changed: Closes F-016 with the decline behavior on top of the substrate landed in PR #247 and the heatmap visual in PR #248. New `applyHappinessDecline(population, zones, water, power, services, taxRates, disasters)` reducer in `src/lib/sim/events.ts` walks every populated residential cell, computes per-cell happiness, and advances a per-cell `unhappyTicks` counter on `PopulationCell` (optional schema field; defaults 0 so pre-F-016 saves validate without migration). When the counter reaches `CELL_DECLINE_TICKS_TO_LOSE_RESIDENT = 5` AND density > 0, the zone density drops by 1 and the counter resets. The next `syncPopulationToZones` reduces residents to the lower capacity automatically. Constants: `CELL_DECLINE_HAPPINESS_THRESHOLD = 40` (well below the city growth-stall threshold of 50 so cells get a stalled-but-stable band before decline kicks in). `applyTick` calls it on growth ticks only, before the existing `syncPopulationToZones`, so the new (lower) density is what gets synced.
+- Verification: `npm run check:dashes` clean. `git diff --check` clean. `npm run type-check` clean. `npm run build` green. `npm test` passed (2649 / 2649, +6 decline cases covering: empty input identity, counter reset on happy cell, counter increment on unhappy cell, density drop at threshold, density-0 floor, non-residential ignored). `npx playwright test e2e/sim.spec.ts --project=chromium` passed (39 / 39): no regressions on the existing growth / stall / abandonment specs.
+- Assumptions: Decline only targets residential cells; commercial / industrial don't lose density to unhappiness. The 5-growth-tick threshold (~25s at default 1x speed and GROWTH_INTERVAL_TICKS=20) leaves the player time to react after the heatmap turns red. Reducer reads `state.disasters` (pre-tick snapshot) rather than `decrementedDisasters` (post-tick) to avoid reordering the existing applyTick flow; the off-by-one earthquake handling is absorbed by the 5-tick threshold.
+- GDD coverage: REQ-079 happiness-driven decline gains the per-cell layer. F-016 marked Resolved in `docs/FOLLOWUPS.md`. F-015 (PR #248) already closed.
+- Followups: None new. The citizen growth-and-decline feedback loop is now fully closed at both city-wide and per-cell granularity.
+
 ## 2026-05-18, F-015 Close: Per-Cell Happiness Heatmap
 
 - Branch: `feature/20260518-happiness-heatmap`
