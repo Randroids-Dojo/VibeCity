@@ -16,6 +16,16 @@ Format for each slice:
 - Followups: any new `F-NNN` entries created. Link to them.
 ```
 
+## 2026-05-18, REQ-110 Foothold: Drive Spawn Override Via URL Param
+
+- Branch: `feature/20260518-drive-spawn-override`
+- PR: (pending)
+- Changed: First foothold for REQ-110's "persistent Drive toggle that drops to street level at the camera focus point". New pure module `src/app/[slug]/drive/spawnOverride.ts` ships `parseSpawnOverride(raw)` (strict integer / comma / sign parsing with whitespace tolerance), `resolveSpawnOverride(override, pieces)` (returns the override only when it lands on a placed piece's footprint cell, walking via `pieceFootprintCells` so multi-cell pieces like hairpins accept any of their cells), `spawnOverrideQuery(cell)` (round-trips `parseSpawnOverride`), and `readSpawnSearchParam(raw)` (handles the Next.js `string | string[] | undefined` shape). `src/app/[slug]/drive/page.tsx` reads the `?spawn=` param, resolves against city pieces, and passes a typed `spawnOverride` prop to `DriveSceneClient`. The client's `spawn` memo prefers the override when non-null, falling through to the existing `spawnAnchor` resolver. Editor-side wiring (compute camera focus, build override URL on the Drive button) stays as a follow-on slice.
+- Verification: `npm run check:dashes` clean. `git diff --check` clean. `npm run type-check` clean. `npm run build` green. `npm test` passed (2670 / 2670, +21 spawn-override unit cases covering all rejection paths, the round-trip query / parse contract, and the Next.js array-shape input). `npx playwright test e2e/drive.spec.ts --project=chromium -g "spawn"` passed (2 / 2) with two new specs: navigate to `/demo/drive?spawn=2,5` and assert `data-spawn-row/col` reflect the override; navigate to `/demo/drive?spawn=100,100` and assert the off-piece override falls through to the default.
+- Assumptions: Off-piece spawn falls through silently rather than 404-ing because the spawn-override is an optional UX cue and a stale URL (city footprint changed since the link was shared) should still mount the drive view at the default anchor, not block the player. Editor-side wiring is intentionally deferred; this slice ships the substrate only so a follow-on can land the camera-focus tracking + URL-build without entangling with the drive page changes.
+- GDD coverage: REQ-110 implementationRefs gain `src/app/[slug]/drive/spawnOverride.ts` and `tests/app/spawnOverride.test.ts`. Row stays `partial`; the remaining REQ-110 gaps are the toolbar tab redesign and the editor-side persistent Drive toggle wiring.
+- Followups: None new.
+
 ## 2026-05-18, F-016 Close: Per-Cell Resident Decline
 
 - Branch: `feature/20260518-f016-decline`

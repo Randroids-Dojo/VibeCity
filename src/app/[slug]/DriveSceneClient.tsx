@@ -310,10 +310,19 @@ export function DriveSceneClient({
   slug,
   city,
   builderId,
+  spawnOverride = null,
 }: {
   slug: Slug
   city: City
   builderId: BuilderId
+  /**
+   * REQ-110 follow-on: optional spawn cell from the editor's
+   * persistent Drive toggle. When non-null and the cell sits on a
+   * placed street piece (the drive page's `resolveSpawnOverride`
+   * already gated on this), the vehicle spawns here instead of the
+   * default `spawnAnchor`. Null falls through to the default.
+   */
+  spawnOverride?: { row: number; col: number } | null
 }) {
   // Sim engine for zones / power state (REQ-088 slice 1 of 2: drive
   // visible signal). Mounting the engine in the drive view runs its
@@ -607,7 +616,10 @@ export function DriveSceneClient({
   // when at least one piece exists; on an empty grid the empty-state
   // prompt owns the visual focus and a marker on the origin would just
   // sit on the ground plane with nothing to spawn against.
-  const spawn = useMemo(() => spawnAnchor(city.pieces), [city.pieces])
+  const spawn = useMemo(
+    () => spawnOverride ?? spawnAnchor(city.pieces),
+    [city.pieces, spawnOverride],
+  )
 
   // Building cell set for the cell-level binary collision penalty
   // (REQ-030, Q-005 default A). Memoized so the cell-key Set is built

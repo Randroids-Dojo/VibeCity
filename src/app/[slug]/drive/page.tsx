@@ -8,6 +8,7 @@ import { DriveSceneClient } from '../DriveSceneClient'
 import { driveDescription, driveTitle } from '../slugMetadata'
 import { BUILDER_ID_COOKIE, isValidBuilderId } from '@/lib/builderId'
 import type { BuilderId } from '@/lib/schemas'
+import { readSpawnSearchParam, resolveSpawnOverride } from './spawnOverride'
 
 /**
  * Drive-view route at `/<slug>/drive` (REQ-110 sim-as-primary view).
@@ -59,7 +60,10 @@ export default async function SlugDrivePage({
   searchParams,
 }: {
   params: Promise<{ slug: string }>
-  searchParams: Promise<{ v?: string | string[] }>
+  searchParams: Promise<{
+    v?: string | string[]
+    spawn?: string | string[]
+  }>
 }) {
   const { slug: raw } = await params
   const slug = parseSlugParam(raw)
@@ -67,13 +71,24 @@ export default async function SlugDrivePage({
     notFound()
   }
 
-  const { v: vRaw } = await searchParams
+  const { v: vRaw, spawn: spawnRaw } = await searchParams
   const pinned = vRaw === undefined ? null : readVersionParam(vRaw)
   if (vRaw !== undefined && pinned === null) {
     notFound()
   }
 
   const { city } = await loadCity(slug, pinned ?? undefined)
+
+  // REQ-110 follow-on: optional `?spawn=<row>,<col>` override. The
+  // editor's persistent Drive toggle (future slice) encodes the
+  // iso camera's focus cell so the drive view spawns under
+  // wherever the player was looking. Parse + resolve against the
+  // city's pieces; an override that does not land on a placed
+  // street piece falls through to the default `spawnAnchor`.
+  const parsedSpawn = readSpawnSearchParam(spawnRaw)
+  const spawnOverride = parsedSpawn
+    ? resolveSpawnOverride(parsedSpawn, city.pieces)
+    : null
 
   const jar = await cookies()
   const builderIdRaw = jar.get(BUILDER_ID_COOKIE)?.value
@@ -82,5 +97,12 @@ export default async function SlugDrivePage({
   }
   const builderId = builderIdRaw as BuilderId
 
-  return <DriveSceneClient slug={slug} city={city} builderId={builderId} />
+  return (
+    <DriveSceneClient
+      slug={slug}
+      city={city}
+      builderId={builderId}
+      spawnOverride={spawnOverride}
+    />
+  )
 }

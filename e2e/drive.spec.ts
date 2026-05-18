@@ -451,6 +451,35 @@ test('demo drive route mounts the car and pressing throttle moves it (F-008)', a
   }
 })
 
+test('demo drive route honors a valid ?spawn=row,col override (REQ-110)', async ({
+  page,
+}) => {
+  // Pick a spawn cell that is on a placed piece in DEMO_CITY.
+  // The demo road loop has a straight at row=2, col=5 so target that.
+  await page.goto('/demo/drive?spawn=2,5')
+  const root = page.getByTestId('drive-scene-root')
+  await expect(root).toBeVisible()
+  // Spawn anchor attributes reflect the override rather than the
+  // default first-piece anchor.
+  await expect(root).toHaveAttribute('data-spawn-row', '2')
+  await expect(root).toHaveAttribute('data-spawn-col', '5')
+})
+
+test('demo drive route ignores an off-piece ?spawn override (REQ-110)', async ({
+  page,
+}) => {
+  // (100, 100) is far outside the demo city's footprint, so the
+  // override falls through and the default spawn anchor wins.
+  await page.goto('/demo/drive?spawn=100,100')
+  const root = page.getByTestId('drive-scene-root')
+  await expect(root).toBeVisible()
+  // Default spawn for the demo city is its first piece's anchor.
+  // Not asserting an exact value (decoupled from the demo layout),
+  // just that the override did NOT take effect.
+  await expect(root).not.toHaveAttribute('data-spawn-row', '100')
+  await expect(root).not.toHaveAttribute('data-spawn-col', '100')
+})
+
 test('drive route sets the per-slug document title (REQ-006, REQ-053)', async ({
   page,
 }) => {
