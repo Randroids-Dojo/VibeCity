@@ -324,6 +324,13 @@ export function EditorClient({
     initialFocus ? viewportPanToCell(initialFocus) : DEFAULT_VIEWPORT,
   )
   const viewportDefault = isDefaultViewport(viewport)
+  // REQ-110: derive the current focus cell once per viewport change so
+  // the toolbar indicator and any future consumers share a single
+  // memoized value instead of recomputing on each render.
+  const focusCell = useMemo(
+    () => (viewportDefault ? null : viewportFocusCell(viewport)),
+    [viewport, viewportDefault],
+  )
   // Editor Drive CTA (REQ-110): encode the viewport's focus cell into
   // a `?spawn=row,col` query so driving lands the car under whatever
   // the player was looking at in the editor. The override silently
@@ -1959,6 +1966,23 @@ export function EditorClient({
         >
           Redo
         </button>
+        {focusCell ? (
+          <span
+            data-testid="editor-viewport-focus"
+            data-focus-row={focusCell.row}
+            data-focus-col={focusCell.col}
+            aria-label={`Viewport centered on row ${focusCell.row}, column ${focusCell.col}`}
+            title="Drive from here lands the car at this cell"
+            style={{
+              fontSize: 12,
+              alignSelf: 'center',
+              color: '#5a4a1a',
+              padding: '0 8px',
+            }}
+          >
+            {`Centered on (${focusCell.row}, ${focusCell.col})`}
+          </span>
+        ) : null}
         <button
           type="button"
           data-testid="editor-reset-viewport"
