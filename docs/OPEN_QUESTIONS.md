@@ -23,6 +23,30 @@ Keep `Q-NNN` IDs monotonically increasing. When a question resolves, leave the e
 
 ## Open
 
+### Q-016: Disasters tab placement in the REQ-110 toolbar taxonomy
+
+- Context: REQ-110's GDD taxonomy lists five top-level tabs (`zones, infrastructure, services, transit, terrain`). Disasters is not on the list. PR #256 left the existing Disasters tab as a sixth top-level entry because REQ-105 still routes through it for forcing earthquakes / fires / floods. The tab's tools are admin / testing affordances (player-triggered disasters); in a finished SimCity-like, disasters fire automatically and the tab might not exist player-facing.
+- Options:
+  - A. Keep Disasters as a sixth top-level tab; treat the omission from REQ-110's taxonomy as an editorial gap, not an intent to remove. Tools stay player-facing for now; revisit when disaster auto-fire becomes the default.
+  - B. Hide the Disasters tab behind a `?debug=1` URL flag so the v1 player never sees it; admin / playtest sessions can still reach it via the URL.
+  - C. Demote Disasters to a sub-tab under Services (police / fire / etc. logically map to disaster response).
+  - D. Remove the Disasters tab entirely and force disasters via developer console or sim-engine seeding; player-facing disaster spawning is anti-feature for a city builder.
+- Recommended default: A. The Disasters tab is the only player-facing way to test the disaster pipeline (REQ-105 auto-spawn ships, but a "force an earthquake to see what happens" affordance is useful in early playtest). Keeping it as a sixth top-level tab is the lowest-risk path until either REQ-110's taxonomy is updated or auto-fire feels reliable enough to drop the manual trigger.
+- Status: open
+- Resolution: (filled in once dev confirms or overrides)
+
+### Q-015: Terrain palette mechanics for the REQ-110 fifth toolbar tab
+
+- Context: REQ-110's GDD taxonomy lists five top-level toolbar tabs (`zones, infrastructure, services, transit, terrain`). After PR #256 the editor has four of them in place (`transit, zones, infrastructure, services` plus the existing `disaster`). The fifth tab, "Terrain", is named but the GDD does not specify what it actually does. Without a Recommended default the loop cannot ship a meaningful terrain placement tool; shipping an inert "Terrain (coming soon)" button is anti-feature work.
+- Options:
+  - A. Elevation paint: click a cell to bump its elevation up or down by 1 step (range -2..+2). Pieces, buildings, and zones interact via a height field on the cell. Driving renders elevation as terrain slope.
+  - B. Surface paint: click a cell to swap its base surface (grass / water / sand / rock). No physics interaction in v1; cosmetic only. Drive view samples the surface for fog / dust / ambient color cues.
+  - C. Decorations / props: place trees, lamp posts, fountains, etc. that have no sim effect, just scenery. Driving renders them as static meshes.
+  - D. Defer: ship the toolbar redesign with four tabs only and revisit Terrain once playtest signals what the missing tab should do. The GDD taxonomy stays aspirational until a real use case appears.
+- Recommended default: D. The existing four tabs cover all v1 mechanics; Terrain has no playtest pressure behind any specific mechanic. Shipping a Terrain tab speculatively risks locking in a scheme (A / B / C) that the eventual playtest signal contradicts. The right default is to leave the tab unbuilt and let real player feedback pick the mechanic.
+- Status: open
+- Resolution: (filled in once dev confirms or overrides)
+
 ### Q-002: Build / drive page topology
 
 - Context: VibeRacer ships two separate pages (`/[slug]` for drive, `/[slug]/edit` for editor). VibeCity's pillar 1 ("Build it. Drive it. Build more.") wants the toggle to feel like one click, not a save-and-reload round trip. We can either inherit VibeRacer's two-page split or collapse to a single page with a build / drive mode switch.
