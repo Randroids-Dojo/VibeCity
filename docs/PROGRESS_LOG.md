@@ -19,7 +19,7 @@ Format for each slice:
 ## 2026-05-18, REQ-110: File Open Questions for Terrain Tab + Disasters Tab Placement
 
 - Branch: `req-110-open-questions`
-- PR: (pending)
+- PR: `#257`
 - Changed: Doc-only slice that gates the remaining REQ-110 toolbar redesign with two open questions. `docs/OPEN_QUESTIONS.md` gains:
   - **Q-015**: Terrain palette mechanics for the fifth toolbar tab. Four options (elevation paint / surface paint / decorations / defer); Recommended default D (defer). Shipping an inert "Terrain (coming soon)" button is anti-feature work, and there is no playtest signal yet to pick one of the three mechanics over the others; the right default is to leave the tab unbuilt.
   - **Q-016**: Disasters tab placement in the REQ-110 taxonomy. Four options (keep as sixth top-level / hide behind debug flag / demote under Services / remove entirely); Recommended default A (keep as a sixth top-level tab). The taxonomy in REQ-110 lists five tabs but the disaster-spawn UI is still useful for early playtest of REQ-105's auto-fire pipeline; revisit once auto-fire feels reliable enough to drop the manual trigger.
