@@ -16,6 +16,16 @@ Format for each slice:
 - Followups: any new `F-NNN` entries created. Link to them.
 ```
 
+## 2026-05-17, F-016 Slice 1: Pure Per-Cell Happiness Resolver
+
+- Branch: `feature/20260517-per-cell-happiness`
+- PR: `#247`
+- Changed: Substrate for F-016 / F-015. New `src/lib/sim/cellHappiness.ts` exports `cellHappiness(row, col, water, power, services, zones, taxRates, disasters)` returning a 0..100 score for a single cell. Mirrors `computeCityHappiness`'s 5-input formula localized: waste at that cell key, services coverage if zoned (city-wide gate matches the existing rule), residential tax (flat per cell, same as city-wide), coal pollution at that cell key, EARTHQUAKE_HAPPINESS_PENALTY per active earthquake (flat per cell, matching city-wide). Abandoned-cell penalty stays city-wide because it is a count of cells rather than a per-cell signal. Score clamps to [0, 100] and rounds to one decimal place, matching the existing rounding contract. Slice 1 ships ONLY the pure resolver: no reducer change, no schema change, no behavioral effect.
+- Verification: `npm run check:dashes` clean. `git diff --check` clean. `npm run type-check` clean. `npm run build` green. `npm test` passed (2633 / 2633, +14 cell-happiness cases covering baseline, each of the five inputs separately, clamping, and rounding).
+- Assumptions: For slice 1, "unzoned cell" contributes zero coverage penalty rather than the full 5-service penalty: unzoned cells have no residents to suffer the gap, matching the city-wide formula's membership gate. Slice 2 will use this resolver for resident-abandonment per cell when a cell's score sits below threshold for N ticks.
+- GDD coverage: No row flips. REQ-076 / REQ-079 gain `src/lib/sim/cellHappiness.ts` and `tests/lib/sim/cellHappiness.test.ts` as new substrate refs. F-016 unblock-condition (a) met; slice 2 can ship resident abandonment now that the per-cell signal exists.
+- Followups: None new. F-015 heatmap and F-016 resident abandonment now both unblocked.
+
 ## 2026-05-17, F-013 Close: Off-Street Dust Particles
 
 - Branch: `feature/20260517-dust-particles`
