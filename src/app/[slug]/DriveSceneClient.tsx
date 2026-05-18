@@ -1,6 +1,7 @@
 'use client'
 
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import * as THREE from 'three'
 import { GLTFLoader, type GLTF } from 'three/examples/jsm/loaders/GLTFLoader.js'
@@ -142,6 +143,7 @@ import {
   togglePauseState,
   type PauseState,
 } from '@/lib/ui/pauseMenu'
+import { focusOverrideQuery } from './edit/focusOverride'
 import {
   applyBuildingPenalty,
   buildingCellSet,
@@ -377,6 +379,37 @@ export function DriveSceneClient({
   // renders through the React tree once per city change.
   const minimapCarRef = useRef<SVGGElement | null>(null)
   const isEmpty = city.pieces.length === 0 && city.buildings.length === 0
+
+  // REQ-110 symmetric slice 2: the imperative loop mirrors the car's
+  // current cell into `carCellRef.current` each frame so the Edit CTA's
+  // onClick handler can build a `/<slug>?focus=row,col` URL without
+  // forcing a React re-render every tick. The ref starts at `null`;
+  // the handler falls back to a bare `/<slug>` navigation until the
+  // first frame of vehicle motion populates it.
+  const carCellRef = useRef<{ row: number; col: number } | null>(null)
+  const router = useRouter()
+  const handleEditClick = useCallback(
+    (event: React.MouseEvent<HTMLAnchorElement>) => {
+      // Let modifier-clicks (open in new tab, etc.) and non-left
+      // clicks fall through to the Link's default behavior so the
+      // browser's affordances keep working.
+      if (
+        event.defaultPrevented ||
+        event.button !== 0 ||
+        event.metaKey ||
+        event.ctrlKey ||
+        event.shiftKey ||
+        event.altKey
+      ) {
+        return
+      }
+      const cell = carCellRef.current
+      if (!cell) return
+      event.preventDefault()
+      router.push(`/${slug}${focusOverrideQuery(cell)}`)
+    },
+    [router, slug],
+  )
 
   // Pause state (REQ-039). The integration loop reads the live value
   // from `pauseStateRef` each frame so a paused world freezes without
@@ -1919,6 +1952,14 @@ export function DriveSceneClient({
       root.setAttribute('data-car-z', vehicle.z.toFixed(3))
       root.setAttribute('data-car-heading', vehicle.heading.toFixed(4))
       root.setAttribute('data-car-speed', vehicle.speed.toFixed(3))
+      // REQ-110: mirror the car's current cell into the ref the Edit
+      // CTA reads on click. `cellToWorld` inverts to
+      // `row = round(z / CELL_SIZE)`, `col = round(x / CELL_SIZE)`
+      // (matches `wheelCell` in `src/lib/wheelContact.ts`).
+      carCellRef.current = {
+        row: Math.round(vehicle.z / CELL_SIZE),
+        col: Math.round(vehicle.x / CELL_SIZE),
+      }
     }
     // HUD speed readout + bar fill (REQ-066). The integration loop
     // writes the readout text and the bar transform imperatively so
@@ -2798,6 +2839,7 @@ export function DriveSceneClient({
         aria-label={`Edit city ${slug}`}
         title="Edit this city"
         prefetch
+        onClick={handleEditClick}
         style={{
           position: 'absolute',
           top: 16,
@@ -3414,6 +3456,7 @@ export function DriveSceneClient({
               data-slug={slug}
               aria-label={`Edit city ${slug}`}
               prefetch
+              onClick={handleEditClick}
               style={{
                 padding: '10px 18px',
                 fontSize: 14,

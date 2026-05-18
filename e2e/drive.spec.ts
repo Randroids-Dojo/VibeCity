@@ -465,6 +465,42 @@ test('demo drive route honors a valid ?spawn=row,col override (REQ-110)', async 
   await expect(root).toHaveAttribute('data-spawn-col', '5')
 })
 
+test('drive HUD Edit CTA navigates to /<slug>?focus=row,col at the car cell (REQ-110)', async ({
+  page,
+}) => {
+  // Use the demo city so the scene mounts with a vehicle. The scene
+  // boots in `paused` state so the car sits on the spawn anchor;
+  // its cell maps deterministically to `(row, col) = (round(z / 4),
+  // round(x / 4))` via `cellToWorld` (CELL_SIZE = 4).
+  await page.goto('/demo/drive')
+  const root = page.getByTestId('drive-scene-root')
+  await expect(root).toHaveAttribute('data-vehicle', 'true')
+  // Wait for the imperative loop to populate data-car-x; the spawn
+  // attributes are present immediately, but the per-frame writer
+  // runs inside the first rAF tick.
+  await expect(root).toHaveAttribute('data-car-x', /-?\d+\.\d+/)
+  const carX = Number(await root.getAttribute('data-car-x'))
+  const carZ = Number(await root.getAttribute('data-car-z'))
+  expect(Number.isFinite(carX)).toBe(true)
+  expect(Number.isFinite(carZ)).toBe(true)
+  const expectedRow = Math.round(carZ / 4)
+  const expectedCol = Math.round(carX / 4)
+
+  // The drive scene boots paused with the press-to-start overlay
+  // visible; the pause menu's Edit CTA carries the same focus-aware
+  // onClick as the top-right Edit CTA, so we exercise that path.
+  const editCta = page.getByTestId('drive-pause-edit-cta')
+  // The Link's href stays bare so middle-click and ctrl+click still
+  // open the bare editor in a new tab. The onClick handler does the
+  // focus-aware navigation only for plain left-clicks.
+  await expect(editCta).toHaveAttribute('href', '/demo')
+  await editCta.click()
+  await page.waitForURL(`**/demo?focus=${expectedRow},${expectedCol}`)
+  expect(page.url()).toMatch(
+    new RegExp(`/demo\\?focus=${expectedRow},${expectedCol}$`),
+  )
+})
+
 test('demo drive route ignores an off-piece ?spawn override (REQ-110)', async ({
   page,
 }) => {
