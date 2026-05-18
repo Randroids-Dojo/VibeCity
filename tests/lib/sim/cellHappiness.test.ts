@@ -321,22 +321,12 @@ describe('happinessHeatmapColor', () => {
     expect(happinessHeatmapColor(50)).toBe('#d9c84a')
   })
 
-  it('interpolates between the red and yellow stops below 50', () => {
-    const color = happinessHeatmapColor(25)
-    expect(color).toMatch(/^#[0-9a-f]{6}$/i)
-    // R channel sits between the red 0xc7 and yellow 0xd9.
-    const r = parseInt(color.slice(1, 3), 16)
-    expect(r).toBeGreaterThan(0xc7 - 1)
-    expect(r).toBeLessThan(0xd9 + 1)
+  it('interpolates exactly to #d08942 at score 25 (red → yellow midpoint)', () => {
+    expect(happinessHeatmapColor(25)).toBe('#d08942')
   })
 
-  it('interpolates between the yellow and green stops above 50', () => {
-    const color = happinessHeatmapColor(75)
-    expect(color).toMatch(/^#[0-9a-f]{6}$/i)
-    // R channel falls from yellow 0xd9 toward green 0x3a.
-    const r = parseInt(color.slice(1, 3), 16)
-    expect(r).toBeLessThan(0xd9)
-    expect(r).toBeGreaterThan(0x3a - 1)
+  it('interpolates exactly to #8aa942 at score 75 (yellow → green midpoint)', () => {
+    expect(happinessHeatmapColor(75)).toBe('#8aa942')
   })
 
   it('clamps scores below 0 and above 100', () => {

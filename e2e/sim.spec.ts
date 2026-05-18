@@ -452,9 +452,14 @@ test('editor: zoned cells render a happiness heatmap overlay (F-015)', async ({
     '[data-testid="editor-happiness-heatmap"][data-heatmap-row="2"][data-heatmap-col="2"]',
   )
   await expect(heatmap).toHaveCount(1)
+  // One zone painted → exactly one heatmap overlay.
+  await expect(page.getByTestId('editor-happiness-heatmap')).toHaveCount(1)
   const score = await heatmap.getAttribute('data-heatmap-score')
-  expect(Number(score)).toBeGreaterThanOrEqual(0)
-  expect(Number(score)).toBeLessThanOrEqual(100)
+  expect(score).not.toBeNull()
+  const numericScore = Number(score)
+  expect(Number.isFinite(numericScore)).toBe(true)
+  expect(numericScore).toBeGreaterThanOrEqual(0)
+  expect(numericScore).toBeLessThanOrEqual(100)
 })
 
 test('editor: zone cell exposes a hover tooltip with kind and density', async ({
